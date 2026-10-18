@@ -20,6 +20,21 @@ export function modelFor(kind) {
   return cache[kind].m;
 }
 
+const commasOn = () => { try { return localStorage.getItem('sukli.commas') !== '0'; } catch { return true; } };
+const withCommas = (v) => {
+  const m = String(v).match(/^(-?)(\d[\d,]*)(\.\d*)?$/);   // plain numbers only; sums like 120+45 are left alone
+  return m ? m[1] + m[2].replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (m[3] || '') : v;
+};
+function formatAmountInput(inp) {
+  if (!commasOn()) return;
+  const raw = inp.value, out = withCommas(raw);
+  if (out === raw) return;
+  const left = raw.slice(0, inp.selectionStart ?? raw.length).replace(/[^\d.]/g, '').length;
+  inp.value = out;
+  let i = 0, c = 0;
+  while (i < out.length && c < left) { if (/[\d.]/.test(out[i])) c++; i++; }
+  try { inp.setSelectionRange(i, i); } catch { /* ignore */ }
+}
 const num = (s) => evalExpr(s);   // plain numbers, or a sum like 120+45*2
 const hourOf = (d) => parseInt(String(d).slice(11, 13), 10);
 const prec = (x) => String(Number(Number(x).toPrecision(6)));
@@ -90,7 +105,7 @@ export function openEntry(opts = {}) {
       <input id="f-name" autocomplete="off" value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary" ${existing ? '' : 'autofocus'}>
       <div id="sugg" class="sugg" hidden></div></div>
     <div class="field amount" id="amountbox"><span class="amtlabel">Amount <button type="button" class="linkbtn eye" data-e="eye" aria-label="Hide or show amounts">${priv.on ? 'Show' : 'Hide'} amounts</button></span>
-      <div class="amtrow"><label class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(f.amount)}"></label>
+      <div class="amtrow"><label class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"></label>
       <button type="button" class="calcbtn" data-e="calc" aria-label="Calculator" aria-pressed="false" title="Calculator">${ic('calc')}</button>
       <span id="curwrap" class="curwrap"></span></div>
       <div id="calcres" class="calcres" hidden></div><div id="keypad" class="keypad" hidden></div></div>
@@ -185,7 +200,8 @@ export function openEntry(opts = {}) {
     const el = $f('convrow');
     const a = acctOf(f.acct), b = acctOf(f.toAcct);
     if (f.kind !== 'transfer' || !a || !b || a.cur === b.cur) { el.innerHTML = ''; f.convert = false; return; }
-    el.innerHTML = `<label class="check"><input type="checkbox" id="f-conv" ${f.convert ? 'checked' : ''}> Convert ${a.cur} to ${b.cur} (use an exchange rate)</label>
+    if (a.type === 'crypto' && b.type === 'crypto' && !f.convTouched) f.convert = true;   // two coins are never exactly 1:1
+    el.innerHTML = `<label class="check"><input type="checkbox" id="f-conv" ${f.convert ? 'checked' : ''}> ${a.type === 'crypto' && b.type === 'crypto' ? `Trade ${a.cur} for ${b.cur} (not 1:1)` : `Convert ${a.cur} to ${b.cur} (use an exchange rate)`}</label>
       ${f.convert ? `<div class="convbox"><div class="fxline"><label class="fxrate"><span>1 ${a.cur} =</span><input id="f-crate" inputmode="decimal" aria-label="Exchange rate" value="${esc(f.cRate)}"><span>${b.cur}</span></label>
         <label class="fxpeso"><span>Received (${b.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label></div>
         <button type="button" class="linkbtn" data-e="livecross">Use today’s rate</button> <small class="muted" id="crossnote"></small></div>`
@@ -231,7 +247,7 @@ export function openEntry(opts = {}) {
   // ---- transfer fee (bank service fee, network fee, transfer fee): predicted from earlier transfers ----
   function feeCatOptions(sel) {
     const have = get().categories.filter((c) => !c.deleted && c.group === 'Fees' && (c.kind === 'expense' || c.kind === 'both'));
-    const names = ['Transfer fee', 'Bank service fee', 'Network fee'].filter((n) => !have.some((c) => c.name === n));
+    const names = ['Transfer fee', 'Trading fee', 'Bank service fee', 'Network fee'].filter((n) => !have.some((c) => c.name === n));
     return `${have.map((c) => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}${names.map((n) => `<option value="__new:${n}" ${sel === '__new:' + n ? 'selected' : ''}>${n}</option>`).join('')}<optgroup label="Other categories">${catOptions(sel, 'expense')}</optgroup>`;
   }
   function suggestFee() {
@@ -389,10 +405,11 @@ export function openEntry(opts = {}) {
   }
 
   // ---------- events ----------
+  form.addEventListener('focusout', (e) => { if (e.target.id === 'f-amount') formatAmountInput(e.target); });
   form.addEventListener('input', (e) => {
     const id = e.target.id;
     if (id === 'f-amount') {
-      f.amount = e.target.value; updateFxVal(); updateItemLeft(); showCalcRes(); if (f.name.trim()) refreshPred(); else renderSafety();
+      formatAmountInput(e.target); f.amount = e.target.value; updateFxVal(); updateItemLeft(); showCalcRes(); if (f.name.trim()) refreshPred(); else renderSafety();
       if (f.kind === 'transfer') { if (!f.feeTouched) { suggestFee(); const fe = $f('f-fee'); if (fe) fe.value = f.fee; } if (f.convert) syncCross('rate'); }
       else if (!f.qtabManual || f.qtab === 'fit') renderFreq();
     }
@@ -427,6 +444,7 @@ export function openEntry(opts = {}) {
     if (id === 'f-acct') { f.acct = e.target.value; f.acctTouched = true; f.acctSuggested = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; if (f.kind === 'transfer' && f.toAcct === f.acct) f.toAcct = ''; renderAccts(); renderFx(); refreshPred(); updateItemLeft(); if (f.kind !== 'transfer') renderFreq(); }
     else if (id === 'f-to') { f.toAcct = e.target.value; f.feeTouched = f.feeTouched && !f.feeSuggested; renderAccts(); syncCross(); }
     else if (id === 'f-conv') {
+      f.convTouched = true;
       f.convert = e.target.checked;
       if (f.convert && !f.cRate) { const r = crossRate(); if (r) f.cRate = prec(r); }
       renderConv(); syncCross('rate');

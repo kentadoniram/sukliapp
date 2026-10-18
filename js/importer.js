@@ -1,5 +1,5 @@
 // Reading and writing CSV in the same column layout as a Bluecoins export.
-import { uid, stamp, findOrAddCategory, accountMap, catMap, balances, BASE } from './core.js';
+import { ensureCurrency, uid, stamp, findOrAddCategory, accountMap, catMap, balances, BASE } from './core.js';
 
 export function parseCSV(text) {
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
@@ -103,6 +103,7 @@ export function importBluecoins(db, text) {
     return v;
   };
 
+  for (const r of rows) ensureCurrency(db, col(r, 'Currency'));   // coins Bluecoins could not hold keep their decimals
   // account names that appear in more than one currency get the currency in their label
   const curs = new Map();
   for (const a of db.accounts) { if (!curs.has(a.baseName || a.name)) curs.set(a.baseName || a.name, new Set()); curs.get(a.baseName || a.name).add(a.cur); }

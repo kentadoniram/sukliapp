@@ -9,7 +9,7 @@ import { ui, hdr, monthNav, strip, money, row, gbar, coll, trendChart, budgetOf 
 import { openEntry, openCategoryForm } from './entry.js';
 import { forecastNext, behaviorNotes } from './finance.js';
 import { reminderBanner } from './accpage.js';
-import { ACT, sheet, ic, esc, confirmDialog, promptDialog, pushOverlay } from './ui.js';
+import { ACT, sheet, ic, esc, confirmDialog, promptDialog, pushOverlay, toast } from './ui.js';
 
 const sum = (a) => a.reduce((x, y) => x + y, 0);
 const R = (n) => fmt(n, HOME, { round: true });
@@ -292,16 +292,20 @@ ACT.catkind = (el) => { location.hash = `#/categories?k=${el.dataset.v}`; };
 ACT['cat-new'] = (el) => openCategoryForm({ kind: ui.catKind || 'expense', group: el.dataset.g || '' });
 ACT['cat-edit'] = (el) => openCategoryForm({ id: el.dataset.id, kind: ui.catKind || 'expense' });
 ACT['cat-ren'] = async (el) => {
-  const old = el.dataset.g, kind = ui.catKind || 'expense';
-  const v = (await promptDialog('Rename group', old))?.trim();
+  const old = el.dataset.g, kind = ui.catKind || 'expense', db0 = get();
+  const others = [...new Set(db0.categories.filter((c) => !c.deleted && c.group !== old && (c.kind === kind || c.kind === 'both')).map((c) => c.group))];
+  const v = (await promptDialog('Rename or merge group', old, { okLabel: 'Save', hint: others.length ? 'To merge, type the name of another group and everything moves into it: ' + others.join(', ') : '' }))?.trim();
   if (!v || v === old) return;
+  const merging = others.includes(v);
   commit((d) => {
     for (const c of d.categories) if (!c.deleted && c.group === old && (c.kind === kind || c.kind === 'both')) { c.group = v; stamp(c); }
     if (!d.categories.some((c) => !c.deleted && c.group === old)) {
-      for (const b of d.budgets) if (!b.deleted && b.group === old) { b.group = v; stamp(b); }
-      d.settings.excludeGroups = d.settings.excludeGroups.map((x) => (x === old ? v : x));
+      const mine = d.budgets.find((b) => !b.deleted && b.group === old), tgt = d.budgets.find((b) => !b.deleted && b.group === v && b !== mine);
+      if (mine) { if (tgt) { tgt.amount = (tgt.amount || 0) + (mine.amount || 0); stamp(tgt); mine.deleted = true; stamp(mine); } else { mine.group = v; stamp(mine); } }
+      d.settings.excludeGroups = [...new Set(d.settings.excludeGroups.map((x) => (x === old ? v : x)))];
     }
   });
+  toast(merging ? `Merged into “${v}”.` : 'Renamed.', { ms: 3500 });
 };
 ACT['cat-delgroup'] = async (el) => {
   const g = el.dataset.g, kind = ui.catKind || 'expense', db = get();

@@ -1,5 +1,5 @@
 // Currency picker: favourites on top, search through every currency, pick one to add it to the quick list.
-import { get, commit, allCurrencies, curName, CUR } from './core.js';
+import { get, commit, allCurrencies, curName, ensureCurrency, CUR } from './core.js';
 import { esc, sheet } from './ui.js';
 
 // every fiat currency belongs to a country: search "japan" or "thailand" and flags make the list easy to scan
@@ -33,6 +33,8 @@ export function openCurrencyPicker(onPick, { title = 'Choose a currency', keep =
   draw();
   s.el.querySelector('#curq').addEventListener('input', (e) => draw(e.target.value));
   list.addEventListener('click', (e) => {
+    const nb = e.target.closest('[data-new]');
+    if (nb) { const code = nb.dataset.new; commit((d) => { ensureCurrency(d, code); }); if (keep) addFav(code); s.close(); onPick(code); return; }
     const b = e.target.closest('[data-c]'); if (!b) return;
     if (keep) addFav(b.dataset.c);
     s.close(); onPick(b.dataset.c);

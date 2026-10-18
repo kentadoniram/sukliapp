@@ -221,3 +221,22 @@ export function pushOverlay(remove) {
 }
 export const topOverlayOpen = () => stack.length > 0;
 window.__hd = () => [hdepth, stack.length, ignorePop];
+
+// ---- clear (x) button on text boxes: one floating button follows the focused field ----
+(() => {
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'clearx'; btn.setAttribute('aria-label', 'Clear'); btn.hidden = true; btn.textContent = '×';
+  let cur = null;
+  const ok = (el) => el && el.tagName === 'INPUT' && /^(text|search|email|tel|url|number)$/.test(el.type) && !el.readOnly && !el.dataset.noclear && !el.closest('.amtwrap, .keypad');
+  const place = () => {
+    if (!cur || !document.body.contains(cur) || !cur.value) { btn.hidden = true; return; }
+    const r = cur.getBoundingClientRect();
+    btn.style.left = (r.right - 30) + 'px'; btn.style.top = (r.top + r.height / 2 - 13) + 'px'; btn.hidden = false;
+  };
+  document.addEventListener('focusin', (e) => { if (ok(e.target)) { cur = e.target; if (!btn.parentNode) document.body.appendChild(btn); place(); } else { cur = null; btn.hidden = true; } });
+  document.addEventListener('input', (e) => { if (e.target === cur) place(); });
+  document.addEventListener('focusout', () => setTimeout(() => { if (document.activeElement !== btn && !ok(document.activeElement)) { cur = null; btn.hidden = true; } }, 150));
+  window.addEventListener('scroll', place, true); window.addEventListener('resize', place);
+  btn.addEventListener('pointerdown', (e) => e.preventDefault());
+  btn.addEventListener('click', () => { if (!cur) return; cur.value = ''; cur.dispatchEvent(new Event('input', { bubbles: true })); cur.focus(); place(); });
+})();

@@ -34,6 +34,17 @@ function deriveCur(k) {
 export const CUR = new Proxy({ ...CUR0 }, {
   get(t, k) { if (typeof k === 'string' && !(k in t) && /^[A-Z][A-Z0-9]{1,9}$/.test(k)) t[k] = deriveCur(k); return t[k]; },
 });
+// coins and tokens (BBSOL, MNT as Mantle...) need more decimals than a fiat currency
+export function applyCurDec(settings) { for (const [c, d] of Object.entries((settings && settings.curDec) || {})) CUR[c].dec = d; }
+let ISO_SET;
+export function ensureCurrency(db, code) {
+  code = String(code || '').trim().toUpperCase();
+  if (!/^[A-Z][A-Z0-9]{1,9}$/.test(code)) return false;
+  if (!ISO_SET) { try { ISO_SET = new Set(Intl.supportedValuesOf('currency')); } catch { ISO_SET = new Set(); } }
+  db.settings.curDec = db.settings.curDec || {};
+  if (ISO_SET.has(code) || db.settings.curDec[code] || CUR[code].dec > 2) return false;
+  db.settings.curDec[code] = 8; CUR[code].dec = 8; return true;
+}
 let allCache;
 export function allCurrencies() {
   if (allCache) return allCache;
@@ -63,7 +74,7 @@ export function fmt(n, cur = BASE, opts = {}) {
   if (hide) return '\u2063' + fmt(n, cur, { ...opts, force: true }) + '\u2063';
   const dec = opts.round ? 0 : c.dec;
   const abs = Math.abs(n || 0);
-  const s = abs.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  const s = abs.toLocaleString('en-US', { minimumFractionDigits: Math.min(dec, 2), maximumFractionDigits: dec });   // coins keep up to 8 decimals, no trailing zeros past 2
   const sign = n < 0 && abs >= Math.pow(10, -dec) / 2 ? '−' : (opts.sign && n > 0 ? '+' : '');
   return sign + c.sym + s;
 }
@@ -171,6 +182,7 @@ export async function load() {
   const raw = await readRaw();
   state = raw && raw.v ? raw : emptyDb();
   state.settings = { ...emptyDb().settings, ...state.settings };
+  applyCurDec(state.settings);
   syncHome();
   return state;
 }
@@ -196,6 +208,7 @@ export async function flush() { clearTimeout(saveTimer); await writeRaw(state); 
 export function replaceAll(next) {
   state = next;
   state.settings = { ...emptyDb().settings, ...state.settings };
+  applyCurDec(state.settings);
   syncHome();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => writeRaw(state), 150);
