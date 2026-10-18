@@ -9,7 +9,7 @@ import { predictFee, safetyCheck, typeGroupName, typeGroupOrder, transferHints }
 import { esc, sheet, toast, ic, confirmDialog, promptDialog } from './ui.js';
 import { applyHide } from './appearance.js';
 import { openDatePicker, prettyDate } from './datepicker.js';
-import { openCurrencyPicker, favCurs } from './curpicker.js';
+import { openCurrencyPicker, favCurs, flagOf } from './curpicker.js';
 
 // ---- models are rebuilt only when the data changed ----
 const cache = {};
@@ -160,8 +160,9 @@ export function openEntry(opts = {}) {
     return [...cnt];
   }
   function renderCur() {
-    const a = acctOf(f.acct), list = currencies();
-    $f('curwrap').innerHTML = `<select id="f-cur" aria-label="Currency" title="Currency">${list.map((c) => `<option value="${c}" ${a && a.cur === c ? 'selected' : ''}>${c}</option>`).join('')}<option value="__more">More…</option></select>`;
+    const a = acctOf(f.acct), list = currencies(), cur = (a && a.cur) || list[0];
+    if (!list.includes(cur)) list.push(cur);
+    $f('curwrap').innerHTML = `<button type="button" class="curbtn sm" data-e="curpick" aria-label="Choose currency" title="Currency">${flagOf(cur)} ${cur} ▾</button><select id="f-cur" hidden aria-hidden="true">${list.map((c) => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join('')}</select>`;
   }
   function renderAccts() {
     const el = $f('acctrow');
@@ -464,6 +465,7 @@ export function openEntry(opts = {}) {
         arrange(); renderSeg(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderSugg(); renderSafety(); break;
       case 'qtab': f.qtab = v; f.qtabManual = true; renderFreq(); break;
       case 'pick': applyPick(v); break;
+      case 'curpick': openCurrencyPicker((c) => { const sel = $f('f-cur'); if (![...sel.options].some((o) => o.value === c)) sel.add(new Option(c, c)); sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); }, { title: 'Currency' }); break;
       case 'route': pickRoute(b.dataset.from, b.dataset.to); break;
       case 'calc': f.calc = !f.calc; renderKeypad(); break;
       case 'k': keyPress(v); break;

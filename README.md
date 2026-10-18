@@ -4,6 +4,8 @@ A private money tracker that runs entirely in the browser. Your data stays on yo
 
 ## What's new in v7
 
+- **Currency button opens the searchable list straight away** (search box, quick list, then Others A to Z). It narrows as you type, by code, name or country.
+- **Backup reminder:** Settings, Backup reminder. Choose daily or weekly and a time; when the app is open after that time a card offers a one-tap download.
 - **Currency search by country:** every currency list is searchable by code, currency name or country ("japan", "thai", "peso"), with flags. The account form now uses the same searchable picker instead of a long list.
 - **Analytics:** new Category filter on top of the account, currency and group filters.
 

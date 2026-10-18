@@ -523,3 +523,10 @@ button.gbar { width: 100%; text-align: left; background: none; border: 0; color:
 .curbtn.wide { width: 100%; }
 .curbtn:disabled { opacity: .55; }
 [data-an="cat"] { width: 100%; margin: 6px 0; }
+
+.curbtn.sm { padding: 9px 10px; font-size: calc(13px * var(--fs, 1)); white-space: nowrap; }
+.letter { margin: 14px 0 2px; color: var(--ink2); font-size: calc(12px * var(--fs, 1)); letter-spacing: .08em; }
+#curq { position: sticky; top: 0; z-index: 2; }
+.nudge { position: fixed; z-index: 50; left: 12px; right: 12px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--sheet); border: 1px solid var(--rule); box-shadow: 0 6px 20px rgba(0,0,0,.22); }
+.nudge span { flex: 1; display: grid; }
+.nudge small { color: var(--ink2); }

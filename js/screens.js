@@ -16,6 +16,7 @@ import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
 import { typeNames, accounts, openAccount, reminderBanner } from './accpage.js';
 import { outlookCard } from './views.js';
 import { openCurrencyPicker } from './curpicker.js';
+import { backupSection } from './backup.js';
 import { fetchRates, ratesStatus, RATE_CREDIT, hasLive } from './rates.js';
 import { liveRate, curName, rateFor as rateFor2 } from './core.js';
 export { accounts };
@@ -448,6 +449,7 @@ export function settings(db) {
         <label class="field"><span>Password</span><input id="c-pass" type="password" autocomplete="current-password"></label>
         <div class="btnrow left"><button class="btn" data-act="cloud-signin">Sign in</button><button class="btn ghost" data-act="cloud-signup">Create account</button></div>`}
       <p class="status" id="cloudstatus" role="status">${esc(cloudStatus.text || (me && lastOk() ? 'Last synced ' + new Date(lastOk()).toLocaleString() : ''))}</p></section>
+    ${backupSection(db)}
     <section><h2>Google backup (optional)</h2>
       <p class="hint">Backs up to a private, hidden folder in your own Google Drive and keeps both your phones in step. Nothing else in your Drive is touched. <a href="#" data-act="gsetup" class="linkbtn">How to get a client ID</a></p>
       <label class="field"><span>Google client ID</span><input id="clientid" value="${esc(s.driveClientId)}" placeholder="1234-abc.apps.googleusercontent.com" autocomplete="off" spellcheck="false"></label>

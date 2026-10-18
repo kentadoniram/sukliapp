@@ -1,4 +1,5 @@
 // App shell: routing, tab bar, first-run screen, service worker, auto-backup hook.
+import { initBackup } from './backup.js';
 import { load, get, subscribe, commit, seedCategories, balances, reviewCount, latestMonth, thisMonth, monthOf, priv } from './core.js';
 import { importBluecoins } from './importer.js';
 import { scheduleSync, onStatus } from './drive.js';
@@ -83,6 +84,7 @@ const queue = () => { if (!pending) { pending = true; requestAnimationFrame(rend
   await load();
   const oauthMsg = await handleOAuthReturn();
   runInterest();
+  initBackup();
   showLatest();
   subscribe(() => { queue(); scheduleSync(); cloudSchedule(); });
   window.addEventListener('hashchange', queue);

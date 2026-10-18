@@ -23,9 +23,12 @@ export function openCurrencyPicker(onPick, { title = 'Choose a currency', keep =
     const favs = favCurs();
     const match = (c) => !q || `${c} ${curName(c)} ${countryOf(c)}`.toLowerCase().includes(q);
     const f = favs.filter(match), rest = allCurrencies().filter((c) => !favs.includes(c) && match(c));
-    list.innerHTML = (f.length ? `<h3>Quick list</h3><div class="rows plain">${f.map(row).join('')}</div>` : '') +
-      (rest.length ? `<h3>${q ? 'Matches' : 'All currencies'}</h3><div class="rows plain">${rest.map(row).join('')}</div>` : '') +
-      (!f.length && !rest.length ? '<p class="empty">Nothing matches.</p>' : '');
+    const letters = [...new Set(rest.map((c) => c[0]))];
+    const others = q
+      ? (rest.length ? `<h3>Matches</h3><div class="rows plain">${rest.map(row).join('')}</div>` : '')
+      : `<h3>Others</h3>${letters.map((L) => `<h4 class="letter">${L}</h4><div class="rows plain">${rest.filter((c) => c[0] === L).map(row).join('')}</div>`).join('')}`;
+    list.innerHTML = (f.length ? `<h3>${q ? 'Quick list matches' : 'Quick list'}</h3><div class="rows plain">${f.map(row).join('')}</div>` : '') + others +
+      (!f.length && !rest.length ? '<p class="empty">Nothing matches. Try the currency name, its code or the country.</p>' : '');
   };
   draw();
   s.el.querySelector('#curq').addEventListener('input', (e) => draw(e.target.value));
