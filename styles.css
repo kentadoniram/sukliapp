@@ -469,3 +469,12 @@ input.has-clear, .field input:not([type=checkbox]):not([type=radio]) { padding-r
 
 .menufab { position: fixed; z-index: 40; left: 12px; top: calc(env(safe-area-inset-top, 0px) + 8px); width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); box-shadow: 0 2px 10px rgba(0,0,0,.18); display: grid; place-items: center; cursor: pointer; }
 .menufab[hidden] { display: none; }
+
+.fxline.one { flex-wrap: nowrap; align-items: center; gap: 6px; margin: 0; }
+.fxline.one .fxrate { display: flex; align-items: center; gap: 6px; align-self: center; padding: 0; white-space: nowrap; }
+.fxline.one .fxpeso { display: flex; min-width: 0; }
+.fxline.one input { width: 78px; min-height: 38px; }
+.fxline.one .amtwrap { padding: 0 8px; gap: 4px; }
+.fxline.one .amtwrap b { font-size: calc(15px * var(--fs, 1)); }
+.fxhint { display: block; margin: 4px 0 8px; color: var(--ink2); font-size: calc(12px * var(--fs, 1)); }
+#f-amount.guess { font-style: italic; color: var(--ink2); }

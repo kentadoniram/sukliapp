@@ -11,6 +11,13 @@ A private money tracker that runs entirely in the browser. Your data stays on yo
 - **Entry sheet:** amount, calculator, then a smaller currency picker on the far right; "Usual ⓘ" is a button that explains itself; "When" opens a calendar card with a time box.
 - **Menu access:** a floating menu button appears after a short upward scroll; swiping in from the left edge also opens it.
 - **Transfers:** the label comes first; converting currency is optional and off by default (tick "Convert currency" to enter the amount received).
+- **Accounts by type:** Banks, E-wallets, Crypto exchanges, Cash & other, Credit cards & loans (each section folds away). Switch with Currency / Account type / None.
+- **Account choices** in the entry sheet are grouped the same way.
+- **Account page:** pick From/To dates and Income / Expenses / Transfer in / Transfer out to review a period, with income, expenses, transfers and opening to closing balance.
+- **Home currency** (Settings): choose any currency; you give the rate once and saved rates, entry values and budgets are rescaled.
+- **Recycle bin** (menu): deleted entries, accounts, categories and budgets can be restored for 30 days, or deleted forever.
+- **Name first:** "What was it?" now comes before the amount on every entry. A name you have used before fills its usual amount (shown in grey italics; typing replaces it).
+- **Exchange rate on one row:** 1 USD = rate = value in your home currency.
 - CSV export keeps each currency's own decimals (BTC no longer rounds to 2).
 
 ## v5.1

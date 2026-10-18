@@ -1,6 +1,6 @@
 // The five screens: Home, Ledger, Review, Accounts, Reports, and Settings.
 import {
-  get, commit, commitQuiet, stamp, uid, fmt, BASE, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
+  get, commit, commitQuiet, changeBase, stamp, uid, fmt, BASE, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
   monthLabel, shiftMonth, thisMonth, dayLabel, rateFor, reviewCount, groupColor, groupLetter, adjustmentCategory, nowStamp,
   replaceAll, emptyDb, live, monthParts, priv, flush,
 } from './core.js';
@@ -443,6 +443,9 @@ export function settings(db) {
     <section><h2>Left out of cash outflow</h2>
       <p class="hint">Groups ticked here don’t count as spending in totals and charts (for example trading losses).</p>
       <div class="checks">${groups.map((g) => `<label class="check"><input type="checkbox" data-act="exclude" data-g="${esc(g)}" ${s.excludeGroups.includes(g) ? 'checked' : ''}> ${esc(g)}</label>`).join('')}</div></section>
+    <section><h2>Home currency</h2><p class="hint">Totals, budgets and reports are shown in this currency. Accounts and entries can use any currency.</p>
+      <div class="two"><select id="base-sel" aria-label="Home currency">${Object.keys(CUR).sort().map((c) => `<option value="${c}" ${c === BASE ? 'selected' : ''}>${c}</option>`).join('')}</select>
+      <button class="btn ghost" data-act="base-change">Change</button></div></section>
     ${curs.length ? `<section><h2>Exchange rates</h2><p class="hint">What one unit is worth in ${BASE}. New entries start from the last rate you used; this is used for totals.</p>
       ${curs.map((c) => { const r = rateFor(db, c); return `<label class="field inline"><span>1 ${c} =</span><input data-rate="${c}" inputmode="decimal" value="${r ? Number(r.toPrecision(6)) : ''}"><span>${BASE}</span></label>
       <label class="field inline"><span>1 ${BASE} =</span><input data-rate-inv="${c}" inputmode="decimal" value="${r ? Number((1 / r).toPrecision(6)) : ''}"><span>${c}</span></label>`; }).join('')}
@@ -557,3 +560,13 @@ ACT.gsetup = () => sheet(`<ol class="steps">
   <li>Go to <b>Credentials → Create credentials → OAuth client ID</b>, type <b>Web application</b>. Under <b>Authorised JavaScript origins</b> add the exact address where this app is hosted (for example <b>https://your-name.netlify.app</b>).</li>
   <li>Copy the client ID it shows and paste it here, then press <b>Back up now</b> and approve access.</li></ol>
   <p class="hint">The app asks only for its own hidden folder (drive.appdata). Google may ask you to sign in again from time to time; if auto-backup stops, tap Back up now.</p>`, { title: 'Get a Google client ID' });
+
+ACT['base-change'] = async () => {
+  const next = document.getElementById('base-sel').value, db = get(), old = db.settings.base || BASE;
+  if (next === old) return;
+  const guess = rateFor(db, next);
+  const v = await promptDialog(`1 ${next} = how many ${old}?`, guess ? Number(guess.toPrecision(6)) : '', { type: 'number', okLabel: 'Change', hint: `Needed once to convert your saved values from ${old} to ${next}. Past entries keep their proportions.` });
+  const r = parseFloat(v); if (!(r > 0)) return;
+  commit((d) => changeBase(d, next, r));
+  toast(`Home currency is now ${next}.`, { ms: 6000 });
+};

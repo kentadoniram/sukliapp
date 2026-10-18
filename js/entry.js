@@ -1,7 +1,7 @@
 // The add / edit sheet, the category picker and the "add many at once" sheet.
 import {
   get, commit, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
-  findOrAddCategory, groupColor, groupLetter, BASE, balances, CUR, COMMON, priv, dayLabel, monthLabel, shiftMonth,
+  findOrAddCategory, groupColor, groupLetter, BASE, balances, CUR, COMMON, BUCKETS, bucketOf, priv, dayLabel, monthLabel, shiftMonth,
 } from './core.js';
 import { buildModel, predict, suggest, lookup, catCandidates } from './predict.js';
 import { evalExpr, isExpr, tidy } from './calc.js';
@@ -39,9 +39,12 @@ function fromTx(t) {
 
 function acctOptions(sel, skip, cur) {
   const db = get();
-  return db.accounts.filter((a) => !a.deleted && a.id !== skip && (!a.archived || a.id === sel) && (!cur || a.cur === cur))
-    .sort((a, b) => (b.include - a.include) || a.name.localeCompare(b.name))
-    .map((a) => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)} · ${a.cur}</option>`).join('');
+  const list = db.accounts.filter((a) => !a.deleted && a.id !== skip && (!a.archived || a.id === sel) && (!cur || a.cur === cur));
+  const opt = (a) => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)} · ${a.cur}</option>`;
+  return BUCKETS.map((g) => {
+    const mine = list.filter((a) => bucketOf(a.type).key === g.key).sort((x, y) => (y.include - x.include) || x.name.localeCompare(y.name));
+    return mine.length ? `<optgroup label="${esc(g.title)}">${mine.map(opt).join('')}</optgroup>` : '';
+  }).join('');
 }
 function catOptions(sel, kind) {
   const db = get();
@@ -70,14 +73,14 @@ export function openEntry(opts = {}) {
   form.innerHTML = `
     <div id="freq" class="chips"></div>
     <div class="seg" id="seg" role="group" aria-label="Entry type"></div>
+    <div class="field" id="namefield"><span id="namelabel">What was it?</span>
+      <input id="f-name" autocomplete="off" ${existing ? '' : 'autofocus'} value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary">
+      <div id="sugg" class="sugg" hidden></div></div>
     <div class="field amount"><span class="amtlabel">Amount <button type="button" class="linkbtn eye" data-e="eye" aria-label="Hide or show amounts">${priv.on ? 'Show' : 'Hide'} amounts</button></span>
-      <div class="amtrow"><label class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(f.amount)}" ${existing ? '' : 'autofocus'}></label>
+      <div class="amtrow"><label class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(f.amount)}"></label>
       <button type="button" class="calcbtn" data-e="calc" aria-label="Calculator" aria-pressed="false" title="Calculator">${ic('calc')}</button><span id="curwrap" class="curwrap"></span></div>
       <div id="calcres" class="calcres" hidden></div><div id="keypad" class="keypad" hidden></div></div>
     <div id="fxline"></div>
-    <div class="field" id="namefield"><span id="namelabel">What was it?</span>
-      <input id="f-name" autocomplete="off" value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary">
-      <div id="sugg" class="sugg" hidden></div></div>
     <div id="acctrow"></div>
     <div id="feerow"></div>
     <div id="catrow"></div>
@@ -100,9 +103,6 @@ export function openEntry(opts = {}) {
     const k = [['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']];
     $f('seg').innerHTML = k.map(([v, l]) => `<button type="button" data-e="kind" data-v="${v}" aria-pressed="${f.kind === v}" class="${f.kind === v ? 'on' : ''}">${l}</button>`).join('');
     $f('namelabel').textContent = f.kind === 'transfer' ? 'Transfer method / label' : f.kind === 'income' ? 'Where from?' : 'What was it?';
-    // transfers: the label comes first, so the same route is predictable (it also drives the usual fee and accounts)
-    const nf = $f('namefield'), am = form.querySelector('.field.amount');
-    if (nf && am) { if (f.kind === 'transfer') { if (nf.nextElementSibling !== am) am.before(nf); } else if (nf.previousElementSibling !== $f('fxline')) $f('fxline').after(nf); }
   }
   function currencies() {
     const cnt = new Map();
@@ -196,10 +196,9 @@ export function openEntry(opts = {}) {
     const el = $f('fxline');
     if (!a || a.cur === BASE) { el.innerHTML = ''; return; }
     if (!f.fx && f.fxMode !== 'peso') { const r = rateFor(get(), a.cur); f.fx = r ? prec(r) : ''; }
-    el.innerHTML = `<div class="fxline">
-      <label class="fxpeso"><span>Worth in ${BASE}</span><span class="amtwrap sm"><b>${(CUR[BASE] || { sym: BASE }).sym}</b><input id="f-peso" inputmode="decimal" autocomplete="off" aria-label="Value in ${BASE}" placeholder="0" value="${esc(f.peso)}"></span></label>
-      <label class="fxrate"><span>1 ${a.cur} =</span><input id="f-fx" inputmode="decimal" aria-label="Exchange rate" value="${esc(f.fx)}"><span>${BASE}</span></label>
-      <small class="fxhint">Know what the bill says in ${BASE}? Type it and the rate follows. Or type the rate and the ${BASE} value follows.</small></div>`;
+    el.innerHTML = `<div class="fxline one"><span class="fxrate">1 ${a.cur} =<input id="f-fx" inputmode="decimal" aria-label="Exchange rate" value="${esc(f.fx)}">${BASE}</span>
+      <span class="fxeq">=</span><label class="fxpeso"><span class="amtwrap sm"><b>${(CUR[BASE] || { sym: BASE }).sym}</b><input id="f-peso" inputmode="decimal" autocomplete="off" aria-label="Value in ${BASE}" placeholder="0" value="${esc(f.peso)}"></span></label></div>
+      <small class="fxhint">Type the rate or the ${BASE} value from your bill: the other follows.</small>`;
     updateFxVal();
   }
   // two-way: whichever of the rate and the peso value you typed last is kept, the other follows the amount
@@ -298,27 +297,37 @@ export function openEntry(opts = {}) {
     f.acct = sg.acct; f.acctSuggested = true; f.fx = ''; f.fxMode = 'rate'; f.peso = '';
     renderAccts(); renderFx();
   }
+  // a name you have used before brings its usual amount (shown as a guess; typing replaces it)
+  function suggestAmount() {
+    if (f.kind === 'transfer' || f.amountTouched) return;
+    const inp = $f('f-amount'), lk = lookup(modelFor(f.kind), f.name);
+    if (lk && lk.amount && (!num(f.amount) || f.amountGuess)) {
+      f.amount = String(lk.amount); f.amountGuess = true; inp.value = f.amount; inp.classList.add('guess');
+      updateFxVal(); updateItemLeft();
+    } else if (f.amountGuess && !lk) { f.amount = ''; f.amountGuess = false; inp.value = ''; inp.classList.remove('guess'); updateFxVal(); }
+  }
   function applyPick(name) {
     f.name = name; $f('f-name').value = name;
     const lk = lookup(modelFor(f.kind), name);
     if (lk) {
       if (!f.catTouched) f.cat = lk.cat;
       if (!f.acctTouched && lk.acct && acctOf(lk.acct) && !acctOf(lk.acct).archived) { f.acct = lk.acct; f.acctSuggested = true; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; renderAccts(); renderFx(); }
-      if (!num(f.amount) && lk.amount) { f.amount = String(lk.amount); $f('f-amount').value = f.amount; }
+      if (!num(f.amount) && lk.amount) { f.amount = String(lk.amount); f.amountGuess = true; $f('f-amount').value = f.amount; $f('f-amount').classList.add('guess'); }
     }
     refreshPred(); renderSugg(); updateFxVal(); updateItemLeft();
     $f(num(f.amount) ? 'f-name' : 'f-amount').focus();
   }
 
   // ---------- events ----------
+  form.addEventListener('focusin', (e) => { if (e.target.id === 'f-amount' && f.amountGuess) e.target.select(); });
   form.addEventListener('input', (e) => {
     const id = e.target.id;
     if (id === 'f-amount') {
-      f.amount = e.target.value; updateFxVal(); updateItemLeft(); showCalcRes(); if (f.name.trim()) refreshPred();
+      f.amount = e.target.value; f.amountGuess = false; f.amountTouched = true; e.target.classList.remove('guess'); updateFxVal(); updateItemLeft(); showCalcRes(); if (f.name.trim()) refreshPred();
       if (f.kind === 'transfer' && !f.feeTouched) { suggestFee(); const fe = $f('f-fee'); if (fe) fe.value = f.fee; }
     }
     else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
-    else if (id === 'f-name') { f.name = e.target.value; suggestAcct(); refreshPred(); renderSugg(); }
+    else if (id === 'f-name') { f.name = e.target.value; suggestAcct(); suggestAmount(); refreshPred(); renderSugg(); }
     else if (id === 'f-fx') { f.fx = e.target.value; f.fxMode = 'rate'; updateFxVal(); }
     else if (id === 'f-peso') { f.peso = e.target.value; f.fxMode = 'peso'; updateFxVal(); }
     else if (id === 'f-toamt') f.toAmount = e.target.value;
@@ -410,6 +419,7 @@ export function openEntry(opts = {}) {
   }
   function keyPress(k) {
     const amt = $f('f-amount');
+    f.amountGuess = false; f.amountTouched = true; $f('f-amount').classList.remove('guess');
     if (k === 'C') f.amount = '';
     else if (k === '⌫') f.amount = f.amount.slice(0, -1);
     else if (k === '=') { const v = num(f.amount); if (v > 0) f.amount = tidy(v); }

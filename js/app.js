@@ -7,11 +7,12 @@ import { home, ledger, review, accounts, reports, settings, bindLedger, bindSett
 import { openEntry } from './entry.js';
 import { calendar, budget, cashflow, categories, outlook } from './views.js';
 import { ACT, ic, toast, $ } from './ui.js';
+import { bin, runPurge } from './bin.js';
 import { initAppearance, applyHide, applyLook } from './appearance.js';
 import { postInterest } from './finance.js';
 import { commitQuiet } from './core.js';
 
-const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook };
+const routes = { bin, home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook };
 let lastRoute = null, pending = false;
 
 function firstRun() {
@@ -117,6 +118,7 @@ const queue = () => { if (!pending) { pending = true; requestAnimationFrame(rend
   await load();
   const oauthMsg = await handleOAuthReturn();
   runInterest();
+  runPurge();
   showLatest();
   subscribe(() => { queue(); scheduleSync(); cloudSchedule(); });
   window.addEventListener('hashchange', queue);

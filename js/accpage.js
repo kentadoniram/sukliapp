@@ -1,6 +1,6 @@
 // Accounts page (grouped and sorted), account detail with history, net worth, interest and credit-card details.
 import {
-  get, commit, uid, stamp, nowStamp, rateFor, fmt, BASE, CUR, balances, catMap, accountMap, live, groupColor, groupLetter,
+  get, commit, BUCKETS, bucketOf, uid, stamp, nowStamp, rateFor, fmt, BASE, CUR, balances, catMap, accountMap, live, groupColor, groupLetter,
   adjustmentCategory, shiftMonth, thisMonth, monthLabel, monthParts, deltaFor, dayLabel,
 } from './core.js';
 import { accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, today, postInterest } from './finance.js';
@@ -55,9 +55,9 @@ export function accounts(db) {
     groups = [...m.entries()].map(([k, list]) => ({ key: 'cur-' + k, title: k, list, native: k, total: sum(list.map((a) => bal.get(a.id) || 0)), base: sum(list.map(val)) }))
       .sort((a, b) => (a.title === BASE ? -1 : b.title === BASE ? 1 : b.base - a.base));
   } else if (view.group === 'type') {
-    const m = new Map(); for (const a of shown) { if (!m.has(a.type)) m.set(a.type, []); m.get(a.type).push(a); }
-    groups = [...m.entries()].map(([k, list]) => ({ key: 'type-' + k, title: typeNames[k] || k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)), t: k }))
-      .sort((a, b) => (typeOrder.indexOf(a.t) - typeOrder.indexOf(b.t)));
+    const m = new Map(); for (const a of shown) { const k = bucketOf(a.type).key; if (!m.has(k)) m.set(k, []); m.get(k).push(a); }
+    groups = [...m.entries()].map(([k, list]) => ({ key: 'type-' + k, title: BUCKETS.find((x) => x.key === k).title, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)), t: k }))
+      .sort((a, b) => BUCKETS.findIndex((x) => x.key === a.t) - BUCKETS.findIndex((x) => x.key === b.t));
   } else groups = [{ key: 'all', title: 'All accounts', list: shown, native: null, total: sum(shown.map(val)), base: sum(shown.map(val)) }];
   const sp = spendable(db, bal);
   const rowFor = (a) => {
@@ -82,7 +82,7 @@ export function accounts(db) {
       ${nw.assets + nw.debts > 0 ? `<span class="nwbar" role="img" aria-label="Assets against debts"><i style="width:${Math.round(nw.assets / (nw.assets + nw.debts) * 100)}%"></i></span>` : ''}</button>
       <button class="nwsp" data-act="acct-sp"><span>Spendable now</span><b>${money(sp)}</b></button></section>
     ${nw.missing ? `<p class="hint">Some accounts have no exchange rate yet, so they are left out of these totals. Set rates in Settings.</p>` : ''}
-    <div class="aview">${segs('group', [['cur', 'Currency'], ['type', 'Category'], ['none', 'None']], view.group)}
+    <div class="aview">${segs('group', [['cur', 'Currency'], ['type', 'Account type'], ['none', 'None']], view.group)}
       ${segs('sort', [['high', 'High → low'], ['low', 'Low → high'], ['name', 'A–Z']], view.sort)}</div>
     ${sections || '<p class="empty">No accounts yet. Add one, or import your Bluecoins export in Settings.</p>'}
     ${hidden ? `<p class="muted center">${hidden} hidden ${hidden === 1 ? 'account' : 'accounts'} (archived).</p>` : ''}`;
@@ -135,12 +135,17 @@ ACT['acct-new'] = () => openAccount(null);
 export function openAccountDetail(id) {
   const s = sheet('<div id="ad"></div>', { title: 'Account', wide: true });
   const root = s.el.querySelector('#ad');
-  const st = { range: 90, more: 25 };
+  const st = { range: 90, more: 25, f: 'all', from: '', to: '' };
   const draw = () => {
     const db = get(), a = db.accounts.find((x) => x.id === id);
     if (!a || a.deleted) { s.close(); return; }
     const bal = balances(db).get(id) || 0, r = rateFor(db, a.cur);
     const hist = accountHistory(db, id);                         // newest first
+    const kindOf = (h) => (h.t.kind === 'transfer' ? (h.d >= 0 ? 'tin' : 'tout') : (h.d >= 0 ? 'in' : 'out'));
+    const inRange = hist.filter((h) => (!st.from || h.t.date.slice(0, 10) >= st.from) && (!st.to || h.t.date.slice(0, 10) <= st.to));
+    const view = inRange.filter((h) => st.f === 'all' || kindOf(h) === st.f);
+    const sumK = (k) => sum(inRange.filter((h) => kindOf(h) === k).map((h) => Math.abs(h.d)));
+    const closing = inRange.length ? inRange[0].bal : bal, opening = inRange.length ? inRange[inRange.length - 1].bal - inRange[inRange.length - 1].d : bal;
     const cm = catMap(db);
     const ym = thisMonth();
     const monthRows = hist.filter((h) => h.t.date.startsWith(ym));
@@ -166,7 +171,7 @@ export function openAccountDetail(id) {
     const card = a.type === 'card' ? cardInfo(db, a, bal) : null;
     const earned = a.apy > 0 ? sum(hist.filter((h) => h.t.auto).map((h) => h.d)) : 0;
     const perDay = a.apy > 0 && bal > 0 ? bal * a.apy / 100 / 365 : 0;
-    const rowsHtml = hist.slice(0, st.more).map((h) => {
+    const rowsHtml = view.slice(0, st.more).map((h) => {
       const t = h.t, c = cm.get(t.cat), tr = t.kind === 'transfer';
       const other = tr ? (t.acct === id ? (db.accounts.find((x) => x.id === t.toAcct) || {}).name : (db.accounts.find((x) => x.id === t.acct) || {}).name) : '';
       const title = t.name || (c ? c.name : tr ? 'Transfer' : 'Entry');
@@ -192,13 +197,19 @@ export function openAccountDetail(id) {
         ${card.due ? `<p>${card.owed > 0 ? `Next payment: <strong>${dayLabel(card.due + ' 00:00:00')}</strong> (${card.days === 0 ? 'today' : card.days + ' days'}).` : `Next due date ${dayLabel(card.due + ' 00:00:00')}, nothing owed now.`}</p><button class="btn sm ghost" data-ad="ics">Add reminders to my calendar (.ics)</button>` : '<p class="hint">Add the due day in Edit to get reminders.</p>'}</div>` : ''}
       ${a.apy > 0 ? `<div class="cardbox"><h3>Interest</h3><p>${a.apy}% a year${perDay ? `, about <strong>${money(perDay, a.cur)}</strong> a day on today’s balance` : ''}. Earned so far in Sukli: <strong>${money(earned, a.cur)}</strong>.</p>
         <p class="hint">Approximate: Sukli adds one entry a day (category ${a.type === 'crypto' ? 'Crypto earned' : 'Interest'}). Set the rate your app shows; edit or delete any entry that differs.</p></div>` : ''}
+      <h3>Review a period</h3>
+      <div class="two"><label class="field"><span>From</span><input type="date" data-adin="from" value="${esc(st.from)}" data-noclear="1"></label><label class="field"><span>To</span><input type="date" data-adin="to" value="${esc(st.to)}" data-noclear="1"></label></div>
+      <div class="facts"><div><span>Income</span><b class="in">${money(sumK('in'), a.cur)}</b></div><div><span>Expenses</span><b>${money(sumK('out'), a.cur)}</b></div><div><span>Net</span><b>${money(sumK('in') - sumK('out') + sumK('tin') - sumK('tout'), a.cur)}</b></div></div>
+      <div class="facts"><div><span>Transfers in</span><b class="in">${money(sumK('tin'), a.cur)}</b></div><div><span>Transfers out</span><b>${money(sumK('tout'), a.cur)}</b></div><div><span>Balance</span><b>${money(opening, a.cur)} → ${money(closing, a.cur)}</b></div></div>
+      <div class="rangebar seg sm" role="group" aria-label="Show">${[['all', 'All'], ['in', 'Income'], ['out', 'Expenses'], ['tin', 'Transfer in'], ['tout', 'Transfer out']].map(([v, l]) => `<button type="button" data-ad="kind" data-v="${v}" class="${st.f === v ? 'on' : ''}" aria-pressed="${st.f === v}">${l}</button>`).join('')}</div>
       <h3>History</h3><div class="rows plain">${rowsHtml || '<p class="empty">No entries yet.</p>'}</div>
-      ${hist.length > st.more ? `<button class="btn ghost wide" data-ad="more">Show more (${hist.length - st.more} left)</button>` : ''}`;
+      ${view.length > st.more ? `<button class="btn ghost wide" data-ad="more">Show more (${view.length - st.more} left)</button>` : ''}`;
   };
   draw();
   const un = (() => { const f = () => draw(); window.addEventListener('sukli-render', f); return () => window.removeEventListener('sukli-render', f); })();
   const oldClose = s.close; s.close = () => { un(); oldClose(); };
   s.root.querySelector('[data-close]').onclick = () => s.close();
+  root.addEventListener('change', (e) => { const k = e.target.dataset && e.target.dataset.adin; if (k) { st[k] = e.target.value; st.more = 25; draw(); } });
   root.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-ad]'); if (!b) return;
     const db = get(), a = db.accounts.find((x) => x.id === id);
@@ -207,6 +218,7 @@ export function openAccountDetail(id) {
       case 'edit': openAccount(id); break;
       case 'range': st.range = +b.dataset.v; draw(); break;
       case 'more': st.more += 25; draw(); break;
+      case 'kind': st.f = b.dataset.v; st.more = 25; draw(); break;
       case 'ics': { const t = cardIcs(db); if (t) { download('sukli-card-reminders.ics', t, 'text/calendar'); toast('Open the file to add the reminders to your calendar app.'); } break; }
       case 'reval': {
         const cur = balances(db).get(id) || 0;

@@ -10,7 +10,8 @@ export const uid = () =>
     ? crypto.randomUUID()
     : 'id-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 
-export const BASE = 'PHP';
+export let BASE = 'PHP';
+export function setBase(c) { BASE = c || 'PHP'; }
 
 export const CUR = {
   PHP: { sym: '₱', dec: 2 },
@@ -21,6 +22,15 @@ export const CUR = {
   EUR: { sym: '€', dec: 2 },
 };
 
+// account types gathered into the groups people think in
+export const BUCKETS = [
+  { key: 'bank', title: 'Banks', types: ['bank'] },
+  { key: 'ewallet', title: 'E-wallets', types: ['ewallet'] },
+  { key: 'crypto', title: 'Crypto exchanges', types: ['crypto'] },
+  { key: 'cash', title: 'Cash & other', types: ['cash', 'invest', 'asset', 'other'] },
+  { key: 'card', title: 'Credit cards & loans', types: ['card', 'loan'] },
+];
+export const bucketOf = (type) => BUCKETS.find((b) => b.types.includes(type)) || BUCKETS[3];
 export const COMMON = ['USD', 'USDT', 'JPY', 'PHP'];
 // add every ISO currency the browser knows (symbol + decimals), keeping the hand-set ones above
 try {
@@ -155,6 +165,7 @@ export async function load() {
   const raw = await readRaw();
   state = raw && raw.v ? raw : emptyDb();
   state.settings = { ...emptyDb().settings, ...state.settings };
+  setBase(state.settings.base);
   return state;
 }
 export const get = () => state;
@@ -177,11 +188,28 @@ export async function flush() { clearTimeout(saveTimer); await writeRaw(state); 
 export function replaceAll(next) {
   state = next;
   state.settings = { ...emptyDb().settings, ...state.settings };
+  setBase(state.settings.base);
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => writeRaw(state), 150);
   subs.forEach((f) => f(state));
 }
 
+// switch the home currency. r = how much 1 NEW home currency is worth in the OLD one.
+// Every saved rate, entry value and budget is rescaled, so past reports keep their proportions.
+export function changeBase(db, next, r) {
+  const old = db.settings.base || BASE, k = 1 / r;
+  if (next === old || !(r > 0)) return;
+  for (const t of db.txs) {
+    if (t.cur === next) t.fx = 1; else if (t.fx > 0) t.fx *= k;
+    if (t.feeFx > 0) t.feeFx *= k;
+    stamp(t);
+  }
+  for (const b of db.budgets) { if (b.amount > 0) b.amount *= k; stamp(b); }
+  const nr = {};
+  for (const [c, v] of Object.entries(db.settings.rates || {})) if (c !== next && v > 0) nr[c] = v * k;
+  nr[old] = k;
+  db.settings.rates = nr; db.settings.base = next; setBase(next);
+}
 export const stamp = (rec) => { rec.updatedAt = Date.now(); return rec; };
 export const live = (arr) => arr.filter((x) => !x.deleted);
 export const accountMap = (db) => new Map(db.accounts.map((a) => [a.id, a]));

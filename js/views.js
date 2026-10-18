@@ -30,7 +30,7 @@ ACT.menu = () => {
     <ul>${item('home', 'Home', 'home')}${item('ledger', 'Entries', 'list')}${item('calendar', 'Calendar', 'calendar')}${item('budget', 'Budget', 'pie')}${item('cashflow', 'Cash flow', 'flow')}${item('outlook', 'Outlook', 'spark')}${item('reports', 'Reports', 'chart')}${item('accounts', 'Accounts', 'wallet')}${item('review', 'Review', 'check', n)}</ul>
     <h3>Categories</h3>
     <ul>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
-    <ul class="last">${item('settings', 'Settings', 'gear')}</ul></nav>`;
+    <ul class="last">${item('bin', 'Recycle bin', 'x')}${item('settings', 'Settings', 'gear')}</ul></nav>`;
   document.body.appendChild(wrap);
   document.body.classList.add('noscroll');
   const onKey = (e) => { if (e.key === 'Escape') close(); };
