@@ -233,7 +233,7 @@ window.__hd = () => [hdepth, stack.length, ignorePop];
     const r = cur.getBoundingClientRect();
     btn.style.left = (r.right - 30) + 'px'; btn.style.top = (r.top + r.height / 2 - 13) + 'px'; btn.hidden = false;
   };
-  document.addEventListener('focusin', (e) => { if (ok(e.target)) { cur = e.target; if (!btn.parentNode) document.body.appendChild(btn); place(); } else { cur = null; btn.hidden = true; } });
+  document.addEventListener('focusin', (e) => { if (ok(e.target)) { cur = e.target; if (!btn.parentNode) document.body.appendChild(btn); place(); setTimeout(place, 420); } else { cur = null; btn.hidden = true; } });
   document.addEventListener('input', (e) => { if (e.target === cur) place(); });
   document.addEventListener('focusout', () => setTimeout(() => { if (document.activeElement !== btn && !ok(document.activeElement)) { cur = null; btn.hidden = true; } }, 150));
   window.addEventListener('scroll', place, true); window.addEventListener('resize', place);
