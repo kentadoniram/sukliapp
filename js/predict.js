@@ -32,11 +32,12 @@ export function buildModel(txs, kindFilter = 'expense', cats = []) {
   for (const t of sorted) {
     const k = norm(t.name);
     let e = byName.get(k);
-    if (!e) { e = { n: 0, cats: new Map(), accts: new Map(), amts: [], last: t.date, name: t.name.trim() }; byName.set(k, e); }
+    if (!e) { e = { n: 0, cats: new Map(), accts: new Map(), curs: new Map(), amts: [], last: t.date, name: t.name.trim() }; byName.set(k, e); }
     e.n++;
     e.last = t.date;
     e.cats.set(t.cat, (e.cats.get(t.cat) || 0) + 1);
     e.accts.set(t.acct, (e.accts.get(t.acct) || 0) + 1);
+    e.curs.set(t.cur, (e.curs.get(t.cur) || 0) + 1);
     e.amts.push(t.amount);
     if (e.amts.length > 7) e.amts.shift();
     let c = classes.get(t.cat);
@@ -162,4 +163,24 @@ export function catCandidates(model, cats, text, kind, n = 6) {
     }
   }
   return [...hit.values()].sort((a, b) => b.s - a.s).slice(0, n);
+}
+
+// "Looks like": names whose usual amount is close to the typed amount (in the same currency)
+export function byAmount(model, amount, cur, n = 6) {
+  if (!model || !(amount > 0)) return [];
+  const now = Date.now(), out = [];
+  for (const e of model.byName.values()) {
+    if (cur && top(e.curs) !== cur) continue;
+    const m = median(e.amts); if (!(m > 0)) continue;
+    const d = Math.abs(Math.log(amount / m));
+    const exact = e.amts.some((x) => Math.abs(x - amount) < 0.005);
+    if (d > 0.16 && !exact) continue;
+    const t = Date.parse(String(e.last || '').replace(' ', 'T')), days = isFinite(t) ? Math.max(0, (now - t) / 864e5) : 365;
+    const score = (exact ? 150 : 0) + (1 - Math.min(1, d / 0.16)) * 100 + 40 * Math.log2(1 + e.n) + 60 * Math.exp(-days / 30);
+    out.push({ name: e.name, n: e.n, score, acct: top(e.accts), cat: top(e.cats), amount: m, exact });
+  }
+  return out.sort((a, b) => b.score - a.score).slice(0, n);
+}
+export function recentNames(model, n = 6) {
+  return [...model.byName.values()].sort((a, b) => (a.last < b.last ? 1 : -1)).slice(0, n).map((e) => ({ name: e.name, n: e.n, acct: top(e.accts), cat: top(e.cats), amount: median(e.amts) }));
 }

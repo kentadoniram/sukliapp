@@ -2,19 +2,20 @@
 import { load, get, subscribe, commit, seedCategories, balances, reviewCount, latestMonth, thisMonth, monthOf, priv } from './core.js';
 import { importBluecoins } from './importer.js';
 import { scheduleSync, onStatus } from './drive.js';
-import { cloudSchedule, cloudInit, onCloudStatus, handleOAuthReturn, signedIn, cloudSync } from './cloud.js';
+import { cloudSchedule, cloudInit, onCloudStatus, handleOAuthReturn } from './cloud.js';
 import { home, ledger, review, accounts, reports, settings, bindLedger, bindSettings, openAccountSetup, ui } from './screens.js';
 import { openEntry } from './entry.js';
 import { calendar, budget, cashflow, categories, outlook } from './views.js';
 import { ACT, ic, toast, $ } from './ui.js';
-import { bin, runPurge } from './bin.js';
-import { refreshRates } from './rates.js';
-import { analytics } from './analytics.js';
 import { initAppearance, applyHide, applyLook } from './appearance.js';
 import { postInterest } from './finance.js';
-import { commitQuiet, addStarterCats } from './core.js';
+import { ratesInit } from './rates.js';
+import { initGestures } from './gestures.js';
+import { bin, autoPurge } from './bin.js';
+import { analytics } from './analytics.js';
+import { commitQuiet } from './core.js';
 
-const routes = { analytics, bin, home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook };
+const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook, bin, analytics };
 let lastRoute = null, pending = false;
 
 function firstRun() {
@@ -23,17 +24,9 @@ function firstRun() {
     <p class="lede">A private money tracker for your phone. Your data stays on this device, with an optional backup to your own Google Drive.</p>
     <label class="btn wide filebtn">Import my Bluecoins export (CSV)<input type="file" id="first-file" accept=".csv,text/csv" hidden></label>
     <button class="btn ghost wide" data-act="start-empty">Start with an empty ledger</button>
-    <a class="btn ghost wide" href="#/settings">Already use Sukli on another device? Sign in to sync</a>
     <p class="hint">Importing keeps your accounts, balances, categories and every entry, including transfers between currencies.</p></section>`;
 }
-ACT['start-empty'] = async () => {
-  // signed in already: fetch your data first, so starter categories are not created twice
-  if (signedIn()) { try { await cloudSync(); } catch { /* offline: carry on */ } }
-  const d0 = get();
-  if (d0.accounts.length || d0.txs.length) { toast('Your data arrived from the cloud.'); return; }
-  commit((d) => { if (!d.categories.length) seedCategories(d); });
-  ACT['acct-new']();
-};
+ACT['start-empty'] = () => { commit((d) => seedCategories(d)); ACT['acct-new'](); };
 
 function tabs(route) {
   const t = [['home', 'Home', 'home'], ['ledger', 'Entries', 'list'], null, ['calendar', 'Calendar', 'calendar'], ['accounts', 'Accounts', 'wallet']];
@@ -85,44 +78,11 @@ function runInterest() {
 }
 const queue = () => { if (!pending) { pending = true; requestAnimationFrame(render); } };
 
-// easier menu: a floating button after a short upward scroll, and a swipe in from the left edge
-(function menuAccess() {
-  const fab = document.createElement('button');
-  fab.type = 'button'; fab.className = 'menufab'; fab.hidden = true; fab.setAttribute('aria-label', 'Open menu'); fab.innerHTML = ic('menu');
-  document.addEventListener('DOMContentLoaded', () => document.body.appendChild(fab));
-  if (document.body) document.body.appendChild(fab);
-  const open = () => { if (!document.body.classList.contains('noscroll') && ACT.menu) { fab.hidden = true; ACT.menu(fab, null); } };
-  fab.addEventListener('click', open);
-  let last = window.scrollY;
-  window.addEventListener('scroll', () => {
-    const y = window.scrollY, up = last - y;
-    if (y < 120 || document.body.classList.contains('noscroll')) fab.hidden = true;
-    else if (up > 14) fab.hidden = false;
-    else if (up < -6) fab.hidden = true;
-    last = y;
-  }, { passive: true });
-  let sx = 0, sy = 0, live = false;
-  document.addEventListener('touchstart', (e) => {
-    const t = e.touches[0];
-    live = e.touches.length === 1 && t.clientX < 24 && !e.target.closest('svg, canvas, input, textarea, [data-noswipe], .scrim');
-    sx = t.clientX; sy = t.clientY;
-  }, { passive: true });
-  document.addEventListener('touchmove', (e) => {
-    if (!live) return;
-    const t = e.touches[0], dx = t.clientX - sx, dy = Math.abs(t.clientY - sy);
-    if (dy > 40) live = false;
-    else if (dx > 70 && dx > dy * 2) { live = false; open(); }
-  }, { passive: true });
-})();
-
 (async function boot() {
   initAppearance();
   await load();
   const oauthMsg = await handleOAuthReturn();
   runInterest();
-  runPurge();
-  refreshRates().then((r) => { if (r && !r.skipped) window.dispatchEvent(new Event('sukli-render')); }).catch(() => {});
-  commitQuiet((d) => { addStarterCats(d); });
   showLatest();
   subscribe(() => { queue(); scheduleSync(); cloudSchedule(); });
   window.addEventListener('hashchange', queue);
@@ -133,6 +93,7 @@ const queue = () => { if (!pending) { pending = true; requestAnimationFrame(rend
   render();
   if (oauthMsg) toast(oauthMsg, { ms: 9000 });
   cloudInit();
+  ratesInit(); initGestures(); autoPurge();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && runInterest()) queue(); });
   window.sukli = { get, commit, openEntry, ui, balancesNow: () => balances(get()) };
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {

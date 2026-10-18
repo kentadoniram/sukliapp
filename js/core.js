@@ -10,47 +10,43 @@ export const uid = () =>
     ? crypto.randomUUID()
     : 'id-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 
-export let BASE = 'PHP';
-export function setBase(c) { BASE = c || 'PHP'; }
+// BASE is the "ledger" currency: every entry's fx is stored as ledger-per-unit, so history never changes.
+// HOME is the currency the person wants to see totals in (Settings). It may differ from BASE.
+export const BASE = 'PHP';
+export let HOME = 'PHP';
+export function syncHome() { HOME = (state && state.settings && state.settings.home) || BASE; return HOME; }
 
-export const CUR = {
-  PHP: { sym: '₱', dec: 2 },
-  JPY: { sym: '¥', dec: 0 },
-  USD: { sym: '$', dec: 2 },
-  USDT: { sym: '₮', dec: 2 },
-  BTC: { sym: '₿', dec: 6 },
-  EUR: { sym: '€', dec: 2 },
+const CUR0 = {
+  PHP: { sym: '₱', dec: 2 }, JPY: { sym: '¥', dec: 0 }, USD: { sym: '$', dec: 2 }, USDT: { sym: '₮', dec: 2 },
+  BTC: { sym: '₿', dec: 6 }, EUR: { sym: '€', dec: 2 },
 };
-
-// account types gathered into the groups people think in
-export const BUCKETS = [
-  { key: 'bank', title: 'Banks', types: ['bank'] },
-  { key: 'ewallet', title: 'E-wallets', types: ['ewallet'] },
-  { key: 'crypto', title: 'Crypto exchanges', types: ['crypto'] },
-  { key: 'cash', title: 'Cash & other', types: ['cash', 'invest', 'asset', 'other'] },
-  { key: 'recv', title: 'Money owed to me', types: ['receivable'] },
-  { key: 'card', title: 'Credit cards & loans', types: ['card', 'loan'] },
-];
-export const bucketOf = (type) => BUCKETS.find((b) => b.types.includes(type)) || BUCKETS[3];
-// a currency the app does not know yet (a coin or token such as BBSOL or MNT): remember it so amounts keep their decimals
-export function ensureCurrency(db, code) {
-  code = String(code || '').trim().toUpperCase();
-  if (!code || CUR[code]) return false;
-  CUR[code] = { sym: code + ' ', dec: 8 };
-  db.settings.customCur = db.settings.customCur || {};
-  db.settings.customCur[code] = CUR[code];
-  return true;
-}
-export const COMMON = ['USD', 'USDT', 'JPY', 'PHP'];
-// add every ISO currency the browser knows (symbol + decimals), keeping the hand-set ones above
-try {
-  for (const c of Intl.supportedValuesOf('currency')) {
-    if (CUR[c]) continue;
-    const nf = new Intl.NumberFormat('en', { style: 'currency', currency: c, currencyDisplay: 'narrowSymbol' });
+export const CRYPTO = ['USDT', 'USDC', 'DAI', 'BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'DOGE', 'TON', 'TRX', 'ADA', 'LTC', 'MATIC', 'FDUSD'];
+function deriveCur(k) {
+  if (CRYPTO.includes(k)) return { sym: k + ' ', dec: ['BTC', 'ETH'].includes(k) ? 6 : 2 };
+  try {
+    const nf = new Intl.NumberFormat('en-US', { style: 'currency', currency: k, currencyDisplay: 'narrowSymbol' });
     const part = nf.formatToParts(0).find((x) => x.type === 'currency');
-    CUR[c] = { sym: part ? part.value : c, dec: nf.resolvedOptions().maximumFractionDigits };
-  }
-} catch { /* older browser: the short list above still works */ }
+    const sym = part && part.value !== k ? part.value : k + ' ';
+    return { sym, dec: nf.resolvedOptions().maximumFractionDigits };
+  } catch { return { sym: k + ' ', dec: 2 }; }
+}
+// reading any code (CUR.THB) works for every currency; Object.keys lists only those already read
+export const CUR = new Proxy({ ...CUR0 }, {
+  get(t, k) { if (typeof k === 'string' && !(k in t) && /^[A-Z][A-Z0-9]{1,9}$/.test(k)) t[k] = deriveCur(k); return t[k]; },
+});
+let allCache;
+export function allCurrencies() {
+  if (allCache) return allCache;
+  let fiat = [];
+  try { fiat = Intl.supportedValuesOf('currency'); } catch { fiat = ['AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'EUR', 'GBP', 'HKD', 'IDR', 'INR', 'JPY', 'KRW', 'MYR', 'NZD', 'PHP', 'SGD', 'THB', 'TWD', 'USD', 'VND']; }
+  allCache = [...new Set([...fiat, ...CRYPTO])].sort();
+  return allCache;
+}
+export function curName(c) {
+  const crypto = { USDT: 'Tether', USDC: 'USD Coin', DAI: 'Dai', BTC: 'Bitcoin', ETH: 'Ethereum', BNB: 'BNB', SOL: 'Solana', XRP: 'XRP', DOGE: 'Dogecoin', TON: 'Toncoin', TRX: 'TRON', ADA: 'Cardano', LTC: 'Litecoin', MATIC: 'Polygon', FDUSD: 'First Digital USD' };
+  if (crypto[c]) return crypto[c];
+  try { return new Intl.DisplayNames(['en'], { type: 'currency' }).of(c) || c; } catch { return c; }
+}
 
 // "hide amounts" (the eye button): per device, kept in localStorage, never synced
 export const priv = {
@@ -67,7 +63,7 @@ export function fmt(n, cur = BASE, opts = {}) {
   if (hide) return '\u2063' + fmt(n, cur, { ...opts, force: true }) + '\u2063';
   const dec = opts.round ? 0 : c.dec;
   const abs = Math.abs(n || 0);
-  const s = abs.toLocaleString('en-US', { minimumFractionDigits: Math.min(dec, 2), maximumFractionDigits: dec });   // coins: up to 8 decimals, no trailing zeros past 2
+  const s = abs.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
   const sign = n < 0 && abs >= Math.pow(10, -dec) / 2 ? '−' : (opts.sign && n > 0 ? '+' : '');
   return sign + c.sym + s;
 }
@@ -130,7 +126,7 @@ export function emptyDb() {
     v: 1,
     settings: {
       base: BASE, deviceId: uid(), driveClientId: '', autoSync: false, lastSync: 0,
-      showHome: true, remindDays: 3, rates: {}, excludeGroups: ['Capital Loss/Distribution', 'Crypto Buy'], lastAcct: '',
+      showHome: true, remindDays: 3, home: BASE, liveRates: true, live: null, rates: {}, binDays: 30, excludeGroups: ['Capital Loss/Distribution', 'Crypto Buy'], lastAcct: '',
       cloud: { url: '', key: '', email: '', auto: true },
     },
     accounts: [], categories: [], txs: [], budgets: [],
@@ -175,8 +171,7 @@ export async function load() {
   const raw = await readRaw();
   state = raw && raw.v ? raw : emptyDb();
   state.settings = { ...emptyDb().settings, ...state.settings };
-  setBase(state.settings.base);
-  for (const [c, v] of Object.entries(state.settings.customCur || {})) CUR[c] = v;   // currencies you added yourself (e.g. BBSOL, MNT)
+  syncHome();
   return state;
 }
 export const get = () => state;
@@ -184,6 +179,7 @@ export function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
 
 export function commit(mutator) {
   mutator(state);
+  syncHome();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => writeRaw(state), 150);
   subs.forEach((f) => f(state));
@@ -191,6 +187,7 @@ export function commit(mutator) {
 // saves without redrawing: for text boxes, where a redraw would steal focus from the next box
 export function commitQuiet(mutator) {
   mutator(state);
+  syncHome();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => writeRaw(state), 150);
 }
@@ -199,29 +196,12 @@ export async function flush() { clearTimeout(saveTimer); await writeRaw(state); 
 export function replaceAll(next) {
   state = next;
   state.settings = { ...emptyDb().settings, ...state.settings };
-  setBase(state.settings.base);
-  for (const [c, v] of Object.entries(state.settings.customCur || {})) CUR[c] = v;
+  syncHome();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => writeRaw(state), 150);
   subs.forEach((f) => f(state));
 }
 
-// switch the home currency. r = how much 1 NEW home currency is worth in the OLD one.
-// Every saved rate, entry value and budget is rescaled, so past reports keep their proportions.
-export function changeBase(db, next, r) {
-  const old = db.settings.base || BASE, k = 1 / r;
-  if (next === old || !(r > 0)) return;
-  for (const t of db.txs) {
-    if (t.cur === next) t.fx = 1; else if (t.fx > 0) t.fx *= k;
-    if (t.feeFx > 0) t.feeFx *= k;
-    stamp(t);
-  }
-  for (const b of db.budgets) { if (b.amount > 0) b.amount *= k; stamp(b); }
-  const nr = {};
-  for (const [c, v] of Object.entries(db.settings.rates || {})) if (c !== next && v > 0) nr[c] = v * k;
-  nr[old] = k;
-  db.settings.rates = nr; db.settings.base = next; setBase(next);
-}
 export const stamp = (rec) => { rec.updatedAt = Date.now(); return rec; };
 export const live = (arr) => arr.filter((x) => !x.deleted);
 export const accountMap = (db) => new Map(db.accounts.map((a) => [a.id, a]));
@@ -257,10 +237,21 @@ export function sortedTxs(db) {
     a.date < b.date ? 1 : a.date > b.date ? -1 : (b.updatedAt || 0) - (a.updatedAt || 0));
 }
 
-// base-currency value of 1 unit of `cur`: manual rate, else the one used on the newest entry
+// ledger value of 1 unit of `cur`: your manual rate, else the live rate, else the one used on the newest entry
 export function rateFor(db, cur) {
-  if (cur === db.settings.base) return 1;
+  if (cur === BASE) return 1;
   if (db.settings.rates && db.settings.rates[cur] > 0) return db.settings.rates[cur];
+  const lv = liveRate(db, cur);
+  if (lv > 0) return lv;
+  return lastTxRate(db, cur);
+}
+export function liveRate(db, cur) {
+  const l = db.settings.live;
+  if (!l || !l.usd) return 0;
+  const a = l.usd[BASE], b = l.usd[cur];
+  return a > 0 && b > 0 ? a / b : 0;
+}
+export function lastTxRate(db, cur) {
   let best = null;
   for (const t of db.txs) {
     if (t.deleted || t.cur !== cur || !(t.fx > 0)) continue;
@@ -268,6 +259,29 @@ export function rateFor(db, cur) {
   }
   return best ? best.fx : 0;
 }
+// the value of 1 HOME unit in ledger terms on a given day, taken from your own entries in that currency
+// (so the rate you really used then is kept); falls back to today's rate
+let hcache = { key: '', arr: [] };
+export function homeRate(db, date) {
+  if (HOME === BASE) return 1;
+  const key = db.txs.length + ':' + HOME + ':' + db.txs.reduce((m, t) => (t.updatedAt > m ? t.updatedAt : m), 0);
+  if (hcache.key !== key) {
+    hcache = { key, arr: db.txs.filter((t) => !t.deleted && t.cur === HOME && t.fx > 0).map((t) => [t.date.slice(0, 10), t.fx]).sort((a, b) => (a[0] < b[0] ? -1 : 1)) };
+  }
+  const arr = hcache.arr, d = (date || '').slice(0, 10);
+  if (!arr.length || !d) return rateFor(db, HOME) || 1;
+  let lo = 0, hi = arr.length - 1;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m][0] < d) lo = m + 1; else hi = m; }
+  const c = [arr[lo], arr[lo - 1]].filter(Boolean).sort((x, y) => Math.abs(new Date(x[0]) - new Date(d)) - Math.abs(new Date(y[0]) - new Date(d)))[0];
+  return c[1];
+}
+// value of one unit of `t.cur` in HOME terms, using the rate that was used when the entry was made
+export function factorFor(db, t, cur = t.cur, fx = t.fx) {
+  if (cur === HOME) return 1;
+  return (fx > 0 ? fx : (rateFor(db, cur) || 1)) / homeRate(db, t.date);
+}
+// what one unit of an account currency is worth in HOME today
+export const homeFx = (db, cur) => (cur === HOME ? 1 : (rateFor(db, cur) || 0) / (rateFor(db, HOME) || 1));
 
 const itemsMatch = (t) =>
   t.items && t.items.length && Math.abs(t.items.reduce((s, i) => s + (+i.amt || 0), 0) - t.amount) < 0.01;
@@ -275,21 +289,28 @@ const itemsMatch = (t) =>
 export const daysInMonth = (ym) => { const [y, m] = ym.split('-').map(Number); return new Date(y, m, 0).getDate(); };
 
 // every money movement of a month in base currency, split by item when a receipt was itemised
-export function monthParts(db, ym) {
+export function monthParts(db, ym) { return partsOf(db, (t) => t.date.startsWith(ym)); }
+// the same, for any date range (YYYY-MM-DD, inclusive)
+export function partsBetween(db, from, to) { return partsOf(db, (t) => { const d = t.date.slice(0, 10); return d >= from && d <= to; }); }
+export function partsOf(db, inRange) {
   const ex = new Set(db.settings.excludeGroups || []);
   const cats = catMap(db), out = [];
+  const amap = accountMap(db);
   for (const t of db.txs) {
-    if (t.deleted || t.reval || !t.date.startsWith(ym)) continue;
+    if (t.deleted || t.reval || !inRange(t)) continue;
     if (t.kind === 'transfer') {          // only its fee counts as spending
       if (feeOf(t) && t.feeCat) {
         const c = cats.get(t.feeCat), g = c ? c.group : 'Uncategorized';
-        if (!ex.has(g)) out.push({ t, kind: 'expense', cat: t.feeCat, group: g, v: feeOf(t) * (t.feeFx || t.fx || 1), label: (t.name || 'Transfer') + ' fee', split: false, fee: true, acct: t.feeBy === 'to' ? t.toAcct : t.acct });
+        if (!ex.has(g)) {
+          const feeCur = t.feeCur || (t.feeBy === 'to' ? (amap.get(t.toAcct) || {}).cur : t.cur) || t.cur;
+          out.push({ t, kind: 'expense', cat: t.feeCat, group: g, v: feeOf(t) * factorFor(db, t, feeCur, t.feeFx || t.fx), label: (t.name || 'Transfer') + ' fee', split: false, fee: true, acct: t.feeBy === 'to' ? t.toAcct : t.acct });
+        }
       }
       continue;
     }
-    const fx = t.fx || 1, split = itemsMatch(t);
-    const parts = split ? t.items.map((i) => ({ cat: i.cat || t.cat, v: i.amt * fx, label: i.n || t.name }))
-      : [{ cat: t.cat, v: t.amount * fx, label: t.name }];
+    const f = factorFor(db, t), split = itemsMatch(t);
+    const parts = split ? t.items.map((i) => ({ cat: i.cat || t.cat, v: i.amt * f, label: i.n || t.name }))
+      : [{ cat: t.cat, v: t.amount * f, label: t.name }];
     for (const p of parts) {
       const c = cats.get(p.cat), g = c ? c.group : 'Uncategorized';
       if (ex.has(g)) continue;
@@ -307,7 +328,7 @@ export function dayTotals(db, ym) {
   for (const t of db.txs) {
     if (t.deleted || !t.date.startsWith(ym)) continue;
     const x = d(+t.date.slice(8, 10)); x.n++;
-    if (t.kind === 'transfer') x.tr += t.amount * (t.fx || 1);
+    if (t.kind === 'transfer') x.tr += t.amount * factorFor(db, t);
   }
   return days;
 }
@@ -378,7 +399,7 @@ export const DEFAULT_CATS = {
     'Family Support': ['Allowance'],
     Others: ['Uncategorized'],
   },
-  income: { Employer: ['Salary'], Earn: ['Interest', 'Crypto earned', 'Bank interest', 'Staking & rewards', 'Crypto trading gain'], 'Money owed to me': ['Repayment received'], Others: ['Other income'] },
+  income: { Employer: ['Salary'], Earn: ['Interest', 'Crypto earned'], Others: ['Other income'] },
 };
 
 export function seedCategories(db) {
@@ -389,15 +410,6 @@ export function seedCategories(db) {
   }
 }
 
-// one-time: give existing data the newer income and crypto categories (never re-added if you delete them)
-export function addStarterCats(db) {
-  if (db.settings.catsV6) return false;
-  for (const n of ['Bank interest', 'Staking & rewards', 'Crypto trading gain']) findOrAddCategory(db, 'Earn', n, 'income');
-  findOrAddCategory(db, 'Money owed to me', 'Repayment received', 'income');
-  for (const n of ['Trading fee', 'Network fee', 'Realized loss']) findOrAddCategory(db, 'Crypto & investing', n, 'expense');
-  db.settings.catsV6 = true;
-  return true;
-}
 export function adjustmentCategory(db) {
   let c = db.categories.find((x) => !x.deleted && x.group === 'Adjustments');
   if (!c) { c = stamp({ id: uid(), group: 'Adjustments', name: 'Balance correction', kind: 'both' }); db.categories.push(c); }
@@ -416,4 +428,24 @@ export function mergeDbs(a, b) {
     out[k] = [...m.values()];
   }
   return out;
+}
+
+// ---------- recycle bin helpers ----------
+export function softDelete(rec, at = Date.now()) { rec.deleted = true; rec.deletedAt = at; rec.updatedAt = Date.now(); return rec; }
+export function restoreRec(rec) { rec.deleted = false; delete rec.deletedAt; rec.updatedAt = Date.now(); return rec; }
+// permanent delete keeps a small tombstone so a synced copy on another device cannot bring it back
+export function purgeRec(rec) { for (const k of Object.keys(rec)) if (!['id', 'updatedAt'].includes(k)) delete rec[k]; rec.deleted = true; rec.purged = true; rec.updatedAt = Date.now(); }
+export function binItems(db) {
+  const out = [];
+  for (const [coll, kind] of [['txs', 'tx'], ['accounts', 'account'], ['categories', 'category'], ['budgets', 'budget']]) {
+    for (const r of db[coll]) if (r.deleted && !r.purged) out.push({ coll, kind, r, at: r.deletedAt || r.updatedAt || 0 });
+  }
+  return out.sort((a, b) => b.at - a.at);
+}
+export function purgeExpired(db) {
+  const days = db.settings.binDays;
+  if (!(days > 0)) return 0;
+  const cut = Date.now() - days * 864e5; let n = 0;
+  for (const it of binItems(db)) if (it.at < cut) { purgeRec(it.r); n++; }
+  return n;
 }

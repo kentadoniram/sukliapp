@@ -12,6 +12,7 @@ const P = {
   swap: 'M7 7h13l-4-4M17 17H4l4 4',
   menu: 'M4 6h16M4 12h16M4 18h16',
   calendar: 'M4 7a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2zM4 10h16M8 3v4M16 3v4',
+  trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
   pie: 'M12 3a9 9 0 109 9h-9zM15 3.5A9 9 0 0120.5 9H15z', flow: 'M3 17l6-6 4 4 8-8M15 7h6v6',
   tag: 'M3 12V4h8l10 10-8 8zM7.5 7.5h.01', down: 'M6 9l6 6 6-6', gearsm: 'M12 15a3 3 0 100-6 3 3 0 000 6z',
   spark: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 17l.8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8z',
@@ -49,11 +50,40 @@ export function toast(msg, { undo, ms = 4500 } = {}) {
 
 // ---- sheet ----
 const stack = [];
-let skipPop = 0;
-// Back closes the top sheet instead of leaving the screen underneath
+// Back button support: every open sheet owns one history entry (depth = stack.length).
+// Phone Back / browser Back closes the top sheet; closing with the X pops the entry again.
+let hdepth = 0, ignorePop = 0, reconcileTimer = 0, baseHash = '', afterPop = null, pending = [];
+function reconcile() {
+  clearTimeout(reconcileTimer);
+  reconcileTimer = setTimeout(() => {
+    const extra = hdepth - stack.filter((x) => !x.pend).length;
+    if (extra <= 0) return;
+    // if the page changed while a sheet was open, step back first and then go to the new page,
+    // so the history stays [page, new page] with no leftover sheet entries
+    const target = !stack.length && location.hash !== baseHash ? location.hash : null;
+    ignorePop++; hdepth -= extra;
+    if (target !== null) afterPop = () => { location.hash = target; };
+    history.go(-extra);
+  }, 0);
+}
+// a sheet opened while a history step is still in flight waits for it, so the two cannot cross
+function pushFor(api) {
+  try { if (hdepth === 0) baseHash = location.hash; history.pushState({ sk: stack.length }, ''); hdepth++; } catch (e) { /* no history available */ }
+}
 window.addEventListener('popstate', () => {
-  if (skipPop > 0) { skipPop--; return; }
-  if (stack.length) stack[stack.length - 1].close(true);
+  if (ignorePop > 0) {
+    ignorePop--;
+    if (ignorePop === 0) {
+      if (afterPop) { const f = afterPop; afterPop = null; f(); }
+      const p = pending; pending = [];
+      for (const api of p) if (stack.includes(api)) { api.pend = false; pushFor(api); }
+      reconcile();
+    }
+    return;
+  }
+  if (hdepth > 0) hdepth--;
+  const top = [...stack].reverse().find((x) => !x.pend);
+  if (top) top.dispose(true);
 });
 export function sheet(html, { title = '', onClose, wide = false } = {}) {
   const wrap = document.createElement('div');
@@ -64,27 +94,28 @@ export function sheet(html, { title = '', onClose, wide = false } = {}) {
   document.body.appendChild(wrap);
   hideTip();
   document.body.classList.add('noscroll');
+  let gone = false;
   const api = {
     el: wrap.querySelector('.sheet-body'),
     root: wrap,
-    quiet(fromPop) {
+    // remove without calling onClose (used by dialogs that already answered)
+    dispose(fromPop) {
+      if (gone) return false; gone = true;
       const i = stack.indexOf(api);
-      if (i < 0) return;
-      stack.splice(i, 1);
+      if (i >= 0) stack.splice(i, 1);
       wrap.remove();
       if (!stack.length) document.body.classList.remove('noscroll');
-      if (!fromPop) { skipPop++; history.back(); }
+      if (api.pend) { api.pend = false; pending = pending.filter((x) => x !== api); } else if (!fromPop) reconcile();
+      return true;
     },
-    close(fromPop) {
-      if (stack.indexOf(api) < 0) return;
-      api.quiet(fromPop === true);
-      if (onClose) onClose();
-    },
+    close() { if (api.dispose()) if (onClose) onClose(); },
   };
-  try { history.pushState({ sukliSheet: 1 }, ''); } catch { /* ignore */ }
+  const origDispose = api.dispose;
+  api.dispose = function (fromPop) { const r = origDispose(fromPop); if (r && fromPop && onClose && !api.silent) onClose(); return r; };
   wrap.addEventListener('mousedown', (e) => { if (e.target === wrap) api.close(); });
   wrap.querySelector('[data-close]').onclick = () => api.close();
   stack.push(api);
+  if (ignorePop > 0) { api.pend = true; pending.push(api); } else pushFor(api);
   const first = wrap.querySelector('[autofocus]') || wrap.querySelector('input,select,textarea,button:not([data-close])');
   if (first && matchMedia('(pointer:fine)').matches) first.focus();
   return api;
@@ -99,7 +130,7 @@ export function confirmDialog(message, okLabel = 'Confirm', danger = false) {
       <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button>
       <button type="button" class="btn ${danger ? 'danger' : ''}" data-yes>${esc(okLabel)}</button></div>`, { title: 'Please confirm', onClose: () => res(false) });
     s.el.querySelector('[data-no]').onclick = () => s.close();
-    s.el.querySelector('[data-yes]').onclick = () => { s.quiet(); res(true); };
+    s.el.querySelector('[data-yes]').onclick = () => { s.silent = true; s.dispose(); res(true); };
   });
 }
 
@@ -114,7 +145,7 @@ export function promptDialog(label, value = '', { type = 'text', okLabel = 'Save
     s.el.querySelector('form').onsubmit = (e) => {
       e.preventDefault();
       const v = e.target.v.value;
-      s.quiet();
+      s.dispose();
       res(v);
     };
   });
@@ -180,21 +211,13 @@ function scrub(svg, e) {
   clearTimeout(tipTimer); tipTimer = setTimeout(hideTip, 3000);
 }
 
-// ---- clear (x) button on text boxes: one floating button follows the focused field ----
-(() => {
-  const btn = document.createElement('button');
-  btn.type = 'button'; btn.className = 'clearx'; btn.setAttribute('aria-label', 'Clear'); btn.hidden = true; btn.textContent = '×';
-  let cur = null;
-  const ok = (el) => el && el.tagName === 'INPUT' && /^(text|search|email|tel|url|number)$/.test(el.type) && !el.readOnly && !el.dataset.noclear && !el.closest('.amtwrap, .keypad');
-  const place = () => {
-    if (!cur || !document.body.contains(cur) || !cur.value) { btn.hidden = true; return; }
-    const r = cur.getBoundingClientRect();
-    btn.style.left = (r.right - 30) + 'px'; btn.style.top = (r.top + r.height / 2 - 13) + 'px'; btn.hidden = false;
-  };
-  document.addEventListener('focusin', (e) => { if (ok(e.target)) { cur = e.target; if (!btn.parentNode) document.body.appendChild(btn); place(); } else { cur = null; btn.hidden = true; } });
-  document.addEventListener('input', (e) => { if (e.target === cur) place(); });
-  document.addEventListener('focusout', () => setTimeout(() => { if (document.activeElement !== btn && !ok(document.activeElement)) { cur = null; btn.hidden = true; } }, 150));
-  window.addEventListener('scroll', place, true); window.addEventListener('resize', place);
-  btn.addEventListener('pointerdown', (e) => e.preventDefault());
-  btn.addEventListener('click', () => { if (!cur) return; cur.value = ''; cur.dispatchEvent(new Event('input', { bubbles: true })); cur.focus(); place(); });
-})();
+// A non-sheet overlay (like the menu drawer) that should also close on the Back button.
+export function pushOverlay(remove) {
+  let gone = false;
+  const api = { dispose(fromPop) { if (gone) return false; gone = true; const i = stack.indexOf(api); if (i >= 0) stack.splice(i, 1); remove(); if (api.pend) { api.pend = false; pending = pending.filter((x) => x !== api); } else if (!fromPop) reconcile(); return true; }, close() { api.dispose(); } };
+  stack.push(api);
+  if (ignorePop > 0) { api.pend = true; pending.push(api); } else pushFor(api);
+  return api;
+}
+export const topOverlayOpen = () => stack.length > 0;
+window.__hd = () => [hdepth, stack.length, ignorePop];

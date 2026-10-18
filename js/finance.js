@@ -1,7 +1,7 @@
 // Money logic added in v5: account history, net worth, automatic interest, credit cards,
 // transfer-fee prediction, next-month forecast and behaviour notes. Pure maths, nothing leaves the device.
 import {
-  BASE, CUR, accountMap, balances, catMap, deltaFor, feeOf, findOrAddCategory, live, monthParts,
+  BASE, HOME, homeFx, CUR, accountMap, balances, catMap, deltaFor, feeOf, findOrAddCategory, live, monthParts, partsBetween,
   nowStamp, rateFor, shiftMonth, stamp, thisMonth, daysInMonth, fmt,
 } from './core.js';
 import { totals, baselineMonths } from './insights.js';
@@ -29,13 +29,14 @@ export function accountHistory(db, id) {
 // ---------- net worth ----------
 export function netWorth(db) {
   const bal = balances(db), items = [];
-  let assets = 0, debts = 0, missing = 0;  // assets and debts are totalled below, after every account is in
+  let assets = 0, debts = 0, missing = 0;
   for (const a of live(db.accounts)) {
     if (a.archived && !(bal.get(a.id) || 0)) continue;
-    const r = rateFor(db, a.cur), v = bal.get(a.id) || 0;
+    const r = homeFx(db, a.cur), v = bal.get(a.id) || 0;
     if (!r && v) missing++;
     const base = v * (r || 0);
     items.push({ a, v, base, liab: isLiability(a) || base < 0 });
+    if (isLiability(a) || base < 0) debts += Math.min(0, base) + (isLiability(a) && base > 0 ? 0 : 0); else assets += base;
   }
   debts = Math.abs(sum(items.filter((i) => i.liab && i.base < 0).map((i) => i.base)));
   assets = sum(items.filter((i) => i.base > 0).map((i) => i.base));
@@ -77,68 +78,106 @@ export function postInterest(db, upTo = today()) {
 }
 
 // ---------- credit cards ----------
-// a.limit (credit limit), a.dueDay (1-31), a.stmtDay (statement closes)
-export function cardInfo(db, a, bal) {
-  const owed = Math.max(0, -(bal != null ? bal : (balances(db).get(a.id) || 0)));
-  const limit = a.limit > 0 ? a.limit : 0;
-  const used = limit ? Math.min(100, Math.round(owed / limit * 100)) : null;
-  const t0 = today(), [y, m] = t0.split('-').map(Number);
-  const mk = (yy, mm, day) => `${yy}-${p2(mm)}-${p2(Math.min(day, new Date(yy, mm, 0).getDate()))}`;
-  const gap = (x, z) => Math.round((new Date(x) - new Date(z)) / 864e5);
-  let due = null, days = null, cycle = null;
-  if (a.stmtDay > 0 && a.dueDay > 0) {
-    // billing cycle: the latest statement on or before today, and the due date that follows it
-    let st = mk(y, m, a.stmtDay);
-    if (st > t0) { const p = new Date(y, m - 2, 1); st = mk(p.getFullYear(), p.getMonth() + 1, a.stmtDay); }
-    const [sy, sm] = st.split('-').map(Number);
-    let dd = mk(sy, sm, a.dueDay);
-    if (dd <= st) { const n = new Date(sy, sm, 1); dd = mk(n.getFullYear(), n.getMonth() + 1, a.dueDay); }
-    const stmtBal = Math.max(0, -((balances(db, st + ' 23:59:59').get(a.id)) || 0));
-    // money that came into the card after the statement (payments, partial payments, refunds) reduces what is still due
-    const paid = accountHistory(db, a.id).filter((h) => h.d > 0 && h.t.date > st + ' 23:59:59').reduce((n, h) => n + h.d, 0);
-    const amountDue = Math.max(0, Math.round((stmtBal - paid) * 100) / 100);
-    const toDue = gap(dd, t0);
-    cycle = { stmtDate: st, dueDate: dd, stmtBal, paid: Math.min(paid, stmtBal), amountDue, days: toDue, overdue: toDue < 0 && amountDue > 0 };
-    due = dd; days = toDue;
-  } else if (a.dueDay > 0) {
-    due = mk(y, m, a.dueDay);
-    if (due < t0) { const n = new Date(y, m, 1); due = mk(n.getFullYear(), n.getMonth() + 1, a.dueDay); }
-    days = gap(due, t0);
+// a.limit (credit limit), a.stmtDay (statement closes), a.dueDay (payment due).
+// Buying with a card is an expense when it happens. Paying the card is a transfer INTO the card account, so it lowers
+// what is owed without counting as spending a second time.
+const lastDay = (y, m) => new Date(y, m, 0).getDate();
+const dstr = (y, m, d) => `${y}-${p2(m)}-${p2(Math.min(d, lastDay(y, m)))}`;
+export function cardBilling(db, a, bal0, asOf = today()) {
+  const bal = bal0 != null ? bal0 : (balances(db).get(a.id) || 0);
+  const owed = Math.max(0, -bal);
+  const [y, m, d] = asOf.split('-').map(Number);
+  let stmt = null, nextStmt = null;
+  if (a.stmtDay > 0) {
+    stmt = dstr(y, m, a.stmtDay);
+    if (stmt > asOf) { const pm = m === 1 ? [y - 1, 12] : [y, m - 1]; stmt = dstr(pm[0], pm[1], a.stmtDay); }
+    const sm = +stmt.slice(5, 7), sy = +stmt.slice(0, 4);
+    nextStmt = sm === 12 ? dstr(sy + 1, 1, a.stmtDay) : dstr(sy, sm + 1, a.stmtDay);
   }
-  return { owed, limit, avail: limit ? limit - owed : null, used, due, days, cycle };
+  let owedAtStmt = owed, paid = 0, dueAmount = owed;
+  if (stmt) {
+    owedAtStmt = Math.max(0, -(balances(db, stmt + ' 23:59:59').get(a.id) || 0));
+    for (const t of db.txs) if (!t.deleted && t.kind === 'transfer' && t.toAcct === a.id && t.date.slice(0, 10) > stmt) paid += (t.toAmount != null ? t.toAmount : t.amount) - (t.feeBy === 'to' ? feeOf(t) : 0);
+    dueAmount = Math.min(owed, Math.max(0, owedAtStmt - paid));
+  }
+  let due = null, days = null;
+  if (a.dueDay > 0) {
+    if (stmt) {
+      const sm = +stmt.slice(5, 7), sy = +stmt.slice(0, 4);
+      due = a.dueDay > a.stmtDay ? dstr(sy, sm, a.dueDay) : (sm === 12 ? dstr(sy + 1, 1, a.dueDay) : dstr(sy, sm + 1, a.dueDay));
+    } else {
+      due = dstr(y, m, a.dueDay);
+      if (due < asOf) due = m === 12 ? dstr(y + 1, 1, a.dueDay) : dstr(y, m + 1, a.dueDay);
+    }
+    days = Math.round((new Date(due) - new Date(asOf)) / 864e5);
+  }
+  const limit = a.limit > 0 ? a.limit : 0;
+  return {
+    owed, limit, avail: limit ? limit - owed : null, used: limit ? Math.min(100, Math.round(owed / limit * 100)) : null,
+    stmt, nextStmt, owedAtStmt, paid, dueAmount, due, days, overdue: !!(due && days < 0 && dueAmount > 0),
+  };
 }
+export const cardInfo = (db, a, bal) => cardBilling(db, a, bal);
 
-// cards to remind about: payment still unpaid and due within `window` days (or overdue), or 80%+ of the limit used.
-// Once the statement amount is paid in full the reminder disappears by itself; a partial payment keeps it with the rest.
+// cards that need attention: payment due within `window` days (or overdue) with something still unpaid, or limit nearly used
 export function cardReminders(db, window = 3) {
   const bal = balances(db), out = [];
   for (const a of live(db.accounts)) {
     if (a.type !== 'card' || a.archived) continue;
-    const c = cardInfo(db, a, bal.get(a.id));
-    const need = c.cycle ? c.cycle.amountDue > 0 : c.owed > 0;
-    if (c.due && need && c.days <= window) out.push({ a, ...c });
+    const c = cardBilling(db, a, bal.get(a.id));
+    if (c.due && c.dueAmount > 0.005 && c.days <= window) out.push({ a, ...c });
     else if (c.used != null && c.used >= 80) out.push({ a, ...c, high: true });
   }
   return out.sort((x, y) => (x.days ?? 99) - (y.days ?? 99));
 }
 
-// an .ics file with a yearly-repeating monthly reminder for each card due date
+// an .ics file: a monthly reminder per card, with alerts 3, 2 and 1 days before, in the morning of the due day and that evening
 export function cardIcs(db) {
   const rows = [];
   const stampNow = nowStamp().replace(/[-: ]/g, '').replace(/^(\d{8})(\d{6})$/, '$1T$2');
   for (const a of live(db.accounts)) {
     if (a.type !== 'card' || !(a.dueDay > 0) || a.archived) continue;
-    const c = cardInfo(db, a);
+    const c = cardBilling(db, a);
     const d0 = (c.due || today()).replace(/-/g, '');
-    rows.push('BEGIN:VEVENT', `UID:sukli-card-${a.id}@sukli`, `DTSTAMP:${stampNow}`, `DTSTART;VALUE=DATE:${d0}`,
-      `RRULE:FREQ=MONTHLY;BYMONTHDAY=${a.dueDay}`, `SUMMARY:Pay credit card: ${String(a.name).replace(/[,;\n]/g, ' ')}`,
-      'BEGIN:VALARM', 'TRIGGER:-P3D', 'ACTION:DISPLAY', 'DESCRIPTION:Credit card payment due in 3 days', 'END:VALARM',
-      'BEGIN:VALARM', 'TRIGGER:-P2D', 'ACTION:DISPLAY', 'DESCRIPTION:Credit card payment due in 2 days', 'END:VALARM',
-      'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', 'DESCRIPTION:Credit card payment due tomorrow', 'END:VALARM',
-      'BEGIN:VALARM', 'TRIGGER:-P0D', 'ACTION:DISPLAY', 'DESCRIPTION:Credit card payment due today', 'END:VALARM', 'END:VEVENT');
+    const alarm = (t, text) => ['BEGIN:VALARM', `TRIGGER:${t}`, 'ACTION:DISPLAY', `DESCRIPTION:${text}`, 'END:VALARM'];
+    const name = String(a.name).replace(/[,;\n]/g, ' ');
+    rows.push('BEGIN:VEVENT', `UID:sukli-card-${a.id}@sukli`, `DTSTAMP:${stampNow}`, `DTSTART:${d0}T090000`, `DTEND:${d0}T093000`,
+      `RRULE:FREQ=MONTHLY;BYMONTHDAY=${a.dueDay}`, `SUMMARY:Pay credit card: ${name}`,
+      ...alarm('-P3D', `${name} payment due in 3 days`), ...alarm('-P2D', `${name} payment due in 2 days`), ...alarm('-P1D', `${name} payment due tomorrow`),
+      ...alarm('PT0S', `${name} payment due today`), ...alarm('PT11H', `${name} payment due tonight, before midnight`), 'END:VEVENT');
   }
   if (!rows.length) return '';
   return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Sukli//EN', ...rows, 'END:VCALENDAR'].join('\r\n');
+}
+
+// groups for account pickers and the Accounts page
+export const TYPE_GROUP = {
+  bank: ['Banks', 1], ewallet: ['E-wallets', 2], crypto: ['Crypto exchanges and wallets', 3], cash: ['Cash', 4],
+  invest: ['Investments', 5], asset: ['Assets', 6], card: ['Credit cards', 7], loan: ['Loans and money owed', 8], other: ['Other', 9],
+};
+export const typeGroupName = (t) => (TYPE_GROUP[t] || TYPE_GROUP.other)[0];
+export const typeGroupOrder = (t) => (TYPE_GROUP[t] || TYPE_GROUP.other)[1];
+
+// ---------- transfers you make again and again ----------
+export function transferHints(db) {
+  const byName = new Map(), routes = new Map();
+  const list = live(db.txs).filter((t) => t.kind === 'transfer').sort((x, y) => (x.date < y.date ? -1 : 1));
+  const med = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : 0; };
+  for (const t of list) {
+    const nk = (t.name || '').trim().toLowerCase();
+    if (nk) {
+      const e = byName.get(nk) || { name: t.name.trim(), n: 0, from: new Map(), to: new Map(), amts: [], last: '' };
+      e.n++; e.last = t.date; e.from.set(t.acct, (e.from.get(t.acct) || 0) + 1); e.to.set(t.toAcct, (e.to.get(t.toAcct) || 0) + 1); e.amts.push(t.amount); byName.set(nk, e);
+    }
+    const rk = t.acct + '>' + t.toAcct;
+    const r = routes.get(rk) || { from: t.acct, to: t.toAcct, n: 0, amts: [], last: '', names: new Map() };
+    r.n++; r.last = t.date; r.amts.push(t.amount); if (t.name) r.names.set(t.name.trim(), (r.names.get(t.name.trim()) || 0) + 1); routes.set(rk, r);
+  }
+  const top = (m) => [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  return {
+    names: [...byName.values()].map((e) => ({ name: e.name, n: e.n, from: top(e.from), to: top(e.to), amount: med(e.amts), last: e.last })),
+    routes: [...routes.values()].map((r) => ({ from: r.from, to: r.to, n: r.n, amount: med(r.amts), last: r.last, name: top(r.names) || '' })),
+  };
 }
 
 // ---------- transfer fees ----------
@@ -182,7 +221,7 @@ export function forecastNext(db, ym = thisMonth()) {
 
 // ---------- behaviour notes: warnings, tips and a bit of praise ----------
 export function behaviorNotes(db, ym = thisMonth()) {
-  const out = [], money = (n) => fmt(n, BASE, { round: true });
+  const out = [], money = (n) => fmt(n, HOME, { round: true });
   const f = forecastNext(db, ym);
   if (!f.months.length) return [{ tone: 'note', text: 'Add a month or two of entries and Sukli will start forecasting.' }];
   const [last, ...older] = [shiftMonth(ym, -1), shiftMonth(ym, -2), shiftMonth(ym, -3)];
@@ -214,4 +253,65 @@ export function behaviorNotes(db, ym = thisMonth()) {
   const room = inc > 0 ? inc - f.total : 0;
   if (room > 0) out.push({ tone: 'good', text: `Reward budget: if you keep to the forecast you could spend up to ${money(Math.min(room * 0.2, room))} on something you want and still stay positive.` });
   return out.slice(0, 6);
+}
+
+// ---------- spending safety: warnings while you enter an expense ----------
+export const SAFETY_DEFAULT = { on: true, mode: 'month', limit: 0, warnPct: 80, cardPct: 50, essentials: [] };
+export const safetyCfg = (db) => ({ ...SAFETY_DEFAULT, ...(db.settings.safety || {}) });
+const ESSENTIAL_RX = /food|household|util|transport|rent|health|grocer|medical|insur/i;
+export function safetyCheck(db, { amount, acctId, kind = 'expense', date, group = '' }) {
+  const cfg = safetyCfg(db);
+  if (!cfg.on || kind !== 'expense' || !(amount > 0)) return [];
+  const money = (n) => fmt(n, HOME, { round: true, force: true });
+  const a = db.accounts.find((x) => x.id === acctId); if (!a) return [];
+  const day = (date || nowStamp()).slice(0, 10);
+  let from, to;
+  if (cfg.mode === 'rolling') { to = day; from = addDays(day, -29); } else { from = day.slice(0, 7) + '-01'; to = day.slice(0, 7) + '-31'; }
+  const parts = partsBetween(db, from, to);
+  const income = sum(parts.filter((p) => p.kind === 'income').map((p) => p.v));
+  const spent = sum(parts.filter((p) => p.kind === 'expense').map((p) => p.v));
+  const amt = amount * (a.cur === HOME ? 1 : (homeFx(db, a.cur) || 0));
+  const isCard = a.type === 'card';
+  const bal = balances(db);
+  let cash = 0, cardOwed = 0, dueSoon = 0;
+  for (const x of live(db.accounts)) {
+    if (x.archived) continue;
+    const v = (bal.get(x.id) || 0) * (homeFx(db, x.cur) || 0);
+    if (x.type === 'card') { cardOwed += Math.max(0, -v); const b = cardBilling(db, x, bal.get(x.id)); if (b.due && b.dueAmount > 0 && b.days <= 14) dueSoon += b.dueAmount * (homeFx(db, x.cur) || 0); }
+    else if (['cash', 'bank', 'ewallet'].includes(x.type) && x.include) cash += Math.max(0, v);
+  }
+  const cardInPeriod = sum(parts.filter((p) => p.kind === 'expense' && (db.accounts.find((x) => x.id === p.t.acct) || {}).type === 'card').map((p) => p.v));
+  const cardAfter = cardOwed + (isCard ? amt : 0);
+  const out = [];
+  const add = (level, text) => out.push({ level, text });
+  const after = spent + amt;
+  if (cfg.limit > 0) {
+    if (after > cfg.limit) add('danger', `This puts you ${money(after - cfg.limit)} over your ${money(cfg.limit)} spending limit for this period.`);
+    else if (after >= cfg.limit * cfg.warnPct / 100) add('warn', `You are at ${Math.round(after / cfg.limit * 100)}% of your ${money(cfg.limit)} spending limit (${money(cfg.limit - after)} left after this).`);
+  }
+  const bud = db.budgets.find((x) => !x.deleted && x.group === group);
+  if (bud && bud.amount > 0 && cfg.mode === 'month') {
+    const g = sum(parts.filter((p) => p.kind === 'expense' && p.group === group).map((p) => p.v)) + amt;
+    if (g > bud.amount) add('danger', `${group} would be ${money(g - bud.amount)} over its ${money(bud.amount)} budget.`);
+    else if (g >= bud.amount * cfg.warnPct / 100) add('warn', `${group} would reach ${Math.round(g / bud.amount * 100)}% of its budget.`);
+  }
+  if (income > 0 && after > income) add('danger', `Spending this period would be ${money(after)}, more than the ${money(income)} that came in. You may need to cut back or use savings.`);
+  else if (income === 0 && after > 0 && cfg.mode === 'rolling') add('info', 'No income is recorded in the last 30 days, so spending comes out of savings.');
+  if (income > 0 && cardAfter > income) add('danger', `Credit card balances would total ${money(cardAfter)}, more than this period’s income (${money(income)}). Reduce card spending so the bills do not eat into savings.`);
+  else if (income > 0 && cardAfter > income * cfg.cardPct / 100) add('warn', `Credit card balances would be ${money(cardAfter)}, ${Math.round(cardAfter / income * 100)}% of this period’s income (your warning is ${cfg.cardPct}%).`);
+  const monthsBack = [1, 2, 3].map((i) => shiftMonth(day.slice(0, 7), -i));
+  const eg = cfg.essentials && cfg.essentials.length ? (g) => cfg.essentials.includes(g) : (g) => ESSENTIAL_RX.test(g);
+  const essMonthly = sum(monthsBack.map((m) => sum(monthParts(db, m).filter((p) => p.kind === 'expense' && eg(p.group)).map((p) => p.v)))) / 3;
+  const cashAfter = cash - (isCard ? 0 : amt) - dueSoon;
+  const reserve = essMonthly * 14 / 30;
+  if (dueSoon > 0 && cashAfter < 0) add('danger', `Card payments due in the next 14 days (${money(dueSoon)}) are more than the cash you would have left (${money(cash - (isCard ? 0 : amt))}).`);
+  else if (dueSoon > 0 && reserve > 0 && cashAfter < reserve) add('warn', `After upcoming card payments (${money(dueSoon)}) you would have about ${money(cashAfter)} of cash, under two weeks of essentials (about ${money(reserve)}).`);
+  else if (!dueSoon && reserve > 0 && cash - (isCard ? 0 : amt) < reserve) add('warn', `Cash would fall to ${money(cash - (isCard ? 0 : amt))}, under two weeks of essentials (about ${money(reserve)}).`);
+  if (income > 0) {
+    const earlier = Math.max(0, cardOwed - cardInPeriod);   // card bills from before this period still to be paid
+    const shortfall = after + earlier - income;
+    if (shortfall > 0 && !out.some((x) => /more than the .* that came in/.test(x.text))) add(shortfall > cash ? 'danger' : 'warn', `With earlier card bills (${money(earlier)}), spending would exceed income by about ${money(shortfall)}, which would have to come from savings.`);
+  }
+  const rank = { danger: 0, warn: 1, info: 2 };
+  return out.sort((x, y) => rank[x.level] - rank[y.level]).slice(0, 4);
 }

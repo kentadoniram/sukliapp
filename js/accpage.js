@@ -1,6 +1,7 @@
 // Accounts page (grouped and sorted), account detail with history, net worth, interest and credit-card details.
+import { softDelete } from './core.js';
 import {
-  get, commit, BUCKETS, bucketOf, uid, stamp, nowStamp, rateFor, fmt, BASE, CUR, balances, catMap, accountMap, live, groupColor, groupLetter,
+  get, commit, uid, stamp, nowStamp, rateFor, fmt, BASE, HOME, homeFx, allCurrencies, curName, CUR, balances, catMap, accountMap, live, groupColor, groupLetter,
   adjustmentCategory, shiftMonth, thisMonth, monthLabel, monthParts, deltaFor, dayLabel,
 } from './core.js';
 import { accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, today, postInterest } from './finance.js';
@@ -8,9 +9,11 @@ import { esc, ic, ACT, sheet, toast, download, confirmDialog } from './ui.js';
 import { applyHide } from './appearance.js';
 import { money, eq, hdr, coll, ui } from './screens.js';
 import { openEntry } from './entry.js';
+import { favCurs, openCurrencyPicker, flagOf } from './curpicker.js';
+import { openDatePicker } from './datepicker.js';
 
-export const typeNames = { cash: 'Cash', bank: 'Bank', ewallet: 'E-wallet / card balance', card: 'Credit card', crypto: 'Crypto', invest: 'Investment', asset: 'Asset (property, vehicle…)', loan: 'Loan I owe (liability)', receivable: 'Money owed to me (receivable)', other: 'Other' };
-const typeOrder = ['cash', 'bank', 'ewallet', 'crypto', 'invest', 'asset', 'other', 'receivable', 'card', 'loan'];
+export const typeNames = { cash: 'Cash', bank: 'Bank', ewallet: 'E-wallet / card balance', card: 'Credit card', crypto: 'Crypto', invest: 'Investment', asset: 'Asset (property, vehicle…)', loan: 'Loan or money owed', other: 'Other' };
+const typeOrder = ['cash', 'bank', 'ewallet', 'crypto', 'invest', 'asset', 'other', 'card', 'loan'];
 
 // ---- view choices (remembered on this device) ----
 const VKEY = 'sukli-acctview';
@@ -19,7 +22,7 @@ const saveView = () => { try { localStorage.setItem(VKEY, JSON.stringify(view));
 const render = () => window.dispatchEvent(new Event('sukli-render'));
 const num = (s) => parseFloat(String(s ?? '').replace(/,/g, ''));
 const sum = (a) => a.reduce((s, x) => s + x, 0);
-const baseOf = (db, a, v) => v * (rateFor(db, a.cur) || 0);
+const baseOf = (db, a, v) => v * (homeFx(db, a.cur) || 0);
 
 function spendable(db, bal) {
   let total = 0;
@@ -29,16 +32,14 @@ function spendable(db, bal) {
 
 // banner used on Home and Accounts: cards due soon, cards near their limit
 export function reminderBanner(db) {
-  const win = db.settings.remindDays || 3, list = cardReminders(db, win);
+  const list = cardReminders(db, db.settings.remindDays || 3);
   if (!list.length) return '';
   return `<section class="remind" aria-label="Credit card reminders">${list.map((r) => {
-    const cy = r.cycle, due = !r.high && r.due;
-    const when = r.days < 0 ? `overdue by ${-r.days} day${r.days === -1 ? '' : 's'}` : r.days === 0 ? 'due today' : r.days === 1 ? 'due tomorrow' : `due in ${r.days} days`;
-    const sub = !due ? `Owed ${money(r.owed, r.a.cur)} of ${money(r.limit, r.a.cur)}`
-      : cy ? `Pay ${money(cy.amountDue, r.a.cur)} by ${cy.dueDate}${cy.paid > 0 ? ` · ${money(cy.paid, r.a.cur)} already paid` : ''}`
-      : `Owed ${money(r.owed, r.a.cur)}${r.limit ? ` · ${r.used}% of limit used` : ''}`;
+    const due = r.due && r.dueAmount > 0.005 && (r.days <= (db.settings.remindDays || 3));
+    const when = r.overdue ? `was due ${dayLabel(r.due + ' 00:00:00')}` : r.days === 0 ? 'is due today, until midnight' : r.days === 1 ? 'is due tomorrow' : `is due in ${r.days} days`;
     return `<button class="rem ${due ? (r.days <= 1 ? 'urgent' : '') : 'high'}" data-act="acct" data-id="${r.a.id}">
-      <i>${ic('wallet')}</i><span><strong>${esc(r.a.name)} ${due ? when : `is ${r.used}% of its limit`}</strong><small>${sub}</small></span>${ic('right')}</button>`;
+      <i>${ic('wallet')}</i><span><strong>${esc(r.a.name)} ${due ? when : `is ${r.used}% of its limit`}</strong>
+      <small>${due ? `Pay ${money(r.dueAmount, r.a.cur)}${r.dueAmount < r.owed - 0.005 ? ` (total owed ${money(r.owed, r.a.cur)})` : ''}` : `Owed ${money(r.owed, r.a.cur)} of ${money(r.limit, r.a.cur)}`}</small></span>${ic('right')}</button>`;
   }).join('')}</section>`;
 }
 
@@ -55,15 +56,11 @@ export function accounts(db) {
   if (view.group === 'cur') {
     const m = new Map(); for (const a of shown) { if (!m.has(a.cur)) m.set(a.cur, []); m.get(a.cur).push(a); }
     groups = [...m.entries()].map(([k, list]) => ({ key: 'cur-' + k, title: k, list, native: k, total: sum(list.map((a) => bal.get(a.id) || 0)), base: sum(list.map(val)) }))
-      .sort((a, b) => (a.title === BASE ? -1 : b.title === BASE ? 1 : b.base - a.base));
-  } else if (view.group === 'exchange') {
-    const m = new Map(); for (const a of shown) { const k = a.exchange || 'No exchange'; if (!m.has(k)) m.set(k, []); m.get(k).push(a); }
-    groups = [...m.entries()].map(([k, list]) => ({ key: 'ex-' + k, title: k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)) }))
-      .sort((a, b) => (a.title === 'No exchange') - (b.title === 'No exchange') || b.base - a.base);
+      .sort((a, b) => (a.title === HOME ? -1 : b.title === HOME ? 1 : b.base - a.base));
   } else if (view.group === 'type') {
-    const m = new Map(); for (const a of shown) { const k = bucketOf(a.type).key; if (!m.has(k)) m.set(k, []); m.get(k).push(a); }
-    groups = [...m.entries()].map(([k, list]) => ({ key: 'type-' + k, title: BUCKETS.find((x) => x.key === k).title, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)), t: k }))
-      .sort((a, b) => BUCKETS.findIndex((x) => x.key === a.t) - BUCKETS.findIndex((x) => x.key === b.t));
+    const m = new Map(); for (const a of shown) { if (!m.has(a.type)) m.set(a.type, []); m.get(a.type).push(a); }
+    groups = [...m.entries()].map(([k, list]) => ({ key: 'type-' + k, title: typeNames[k] || k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)), t: k }))
+      .sort((a, b) => (typeOrder.indexOf(a.t) - typeOrder.indexOf(b.t)));
   } else groups = [{ key: 'all', title: 'All accounts', list: shown, native: null, total: sum(shown.map(val)), base: sum(shown.map(val)) }];
   const sp = spendable(db, bal);
   const rowFor = (a) => {
@@ -88,7 +85,7 @@ export function accounts(db) {
       ${nw.assets + nw.debts > 0 ? `<span class="nwbar" role="img" aria-label="Assets against debts"><i style="width:${Math.round(nw.assets / (nw.assets + nw.debts) * 100)}%"></i></span>` : ''}</button>
       <button class="nwsp" data-act="acct-sp"><span>Spendable now</span><b>${money(sp)}</b></button></section>
     ${nw.missing ? `<p class="hint">Some accounts have no exchange rate yet, so they are left out of these totals. Set rates in Settings.</p>` : ''}
-    <div class="aview">${segs('group', [['cur', 'Currency'], ['type', 'Account type'], ['exchange', 'Exchange'], ['none', 'None']], view.group)}
+    <div class="aview">${segs('group', [['cur', 'Currency'], ['type', 'Category'], ['none', 'None']], view.group)}
       ${segs('sort', [['high', 'High → low'], ['low', 'Low → high'], ['name', 'A–Z']], view.sort)}</div>
     ${sections || '<p class="empty">No accounts yet. Add one, or import your Bluecoins export in Settings.</p>'}
     ${hidden ? `<p class="muted center">${hidden} hidden ${hidden === 1 ? 'account' : 'accounts'} (archived).</p>` : ''}`;
@@ -122,7 +119,7 @@ function openNetWorth() {
   }).join('');
   const rowOf = (i) => `<button class="row acct" data-act="acct" data-id="${i.a.id}"><i class="badge sm" style="background:${groupColor(i.a.type)}">${groupLetter(typeNames[i.a.type] || i.a.type)}</i>
     <span class="rmain"><strong>${esc(i.a.name)}</strong><small>${esc(typeNames[i.a.type] || i.a.type)}</small></span>
-    <span class="ramt"><b class="${i.base < 0 ? 'neg' : ''}">${money(i.base)}</b>${i.a.cur !== BASE ? `<small>${money(i.v, i.a.cur)}</small>` : ''}</span></button>`;
+    <span class="ramt"><b class="${i.base < 0 ? 'neg' : ''}">${money(i.base)}</b>${i.a.cur !== HOME ? `<small>${money(i.v, i.a.cur)}</small>` : ''}</span></button>`;
   s.el.querySelector('#nw').innerHTML = `
     <div class="gdhead"><b class="big ${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b><span class="muted">Assets ${money(nw.assets)} − debts ${money(nw.debts)}, in ${BASE} at your current rates.</span></div>
     <h3>Last 12 months <small class="muted">(today’s rates · tap a bar)</small></h3>
@@ -141,17 +138,18 @@ ACT['acct-new'] = () => openAccount(null);
 export function openAccountDetail(id) {
   const s = sheet('<div id="ad"></div>', { title: 'Account', wide: true });
   const root = s.el.querySelector('#ad');
-  const st = { range: 90, more: 25, f: 'all', from: '', to: '' };
+  const st = { range: 90, more: 25, from: '', to: '', type: 'all' };
   const draw = () => {
     const db = get(), a = db.accounts.find((x) => x.id === id);
     if (!a || a.deleted) { s.close(); return; }
-    const bal = balances(db).get(id) || 0, r = rateFor(db, a.cur);
+    const bal = balances(db).get(id) || 0, r = homeFx(db, a.cur);
     const hist = accountHistory(db, id);                         // newest first
-    const kindOf = (h) => (h.t.kind === 'transfer' ? (h.d >= 0 ? 'tin' : 'tout') : (h.d >= 0 ? 'in' : 'out'));
-    const inRange = hist.filter((h) => (!st.from || h.t.date.slice(0, 10) >= st.from) && (!st.to || h.t.date.slice(0, 10) <= st.to));
-    const view = inRange.filter((h) => st.f === 'all' || kindOf(h) === st.f);
-    const sumK = (k) => sum(inRange.filter((h) => kindOf(h) === k).map((h) => Math.abs(h.d)));
-    const closing = inRange.length ? inRange[0].bal : bal, opening = inRange.length ? inRange[inRange.length - 1].bal - inRange[inRange.length - 1].d : bal;
+    const inRange = (h) => (!st.from || h.t.date.slice(0, 10) >= st.from) && (!st.to || h.t.date.slice(0, 10) <= st.to);
+    const typeOk = (h) => st.type === 'all' || (st.type === 'in' && h.d > 0 && h.t.kind !== 'transfer') || (st.type === 'out' && h.d < 0 && h.t.kind !== 'transfer') || (st.type === 'tr' && h.t.kind === 'transfer');
+    const ranged = hist.filter(inRange), shownH = ranged.filter(typeOk);
+    const rsum = { inc: 0, exp: 0, tin: 0, tout: 0 };
+    for (const h of ranged) { if (h.t.kind === 'transfer') { if (h.d > 0) rsum.tin += h.d; else rsum.tout -= h.d; } else if (h.d > 0) rsum.inc += h.d; else rsum.exp -= h.d; }
+    const closeBal = ranged.length ? ranged[0].bal : null, openBal = ranged.length ? ranged[ranged.length - 1].bal - ranged[ranged.length - 1].d : null;
     const cm = catMap(db);
     const ym = thisMonth();
     const monthRows = hist.filter((h) => h.t.date.startsWith(ym));
@@ -177,7 +175,7 @@ export function openAccountDetail(id) {
     const card = a.type === 'card' ? cardInfo(db, a, bal) : null;
     const earned = a.apy > 0 ? sum(hist.filter((h) => h.t.auto).map((h) => h.d)) : 0;
     const perDay = a.apy > 0 && bal > 0 ? bal * a.apy / 100 / 365 : 0;
-    const rowsHtml = view.slice(0, st.more).map((h) => {
+    const rowsHtml = shownH.slice(0, st.more).map((h) => {
       const t = h.t, c = cm.get(t.cat), tr = t.kind === 'transfer';
       const other = tr ? (t.acct === id ? (db.accounts.find((x) => x.id === t.toAcct) || {}).name : (db.accounts.find((x) => x.id === t.acct) || {}).name) : '';
       const title = t.name || (c ? c.name : tr ? 'Transfer' : 'Entry');
@@ -188,7 +186,7 @@ export function openAccountDetail(id) {
     }).join('');
     root.innerHTML = `
       <div class="gdhead"><span class="muted">${esc(typeNames[a.type] || a.type)} · ${a.cur}</span><b class="big ${bal < 0 ? 'neg' : ''}">${money(bal, a.cur)}</b>
-        ${a.cur !== BASE && r ? `<span class="muted">≈ ${money(bal * r)} at ${fmt(r, BASE).replace('•••••', '•••••')} per ${a.cur}</span>` : ''}<strong class="adname">${esc(a.name)}</strong></div>
+        ${a.cur !== HOME && r ? `<span class="muted">≈ ${money(bal * r)} at ${fmt(r, HOME)} per ${a.cur}</span>` : ''}<strong class="adname">${esc(a.name)}</strong></div>
       <div class="btnrow tight"><button class="btn sm" data-ad="add">Add entry</button>
         ${['asset', 'invest', 'other'].includes(a.type) ? '<button class="btn sm ghost" data-ad="reval">Update value</button>' : ''}
         <button class="btn sm ghost" data-ad="edit">Edit</button></div>
@@ -200,23 +198,24 @@ export function openAccountDetail(id) {
       ${card ? `<div class="cardbox"><h3>Credit card</h3>
         <div class="facts"><div><span>Owed</span><b>${money(card.owed, a.cur)}</b></div><div><span>Limit</span><b>${card.limit ? money(card.limit, a.cur) : '—'}</b></div><div><span>Available</span><b>${card.avail != null ? money(Math.max(0, card.avail), a.cur) : '—'}</b></div></div>
         ${card.limit ? `<span class="util big ${card.used >= 80 ? 'hot' : card.used >= 50 ? 'mid' : ''}" role="img" aria-label="${card.used}% used"><i style="width:${card.used}%"></i></span><p class="hint">${card.used}% of the limit is used. Staying under about 30% is easier on your credit.</p>` : '<p class="hint">Add the credit limit in Edit to see how much is used.</p>'}
-        ${card.due ? `<p>${card.owed > 0 ? `Next payment: <strong>${dayLabel(card.due + ' 00:00:00')}</strong> (${card.days === 0 ? 'today' : card.days + ' days'}).` : `Next due date ${dayLabel(card.due + ' 00:00:00')}, nothing owed now.`}</p><button class="btn sm ghost" data-ad="ics">Add reminders to my calendar (.ics)</button>` : '<p class="hint">Add the due day in Edit to get reminders.</p>'}</div>` : ''}
+        ${card.stmt ? `<p class="hint">Statement date: <strong>${dayLabel(card.stmt + ' 00:00:00')}</strong>. Owed at the statement ${money(card.owedAtStmt, a.cur)}, paid since ${money(card.paid, a.cur)}.</p>` : '<p class="hint">Add the statement day in Edit to track each billing cycle.</p>'}
+        ${card.due ? `<p>${card.dueAmount > 0.005 ? `Amount due: <strong>${money(card.dueAmount, a.cur)}</strong> by <strong>${dayLabel(card.due + ' 00:00:00')}</strong> (${card.overdue ? 'overdue' : card.days === 0 ? 'today, until midnight' : card.days + ' days'}).` : `Paid in full for this cycle. Next due date ${dayLabel(card.due + ' 00:00:00')}.`}</p>` : '<p class="hint">Add the due day in Edit to get reminders.</p>'}
+        <div class="btnrow tight">${card.owed > 0.005 ? '<button class="btn sm" data-ad="pay">Pay card</button>' : ''}${card.due ? '<button class="btn sm ghost" data-ad="ics">Add reminders to my calendar (.ics)</button>' : ''}</div>
+        <p class="hint">Paying moves money from one of your accounts into the card. It lowers what you owe and is not counted as spending a second time.</p></div>` : ''}
       ${a.apy > 0 ? `<div class="cardbox"><h3>Interest</h3><p>${a.apy}% a year${perDay ? `, about <strong>${money(perDay, a.cur)}</strong> a day on today’s balance` : ''}. Earned so far in Sukli: <strong>${money(earned, a.cur)}</strong>.</p>
         <p class="hint">Approximate: Sukli adds one entry a day (category ${a.type === 'crypto' ? 'Crypto earned' : 'Interest'}). Set the rate your app shows; edit or delete any entry that differs.</p></div>` : ''}
-      ${(() => { if (a.type !== 'card') return ''; const c = cardInfo(db, a, bal), cy = c.cycle; return `<h3>Billing</h3><div class="facts"><div><span>Owed now</span><b>${money(c.owed, a.cur)}</b></div>${cy ? `<div><span>Statement ${esc(cy.stmtDate)}</span><b>${money(cy.stmtBal, a.cur)}</b></div><div><span>Still to pay by ${esc(cy.dueDate)}</span><b class="${cy.overdue ? 'neg' : ''}">${money(cy.amountDue, a.cur)}</b></div>` : '<div><span>Set the statement and due days (Edit) to track each bill</span></div>'}</div>${cy ? `<p class="hint">${cy.amountDue <= 0 ? 'This bill is paid in full.' : cy.paid > 0 ? `${money(cy.paid, a.cur)} paid so far.` : 'Pay it with a Transfer from your bank to this card: it lowers what you owe without counting as a second expense.'}</p>` : ''}`; })()}
-      <h3>Review a period</h3>
-      <div class="two"><label class="field"><span>From</span><input type="date" data-adin="from" value="${esc(st.from)}" data-noclear="1"></label><label class="field"><span>To</span><input type="date" data-adin="to" value="${esc(st.to)}" data-noclear="1"></label></div>
-      <div class="facts"><div><span>Income</span><b class="in">${money(sumK('in'), a.cur)}</b></div><div><span>Expenses</span><b>${money(sumK('out'), a.cur)}</b></div><div><span>Net</span><b>${money(sumK('in') - sumK('out') + sumK('tin') - sumK('tout'), a.cur)}</b></div></div>
-      <div class="facts"><div><span>Transfers in</span><b class="in">${money(sumK('tin'), a.cur)}</b></div><div><span>Transfers out</span><b>${money(sumK('tout'), a.cur)}</b></div><div><span>Balance</span><b>${money(opening, a.cur)} → ${money(closing, a.cur)}</b></div></div>
-      <div class="rangebar seg sm" role="group" aria-label="Show">${[['all', 'All'], ['in', 'Income'], ['out', 'Expenses'], ['tin', 'Transfer in'], ['tout', 'Transfer out']].map(([v, l]) => `<button type="button" data-ad="kind" data-v="${v}" class="${st.f === v ? 'on' : ''}" aria-pressed="${st.f === v}">${l}</button>`).join('')}</div>
-      <h3>History</h3><div class="rows plain">${rowsHtml || '<p class="empty">No entries yet.</p>'}</div>
-      ${view.length > st.more ? `<button class="btn ghost wide" data-ad="more">Show more (${view.length - st.more} left)</button>` : ''}`;
+      <h3>History</h3>
+      <div class="histfilter"><div class="seg sm" role="group" aria-label="Show">${[['all', 'All'], ['in', 'Money in'], ['out', 'Money out'], ['tr', 'Transfers']].map(([v, l]) => `<button type="button" data-ad="type" data-v="${v}" class="${st.type === v ? 'on' : ''}" aria-pressed="${st.type === v}">${l}</button>`).join('')}</div>
+        <div class="seg sm" role="group" aria-label="Period">${[['m', 'This month'], ['p', 'Last month'], ['y', 'This year'], ['', 'All time']].map(([v, l]) => `<button type="button" data-ad="preset" data-v="${v}" class="${(!st.from && !st.to && v === '') ? 'on' : ''}">${l}</button>`).join('')}</div>
+        <div class="two"><button type="button" class="whenbtn" data-ad="from"><span>${st.from ? esc(st.from) : 'From: any date'}</span>${ic('calendar')}</button><button type="button" class="whenbtn" data-ad="to"><span>${st.to ? esc(st.to) : 'To: any date'}</span>${ic('calendar')}</button></div></div>
+      ${st.from || st.to || st.type !== 'all' ? `<div class="facts"><div><span>Income / in</span><b class="in">${money(rsum.inc, a.cur)}</b></div><div><span>Expenses / out</span><b>${money(rsum.exp, a.cur)}</b></div><div><span>Transfers in</span><b>${money(rsum.tin, a.cur)}</b></div><div><span>Transfers out</span><b>${money(rsum.tout, a.cur)}</b></div><div><span>Opening</span><b>${openBal == null ? '—' : money(openBal, a.cur)}</b></div><div><span>Closing</span><b>${closeBal == null ? '—' : money(closeBal, a.cur)}</b></div></div>` : ''}
+      <div class="rows plain">${rowsHtml || '<p class="empty">No entries for this filter.</p>'}</div>
+      ${shownH.length > st.more ? `<button class="btn ghost wide" data-ad="more">Show more (${shownH.length - st.more} left)</button>` : ''}`;
   };
   draw();
   const un = (() => { const f = () => draw(); window.addEventListener('sukli-render', f); return () => window.removeEventListener('sukli-render', f); })();
   const oldClose = s.close; s.close = () => { un(); oldClose(); };
   s.root.querySelector('[data-close]').onclick = () => s.close();
-  root.addEventListener('change', (e) => { const k = e.target.dataset && e.target.dataset.adin; if (k) { st[k] = e.target.value; st.more = 25; draw(); } });
   root.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-ad]'); if (!b) return;
     const db = get(), a = db.accounts.find((x) => x.id === id);
@@ -225,7 +224,22 @@ export function openAccountDetail(id) {
       case 'edit': openAccount(id); break;
       case 'range': st.range = +b.dataset.v; draw(); break;
       case 'more': st.more += 25; draw(); break;
-      case 'kind': st.f = b.dataset.v; st.more = 25; draw(); break;
+      case 'type': st.type = b.dataset.v; st.more = 25; draw(); break;
+      case 'preset': {
+        const v = b.dataset.v, ym = thisMonth(); st.more = 25;
+        if (v === 'm') { st.from = ym + '-01'; st.to = ym + '-31'; }
+        else if (v === 'p') { const pm = shiftMonth(ym, -1); st.from = pm + '-01'; st.to = pm + '-31'; }
+        else if (v === 'y') { st.from = ym.slice(0, 4) + '-01-01'; st.to = ym.slice(0, 4) + '-12-31'; }
+        else { st.from = ''; st.to = ''; }
+        draw(); break;
+      }
+      case 'from': openDatePicker((st.from || today()) + ' 00:00:00', (v) => { st.from = v.slice(0, 10); if (st.to && st.to < st.from) st.to = st.from; draw(); }, { title: 'From date', time: false }); break;
+      case 'to': openDatePicker((st.to || today()) + ' 00:00:00', (v) => { st.to = v.slice(0, 10); if (st.from && st.to < st.from) st.from = st.to; draw(); }, { title: 'To date', time: false }); break;
+      case 'pay': {
+        const other = db.accounts.find((x) => !x.deleted && !x.archived && x.type !== 'card' && x.cur === a.cur) || db.accounts.find((x) => !x.deleted && !x.archived && x.type !== 'card');
+        const c2 = cardInfo(db, a, balances(db).get(id));
+        openEntry({ preset: { kind: 'transfer', toAcct: id, acct: other ? other.id : '', name: 'Card payment', amount: String(Math.round((c2.dueAmount > 0.005 ? c2.dueAmount : c2.owed) * 100) / 100) } }); break;
+      }
       case 'ics': { const t = cardIcs(db); if (t) { download('sukli-card-reminders.ics', t, 'text/calendar'); toast('Open the file to add the reminders to your calendar app.'); } break; }
       case 'reval': {
         const cur = balances(db).get(id) || 0;
@@ -249,22 +263,20 @@ function askValue(a, cur) {
       <p class="hint">The change is recorded as a value update, and left out of income and spending.</p>
       <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">Update</button></div></form>`, { title: 'Update value', onClose: () => res(null) });
     s.el.querySelector('[data-no]').onclick = () => s.close();
-    s.el.querySelector('form').onsubmit = (e) => { e.preventDefault(); const v = num(e.target.v.value); if (!isFinite(v)) return; s.quiet(); document.body.classList.remove('noscroll'); res(v); };
+    s.el.querySelector('form').onsubmit = (e) => { e.preventDefault(); const v = num(e.target.v.value); if (!isFinite(v)) return; s.dispose(); res(v); };
   });
 }
 
 // ---------- add / edit an account ----------
 export function openAccount(id) {
   const db = get();
-  const a = id ? db.accounts.find((x) => x.id === id) : { name: '', cur: BASE, type: 'bank', open: 0, include: true, archived: false };
+  const a = id ? db.accounts.find((x) => x.id === id) : { name: '', cur: HOME, type: 'bank', open: 0, include: true, archived: false };
   const used = id && db.txs.some((t) => !t.deleted && (t.acct === id || t.toAcct === id));
   const bal = id ? (balances(db).get(id) || 0) : 0;
-  const curs = [...new Set([...Object.keys(CUR), ...db.accounts.map((x) => x.cur)])];
+  const curs = [...new Set([...favCurs(), ...db.accounts.map((x) => x.cur), ...allCurrencies()])];
   const s = sheet(`<form id="acct-form">
     <label class="field"><span>Name</span><input name="name" value="${esc(a.name)}" required ${id ? '' : 'autofocus'}></label>
-    <label class="field"><span>Exchange or platform (optional)</span><input name="exchange" list="exlist" value="${esc(a.exchange || '')}" placeholder="e.g. Binance, Bybit, CIMB"><datalist id="exlist">${[...new Set(live(db.accounts).map((x) => x.exchange).filter(Boolean))].map((x) => `<option value="${esc(x)}">`).join('')}</datalist></label>
-    <p class="hint">Make one account per coin or currency and give them the same exchange, so BTC, BNB and USDT on Binance sit together.</p>
-    <div class="two"><label class="field"><span>Currency</span><select name="cur" ${used ? 'disabled' : ''}>${curs.map((c) => `<option ${c === a.cur ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+    <div class="two"><label class="field"><span>Currency</span><input type="hidden" name="cur" value="${esc(a.cur)}"><button type="button" class="curbtn wide" data-act="acct-cur" ${used ? 'disabled' : ''}>${flagOf(a.cur)} ${esc(a.cur)} ▾</button></label>
     <label class="field"><span>Type</span><select name="type">${Object.entries(typeNames).map(([v, l]) => `<option value="${v}" ${v === a.type ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
     <label class="field"><span>Opening balance</span><input name="open" inputmode="decimal" value="${a.open || 0}"></label>
     <div id="cardfields" ${a.type === 'card' ? '' : 'hidden'}>
@@ -296,7 +308,6 @@ export function openAccount(id) {
       stmtDay: Math.min(31, Math.max(0, Math.round(num(fd.get('stmtDay')) || 0))),
       dueDay: Math.min(31, Math.max(0, Math.round(num(fd.get('dueDay')) || 0))),
       apy: num(fd.get('apy')) > 0 ? num(fd.get('apy')) : 0,
-      exchange: (fd.get('exchange') || '').trim(),
       interestFrom: fd.get('interestFrom') || today(),
     };
     if (fd.get('type') !== 'card') { extra.limit = 0; extra.stmtDay = 0; extra.dueDay = 0; }
@@ -312,7 +323,7 @@ export function openAccount(id) {
     s.close();
   };
   const del = s.el.querySelector('[data-del]');
-  if (del) del.onclick = () => { commit((d) => { const x = d.accounts.find((q) => q.id === id); x.deleted = true; stamp(x); }); s.close(); toast('Account deleted'); };
+  if (del) del.onclick = () => { commit((d) => { const x = d.accounts.find((q) => q.id === id); softDelete(x); }); s.close(); toast('Account deleted'); };
   const rec = s.el.querySelector('#recon');
   if (rec) rec.onsubmit = (e) => {
     e.preventDefault();
@@ -329,3 +340,5 @@ export function openAccount(id) {
     toast(`Added a ${money(Math.abs(diff), a.cur)} correction.`);
   };
 }
+
+ACT['acct-cur'] = (el) => openCurrencyPicker((c) => { el.closest('form').elements.cur.value = c; el.textContent = `${flagOf(c)} ${c} ▾`; }, { title: 'Currency', keep: false });

@@ -1,40 +1,53 @@
-// Live exchange rates from a free public service (open.er-api.com, no key needed).
-// Only the rates for currencies you actually use are updated, once a day while you use the app.
-// Rates you type yourself are overrides and are never replaced. Saved entries keep the rate they were made with.
-import { get, commit, commitQuiet } from './core.js';
-import { ACT, toast } from './ui.js';
+// Live exchange rates from a free, keyless source (open.er-api.com, updated daily; crypto prices from CoinGecko).
+// Rates are only ever used for NEW entries and for today's balances: every saved entry keeps the rate it was made with.
+import { get, commitQuiet, allCurrencies, CRYPTO } from './core.js';
 
-const MAX_AGE = 12 * 3600e3;
-const STABLE = { USDT: 'USD', USDC: 'USD' };   // dollar stablecoins follow the dollar unless you override them
+const FIAT_URL = 'https://open.er-api.com/v6/latest/USD';
+const COINS = { BTC: 'bitcoin', ETH: 'ethereum', BNB: 'binancecoin', SOL: 'solana', XRP: 'ripple', DOGE: 'dogecoin', TON: 'the-open-network', TRX: 'tron', ADA: 'cardano', LTC: 'litecoin', MATIC: 'matic-network' };
+const STABLE = ['USDT', 'USDC', 'DAI', 'FDUSD'];
+export const RATE_CREDIT = 'Rates by Exchange Rate API (exchangerate-api.com) and CoinGecko';
 
-export async function refreshRates(force = false) {
-  const s = get().settings;
-  if (!force && (s.autoRates === false || (s.ratesAt && Date.now() - s.ratesAt < MAX_AGE))) return { skipped: true };
-  const base = s.base;
-  const res = await fetch(`https://open.er-api.com/v6/latest/${base}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error('The rate service answered ' + res.status);
-  const j = await res.json();
-  if (j.result !== 'success' || !j.rates) throw new Error('The rate service sent no rates');
-  const used = new Set(get().accounts.filter((a) => !a.deleted).map((a) => a.cur));
-  used.delete(base);
-  let n = 0;
-  commitQuiet((d) => {
-    d.settings.rates = d.settings.rates || {};
-    const manual = d.settings.manualRates || {};
-    for (const c of used) {
-      if (manual[c]) continue;
-      const per = j.rates[c] || (STABLE[c] && j.rates[STABLE[c]]);
-      if (per > 0) { d.settings.rates[c] = 1 / per; n++; }
-    }
-    d.settings.ratesAt = Date.now();
-  });
-  return { n };
+export const ratesStatus = { text: '', ok: null };
+const say = (text, ok = null) => { ratesStatus.text = text; ratesStatus.ok = ok; const el = document.getElementById('ratesstatus'); if (el) el.textContent = text; };
+
+export async function fetchRates({ quiet = false } = {}) {
+  if (!quiet) say('Updating…');
+  const usd = {};
+  try {
+    const r = await fetch(FIAT_URL);
+    if (!r.ok) throw new Error('rate service answered ' + r.status);
+    const j = await r.json();
+    if (j.result !== 'success' || !j.rates) throw new Error('unexpected answer');
+    Object.assign(usd, j.rates);
+  } catch (e) {
+    say(navigator.onLine === false ? 'Offline: keeping the last rates.' : 'Could not reach the rate service. Keeping the last rates.', false);
+    throw e;
+  }
+  for (const c of STABLE) if (!usd[c]) usd[c] = 1;            // stablecoins: treated as 1 USD
+  try {                                                         // crypto is best effort; failure is fine
+    const ids = Object.values(COINS).join(',');
+    const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+    if (r.ok) { const j = await r.json(); for (const [c, id] of Object.entries(COINS)) if (j[id] && j[id].usd > 0) usd[c] = 1 / j[id].usd; }
+  } catch { /* keep going without crypto prices */ }
+  const prev = get().settings.live;
+  if (prev && prev.usd) for (const c of CRYPTO) if (!usd[c] && prev.usd[c]) usd[c] = prev.usd[c];   // keep older crypto price if the call failed
+  commitQuiet((d) => { d.settings.live = { ts: Date.now(), usd }; });
+  window.dispatchEvent(new Event('sukli-render'));
+  say(`Updated ${new Date().toLocaleString()}.`, true);
+  return usd;
 }
 
-ACT['rates-refresh'] = async () => {
-  try { const r = await refreshRates(true); toast(`Rates updated (${r.n} currencies).`, { ms: 4000 }); }
-  catch (e) { toast('Could not get live rates: ' + e.message + '. Your saved rates are unchanged.', { ms: 7000 }); }
-  window.dispatchEvent(new Event('sukli-render'));
-};
-ACT['rates-clear'] = () => { commit((d) => { d.settings.manualRates = {}; }); ACT['rates-refresh'](); };
-ACT['rates-auto'] = (el) => commit((d) => { d.settings.autoRates = el.checked; });
+// at start-up and on coming back: refresh if the last update is over 12 hours old
+export function ratesInit() {
+  const go = () => {
+    const s = get().settings;
+    if (s.liveRates === false || !navigator.onLine) return;
+    if (s.live && Date.now() - s.live.ts < 12 * 3600 * 1000) return;
+    fetchRates({ quiet: true }).catch(() => {});
+  };
+  setTimeout(go, 2500);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') go(); });
+  window.addEventListener('online', go);
+}
+export const hasLive = (c) => { const l = get().settings.live; return !!(l && l.usd && l.usd[c] > 0); };
+export const supported = () => allCurrencies();

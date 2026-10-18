@@ -2,44 +2,22 @@
 
 A private money tracker that runs entirely in the browser. Your data stays on your device, with an optional backup to a hidden folder in your own Google Drive. No server, no subscription, no AI service: the category guesser is a small model that learns from your own entries and runs on the phone.
 
+## What's new in v7
+
+- **Currency search by country:** every currency list is searchable by code, currency name or country ("japan", "thai", "peso"), with flags. The account form now uses the same searchable picker instead of a long list.
+- **Analytics:** new Category filter on top of the account, currency and group filters.
+
 ## What's new in v6
+- Bluecoins import accepts any column order, `,` `;` or tab, and a missing Category Group column. If a file still fails, the message lists the columns it found.
+- Currency: every ISO currency plus common crypto. The selector sits at the right of the amount (after the calculator) with your favourites and "More…". Settings: change your home currency; saved entries keep their own rate. Live rates (free, about daily) with manual override.
+- Entry sheet: calendar date picker, Usual / Recent / "Fits amount" quick picks, accounts grouped by type, transfer label first with usual routes, optional currency conversion (off by default), spending-safety warnings.
+- Accounts by type or currency, collapsible; account history with In / Out / Transfers filters and date ranges, opening and closing balance.
+- Credit cards: statement and due day, amount due per cycle, Pay card button (a transfer, so no double spending), reminders from 3 days before until midnight on the due day, stopping when paid. A web app cannot push notifications when closed: use the in-app banner and the .ics calendar reminders.
+- Analytics replaces Reports: income vs spending, cash flow, net worth, breakdowns, budgets and limit, cards, period comparison. Tap any bar, tile or row to see its entries.
+- Recycle bin (Menu): restore or delete forever; kept 30 days by default (Settings in the bin page).
+- Back button closes pop-ups first. Clear "×" on fields. Swipe from the left edge, or scroll up a little, to open the menu.
 
-- **CSV import accepts newer and older Bluecoins exports.** Columns are matched by meaning (for example "Parent Category" or "(5)Parent Category" for Category Group, "Item or Payee" for Name). Only Type, Date, Amount and Account are required; a missing Currency becomes PHP, a missing group uses the category name, and dates like 10/21/2026 are understood. If a file is still rejected, the message lists the column names found.
-- **All currencies** in the entry sheet: USD, USDT, JPY, PHP and your account currencies first, then every other currency. The picker is smaller.
-- **Back button** closes the open sheet instead of leaving the screen underneath.
-- **Clear button (x)** on text boxes.
-- **Entry sheet:** amount, calculator, then a smaller currency picker on the far right; "Usual ⓘ" is a button that explains itself; "When" opens a calendar card with a time box.
-- **Menu access:** a floating menu button appears after a short upward scroll; swiping in from the left edge also opens it.
-- **Transfers:** the label comes first; converting currency is optional and off by default (tick "Convert currency" to enter the amount received).
-- **Accounts by type:** Banks, E-wallets, Crypto exchanges, Cash & other, Credit cards & loans (each section folds away). Switch with Currency / Account type / None.
-- **Account choices** in the entry sheet are grouped the same way.
-- **Account page:** pick From/To dates and Income / Expenses / Transfer in / Transfer out to review a period, with income, expenses, transfers and opening to closing balance.
-- **Home currency** (Settings): choose any currency; you give the rate once and saved rates, entry values and budgets are rescaled.
-- **Recycle bin** (menu): deleted entries, accounts, categories and budgets can be restored for 30 days, or deleted forever.
-- **Name first:** "What was it?" now comes before the amount on every entry. A name you have used before fills its usual amount (shown in grey italics; typing replaces it).
-- **Exchange rate on one row:** 1 USD = rate = value in your home currency.
-- **Currency picker:** tap the currency button to search by code or name; flags shown for country currencies.
-- **Save button** stays at the bottom of the entry sheet.
-- **New account type** "Money owed to me" (receivable); new income categories (Bank interest, Staking & rewards, Crypto trading gain, Repayment received) and crypto fee categories.
-- **Live exchange rates:** rates for the currencies you use refresh about once a day (free service, no key; open.er-api.com). Rates you type are kept as overrides (marked ✎); "Use live rates for all" clears them. Saved entries keep their own rate. USDT and USDC follow USD unless overridden.
-- **Thousands separators** while typing amounts (119000 becomes 119,000); switch in Settings, Appearance.
-- **Rename or merge a group** (categories page): type another group's name and its categories and budget move into it.
-- **Analytics** (menu): income vs expenses by month, where the money went by group and account, net worth by month, budget use, and a comparison with the previous period; filter by account, currency and group; tap a bar or row to see its entries.
-- **Credit card billing:** with the statement day and due day set, each card tracks its statement amount, what has been paid since, and what is still due. Reminders show from N days before the due date (default 3) until paid; a partial payment keeps the reminder with the rest. Pay a card with a Transfer from your bank so the purchase is not counted twice. The card's page has a Billing block; Analytics lists card balances and payments due.
-- **Exchanges:** give accounts an Exchange (Binance, Bybit, CIMB...) and group the Accounts page by Exchange; make one account per coin.
-- **Trades:** a Transfer between two crypto accounts is a trade (default: converts, type what you received, price shown, fee goes to Trading fee or Network fee). Fees are the only spending; no income or expense is counted for the swap itself.
-- **Add your own currency** (BBSOL, MNT, USDGO...): search it in the currency picker and tap Add.
-- **Coins Bluecoins cannot hold:** importing a CSV with an unknown currency (BBSOL...) adds it automatically with up to 8 decimals; Settings, "Coins and tokens: decimals" lets you choose 2/4/6/8 for any crypto account's currency (for example MNT as Mantle). Amounts show up to the chosen decimals without trailing zeros.
-- **Spending safety:** while adding an expense, Sukli compares it with this month's (or the last 30 days') income, your real cash, card balances and upcoming card payments, and the group's budget, and warns when spending nears or passes income, card balances pass a share of income, or cash after card bills falls short. Thresholds are in Settings, Spending safety.
-- CSV export keeps each currency's own decimals (BTC no longer rounds to 2).
-
-## v5.1
-
-- **Sign in from the first screen.** A new device now shows "Already use Sukli on another device? Sign in to sync" next to the import button, so you no longer have to know the Settings address.
-- **No doubled categories.** If you are already signed in, "Start with an empty ledger" first fetches your cloud data and only creates starter categories when there is nothing to fetch.
-- **CSV export keeps crypto precision.** Amounts are written with the currency's own decimals (0.000123 BTC stays 0.000123 instead of 0.00).
-
-## What's new in v5
+## What was new in v5
 
 - **Graphs are interactive**: tap or hover any bar or ring slice for its numbers; drag along a line chart (Pace, account balance) to read each day.
 - **Accounts**: group by Currency, Category (type) or None; sort High to low, Low to high or A to Z. Tap an account for its balance chart, in/out this month and full history.

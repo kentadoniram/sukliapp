@@ -1,8 +1,10 @@
 // The five screens: Home, Ledger, Review, Accounts, Reports, and Settings.
+import { softDelete } from './core.js';
+import { safetyCfg } from './finance.js';
 import {
-  get, commit, commitQuiet, changeBase, stamp, uid, fmt, BASE, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
+  get, commit, commitQuiet, stamp, uid, fmt, BASE, HOME, homeFx, homeRate, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
   monthLabel, shiftMonth, thisMonth, dayLabel, rateFor, reviewCount, groupColor, groupLetter, adjustmentCategory, nowStamp,
-  replaceAll, emptyDb, live, monthParts, priv, flush,
+  replaceAll, emptyDb, live, monthParts, priv, flush, factorFor,
 } from './core.js';
 import { pace, insights, trend, totals, baselineMonths, groupTrend } from './insights.js';
 import { importBluecoins, exportCSV, SPENDABLE_TYPES } from './importer.js';
@@ -11,9 +13,11 @@ import { modelFor, openEntry, openBulk, openCategoryForm } from './entry.js';
 import { syncNow, status as syncStatus } from './drive.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
-import { safeCfg } from './safety.js';
 import { typeNames, accounts, openAccount, reminderBanner } from './accpage.js';
 import { outlookCard } from './views.js';
+import { openCurrencyPicker } from './curpicker.js';
+import { fetchRates, ratesStatus, RATE_CREDIT, hasLive } from './rates.js';
+import { liveRate, curName, rateFor as rateFor2 } from './core.js';
 export { accounts };
 import { esc, ic, ACT, sheet, toast, confirmDialog, promptDialog, download } from './ui.js';
 
@@ -26,10 +30,10 @@ export function coll(id, title, body, extra = '') {
 }
 ACT.coll = (el) => { const id = el.dataset.id; ui.collapsed[id] = !ui.collapsed[id]; try { localStorage.setItem('sukli-coll', JSON.stringify(ui.collapsed)); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
 
-export const money = (n, cur = BASE) => fmt(n, cur);
+export const money = (n, cur = HOME) => fmt(n, cur);
 const showHome = () => get().settings.showHome !== false;
 // small "≈ ₱…" line for money in another currency, using the rate stored on the entry
-export const eq = (amount, cur, fx) => (showHome() && cur !== BASE && fx > 0 ? `≈ ${money(amount * fx)}` : '');
+export const eq = (amount, cur, fx, date) => (showHome() && cur !== HOME && fx > 0 ? `≈ ${money(amount * fx / homeRate(get(), date || nowStamp()))}` : '');
 
 export function monthNav(title) {
   const isNow = ui.month === thisMonth();
@@ -51,9 +55,9 @@ ACT.month = (el) => {
 export function strip(st) {
   const net = st.income - st.spent;
   return `<section class="strip" aria-label="Month totals">
-    <button data-act="flow" data-k="inflow"><span>Cash inflow</span><b class="in">${fmt(st.income, BASE, { round: true })}</b></button>
-    <button data-act="flow" data-k="outflow"><span>Cash outflow</span><b>${fmt(st.spent, BASE, { round: true })}</b></button>
-    <button data-act="flow" data-k="net"><span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${fmt(net, BASE, { round: true })}</b></button></section>`;
+    <button data-act="flow" data-k="inflow"><span>Cash inflow</span><b class="in">${fmt(st.income, HOME, { round: true })}</b></button>
+    <button data-act="flow" data-k="outflow"><span>Cash outflow</span><b>${fmt(st.spent, HOME, { round: true })}</b></button>
+    <button data-act="flow" data-k="net"><span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${fmt(net, HOME, { round: true })}</b></button></section>`;
 }
 
 function spendable(db) {
@@ -75,7 +79,7 @@ export function row(t, accts, cats) {
   const sub = tr ? `${esc(a ? a.name : '?')} → ${esc((accts.get(t.toAcct) || {}).name || '?')}`
     : `${esc(c ? c.name : 'No category')} · ${esc(a ? a.name : '')}${t.items && t.items.length ? ` · ${t.items.length} items` : ''}`;
   const signed = tr ? money(t.amount, t.cur) : money(t.kind === 'income' ? t.amount : -t.amount, t.cur);
-  const base = !tr && eq(t.amount, t.cur, t.fx) ? `<small>${eq(t.amount, t.cur, t.fx)}</small>` : '';
+  const base = !tr && eq(t.amount, t.cur, t.fx, t.date) ? `<small>${eq(t.amount, t.cur, t.fx, t.date)}</small>` : '';
   return `<button class="row" data-act="edit" data-id="${t.id}">
     <i class="badge" style="background:${tr ? 'var(--ink2)' : groupColor(group)}">${groupLetter(group)}</i>
     <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub}</small></span>
@@ -87,7 +91,7 @@ ACT.bulk = () => openBulk();
 
 // ---------------- Home ----------------
 const sum = (a) => a.reduce((x, y) => x + y, 0);
-const R = (n) => fmt(n, BASE, { round: true });
+const R = (n) => fmt(n, HOME, { round: true });
 
 export function home(db) {
   const st = monthStats(db, ui.month);
@@ -214,7 +218,7 @@ export function openGroupDetail(g, kind, ym) {
       <div class="h2row"><h3>${pick ? esc((cats.get(pick) || { name: 'No category' }).name) : 'All entries'} · ${money(ctot)}</h3>${pick ? '<button class="linkbtn" data-clear>Show all</button>' : ''}</div>
       <div class="rows plain">${shown.slice(0, 80).map((p) => {
         const t = p.t, c = cats.get(p.cat), a = db.accounts.find((x) => x.id === t.acct);
-        const orig = !p.split && t.cur !== BASE ? money(t.amount, t.cur) : '';
+        const orig = !p.split && t.cur !== HOME ? money(t.amount, t.cur) : '';
         return `<button class="row prow" data-id="${t.id}"><span class="pdate">${dayLabel(t.date).replace(/^\w+, /, '')}</span>
           <span class="rmain"><strong><span class="tt">${esc(p.label || t.name || (c ? c.name : ''))}</span></strong><small>${esc(c ? c.name : '')}${a ? ' · ' + esc(a.name) : ''}${p.split ? ' · receipt item' : ''}</small></span>
           <span class="ramt ${kind}"><b>${kind === 'income' ? '+' : ''}${money(p.v)}</b>${orig ? `<small>${orig}</small>` : ''}</span></button>`;
@@ -252,7 +256,7 @@ function ledgerRows(db) {
     const d = t.date.slice(0, 10);
     if (d !== day) { flush(); day = d; }
     buf += row(t, accts, cats);
-    if (t.kind === 'expense') dayTotal += t.amount * (t.fx || 1);
+    if (t.kind === 'expense') dayTotal += t.amount * factorFor(db, t);
     else if (t.kind === 'income') dayTotal -= 0;
   }
   flush();
@@ -379,22 +383,35 @@ export function reports(db) {
 }
 ACT.budget = async (el) => {
   const g = el.dataset.g, cur = budgetOf(get(), g);
-  const v = await promptDialog(`Monthly budget for ${g} (${BASE})`, cur || '', { type: 'number', hint: 'You will see a marker on the bar and it turns amber when you pass it.' });
+  const v = await promptDialog(`Monthly budget for ${g} (${HOME})`, cur || '', { type: 'number', hint: 'You will see a marker on the bar and it turns amber when you pass it.' });
   const n = parseFloat(v);
   if (!(n > 0)) return;
   commit((d) => { let b = d.budgets.find((x) => !x.deleted && x.group === g); if (b) { b.amount = n; stamp(b); } else d.budgets.push(stamp({ id: uid(), group: g, amount: n })); });
 };
-ACT['budget-clear'] = (el) => commit((d) => { const b = d.budgets.find((x) => !x.deleted && x.group === el.dataset.g); if (b) { b.deleted = true; stamp(b); } });
+ACT['budget-clear'] = (el) => commit((d) => { const b = d.budgets.find((x) => !x.deleted && x.group === el.dataset.g); if (b) softDelete(b); });
 
 // ---------------- Settings ----------------
 const segBtns = (act, k, opts, cur) => `<div class="seg sm" role="group">${opts.map(([v, l]) => `<button type="button" data-act="${act}" data-k="${k}" data-v="${v}" class="${String(cur) === String(v) ? 'on' : ''}" aria-pressed="${String(cur) === String(v)}">${l}</button>`).join('')}</div>`;
+ACT['rates-now'] = async () => { try { await fetchRates(); } catch (e) { /* status already shown */ } };
+ACT['rate-live'] = (el) => commit((d) => { delete d.settings.rates[el.dataset.c]; });
+ACT['home-cur'] = () => openCurrencyPicker(async (c) => {
+  const db = get(); if (c === HOME) return;
+  if (!(await confirmDialog(`Show totals in ${c} (${curName(c)}) from now on? Budgets and limits you set will be converted at today’s rate. Nothing else is rewritten.`, 'Change'))) return;
+  commit((d) => {
+    const k = (rateFor(d, HOME) || 1) / (rateFor(d, c) || 1);
+    for (const b of d.budgets) if (!b.deleted && b.amount > 0) { b.amount = Math.round(b.amount * k * 100) / 100; stamp(b); }
+    if (d.settings.spendLimit > 0) d.settings.spendLimit = Math.round(d.settings.spendLimit * k);
+    d.settings.home = c;
+  });
+  toast(`Totals are now shown in ${c}.`);
+}, { title: 'Home currency' });
 ACT.look = (el) => { setLook({ [el.dataset.k]: el.dataset.v }); window.dispatchEvent(new Event('sukli-render')); };
 ACT.hidestyle = (el) => { priv.setStyle(el.dataset.v); applyHide(); window.dispatchEvent(new Event('sukli-render')); };
 ACT.remind = (el) => { commit((d) => { d.settings.remindDays = +el.dataset.v; }); };
 export function settings(db) {
   const s = db.settings;
   const groups = [...new Set(db.categories.filter((c) => !c.deleted && c.kind !== 'income').map((c) => c.group))].sort();
-  const curs = [...new Set(db.accounts.filter((a) => !a.deleted).map((a) => a.cur))].filter((c) => c !== BASE);
+  const curs = [...new Set(db.accounts.filter((a) => !a.deleted).map((a) => a.cur))].filter((c) => c !== HOME);
   const lk = look();
   const cl = s.cloud || {};
   const me = signedIn() ? (session() || {}).user : null;
@@ -403,7 +420,6 @@ export function settings(db) {
       <p class="hint">Add, rename and delete your expense and income categories, with keywords so the app guesses them.</p>
       <div class="btnrow left"><a class="btn" href="#/categories?k=expense">Expense categories</a><a class="btn ghost" href="#/categories?k=income">Income categories</a></div></section>
     <section><h2>Appearance</h2>
-      <label class="check"><input type="checkbox" data-act="commas" ${localStorage.getItem('sukli.commas') === '0' ? '' : 'checked'}> Show thousands separators when typing (119,000)</label>
       <p class="hint">These are kept on this device only.</p>
       <div class="field"><span>Theme</span>${segBtns('look', 'theme', [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']], lk.theme)}</div>
       <div class="field"><span>Colour</span><div class="swatches" role="group" aria-label="Accent colour">${Object.entries(ACCENTS).map(([k, v]) => `<button type="button" class="swatch ${lk.accent === k ? 'on' : ''}" data-act="look" data-k="accent" data-v="${k}" style="background:${v.l[0]}" aria-label="${v.n}" aria-pressed="${lk.accent === k}"></button>`).join('')}</div></div>
@@ -413,8 +429,11 @@ export function settings(db) {
       <div class="field"><span>Card payment reminders</span>${segBtns('remind', 'days', [[3, '3 days'], [5, '5 days'], [7, '7 days'], [10, '10 days']], db.settings.remindDays || 5)}
         <small class="hint">How early the banner on Home appears before a credit card is due. A web page cannot send alerts when it is closed, so for phone alerts use “Add reminders to my calendar” on the card’s account page.</small></div>
       <p class="hint">Fuller style customisation (fonts, density, layout) is planned for later.</p></section>
+    <section><h2>Currency</h2>
+      <div class="field"><span>Home currency (totals are shown in this)</span><button type="button" class="btn ghost wide curbtn" data-act="home-cur">${HOME} · ${esc(curName(HOME))}</button></div>
+      <p class="hint">Changing it only changes how totals are shown. Your accounts and entries stay in their own currencies, and each entry keeps the rate it had.</p></section>
     <section><h2>Display</h2>
-      <label class="check"><input type="checkbox" id="showhome" ${s.showHome === false ? '' : 'checked'}> Show the ${BASE} equivalent next to other currencies</label>
+      <label class="check"><input type="checkbox" id="showhome" ${s.showHome === false ? '' : 'checked'}> Show the ${HOME} equivalent next to other currencies</label>
       <p class="hint">For example a ¥1,200 lunch shows a small “≈ ₱…” under it. The eye button at the top hides every amount on screen, handy in public. It is remembered on this device only.</p></section>
     <section><h2>Cloud sync</h2>
       <p class="hint">Keeps your phone and your Mac in step through your own free Supabase project. Only you can read your rows. <a href="#" data-act="cloud-setup" class="linkbtn">Set up Supabase (5 minutes)</a></p>
@@ -445,24 +464,24 @@ export function settings(db) {
     <section><h2>Left out of cash outflow</h2>
       <p class="hint">Groups ticked here don’t count as spending in totals and charts (for example trading losses).</p>
       <div class="checks">${groups.map((g) => `<label class="check"><input type="checkbox" data-act="exclude" data-g="${esc(g)}" ${s.excludeGroups.includes(g) ? 'checked' : ''}> ${esc(g)}</label>`).join('')}</div></section>
-    <section><h2>Spending safety</h2><p class="hint">While you add an expense, Sukli warns when it pushes spending toward your income, card balances above a share of your income, or cash too low once card bills fall due.</p>
-      ${(() => { const c = safeCfg(db), opt = (k, list, fmtv) => `<select data-safety="${k}">${list.map((v) => `<option value="${v}" ${String(c[k]) === String(v) ? 'selected' : ''}>${fmtv(v)}</option>`).join('')}</select>`; return `
-      <label class="field inline"><span>Compare with income of</span>${opt('period', ['month', 'rolling30'], (v) => (v === 'month' ? 'this month' : 'the last 30 days'))}</label>
-      <label class="field inline"><span>Warn when spending reaches</span>${opt('warnAt', [60, 70, 80, 90, 100], (v) => v + '%')}<span>of income</span></label>
-      <label class="field inline"><span>Warn when card balances pass</span>${opt('cardPct', [30, 50, 70, 100], (v) => v + '%')}<span>of income</span></label>
-      <label class="field inline"><span>Keep at least</span><input data-safety="reserve" inputmode="decimal" value="${c.reserve || ''}" placeholder="0"><span>${BASE} in cash</span></label>`; })()}</section>
-    <section><h2>Home currency</h2><p class="hint">Totals, budgets and reports are shown in this currency. Accounts and entries can use any currency.</p>
-      <div class="two"><select id="base-sel" aria-label="Home currency">${Object.keys(CUR).sort().map((c) => `<option value="${c}" ${c === BASE ? 'selected' : ''}>${c}</option>`).join('')}</select>
-      <button class="btn ghost" data-act="base-change">Change</button></div></section>
-    <section><h2>Live exchange rates</h2><p class="hint">${db.settings.ratesAt ? 'Updated ' + new Date(db.settings.ratesAt).toLocaleString() + '. ' : 'Not updated yet. '}Rates refresh about once a day from a free public service. Rates you type below are kept as your own. Entries you already saved never change.</p>
-      <label class="check"><input type="checkbox" data-act="rates-auto" ${db.settings.autoRates === false ? '' : 'checked'}> Update rates automatically</label>
-      <div class="btnrow"><button class="btn ghost" data-act="rates-refresh">Refresh now</button><button class="btn ghost" data-act="rates-clear">Use live rates for all</button></div></section>
-    ${(() => { const own = new Set([...Object.keys(db.settings.customCur || {}), ...db.accounts.filter((a) => !a.deleted && a.type === 'crypto').map((a) => a.cur)]); return own.size ? `<section><h2>Coins and tokens: decimals</h2><p class="hint">Choose how many decimals to show for coins and tokens (for example MNT as Mantle, or BBSOL). Type a rate for each under Exchange rates, as live rates do not cover them.</p>
-      ${[...own].map((c) => `<label class="field inline"><span>${esc(c)}</span><select data-curdec="${esc(c)}">${[2, 4, 6, 8].map((n) => `<option ${(CUR[c] || { dec: 2 }).dec === n ? 'selected' : ''}>${n}</option>`).join('')}</select><span>decimals</span></label>`).join('')}</section>` : ''; })()}
-    ${curs.length ? `<section><h2>Exchange rates</h2><p class="hint">What one unit is worth in ${BASE}. New entries start from this rate; it is also used for totals.</p>
-      ${curs.map((c) => { const r = rateFor(db, c); return `<label class="field inline"><span>1 ${c} =${(db.settings.manualRates || {})[c] ? ' ✎' : ''}</span><input data-rate="${c}" inputmode="decimal" value="${r ? Number(r.toPrecision(6)) : ''}"><span>${BASE}</span></label>
-      <label class="field inline"><span>1 ${BASE} =</span><input data-rate-inv="${c}" inputmode="decimal" value="${r ? Number((1 / r).toPrecision(6)) : ''}"><span>${c}</span></label>`; }).join('')}
-      <p class="hint">Edit either side: the other follows. Each entry also lets you type the ${BASE} value from your bill.</p></section>` : ''}
+    <section><h2>Spending safety</h2>
+      <p class="hint">While you add an expense, Sukli warns you when it gets close to your limit, spends more than comes in, loads up your credit cards, or leaves too little cash for upcoming card payments.</p>
+      ${(() => { const c = safetyCfg(db); return `<label class="check"><input type="checkbox" id="ss-on" ${c.on ? 'checked' : ''}> Show warnings when I add an expense</label>
+      <label class="field"><span>Compare spending and income over</span><select id="ss-mode"><option value="month" ${c.mode !== 'rolling' ? 'selected' : ''}>The calendar month</option><option value="rolling" ${c.mode === 'rolling' ? 'selected' : ''}>The last 30 days</option></select></label>
+      <label class="field"><span>My spending limit for that period (${HOME}, 0 = none)</span><input id="ss-limit" inputmode="decimal" value="${c.limit || ''}" placeholder="0"></label>
+      <label class="field"><span>Warn me at this % of the limit or budget</span><input id="ss-warn" inputmode="numeric" value="${c.warnPct}"></label>
+      <label class="field"><span>Warn when card balances are more than this % of income</span><input id="ss-card" inputmode="numeric" value="${c.cardPct}"></label>
+      <div class="field"><span>Essentials (kept as cash for upcoming card payments)</span><div class="chips">${groups.map((g) => `<label class="chip ${((c.essentials || []).includes(g)) ? 'on' : ''}"><input type="checkbox" data-ess="${esc(g)}" ${((c.essentials || []).includes(g)) ? 'checked' : ''} hidden>${esc(g)}</label>`).join('')}</div><small class="hint">Leave all unselected to let Sukli guess (food, transport, rent, utilities, health).</small></div>`; })()}
+    </section>
+    <section><h2>Exchange rates</h2>
+      <label class="check"><input type="checkbox" id="liverates" ${s.liveRates === false ? '' : 'checked'}> Update rates automatically (free, about once a day)</label>
+      <div class="btnrow left"><button class="btn ghost sm" data-act="rates-now">Update now</button></div>
+      <p class="status" id="ratesstatus" role="status">${esc(ratesStatus.text || (s.live ? 'Last updated ' + new Date(s.live.ts).toLocaleString() : 'Not updated yet.'))}</p>
+      <p class="hint">Rates are used for new entries and for today’s balances. An entry you saved keeps the rate it was saved with, so old reports do not change. Type a rate below to override the live one; tap ✕ to go back to live. ${esc(RATE_CREDIT)}.</p>
+      ${curs.map((c) => { const ov = !!(s.rates && s.rates[c] > 0); const r = homeFx(db, c); return `<div class="ratebox"><label class="field inline"><span>1 ${c} =</span><input data-rate="${c}" inputmode="decimal" value="${r ? Number(r.toPrecision(6)) : ''}"><span>${HOME}</span></label>
+      <label class="field inline"><span>1 ${HOME} =</span><input data-rate-inv="${c}" inputmode="decimal" value="${r ? Number((1 / r).toPrecision(6)) : ''}"><span>${c}</span></label>
+      <small class="muted">${ov ? 'Manual rate' : (hasLive(c) ? 'Live rate' : 'From your latest entry')}</small>${ov ? `<button type="button" class="linkbtn" data-act="rate-live" data-c="${c}">✕ Use live</button>` : ''}</div>`; }).join('')}
+      <p class="hint">Edit either side: the other follows. Each entry also lets you type the ${HOME} value from your bill.</p></section>
     <section><h2>Put it on your phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
     <section><h2>Erase</h2><button class="btn danger ghost" data-act="erase">Erase everything on this device</button>
       <p class="hint">Backups in your Google Drive are not touched.</p></section>`;
@@ -472,6 +491,15 @@ export function bindSettings() {
     const el = document.getElementById(id);
     if (el) el.onchange = () => commitQuiet((d) => { d.settings.cloud = { ...(d.settings.cloud || {}), [k]: el.value.trim() }; });
   }
+  const ssSave = () => commit((d) => {
+    const g = (id) => document.getElementById(id);
+    d.settings.safety = { on: g('ss-on').checked, mode: g('ss-mode').value, limit: Math.max(0, parseFloat(g('ss-limit').value) || 0), warnPct: Math.min(100, Math.max(1, parseInt(g('ss-warn').value, 10) || 80)),
+      cardPct: Math.max(1, parseInt(g('ss-card').value, 10) || 50), essentials: [...document.querySelectorAll('[data-ess]')].filter((x) => x.checked).map((x) => x.dataset.ess) };
+  });
+  for (const id of ['ss-on', 'ss-mode', 'ss-limit', 'ss-warn', 'ss-card']) { const e = document.getElementById(id); if (e) e.onchange = ssSave; }
+  document.querySelectorAll('[data-ess]').forEach((e) => { e.onchange = ssSave; });
+  const lr = document.getElementById('liverates');
+  if (lr) lr.onchange = () => commit((d) => { d.settings.liveRates = lr.checked; });
   const sh = document.getElementById('showhome');
   if (sh) sh.onchange = () => commit((d) => { d.settings.showHome = sh.checked; });
   const ca = document.getElementById('c-auto');
@@ -480,14 +508,12 @@ export function bindSettings() {
   if (cid) cid.onchange = () => commitQuiet((d) => { d.settings.driveClientId = cid.value.trim(); });
   const as = document.getElementById('autosync');
   if (as) as.onchange = () => commit((d) => { d.settings.autoSync = as.checked; });
-  const setRate = (cur, v, from) => {
-    commitQuiet((d) => { d.settings.manualRates = d.settings.manualRates || {}; if (v > 0) { d.settings.rates[cur] = v; d.settings.manualRates[cur] = true; } else { delete d.settings.rates[cur]; delete d.settings.manualRates[cur]; } });
+  const setRate = (cur, v, from) => {          // v is HOME per unit as typed; stored as ledger per unit
+    commitQuiet((d) => { const hr = (d.settings.rates && d.settings.rates[HOME] > 0 ? d.settings.rates[HOME] : rateFor(d, HOME)) || 1; if (v > 0) d.settings.rates[cur] = v * (HOME === BASE ? 1 : hr); else delete d.settings.rates[cur]; });
     const other = document.querySelector(from === 'rate' ? `[data-rate-inv="${cur}"]` : `[data-rate="${cur}"]`);
     if (other) other.value = v > 0 ? Number((from === 'rate' ? 1 / v : v).toPrecision(6)) : '';
   };
   document.querySelectorAll('[data-rate]').forEach((i) => { i.onchange = () => setRate(i.dataset.rate, parseFloat(i.value), 'rate'); });
-  document.querySelectorAll('[data-safety]').forEach((i) => { i.onchange = () => commitQuiet((d) => { const k = i.dataset.safety; d.settings.safety = { ...(d.settings.safety || {}) }; d.settings.safety[k] = k === 'period' ? i.value : (parseFloat(String(i.value).replace(/,/g, '')) || 0); }); });
-  document.querySelectorAll('[data-curdec]').forEach((i) => { i.onchange = () => commit((d) => { const c = i.dataset.curdec; d.settings.customCur = d.settings.customCur || {}; d.settings.customCur[c] = { sym: (CUR[c] || { sym: c + ' ' }).sym, dec: +i.value }; CUR[c] = d.settings.customCur[c]; }); });
   document.querySelectorAll('[data-rate-inv]').forEach((i) => { i.onchange = () => { const x = parseFloat(i.value); setRate(i.dataset.rateInv, x > 0 ? 1 / x : 0, 'inv'); }; });
   const bc = document.getElementById('file-bc');
   if (bc) bc.onchange = async () => {
@@ -575,15 +601,3 @@ ACT.gsetup = () => sheet(`<ol class="steps">
   <li>Go to <b>Credentials → Create credentials → OAuth client ID</b>, type <b>Web application</b>. Under <b>Authorised JavaScript origins</b> add the exact address where this app is hosted (for example <b>https://your-name.netlify.app</b>).</li>
   <li>Copy the client ID it shows and paste it here, then press <b>Back up now</b> and approve access.</li></ol>
   <p class="hint">The app asks only for its own hidden folder (drive.appdata). Google may ask you to sign in again from time to time; if auto-backup stops, tap Back up now.</p>`, { title: 'Get a Google client ID' });
-
-ACT['base-change'] = async () => {
-  const next = document.getElementById('base-sel').value, db = get(), old = db.settings.base || BASE;
-  if (next === old) return;
-  const guess = rateFor(db, next);
-  const v = await promptDialog(`1 ${next} = how many ${old}?`, guess ? Number(guess.toPrecision(6)) : '', { type: 'number', okLabel: 'Change', hint: `Needed once to convert your saved values from ${old} to ${next}. Past entries keep their proportions.` });
-  const r = parseFloat(v); if (!(r > 0)) return;
-  commit((d) => changeBase(d, next, r));
-  toast(`Home currency is now ${next}.`, { ms: 6000 });
-};
-
-ACT.commas = (el) => { try { localStorage.setItem('sukli.commas', el.checked ? '1' : '0'); } catch { /* ignore */ } };
