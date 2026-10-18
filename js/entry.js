@@ -1,11 +1,12 @@
 // The add / edit sheet, the category picker and the "add many at once" sheet.
 import {
   get, commit, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
-  findOrAddCategory, groupColor, groupLetter, BASE, balances, CUR, COMMON, BUCKETS, bucketOf, priv, dayLabel, monthLabel, shiftMonth,
+  findOrAddCategory, groupColor, groupLetter, BASE, balances, CUR, COMMON, ensureCurrency, BUCKETS, bucketOf, priv, dayLabel, monthLabel, shiftMonth,
 } from './core.js';
 import { buildModel, predict, suggest, lookup, catCandidates } from './predict.js';
 import { evalExpr, isExpr, tidy } from './calc.js';
 import { predictFee } from './finance.js';
+import { safetyCheck } from './safety.js';
 import { esc, sheet, toast, ic, confirmDialog } from './ui.js';
 import { applyHide } from './appearance.js';
 
@@ -18,6 +19,21 @@ export function modelFor(kind) {
   return cache[kind].m;
 }
 
+const commasOn = () => { try { return localStorage.getItem('sukli.commas') !== '0'; } catch { return true; } };
+const withCommas = (v) => {
+  const m = String(v).match(/^(-?)(\d[\d,]*)(\.\d*)?$/);   // plain numbers only; sums like 120+45 are left alone
+  return m ? m[1] + m[2].replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (m[3] || '') : v;
+};
+function formatAmountInput(inp) {
+  if (!commasOn()) return;
+  const raw = inp.value, out = withCommas(raw);
+  if (out === raw) return;
+  const left = raw.slice(0, inp.selectionStart ?? raw.length).replace(/[^\d.]/g, '').length;
+  inp.value = out;
+  let i = 0, c = 0;
+  while (i < out.length && c < left) { if (/[\d.]/.test(out[i])) c++; i++; }
+  try { inp.setSelectionRange(i, i); } catch { /* ignore */ }
+}
 const num = (s) => evalExpr(s);   // plain numbers, or a sum like 120+45*2
 const hourOf = (d) => parseInt(String(d).slice(11, 13), 10);
 const prec = (x) => String(Number(Number(x).toPrecision(6)));
@@ -77,10 +93,11 @@ export function openEntry(opts = {}) {
       <input id="f-name" autocomplete="off" ${existing ? '' : 'autofocus'} value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary">
       <div id="sugg" class="sugg" hidden></div></div>
     <div class="field amount"><span class="amtlabel">Amount <button type="button" class="linkbtn eye" data-e="eye" aria-label="Hide or show amounts">${priv.on ? 'Show' : 'Hide'} amounts</button></span>
-      <div class="amtrow"><label class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(f.amount)}"></label>
+      <div class="amtrow"><label class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"></label>
       <button type="button" class="calcbtn" data-e="calc" aria-label="Calculator" aria-pressed="false" title="Calculator">${ic('calc')}</button><span id="curwrap" class="curwrap"></span></div>
       <div id="calcres" class="calcres" hidden></div><div id="keypad" class="keypad" hidden></div></div>
     <div id="fxline"></div>
+    <div id="safety" class="safety" aria-live="polite"></div>
     <div id="acctrow"></div>
     <div id="feerow"></div>
     <div id="catrow"></div>
@@ -138,11 +155,36 @@ export function openEntry(opts = {}) {
     });
     draw();
   }
+  const flag = (c) => {
+    try {
+      if (!/^[A-Z]{3}$/.test(c) || c[0] === 'X' || !Intl.supportedValuesOf('currency').includes(c)) return '';
+      const cc = c === 'EUR' ? 'EU' : c.slice(0, 2);
+      if (new Intl.DisplayNames(['en'], { type: 'region' }).of(cc) === cc) return '';
+      return String.fromCodePoint(...[...cc].map((ch) => 127397 + ch.charCodeAt(0)));
+    } catch { return ''; }
+  };
+  function pickCurrency() {
+    const sel = $f('f-cur'), sh = sheet('', { title: 'Currency' });
+    const all = [...sel.options].map((o) => o.value);
+    const names = (() => { try { return new Intl.DisplayNames(['en'], { type: 'currency' }); } catch { return { of: () => '' }; } })();
+    const draw = (q) => {
+      const t = q.trim().toLowerCase();
+      const hit = all.filter((c) => !t || c.toLowerCase().includes(t) || String(names.of(c) || '').toLowerCase().includes(t));
+      sh.el.querySelector('.curlist').innerHTML = hit.map((c) => `<button type="button" data-c="${c}" class="${c === sel.value ? 'on' : ''}">${flag(c) || '🪙'} <b>${c}</b> <small class="muted">${esc(names.of(c) || '')}</small></button>`).join('') || (/^[A-Za-z0-9]{2,10}$/.test(q.trim()) ? `<button type="button" data-new="${q.trim().toUpperCase()}">➕ Add currency <b>${esc(q.trim().toUpperCase())}</b></button>` : '<p class="empty">No match</p>');
+    };
+    sh.el.innerHTML = '<input type="search" class="cursearch" placeholder="Search currency, e.g. peso or BTC" autocomplete="off" data-noclear="1"><div class="curlist"></div>';
+    sh.el.querySelector('.cursearch').addEventListener('input', (e) => draw(e.target.value));
+    sh.el.addEventListener('click', (e) => { const nb = e.target.closest('button[data-new]');
+      if (nb) { const code = nb.dataset.new; commit((d) => { ensureCurrency(d, code); }); sel.add(new Option(code, code)); sel.value = code; sel.dispatchEvent(new Event('change', { bubbles: true })); sh.close(); return; }
+      const b = e.target.closest('button[data-c]'); if (!b) return; sel.value = b.dataset.c; sel.dispatchEvent(new Event('change', { bubbles: true })); sh.close(); });
+    draw('');
+  }
   function renderCur() {
     const a = acctOf(f.acct), mine = currencies(), top = [...new Set([...COMMON, ...mine])];
     const rest = Object.keys(CUR).filter((c) => !top.includes(c)).sort();
     const opt = (c) => `<option value="${c}" ${a && a.cur === c ? 'selected' : ''}>${(CUR[c] || { sym: '' }).sym} ${c}</option>`;
-    $f('curwrap').innerHTML = `<select id="f-cur" class="cursel" aria-label="Currency"><optgroup label="Common and yours">${top.map(opt).join('')}</optgroup><optgroup label="All currencies">${rest.map(opt).join('')}</optgroup></select>`;
+    const curNow = a ? a.cur : BASE;
+    $f('curwrap').innerHTML = `<button type="button" class="curbtn" data-e="curpick" aria-label="Choose currency">${flag(curNow)} ${curNow} ▾</button><select id="f-cur" class="cursel hid" aria-label="Currency"><optgroup label="Common and yours">${top.map(opt).join('')}</optgroup><optgroup label="All currencies">${rest.map(opt).join('')}</optgroup></select>`;
   }
   function renderAccts() {
     const el = $f('acctrow');
@@ -156,19 +198,39 @@ export function openEntry(opts = {}) {
       const b2 = acctOf(f.toAcct);
       const cross = a && b2 && a.cur !== b2.cur;
       if (cross && !f.convert && f.id && f.toAmount && Math.abs(+f.toAmount - +f.amount) > 1e-9) f.convert = true;
+      const trade = cross && a.type === 'crypto' && b2.type === 'crypto';
+      if (trade && f.convert === undefined) f.convert = true;   // two coins are never exactly 1:1
       const conv = cross && !!f.convert;
       el.innerHTML = `<div class="two"><label class="field"><span>From</span><select id="f-acct">${acctOptions(f.acct, f.toAcct, a && a.cur)}</select></label>
         <label class="field"><span>To</span><select id="f-to">${acctOptions(f.toAcct, f.acct)}</select></label></div>
-        ${cross ? `<label class="check convbox"><input type="checkbox" id="f-conv" ${conv ? 'checked' : ''}> Convert currency (${a.cur} to ${b2.cur})</label>
-        ${conv ? `<label class="field"><span>Amount received (${b2.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label>` : `<p class="hint">No conversion: the same number arrives in ${b2.cur}.</p>`}` : ''}`;
+        ${cross ? `<label class="check convbox"><input type="checkbox" id="f-conv" ${conv ? 'checked' : ''}> ${trade ? `Trade: ${a.cur} for ${b2.cur} (not 1:1)` : `Convert currency (${a.cur} to ${b2.cur})`}</label>
+        ${conv ? `<label class="field"><span>${trade ? 'You receive' : 'Amount received'} (${b2.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label><p class="hint" id="pricehint"></p>` : `<p class="hint">No conversion: the same number arrives in ${b2.cur}.</p>`}` : ''}`;
+      updatePrice();
     }
     renderFee();
   }
   // ---- transfer fee (bank service fee, network fee, transfer fee): predicted from earlier transfers ----
   function feeCatOptions(sel) {
     const have = get().categories.filter((c) => !c.deleted && c.group === 'Fees' && (c.kind === 'expense' || c.kind === 'both'));
-    const names = ['Transfer fee', 'Bank service fee', 'Network fee'].filter((n) => !have.some((c) => c.name === n));
+    const names = ['Transfer fee', 'Trading fee', 'Bank service fee', 'Network fee'].filter((n) => !have.some((c) => c.name === n));
     return `${have.map((c) => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}${names.map((n) => `<option value="__new:${n}" ${sel === '__new:' + n ? 'selected' : ''}>${n}</option>`).join('')}<optgroup label="Other categories">${catOptions(sel, 'expense')}</optgroup>`;
+  }
+  // before saving an expense: how it sits against income, cash, card bills and budgets
+  function updateSafety() {
+    const el = $f('safety'); if (!el) return;
+    const a = acctOf(f.acct), amt = num(f.amount);
+    if (existing || f.kind !== 'expense' || !a || !(amt > 0)) { el.innerHTML = ''; return; }
+    el.innerHTML = safetyCheck(get(), { amount: amt, acct: a.id, cat: f.cat }).slice(0, 3).map((w) => `<p class="safe ${w.level}">${w.level === 'bad' ? '⚠️' : '•'} ${esc(w.text)}</p>`).join('');
+  }
+  form.addEventListener('input', () => updateSafety());
+  form.addEventListener('change', () => setTimeout(updateSafety, 0));
+  form.addEventListener('click', () => setTimeout(updateSafety, 0));
+  // the price you actually got, from what you sent and what arrived
+  function updatePrice() {
+    const el = $f('pricehint'), a = acctOf(f.acct), b = acctOf(f.toAcct);
+    if (!el || !a || !b) return;
+    const sent = num(f.amount), got = num(f.toAmount);
+    el.textContent = sent > 0 && got > 0 ? `Price: 1 ${a.cur} = ${prec(got / sent)} ${b.cur}  ·  1 ${b.cur} = ${prec(sent / got)} ${a.cur}` : '';
   }
   function suggestFee() {
     if (f.kind !== 'transfer' || f.feeTouched) return;
@@ -319,18 +381,19 @@ export function openEntry(opts = {}) {
   }
 
   // ---------- events ----------
+  form.addEventListener('focusout', (e) => { if (e.target.id === 'f-amount') formatAmountInput(e.target); });
   form.addEventListener('focusin', (e) => { if (e.target.id === 'f-amount' && f.amountGuess) e.target.select(); });
   form.addEventListener('input', (e) => {
     const id = e.target.id;
     if (id === 'f-amount') {
-      f.amount = e.target.value; f.amountGuess = false; f.amountTouched = true; e.target.classList.remove('guess'); updateFxVal(); updateItemLeft(); showCalcRes(); if (f.name.trim()) refreshPred();
+      formatAmountInput(e.target); f.amount = e.target.value; updatePrice(); f.amountGuess = false; f.amountTouched = true; e.target.classList.remove('guess'); updateFxVal(); updateItemLeft(); showCalcRes(); if (f.name.trim()) refreshPred();
       if (f.kind === 'transfer' && !f.feeTouched) { suggestFee(); const fe = $f('f-fee'); if (fe) fe.value = f.fee; }
     }
     else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
     else if (id === 'f-name') { f.name = e.target.value; suggestAcct(); suggestAmount(); refreshPred(); renderSugg(); }
     else if (id === 'f-fx') { f.fx = e.target.value; f.fxMode = 'rate'; updateFxVal(); }
     else if (id === 'f-peso') { f.peso = e.target.value; f.fxMode = 'peso'; updateFxVal(); }
-    else if (id === 'f-toamt') f.toAmount = e.target.value;
+    else if (id === 'f-toamt') { f.toAmount = e.target.value; updatePrice(); }
     else if (id === 'f-date') f.date = fromLocalInput(e.target.value || toLocalInput(f.date));
     else if (id === 'f-notes') f.notes = e.target.value;
     else if (e.target.closest('.item')) {
@@ -377,6 +440,7 @@ export function openEntry(opts = {}) {
         renderSeg(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderSugg(); break;
       case 'pick': applyPick(v); break;
       case 'when': pickDate(); break;
+      case 'curpick': pickCurrency(); break;
       case 'usual': toast('Your most frequent entries. Tap a name to fill in its usual account and amount.', { ms: 5000 }); break;
       case 'calc': f.calc = !f.calc; renderKeypad(); break;
       case 'k': keyPress(v); break;

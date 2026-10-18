@@ -11,6 +11,7 @@ import { modelFor, openEntry, openBulk, openCategoryForm } from './entry.js';
 import { syncNow, status as syncStatus } from './drive.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
+import { safeCfg } from './safety.js';
 import { typeNames, accounts, openAccount, reminderBanner } from './accpage.js';
 import { outlookCard } from './views.js';
 export { accounts };
@@ -402,6 +403,7 @@ export function settings(db) {
       <p class="hint">Add, rename and delete your expense and income categories, with keywords so the app guesses them.</p>
       <div class="btnrow left"><a class="btn" href="#/categories?k=expense">Expense categories</a><a class="btn ghost" href="#/categories?k=income">Income categories</a></div></section>
     <section><h2>Appearance</h2>
+      <label class="check"><input type="checkbox" data-act="commas" ${localStorage.getItem('sukli.commas') === '0' ? '' : 'checked'}> Show thousands separators when typing (119,000)</label>
       <p class="hint">These are kept on this device only.</p>
       <div class="field"><span>Theme</span>${segBtns('look', 'theme', [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']], lk.theme)}</div>
       <div class="field"><span>Colour</span><div class="swatches" role="group" aria-label="Accent colour">${Object.entries(ACCENTS).map(([k, v]) => `<button type="button" class="swatch ${lk.accent === k ? 'on' : ''}" data-act="look" data-k="accent" data-v="${k}" style="background:${v.l[0]}" aria-label="${v.n}" aria-pressed="${lk.accent === k}"></button>`).join('')}</div></div>
@@ -443,11 +445,22 @@ export function settings(db) {
     <section><h2>Left out of cash outflow</h2>
       <p class="hint">Groups ticked here don’t count as spending in totals and charts (for example trading losses).</p>
       <div class="checks">${groups.map((g) => `<label class="check"><input type="checkbox" data-act="exclude" data-g="${esc(g)}" ${s.excludeGroups.includes(g) ? 'checked' : ''}> ${esc(g)}</label>`).join('')}</div></section>
+    <section><h2>Spending safety</h2><p class="hint">While you add an expense, Sukli warns when it pushes spending toward your income, card balances above a share of your income, or cash too low once card bills fall due.</p>
+      ${(() => { const c = safeCfg(db), opt = (k, list, fmtv) => `<select data-safety="${k}">${list.map((v) => `<option value="${v}" ${String(c[k]) === String(v) ? 'selected' : ''}>${fmtv(v)}</option>`).join('')}</select>`; return `
+      <label class="field inline"><span>Compare with income of</span>${opt('period', ['month', 'rolling30'], (v) => (v === 'month' ? 'this month' : 'the last 30 days'))}</label>
+      <label class="field inline"><span>Warn when spending reaches</span>${opt('warnAt', [60, 70, 80, 90, 100], (v) => v + '%')}<span>of income</span></label>
+      <label class="field inline"><span>Warn when card balances pass</span>${opt('cardPct', [30, 50, 70, 100], (v) => v + '%')}<span>of income</span></label>
+      <label class="field inline"><span>Keep at least</span><input data-safety="reserve" inputmode="decimal" value="${c.reserve || ''}" placeholder="0"><span>${BASE} in cash</span></label>`; })()}</section>
     <section><h2>Home currency</h2><p class="hint">Totals, budgets and reports are shown in this currency. Accounts and entries can use any currency.</p>
       <div class="two"><select id="base-sel" aria-label="Home currency">${Object.keys(CUR).sort().map((c) => `<option value="${c}" ${c === BASE ? 'selected' : ''}>${c}</option>`).join('')}</select>
       <button class="btn ghost" data-act="base-change">Change</button></div></section>
-    ${curs.length ? `<section><h2>Exchange rates</h2><p class="hint">What one unit is worth in ${BASE}. New entries start from the last rate you used; this is used for totals.</p>
-      ${curs.map((c) => { const r = rateFor(db, c); return `<label class="field inline"><span>1 ${c} =</span><input data-rate="${c}" inputmode="decimal" value="${r ? Number(r.toPrecision(6)) : ''}"><span>${BASE}</span></label>
+    <section><h2>Live exchange rates</h2><p class="hint">${db.settings.ratesAt ? 'Updated ' + new Date(db.settings.ratesAt).toLocaleString() + '. ' : 'Not updated yet. '}Rates refresh about once a day from a free public service. Rates you type below are kept as your own. Entries you already saved never change.</p>
+      <label class="check"><input type="checkbox" data-act="rates-auto" ${db.settings.autoRates === false ? '' : 'checked'}> Update rates automatically</label>
+      <div class="btnrow"><button class="btn ghost" data-act="rates-refresh">Refresh now</button><button class="btn ghost" data-act="rates-clear">Use live rates for all</button></div></section>
+    ${(() => { const own = new Set([...Object.keys(db.settings.customCur || {}), ...db.accounts.filter((a) => !a.deleted && a.type === 'crypto').map((a) => a.cur)]); return own.size ? `<section><h2>Coins and tokens: decimals</h2><p class="hint">Choose how many decimals to show for coins and tokens (for example MNT as Mantle, or BBSOL). Type a rate for each under Exchange rates, as live rates do not cover them.</p>
+      ${[...own].map((c) => `<label class="field inline"><span>${esc(c)}</span><select data-curdec="${esc(c)}">${[2, 4, 6, 8].map((n) => `<option ${(CUR[c] || { dec: 2 }).dec === n ? 'selected' : ''}>${n}</option>`).join('')}</select><span>decimals</span></label>`).join('')}</section>` : ''; })()}
+    ${curs.length ? `<section><h2>Exchange rates</h2><p class="hint">What one unit is worth in ${BASE}. New entries start from this rate; it is also used for totals.</p>
+      ${curs.map((c) => { const r = rateFor(db, c); return `<label class="field inline"><span>1 ${c} =${(db.settings.manualRates || {})[c] ? ' ✎' : ''}</span><input data-rate="${c}" inputmode="decimal" value="${r ? Number(r.toPrecision(6)) : ''}"><span>${BASE}</span></label>
       <label class="field inline"><span>1 ${BASE} =</span><input data-rate-inv="${c}" inputmode="decimal" value="${r ? Number((1 / r).toPrecision(6)) : ''}"><span>${c}</span></label>`; }).join('')}
       <p class="hint">Edit either side: the other follows. Each entry also lets you type the ${BASE} value from your bill.</p></section>` : ''}
     <section><h2>Put it on your phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
@@ -468,11 +481,13 @@ export function bindSettings() {
   const as = document.getElementById('autosync');
   if (as) as.onchange = () => commit((d) => { d.settings.autoSync = as.checked; });
   const setRate = (cur, v, from) => {
-    commitQuiet((d) => { if (v > 0) d.settings.rates[cur] = v; else delete d.settings.rates[cur]; });
+    commitQuiet((d) => { d.settings.manualRates = d.settings.manualRates || {}; if (v > 0) { d.settings.rates[cur] = v; d.settings.manualRates[cur] = true; } else { delete d.settings.rates[cur]; delete d.settings.manualRates[cur]; } });
     const other = document.querySelector(from === 'rate' ? `[data-rate-inv="${cur}"]` : `[data-rate="${cur}"]`);
     if (other) other.value = v > 0 ? Number((from === 'rate' ? 1 / v : v).toPrecision(6)) : '';
   };
   document.querySelectorAll('[data-rate]').forEach((i) => { i.onchange = () => setRate(i.dataset.rate, parseFloat(i.value), 'rate'); });
+  document.querySelectorAll('[data-safety]').forEach((i) => { i.onchange = () => commitQuiet((d) => { const k = i.dataset.safety; d.settings.safety = { ...(d.settings.safety || {}) }; d.settings.safety[k] = k === 'period' ? i.value : (parseFloat(String(i.value).replace(/,/g, '')) || 0); }); });
+  document.querySelectorAll('[data-curdec]').forEach((i) => { i.onchange = () => commit((d) => { const c = i.dataset.curdec; d.settings.customCur = d.settings.customCur || {}; d.settings.customCur[c] = { sym: (CUR[c] || { sym: c + ' ' }).sym, dec: +i.value }; CUR[c] = d.settings.customCur[c]; }); });
   document.querySelectorAll('[data-rate-inv]').forEach((i) => { i.onchange = () => { const x = parseFloat(i.value); setRate(i.dataset.rateInv, x > 0 ? 1 / x : 0, 'inv'); }; });
   const bc = document.getElementById('file-bc');
   if (bc) bc.onchange = async () => {
@@ -570,3 +585,5 @@ ACT['base-change'] = async () => {
   commit((d) => changeBase(d, next, r));
   toast(`Home currency is now ${next}.`, { ms: 6000 });
 };
+
+ACT.commas = (el) => { try { localStorage.setItem('sukli.commas', el.checked ? '1' : '0'); } catch { /* ignore */ } };

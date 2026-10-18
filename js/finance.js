@@ -82,24 +82,41 @@ export function cardInfo(db, a, bal) {
   const owed = Math.max(0, -(bal != null ? bal : (balances(db).get(a.id) || 0)));
   const limit = a.limit > 0 ? a.limit : 0;
   const used = limit ? Math.min(100, Math.round(owed / limit * 100)) : null;
-  let due = null, days = null;
-  if (a.dueDay > 0) {
-    const t0 = today(), [y, m] = t0.split('-').map(Number);
-    const mk = (yy, mm) => { const dim = new Date(yy, mm, 0).getDate(); return `${yy}-${p2(mm)}-${p2(Math.min(a.dueDay, dim))}`; };
-    due = mk(y, m);
-    if (due < t0) { const n = new Date(y, m, 1); due = mk(n.getFullYear(), n.getMonth() + 1); }
-    days = Math.round((new Date(due) - new Date(t0)) / 864e5);
+  const t0 = today(), [y, m] = t0.split('-').map(Number);
+  const mk = (yy, mm, day) => `${yy}-${p2(mm)}-${p2(Math.min(day, new Date(yy, mm, 0).getDate()))}`;
+  const gap = (x, z) => Math.round((new Date(x) - new Date(z)) / 864e5);
+  let due = null, days = null, cycle = null;
+  if (a.stmtDay > 0 && a.dueDay > 0) {
+    // billing cycle: the latest statement on or before today, and the due date that follows it
+    let st = mk(y, m, a.stmtDay);
+    if (st > t0) { const p = new Date(y, m - 2, 1); st = mk(p.getFullYear(), p.getMonth() + 1, a.stmtDay); }
+    const [sy, sm] = st.split('-').map(Number);
+    let dd = mk(sy, sm, a.dueDay);
+    if (dd <= st) { const n = new Date(sy, sm, 1); dd = mk(n.getFullYear(), n.getMonth() + 1, a.dueDay); }
+    const stmtBal = Math.max(0, -((balances(db, st + ' 23:59:59').get(a.id)) || 0));
+    // money that came into the card after the statement (payments, partial payments, refunds) reduces what is still due
+    const paid = accountHistory(db, a.id).filter((h) => h.d > 0 && h.t.date > st + ' 23:59:59').reduce((n, h) => n + h.d, 0);
+    const amountDue = Math.max(0, Math.round((stmtBal - paid) * 100) / 100);
+    const toDue = gap(dd, t0);
+    cycle = { stmtDate: st, dueDate: dd, stmtBal, paid: Math.min(paid, stmtBal), amountDue, days: toDue, overdue: toDue < 0 && amountDue > 0 };
+    due = dd; days = toDue;
+  } else if (a.dueDay > 0) {
+    due = mk(y, m, a.dueDay);
+    if (due < t0) { const n = new Date(y, m, 1); due = mk(n.getFullYear(), n.getMonth() + 1, a.dueDay); }
+    days = gap(due, t0);
   }
-  return { owed, limit, avail: limit ? limit - owed : null, used, due, days };
+  return { owed, limit, avail: limit ? limit - owed : null, used, due, days, cycle };
 }
 
-// cards due within `window` days that still owe something
-export function cardReminders(db, window = 5) {
+// cards to remind about: payment still unpaid and due within `window` days (or overdue), or 80%+ of the limit used.
+// Once the statement amount is paid in full the reminder disappears by itself; a partial payment keeps it with the rest.
+export function cardReminders(db, window = 3) {
   const bal = balances(db), out = [];
   for (const a of live(db.accounts)) {
     if (a.type !== 'card' || a.archived) continue;
     const c = cardInfo(db, a, bal.get(a.id));
-    if (c.due && c.owed > 0 && c.days <= window) out.push({ a, ...c });
+    const need = c.cycle ? c.cycle.amountDue > 0 : c.owed > 0;
+    if (c.due && need && c.days <= window) out.push({ a, ...c });
     else if (c.used != null && c.used >= 80) out.push({ a, ...c, high: true });
   }
   return out.sort((x, y) => (x.days ?? 99) - (y.days ?? 99));
@@ -116,6 +133,8 @@ export function cardIcs(db) {
     rows.push('BEGIN:VEVENT', `UID:sukli-card-${a.id}@sukli`, `DTSTAMP:${stampNow}`, `DTSTART;VALUE=DATE:${d0}`,
       `RRULE:FREQ=MONTHLY;BYMONTHDAY=${a.dueDay}`, `SUMMARY:Pay credit card: ${String(a.name).replace(/[,;\n]/g, ' ')}`,
       'BEGIN:VALARM', 'TRIGGER:-P3D', 'ACTION:DISPLAY', 'DESCRIPTION:Credit card payment due in 3 days', 'END:VALARM',
+      'BEGIN:VALARM', 'TRIGGER:-P2D', 'ACTION:DISPLAY', 'DESCRIPTION:Credit card payment due in 2 days', 'END:VALARM',
+      'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', 'DESCRIPTION:Credit card payment due tomorrow', 'END:VALARM',
       'BEGIN:VALARM', 'TRIGGER:-P0D', 'ACTION:DISPLAY', 'DESCRIPTION:Credit card payment due today', 'END:VALARM', 'END:VEVENT');
   }
   if (!rows.length) return '';

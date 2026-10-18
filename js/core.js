@@ -28,9 +28,19 @@ export const BUCKETS = [
   { key: 'ewallet', title: 'E-wallets', types: ['ewallet'] },
   { key: 'crypto', title: 'Crypto exchanges', types: ['crypto'] },
   { key: 'cash', title: 'Cash & other', types: ['cash', 'invest', 'asset', 'other'] },
+  { key: 'recv', title: 'Money owed to me', types: ['receivable'] },
   { key: 'card', title: 'Credit cards & loans', types: ['card', 'loan'] },
 ];
 export const bucketOf = (type) => BUCKETS.find((b) => b.types.includes(type)) || BUCKETS[3];
+// a currency the app does not know yet (a coin or token such as BBSOL or MNT): remember it so amounts keep their decimals
+export function ensureCurrency(db, code) {
+  code = String(code || '').trim().toUpperCase();
+  if (!code || CUR[code]) return false;
+  CUR[code] = { sym: code + ' ', dec: 8 };
+  db.settings.customCur = db.settings.customCur || {};
+  db.settings.customCur[code] = CUR[code];
+  return true;
+}
 export const COMMON = ['USD', 'USDT', 'JPY', 'PHP'];
 // add every ISO currency the browser knows (symbol + decimals), keeping the hand-set ones above
 try {
@@ -57,7 +67,7 @@ export function fmt(n, cur = BASE, opts = {}) {
   if (hide) return '\u2063' + fmt(n, cur, { ...opts, force: true }) + '\u2063';
   const dec = opts.round ? 0 : c.dec;
   const abs = Math.abs(n || 0);
-  const s = abs.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  const s = abs.toLocaleString('en-US', { minimumFractionDigits: Math.min(dec, 2), maximumFractionDigits: dec });   // coins: up to 8 decimals, no trailing zeros past 2
   const sign = n < 0 && abs >= Math.pow(10, -dec) / 2 ? '−' : (opts.sign && n > 0 ? '+' : '');
   return sign + c.sym + s;
 }
@@ -120,7 +130,7 @@ export function emptyDb() {
     v: 1,
     settings: {
       base: BASE, deviceId: uid(), driveClientId: '', autoSync: false, lastSync: 0,
-      showHome: true, remindDays: 5, rates: {}, excludeGroups: ['Capital Loss/Distribution', 'Crypto Buy'], lastAcct: '',
+      showHome: true, remindDays: 3, rates: {}, excludeGroups: ['Capital Loss/Distribution', 'Crypto Buy'], lastAcct: '',
       cloud: { url: '', key: '', email: '', auto: true },
     },
     accounts: [], categories: [], txs: [], budgets: [],
@@ -166,6 +176,7 @@ export async function load() {
   state = raw && raw.v ? raw : emptyDb();
   state.settings = { ...emptyDb().settings, ...state.settings };
   setBase(state.settings.base);
+  for (const [c, v] of Object.entries(state.settings.customCur || {})) CUR[c] = v;   // currencies you added yourself (e.g. BBSOL, MNT)
   return state;
 }
 export const get = () => state;
@@ -189,6 +200,7 @@ export function replaceAll(next) {
   state = next;
   state.settings = { ...emptyDb().settings, ...state.settings };
   setBase(state.settings.base);
+  for (const [c, v] of Object.entries(state.settings.customCur || {})) CUR[c] = v;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => writeRaw(state), 150);
   subs.forEach((f) => f(state));
@@ -366,7 +378,7 @@ export const DEFAULT_CATS = {
     'Family Support': ['Allowance'],
     Others: ['Uncategorized'],
   },
-  income: { Employer: ['Salary'], Earn: ['Interest', 'Crypto earned'], Others: ['Other income'] },
+  income: { Employer: ['Salary'], Earn: ['Interest', 'Crypto earned', 'Bank interest', 'Staking & rewards', 'Crypto trading gain'], 'Money owed to me': ['Repayment received'], Others: ['Other income'] },
 };
 
 export function seedCategories(db) {
@@ -377,6 +389,15 @@ export function seedCategories(db) {
   }
 }
 
+// one-time: give existing data the newer income and crypto categories (never re-added if you delete them)
+export function addStarterCats(db) {
+  if (db.settings.catsV6) return false;
+  for (const n of ['Bank interest', 'Staking & rewards', 'Crypto trading gain']) findOrAddCategory(db, 'Earn', n, 'income');
+  findOrAddCategory(db, 'Money owed to me', 'Repayment received', 'income');
+  for (const n of ['Trading fee', 'Network fee', 'Realized loss']) findOrAddCategory(db, 'Crypto & investing', n, 'expense');
+  db.settings.catsV6 = true;
+  return true;
+}
 export function adjustmentCategory(db) {
   let c = db.categories.find((x) => !x.deleted && x.group === 'Adjustments');
   if (!c) { c = stamp({ id: uid(), group: 'Adjustments', name: 'Balance correction', kind: 'both' }); db.categories.push(c); }

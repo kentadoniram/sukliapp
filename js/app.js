@@ -8,11 +8,13 @@ import { openEntry } from './entry.js';
 import { calendar, budget, cashflow, categories, outlook } from './views.js';
 import { ACT, ic, toast, $ } from './ui.js';
 import { bin, runPurge } from './bin.js';
+import { refreshRates } from './rates.js';
+import { analytics } from './analytics.js';
 import { initAppearance, applyHide, applyLook } from './appearance.js';
 import { postInterest } from './finance.js';
-import { commitQuiet } from './core.js';
+import { commitQuiet, addStarterCats } from './core.js';
 
-const routes = { bin, home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook };
+const routes = { analytics, bin, home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook };
 let lastRoute = null, pending = false;
 
 function firstRun() {
@@ -119,6 +121,8 @@ const queue = () => { if (!pending) { pending = true; requestAnimationFrame(rend
   const oauthMsg = await handleOAuthReturn();
   runInterest();
   runPurge();
+  refreshRates().then((r) => { if (r && !r.skipped) window.dispatchEvent(new Event('sukli-render')); }).catch(() => {});
+  commitQuiet((d) => { addStarterCats(d); });
   showLatest();
   subscribe(() => { queue(); scheduleSync(); cloudSchedule(); });
   window.addEventListener('hashchange', queue);
