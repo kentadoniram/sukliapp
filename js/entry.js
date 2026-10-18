@@ -99,7 +99,10 @@ export function openEntry(opts = {}) {
   function renderSeg() {
     const k = [['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']];
     $f('seg').innerHTML = k.map(([v, l]) => `<button type="button" data-e="kind" data-v="${v}" aria-pressed="${f.kind === v}" class="${f.kind === v ? 'on' : ''}">${l}</button>`).join('');
-    $f('namelabel').textContent = f.kind === 'transfer' ? 'Label (optional)' : f.kind === 'income' ? 'Where from?' : 'What was it?';
+    $f('namelabel').textContent = f.kind === 'transfer' ? 'Transfer method / label' : f.kind === 'income' ? 'Where from?' : 'What was it?';
+    // transfers: the label comes first, so the same route is predictable (it also drives the usual fee and accounts)
+    const nf = $f('namefield'), am = form.querySelector('.field.amount');
+    if (nf && am) { if (f.kind === 'transfer') { if (nf.nextElementSibling !== am) am.before(nf); } else if (nf.previousElementSibling !== $f('fxline')) $f('fxline').after(nf); }
   }
   function currencies() {
     const cnt = new Map();
@@ -152,9 +155,12 @@ export function openEntry(opts = {}) {
       if (!f.toAcct) { const o = get().accounts.find((x) => !x.deleted && !x.archived && x.id !== f.acct); f.toAcct = o ? o.id : ''; }
       const b2 = acctOf(f.toAcct);
       const cross = a && b2 && a.cur !== b2.cur;
+      if (cross && !f.convert && f.id && f.toAmount && Math.abs(+f.toAmount - +f.amount) > 1e-9) f.convert = true;
+      const conv = cross && !!f.convert;
       el.innerHTML = `<div class="two"><label class="field"><span>From</span><select id="f-acct">${acctOptions(f.acct, f.toAcct, a && a.cur)}</select></label>
         <label class="field"><span>To</span><select id="f-to">${acctOptions(f.toAcct, f.acct)}</select></label></div>
-        ${cross ? `<label class="field"><span>Amount received (${b2.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label>` : ''}`;
+        ${cross ? `<label class="check convbox"><input type="checkbox" id="f-conv" ${conv ? 'checked' : ''}> Convert currency (${a.cur} to ${b2.cur})</label>
+        ${conv ? `<label class="field"><span>Amount received (${b2.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label>` : `<p class="hint">No conversion: the same number arrives in ${b2.cur}.</p>`}` : ''}`;
     }
     renderFee();
   }
@@ -332,6 +338,7 @@ export function openEntry(opts = {}) {
   });
   form.addEventListener('change', (e) => {
     const id = e.target.id;
+    if (id === 'f-conv') { f.convert = e.target.checked; renderAccts(); return; }
     if (id === 'f-acct') { f.acct = e.target.value; f.acctTouched = true; f.acctSuggested = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; if (f.kind === 'transfer' && f.toAcct === f.acct) f.toAcct = ''; renderAccts(); renderFx(); refreshPred(); updateItemLeft(); }
     else if (id === 'f-to') { f.toAcct = e.target.value; renderAccts(); }
     else if (id === 'f-cur') {
@@ -421,12 +428,12 @@ export function openEntry(opts = {}) {
     if (!(amount > 0)) return fail('Enter an amount greater than zero.');
     if (!a) return fail('Choose an account.');
     let fx = 1;
-    if (a.cur !== BASE) { fx = num(f.fx); if (f.fxMode === 'peso' && num(f.peso) > 0) fx = num(f.peso) / amount; if (!(fx > 0)) return fail(`Enter the exchange rate (how many ${BASE} one ${a.cur} is worth).`); }
+    if (a.cur !== BASE) { fx = num(f.fx); if (f.fxMode === 'peso' && num(f.peso) > 0) fx = num(f.peso) / amount; if (!(fx > 0)) { if (f.kind === 'transfer') fx = rateFor(get(), a.cur) || 1; else return fail(`Enter the exchange rate (how many ${BASE} one ${a.cur} is worth).`); } }
     let toAmount = null;
     if (f.kind === 'transfer') {
       const b = acctOf(f.toAcct);
       if (!b || b.id === a.id) return fail('Choose two different accounts.');
-      toAmount = a.cur === b.cur ? amount : num(f.toAmount);
+      toAmount = (a.cur === b.cur || !f.convert) ? amount : num(f.toAmount);
       if (!(toAmount > 0)) return fail(`Enter how much arrived in ${b.name} (${b.cur}).`);
     }
     let fee = 0, feeCat = '', feeFx = null;

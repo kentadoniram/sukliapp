@@ -9,6 +9,8 @@ A private money tracker that runs entirely in the browser. Your data stays on yo
 - **Back button** closes the open sheet instead of leaving the screen underneath.
 - **Clear button (x)** on text boxes.
 - **Entry sheet:** amount, calculator, then a smaller currency picker on the far right; "Usual ⓘ" is a button that explains itself; "When" opens a calendar card with a time box.
+- **Menu access:** a floating menu button appears after a short upward scroll; swiping in from the left edge also opens it.
+- **Transfers:** the label comes first; converting currency is optional and off by default (tick "Convert currency" to enter the amount received).
 - CSV export keeps each currency's own decimals (BTC no longer rounds to 2).
 
 ## v5.1

@@ -82,6 +82,36 @@ function runInterest() {
 }
 const queue = () => { if (!pending) { pending = true; requestAnimationFrame(render); } };
 
+// easier menu: a floating button after a short upward scroll, and a swipe in from the left edge
+(function menuAccess() {
+  const fab = document.createElement('button');
+  fab.type = 'button'; fab.className = 'menufab'; fab.hidden = true; fab.setAttribute('aria-label', 'Open menu'); fab.innerHTML = ic('menu');
+  document.addEventListener('DOMContentLoaded', () => document.body.appendChild(fab));
+  if (document.body) document.body.appendChild(fab);
+  const open = () => { if (!document.body.classList.contains('noscroll') && ACT.menu) { fab.hidden = true; ACT.menu(fab, null); } };
+  fab.addEventListener('click', open);
+  let last = window.scrollY;
+  window.addEventListener('scroll', () => {
+    const y = window.scrollY, up = last - y;
+    if (y < 120 || document.body.classList.contains('noscroll')) fab.hidden = true;
+    else if (up > 14) fab.hidden = false;
+    else if (up < -6) fab.hidden = true;
+    last = y;
+  }, { passive: true });
+  let sx = 0, sy = 0, live = false;
+  document.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    live = e.touches.length === 1 && t.clientX < 24 && !e.target.closest('svg, canvas, input, textarea, [data-noswipe], .scrim');
+    sx = t.clientX; sy = t.clientY;
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!live) return;
+    const t = e.touches[0], dx = t.clientX - sx, dy = Math.abs(t.clientY - sy);
+    if (dy > 40) live = false;
+    else if (dx > 70 && dx > dy * 2) { live = false; open(); }
+  }, { passive: true });
+})();
+
 (async function boot() {
   initAppearance();
   await load();
