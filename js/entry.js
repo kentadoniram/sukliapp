@@ -109,7 +109,7 @@ export function openEntry(opts = {}) {
   }
   // calendar card instead of the browser's date box
   function pickDate() {
-    const hid = $f('date'), cur = hid.value || toLocalInput(f.date);
+    const hid = $f('f-date'), cur = hid.value || toLocalInput(f.date);
     let [d, t] = cur.split('T'), ym = d.slice(0, 7);
     const sh = sheet('', { title: 'When' });
     const draw = () => {
@@ -129,7 +129,7 @@ export function openEntry(opts = {}) {
       else if ('today' in b.dataset) { const n = nowStamp(); d = n.slice(0, 10); ym = d.slice(0, 7); draw(); }
       else if ('ok' in b.dataset) {
         hid.value = `${d}T${t || '00:00'}`;
-        $f('datebtn').textContent = `${dayLabel(d)} · ${t || '00:00'}`;
+        $f('f-datebtn').textContent = `${dayLabel(d)} · ${t || '00:00'}`;
         hid.dispatchEvent(new Event('input', { bubbles: true })); hid.dispatchEvent(new Event('change', { bubbles: true })); sh.close();
       }
     });
