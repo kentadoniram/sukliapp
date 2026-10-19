@@ -2,7 +2,15 @@
 
 A private money tracker that runs entirely in the browser. Your data stays on your device, with an optional backup to a hidden folder in your own Google Drive. No server, no subscription, no AI service: the category guesser is a small model that learns from your own entries and runs on the phone.
 
+## What's new in v8 (statistics)
+
+- **Robust forecast:** next month is predicted by whichever simple method (median/average of recent months, weighted recent, trend, same month last year) would have predicted your own past months best. Months with no spending are kept. Outlook shows the method and a rough error range once there are enough test months.
+- **Repeats every month** now adds up same-name entries per month and needs a steady amount.
+- **Habit insights:** a gap in something you do almost every week is mentioned only when the last 7 days are far outside your own range, and never when you logged very little overall (travel, not logging). Also weekday vs weekend, week after payday vs before, and category trends with a confidence level. These are patterns, not causes.
+
 ## What's new in v7
+
+- Merged build: your v7 changes plus these from the earlier build: inverse price line and a Trading-fee hint on crypto trades, "Crypto · exchange" groups in the account lists, a token you gave your own decimals (like MNT as Mantle) never takes the bank rate of the same code, and one clear (x) button instead of two.
 
 - **Searchable account list** in the entry sheet: search by name, type or currency, filter by currency, and picking an account in another currency switches the currency for you.
 - **Calculator inside the amount field**; the currency button stays at the far right.

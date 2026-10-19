@@ -259,6 +259,8 @@ export function rateFor(db, cur) {
   return lastTxRate(db, cur);
 }
 export function liveRate(db, cur) {
+  // a code you gave your own decimals (MNT as Mantle, BBSOL) is a token, not the bank currency of the same name
+  if (db.settings.curDec && db.settings.curDec[cur] && !CRYPTO.includes(cur)) return 0;
   const l = db.settings.live;
   if (!l || !l.usd) return 0;
   const a = l.usd[BASE], b = l.usd[cur];

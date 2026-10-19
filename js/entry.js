@@ -67,12 +67,12 @@ function acctOptions(sel, skip, cur) {
   const groups = new Map();
   for (const a of db.accounts) {
     if (a.deleted || a.id === skip || (a.archived && a.id !== sel) || (cur && a.cur !== cur)) continue;
-    const g = typeGroupName(a.type);
+    const g = a.type === 'crypto' && a.exchange ? 'Crypto · ' + a.exchange : typeGroupName(a.type);
     if (!groups.has(g)) groups.set(g, { o: typeGroupOrder(a.type), list: [] });
     groups.get(g).list.push(a);
   }
   const opt = (a) => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)} · ${a.cur}</option>`;
-  return [...groups.entries()].sort((x, y) => x[1].o - y[1].o).map(([g, v]) =>
+  return [...groups.entries()].sort((x, y) => x[1].o - y[1].o || x[0].localeCompare(y[0])).map(([g, v]) =>
     `<optgroup label="${esc(g)}">${v.list.sort((a, b) => (lastUsed.get(b.id) || '').localeCompare(lastUsed.get(a.id) || '') || a.name.localeCompare(b.name)).map(opt).join('')}</optgroup>`).join('');
 }
 function catOptions(sel, kind) {
@@ -203,7 +203,7 @@ export function openEntry(opts = {}) {
     el.innerHTML = `<label class="check"><input type="checkbox" id="f-conv" ${f.convert ? 'checked' : ''}> ${a.type === 'crypto' && b.type === 'crypto' ? `Trade ${a.cur} for ${b.cur} (not 1:1)` : `Convert ${a.cur} to ${b.cur} (use an exchange rate)`}</label>
       ${f.convert ? `<div class="convbox"><div class="fxline one"><label class="fxrate"><span>1 ${a.cur} =</span><input id="f-crate" inputmode="decimal" aria-label="Exchange rate" value="${esc(f.cRate)}"><span>${b.cur}</span></label>
         <label class="fxpeso"><span>Received (${b.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label></div>
-        <button type="button" class="linkbtn" data-e="livecross">Use today’s rate</button> <small class="muted" id="crossnote"></small></div>`
+        <button type="button" class="linkbtn" data-e="livecross">Use today’s rate</button> <small class="muted" id="crossnote"></small><small class="hint" id="invrate"></small>${a.type === 'crypto' || b.type === 'crypto' ? '<small class="hint">Add the exchange’s buy or sell fee below (Fee, type “Trading fee”).</small>' : ''}</div>`
         : `<small class="hint">Off: the same number arrives in ${esc(b.name)}. Turn on when the amounts differ, like USDT to PHP.</small>`}`;
   }
   function crossRate() {
@@ -214,9 +214,11 @@ export function openEntry(opts = {}) {
   function syncCross(from) {
     const amt = num(f.amount), cr = $f('f-crate'), ta = $f('f-toamt');
     if (!cr || !ta) return;
+    const inv = $f('invrate'); const showInv = () => { const r = num(f.cRate), a2 = acctOf(f.acct), b2 = acctOf(f.toAcct); if (inv) inv.textContent = r > 0 && a2 && b2 ? `1 ${b2.cur} = ${prec(1 / r)} ${a2.cur}` : ''; };
     if (from === 'rate') { const r = num(f.cRate); if (amt > 0 && r > 0) { f.toAmount = String(Math.round(amt * r * 1e6) / 1e6); ta.value = f.toAmount; } }
     else if (from === 'to') { const t = num(f.toAmount); if (amt > 0 && t > 0) { f.cRate = prec(t / amt); cr.value = f.cRate; } }
     else { const r = num(f.cRate); if (amt > 0 && r > 0) { f.toAmount = String(Math.round(amt * r * 1e6) / 1e6); ta.value = f.toAmount; } }
+    showInv();
   }
   function renderFx() {
     const a = acctOf(f.acct);
