@@ -4,7 +4,7 @@ import {
   get, commit, uid, stamp, nowStamp, rateFor, fmt, BASE, HOME, homeFx, allCurrencies, curName, CUR, balances, catMap, accountMap, live, groupColor, groupLetter,
   adjustmentCategory, shiftMonth, thisMonth, monthLabel, monthParts, deltaFor, dayLabel,
 } from './core.js';
-import { accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, today, postInterest } from './finance.js';
+import { accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, setLiab, today, postInterest } from './finance.js';
 import { esc, ic, ACT, sheet, toast, download, confirmDialog } from './ui.js';
 import { applyHide } from './appearance.js';
 import { money, eq, hdr, coll, ui } from './screens.js';
@@ -13,6 +13,18 @@ import { favCurs, openCurrencyPicker, flagOf } from './curpicker.js';
 import { openDatePicker } from './datepicker.js';
 
 export const typeNames = { cash: 'Cash', bank: 'Bank', ewallet: 'E-wallet / card balance', card: 'Credit card', crypto: 'Crypto', invest: 'Investment', asset: 'Asset (property, vehicle…)', loan: 'Loan or money owed', other: 'Other' };
+const DEFAULT_TYPES = { ...typeNames };
+// account types you can rename and add to (Settings, Account types). Custom ones count as an asset or a liability.
+export function applyTypes(st = {}) {
+  for (const k of Object.keys(typeNames)) delete typeNames[k];
+  Object.assign(typeNames, DEFAULT_TYPES);
+  const custom = st.customTypes || {}, labels = st.typeLabels || {};
+  for (const k of Object.keys(DEFAULT_TYPES)) if (labels[k]) typeNames[k] = labels[k];
+  for (const [k, v] of Object.entries(custom)) typeNames[k] = labels[k] || v.label;
+  typeOrder.length = 0;
+  typeOrder.push('cash', 'bank', 'ewallet', 'crypto', 'invest', 'asset', 'other', ...Object.keys(custom), 'card', 'loan');
+  setLiab(Object.entries(custom).filter(([, v]) => v.liab).map(([k]) => k));
+}
 const typeOrder = ['cash', 'bank', 'ewallet', 'crypto', 'invest', 'asset', 'other', 'card', 'loan'];
 
 // ---- view choices (remembered on this device) ----

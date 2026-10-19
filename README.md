@@ -4,6 +4,12 @@ A private money tracker that runs entirely in the browser. Your data stays on yo
 
 ## What's new in v7
 
+- **Searchable account list** in the entry sheet: search by name, type or currency, filter by currency, and picking an account in another currency switches the currency for you.
+- **Calculator inside the amount field**; the currency button stays at the far right.
+- **Exchange rate on one row** (1 USD = rate = value in your home currency).
+- **Analytics, Last month** fixed: it ended on the 31st for every month, giving an invalid date such as 2026-09-31; it now uses the real last day.
+- **Save button always on screen** in the entry sheet and the account form (it stays pinned at the bottom while the form scrolls).
+- **Account types you can edit and add:** Settings, Account types. Rename any type; add your own (an asset or a liability); delete custom types that no account uses. They appear in the account form's Type list and in the Accounts page.
 - **Added back from the earlier build:** your own coins and tokens (unknown currencies in a CSV, or typed in the currency search, get up to 8 decimals; set decimals per coin in Settings), accounts grouped by Exchange, Trade wording and auto-conversion between two crypto accounts (Trading fee category), thousands separators while typing (switch in Appearance), a clear (x) button on text boxes, and Rename or merge a category group.
 - **Currency button opens the searchable list straight away** (search box, quick list, then Others A to Z). It narrows as you type, by code, name or country.
 - **Backup reminder:** Settings, Backup reminder. Choose daily or weekly and a time; when the app is open after that time a card offers a one-tap download.

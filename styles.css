@@ -532,3 +532,18 @@ button.gbar { width: 100%; text-align: left; background: none; border: 0; color:
 .nudge small { color: var(--ink2); }
 
 .clearx { position: fixed; z-index: 60; width: 26px; height: 26px; border: 0; border-radius: 50%; background: var(--rule); color: var(--ink2); font-size: 18px; line-height: 24px; padding: 0; }
+
+/* the Save button stays on screen while the form scrolls */
+#btns, .sheet-body > form > .btnrow:last-child { position: sticky; bottom: calc(-24px - env(safe-area-inset-bottom, 0px)); z-index: 5; background: var(--sheet); padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 10px -9px rgba(0,0,0,.35); margin-bottom: 0; }
+
+/* amount: calculator sits inside the field; exchange rate on one row */
+.amtwrap .calcbtn { width: 40px; height: 40px; flex: none; border: 0; background: transparent; border-radius: 10px; margin-right: -8px; }
+.amtwrap .calcbtn[aria-pressed="true"] { background: var(--line); color: var(--line-ink); }
+.fxline.one { flex-wrap: nowrap; align-items: center; gap: 6px; margin: 0 0 4px; }
+.fxline.one .fxrate { display: flex; align-items: center; gap: 6px; padding: 0; align-self: center; white-space: nowrap; }
+.fxline.one .fxpeso { display: flex; min-width: 0; }
+.fxline.one input { width: 74px; min-height: 38px; }
+.fxline.one .amtwrap.sm input { width: 84px; min-height: 38px; font-size: calc(17px * var(--fs, 1)); }
+.fxhint { display: block; margin: 2px 0 8px; font-size: calc(12px * var(--fs, 1)); color: var(--ink2); }
+.acctbtn { width: 100%; text-align: left; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); color: var(--ink); font: inherit; padding: 13px 14px; cursor: pointer; }
+.acchips { margin: 8px 0; }

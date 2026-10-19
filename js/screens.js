@@ -421,6 +421,12 @@ export function settings(db) {
       <p class="hint">Add, rename and delete your expense and income categories, with keywords so the app guesses them.</p>
       <div class="btnrow left"><a class="btn" href="#/categories?k=expense">Expense categories</a><a class="btn ghost" href="#/categories?k=income">Income categories</a></div></section>
     ${(() => { const own = [...new Set([...Object.keys(db.settings.curDec || {}), ...db.accounts.filter((a) => !a.deleted && a.type === 'crypto').map((a) => a.cur)])]; return own.length ? `<section><h2>Coins and tokens: decimals</h2><p class="hint">How many decimals to show for coins and tokens (for example MNT as Mantle, or BBSOL).</p>${own.map((c) => `<label class="field inline"><span>${esc(c)}</span><select data-curdec="${esc(c)}">${[2, 4, 6, 8].map((n) => `<option ${CUR[c].dec === n ? 'selected' : ''}>${n}</option>`).join('')}</select><span>decimals</span></label>`).join('')}</section>` : ''; })()}
+    ${(() => { const st = db.settings, custom = st.customTypes || {}, n = (k) => db.accounts.filter((a) => !a.deleted && a.type === k).length;
+      return `<section id="atypes"><h2>Account types</h2><p class="hint">Rename any type, or add your own, for example "Money owed to me" or "Savings pot". Choose whether a new type is something you have or something you owe.</p>
+      ${Object.entries(typeNames).map(([k, l]) => `<div class="field inline"><input data-atype-label="${esc(k)}" value="${esc(l)}" aria-label="Name of ${esc(l)}"><small class="muted">${n(k)} account${n(k) === 1 ? '' : 's'}${custom[k] ? (custom[k].liab ? ' · liability' : ' · asset') : ''}</small>${custom[k] ? `<button type="button" class="btn sm ghost" data-act="atype-del" data-k="${esc(k)}">Delete</button>` : ''}</div>`).join('')}
+      <div class="field"><span>New account type</span><input id="atype-new" placeholder="e.g. Money owed to me" data-noclear="1"></div>
+      <label class="field inline"><span>It is</span><select id="atype-kind"><option value="asset">An asset (money I have or am owed)</option><option value="liab">A liability (money I owe)</option></select></label>
+      <button type="button" class="btn" data-act="atype-add">Add account type</button></section>`; })()}
     <section><h2>Appearance</h2>
       <label class="check"><input type="checkbox" data-act="commas" ${localStorage.getItem('sukli.commas') === '0' ? '' : 'checked'}> Show thousands separators when typing (119,000)</label>
       <p class="hint">These are kept on this device only.</p>
@@ -608,3 +614,23 @@ ACT.gsetup = () => sheet(`<ol class="steps">
 
 ACT.commas = (el) => { try { localStorage.setItem('sukli.commas', el.checked ? '1' : '0'); } catch { /* ignore */ } };
 document.addEventListener('change', (e) => { const c = e.target.dataset && e.target.dataset.curdec; if (c) { const n = +e.target.value; commit((d) => { d.settings.curDec = { ...(d.settings.curDec || {}), [c]: n }; }); CUR[c].dec = n; } });
+
+ACT['atype-add'] = () => {
+  const name = (document.getElementById('atype-new').value || '').trim(), liab = document.getElementById('atype-kind').value === 'liab';
+  if (!name) { toast('Type a name for the new account type.'); return; }
+  if (Object.values(typeNames).some((l) => l.toLowerCase() === name.toLowerCase())) { toast('That name is already used.'); return; }
+  const key = 'c_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 24) + '_' + Math.random().toString(36).slice(2, 5);
+  commit((d) => { d.settings.customTypes = { ...(d.settings.customTypes || {}), [key]: { label: name, liab } }; });
+  toast(`Added “${name}”. You can pick it when you add or edit an account.`, { ms: 5000 });
+};
+ACT['atype-del'] = async (el) => {
+  const k = el.dataset.k, used = get().accounts.filter((a) => !a.deleted && a.type === k).length;
+  if (used) { toast(`${used} account${used === 1 ? ' uses' : 's use'} this type. Change them to another type first.`, { ms: 5000 }); return; }
+  if (!(await confirmDialog('Delete this account type?', 'Delete', true))) return;
+  commit((d) => { const c = { ...(d.settings.customTypes || {}) }; delete c[k]; d.settings.customTypes = c; const l = { ...(d.settings.typeLabels || {}) }; delete l[k]; d.settings.typeLabels = l; });
+};
+document.addEventListener('change', (e) => {
+  const k = e.target.dataset && e.target.dataset.atypeLabel; if (!k) return;
+  const v = e.target.value.trim(); if (!v) { e.target.value = typeNames[k]; return; }
+  commit((d) => { d.settings.typeLabels = { ...(d.settings.typeLabels || {}), [k]: v }; });
+});

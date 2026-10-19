@@ -13,7 +13,9 @@ const addDays = (s, n) => { const [y, m, d] = s.split('-').map(Number); return y
 const sum = (a) => a.reduce((s, x) => s + x, 0);
 
 export const ASSET_TYPES = new Set(['cash', 'bank', 'ewallet', 'invest', 'crypto', 'other', 'asset']);
-export const isLiability = (a) => a.type === 'card' || a.type === 'loan';
+const LIAB = new Set(['card', 'loan']);
+export const setLiab = (keys) => { LIAB.clear(); for (const k of ['card', 'loan', ...keys]) LIAB.add(k); };
+export const isLiability = (a) => LIAB.has(a.type);
 
 // ---------- one account's story ----------
 // newest first, each row with the change to this account and the balance right after it

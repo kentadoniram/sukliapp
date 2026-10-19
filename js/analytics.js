@@ -11,14 +11,15 @@ const sum = (xs) => xs.reduce((s, x) => s + x, 0);
 const addDays = (d, n) => new Date(new Date(d + 'T00:00:00Z').getTime() + n * 864e5).toISOString().slice(0, 10);
 const diffDays = (a, b) => Math.round((new Date(b) - new Date(a)) / 864e5);
 
+const eom = (ym) => { const [y, m] = ym.split('-').map(Number); return ym + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0'); };   // real last day: 28, 29, 30 or 31
 function period() {
   const t = today(), ym = t.slice(0, 7);
   let from, to = t;
   switch (A.range) {
     case '7d': from = addDays(t, -6); break;
     case '30d': from = addDays(t, -29); break;
-    case 'm': from = ym + '-01'; to = ym + '-31'; break;
-    case 'pm': { const p = shiftMonth(ym, -1); from = p + '-01'; to = p + '-31'; break; }
+    case 'm': from = ym + '-01'; to = eom(ym); break;
+    case 'pm': { const p = shiftMonth(ym, -1); from = p + '-01'; to = eom(p); break; }
     case '3m': from = shiftMonth(ym, -2) + '-01'; break;
     case '6m': from = shiftMonth(ym, -5) + '-01'; break;
     case 'y': from = ym.slice(0, 4) + '-01-01'; break;
@@ -26,7 +27,7 @@ function period() {
     default: from = addDays(t, -29);
   }
   if (to > t && A.range !== 'm' && A.range !== 'pm') to = t;
-  const real = to.slice(8) === '31' ? (to > t ? t : to) : to;
+  const real = to > t ? t : to;
   const days = Math.max(1, diffDays(from, real > to ? to : real) + 1);
   // the matching earlier period of equal length
   const pTo = addDays(from, -1), pFrom = addDays(from, -days);

@@ -1,4 +1,5 @@
 // App shell: routing, tab bar, first-run screen, service worker, auto-backup hook.
+import { applyTypes } from './accpage.js';
 import { initBackup } from './backup.js';
 import { load, get, subscribe, commit, seedCategories, balances, reviewCount, latestMonth, thisMonth, monthOf, priv } from './core.js';
 import { importBluecoins } from './importer.js';
@@ -38,6 +39,7 @@ function tabs(route) {
 }
 
 function render() {
+  applyTypes(get().settings);
   pending = false;
   applyHide();
   const db = get();
