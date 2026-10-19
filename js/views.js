@@ -7,7 +7,7 @@ import {
 import { pace, totals, trend, baselineMonths } from './insights.js';
 import { ui, hdr, monthNav, strip, money, row, gbar, coll, trendChart, budgetOf } from './screens.js';
 import { openEntry, openCategoryForm } from './entry.js';
-import { forecastNext, behaviorNotes } from './finance.js';
+import { forecastNext, behaviorNotes, detectRecurring } from './finance.js';
 import { reminderBanner } from './accpage.js';
 import { ACT, sheet, ic, esc, confirmDialog, promptDialog, pushOverlay, toast } from './ui.js';
 
@@ -367,5 +367,6 @@ export function outlook(db) {
     ${coll('o-chart', 'Spending by month', `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Spending in recent months and the forecast">${inc}${bars}</svg><p class="legend"><i class="k bar"></i>Actual <i class="k dash"></i>Forecast${f.incomeAvg ? ' <i class="k inc"></i>Usual income' : ''} · tap a bar</p>`)}
     ${coll('o-notes', 'Warnings, tips and rewards', notesList(notes))}
     ${coll('o-groups', 'Where it will probably go', rows ? `${rows}<p class="hint tap">The tick shows how far this month is. Tap a group for its details.</p>` : '<p class="empty">Nothing to show yet.</p>')}
+    ${(() => { const reg = detectRecurring(db); return reg.length ? coll('o-reg', 'Regular payments found', `<p class="hint">Found from how often and how much you pay. About ${R(reg.reduce((n, r) => n + r.monthly, 0))} a month in total.</p><div class="rows plain">${reg.slice(0, 8).map((r) => `<div class="row"><span class="rmain"><strong>${esc(r.name)}</strong><small>${esc(r.every)}${r.steady ? '' : ', amount varies'} · next around ${esc(r.next)}</small></span><span class="ramt"><b>${R(r.amount)}</b></span></div>`).join('')}</div>`) : ''; })()}
     ${f.fixed.length ? coll('o-fixed', 'Repeats every month', `<div class="rows plain">${f.fixed.map((x) => `<div class="row"><span class="rmain"><strong>${esc(x.name)}</strong><small>seen in each of the last ${f.months.length} months</small></span><span class="ramt"><b>${R(x.v)}</b></span></div>`).join('')}</div>`) : ''}`;
 }

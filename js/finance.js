@@ -6,6 +6,7 @@ import {
 } from './core.js';
 import { totals, baselineMonths } from './insights.js';
 import { sum as ssum, median, mad, robustZ, trend, forecastSeries } from './stats.js';
+import { merchantKey } from './merchants.js';
 
 const p2 = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
@@ -300,6 +301,49 @@ export function categoryTrends(db, ym = thisMonth()) {
   return out.sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel));
 }
 
+// ---------- regular payments: subscriptions and bills found from timing and amount ----------
+const CADENCE = [['weekly', 7, 1, 52 / 12], ['every 2 weeks', 14, 2, 26 / 12], ['monthly', 30.4, 3, 1], ['every 3 months', 91, 6, 1 / 3], ['yearly', 365, 8, 1 / 12]];
+export function detectRecurring(db, now = today()) {
+  const by = new Map();
+  for (const p of partsBetween(db, addDays(now, -800), now)) {
+    if (p.kind !== 'expense' || !p.t.name) continue;
+    const key = merchantKey(p.t.name); if (!key) continue;
+    const day = p.t.date.slice(0, 10), e = by.get(key) || { name: p.t.name, days: new Map() };
+    e.days.set(day, (e.days.get(day) || 0) + p.v);               // same merchant, same day = one payment (two coffees are not two subscriptions)
+    by.set(key, e);
+  }
+  const out = [];
+  for (const [key, e] of by) {
+    const days = [...e.days.keys()].sort(), amts = days.map((d) => e.days.get(d));
+    if (days.length < 3 && !(days.length === 2 && gapDays(days[1], days[0]) > 300)) continue;
+    const gaps = days.slice(1).map((d, i) => gapDays(d, days[i])), g = median(gaps), spread = mad(gaps);
+    const cad = CADENCE.find(([, n, tol]) => Math.abs(g - n) <= tol && spread <= Math.max(1, tol * 0.7)); if (!cad) continue;
+    const med = median(amts), rel = med > 0 ? mad(amts) / med : 1;
+    if (rel > 0.4 || (rel > 0.12 && g < 25)) continue;   // weekly habits (dinners, groceries) are not subscriptions; only monthly or longer bills may vary
+    const last = days[days.length - 1], next = addDays(last, Math.round(g)), since = gapDays(now, last);
+    out.push({ key, name: e.name, every: cad[0], amount: med, steady: rel <= 0.12, monthly: med * cad[3], last, next, count: days.length, active: since <= g * 1.6 });
+  }
+  return out.filter((r) => r.active).sort((a, b) => b.monthly - a.monthly);
+}
+
+// ---------- correlations: which weekly habits move together (patterns, never causes) ----------
+const ranks = (a) => { const idx = a.map((v, i) => [v, i]).sort((x, y) => x[0] - y[0]), r = Array(a.length); for (let i = 0; i < idx.length;) { let j = i; while (j + 1 < idx.length && idx[j + 1][0] === idx[i][0]) j++; for (let k = i; k <= j; k++) r[idx[k][1]] = (i + j) / 2; i = j + 1; } return r; };
+const pearson = (x, y) => { const n = x.length, mx = ssum(x) / n, my = ssum(y) / n; let sxy = 0, sxx = 0, syy = 0; for (let i = 0; i < n; i++) { sxy += (x[i] - mx) * (y[i] - my); sxx += (x[i] - mx) ** 2; syy += (y[i] - my) ** 2; } return sxx && syy ? sxy / Math.sqrt(sxx * syy) : 0; };
+export function correlations(db, now = today(), weeks = 26) {
+  const cm = catMap(db), per = new Map();
+  for (const p of partsBetween(db, addDays(now, -7 * weeks + 1), now)) {
+    if (p.kind !== 'expense') continue; const c = cm.get(p.cat); if (!c) continue;
+    const w = Math.floor(gapDays(now, p.t.date.slice(0, 10)) / 7); if (w < 0 || w >= weeks) continue;
+    if (!per.has(c.name)) per.set(c.name, Array(weeks).fill(0)); per.get(c.name)[w] += p.v;
+  }
+  const names = [...per.entries()].filter(([, v]) => v.filter((x) => x > 0).length >= weeks * 0.5).sort((a, b) => ssum(b[1]) - ssum(a[1])).slice(0, 8), out = [];
+  for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
+    const rho = pearson(ranks(names[i][1]), ranks(names[j][1])), t = rho * Math.sqrt((weeks - 2) / Math.max(1e-9, 1 - rho * rho));
+    if (Math.abs(rho) >= 0.5 && Math.abs(t) >= 3.2) out.push({ a: names[i][0], b: names[j][0], rho, weeks });   // strict cut-off: many pairs are tried
+  }
+  return out.sort((x, y) => Math.abs(y.rho) - Math.abs(x.rho)).slice(0, 3);
+}
+
 // ---------- behaviour notes: warnings, tips and a bit of praise ----------
 export function behaviorNotes(db, ym = thisMonth()) {
   const out = [], money = (n) => fmt(n, HOME, { round: true });
@@ -324,6 +368,8 @@ export function behaviorNotes(db, ym = thisMonth()) {
   const tr = categoryTrends(db, ym).find((x) => x.dir === 'up');
   if (tr && !out.some((o) => o.text.startsWith(tr.g))) out.push({ tone: 'warn', text: `${tr.g} has been climbing by about ${money(tr.per)} a month over the last months (${tr.conf} confidence). That is a pattern, not a one-off.` });
   for (const g of habitGaps(db)) out.push(g);
+  const co = correlations(db)[0];
+  if (co) out.push({ tone: 'note', text: co.rho < 0 ? `Over ${co.weeks} weeks, when you spend more on ${co.a} you tend to spend less on ${co.b}, and the other way round. A pattern in your entries, not a cause.` : `Over ${co.weeks} weeks, ${co.a} and ${co.b} tend to rise and fall together. A pattern in your entries, not a cause.` });
   const rh = rhythm(db);
   if (rh.weekendRatio != null && (rh.weekendRatio >= 1.5 || rh.weekendRatio <= 0.6)) out.push({ tone: 'note', text: `A typical weekend day costs ${money(rh.weekend)} against ${money(rh.weekday)} on a weekday (median of the last 12 weeks). This is a pattern in your entries, not a verdict.` });
   if (rh.payday && rh.payday.before > 0 && rh.payday.after / rh.payday.before >= 1.3) out.push({ tone: 'note', text: `Spending in the week after payday (around the ${rh.payday.day}th) is about ${(rh.payday.after / rh.payday.before).toFixed(1)}x the week before it. Setting savings aside first may help.` });

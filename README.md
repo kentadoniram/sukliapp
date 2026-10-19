@@ -4,6 +4,13 @@ A private money tracker that runs entirely in the browser. Your data stays on yo
 
 ## What's new in v8 (statistics)
 
+- **Name matching helper:** when you type a new name that looks like one you already use ("tennis socks" vs "tennis", "mang inasal antipolo" vs "mang inasal tagaytay"), a small card asks Same or Different and remembers your answer. Settings, Name matching lists what you linked or kept apart (undo any), and has "Review similar names" for the whole history.
+
+- **New account type inside the New account form** (last choice in the Type list): name it, say whether you owe it, and it is selected right away.
+- **Merchant matching:** "STARBUCKS TOKYO", "スターバックス" and "Starbucks 渋谷" count as one place (known chains in English and Japanese; other names lose branch words, place names and digits).
+- **Regular payments found** (Outlook): subscriptions and bills found from timing and amount. Same-day entries from one merchant count once; weekly habits are not called subscriptions.
+- **Correlations:** which weekly habits move together, shown only when the link is strong across 26 weeks. Worded as a pattern, never a cause.
+
 - **Robust forecast:** next month is predicted by whichever simple method (median/average of recent months, weighted recent, trend, same month last year) would have predicted your own past months best. Months with no spending are kept. Outlook shows the method and a rough error range once there are enough test months.
 - **Repeats every month** now adds up same-name entries per month and needs a steady amount.
 - **Habit insights:** a gap in something you do almost every week is mentioned only when the last 7 days are far outside your own range, and never when you logged very little overall (travel, not logging). Also weekday vs weekend, week after payday vs before, and category trends with a confidence level. These are patterns, not causes.

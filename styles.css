@@ -547,3 +547,10 @@ button.gbar { width: 100%; text-align: left; background: none; border: 0; color:
 .fxhint { display: block; margin: 2px 0 8px; font-size: calc(12px * var(--fs, 1)); color: var(--ink2); }
 .acctbtn { width: 100%; text-align: left; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); color: var(--ink); font: inherit; padding: 13px 14px; cursor: pointer; }
 .acchips { margin: 8px 0; }
+
+.namehelp { margin: -4px 0 8px; }
+.nmcard { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 9px 12px; margin: 6px 0; border-radius: 12px; background: var(--rule); font-size: calc(13px * var(--fs, 1)); }
+.nmbtns { display: flex; gap: 6px; }
+.nmgroup { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--rule); }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; margin: 2px; border-radius: 999px; background: var(--rule); font-size: calc(12px * var(--fs, 1)); }
+.chip .x { border: 0; background: transparent; color: var(--ink2); font-size: 16px; padding: 0 6px; cursor: pointer; }

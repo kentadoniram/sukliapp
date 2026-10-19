@@ -5,7 +5,7 @@ import {
   adjustmentCategory, shiftMonth, thisMonth, monthLabel, monthParts, deltaFor, dayLabel,
 } from './core.js';
 import { accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, setLiab, today, postInterest } from './finance.js';
-import { esc, ic, ACT, sheet, toast, download, confirmDialog } from './ui.js';
+import { esc, ic, ACT, sheet, toast, download, confirmDialog, promptDialog } from './ui.js';
 import { applyHide } from './appearance.js';
 import { money, eq, hdr, coll, ui } from './screens.js';
 import { openEntry } from './entry.js';
@@ -294,7 +294,7 @@ export function openAccount(id) {
     <label class="field"><span>Name</span><input name="name" value="${esc(a.name)}" required ${id ? '' : 'autofocus'}></label>
     <label class="field"><span>Exchange or platform (optional)</span><input name="exchange" list="exlist" value="${esc(a.exchange || '')}" placeholder="e.g. Binance, Bybit, CIMB"><datalist id="exlist">${[...new Set(db.accounts.filter((x) => !x.deleted).map((x) => x.exchange).filter(Boolean))].map((x) => `<option value="${esc(x)}">`).join('')}</datalist></label>
     <div class="two"><label class="field"><span>Currency</span><input type="hidden" name="cur" value="${esc(a.cur)}"><button type="button" class="curbtn wide" data-act="acct-cur" ${used ? 'disabled' : ''}>${flagOf(a.cur)} ${esc(a.cur)} ▾</button></label>
-    <label class="field"><span>Type</span><select name="type">${Object.entries(typeNames).map(([v, l]) => `<option value="${v}" ${v === a.type ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+    <label class="field"><span>Type</span><select name="type" data-prev="${esc(a.type)}">${Object.entries(typeNames).map(([v, l]) => `<option value="${v}" ${v === a.type ? 'selected' : ''}>${esc(l)}</option>`).join('')}<option value="__new">＋ New account type…</option></select></label></div>
     <label class="field"><span>Opening balance</span><input name="open" inputmode="decimal" value="${a.open || 0}"></label>
     <div id="cardfields" ${a.type === 'card' ? '' : 'hidden'}>
       <label class="field"><span>Credit limit</span><input name="limit" inputmode="decimal" value="${a.limit || ''}" placeholder="e.g. 50000"></label>
@@ -360,3 +360,22 @@ export function openAccount(id) {
 }
 
 ACT['acct-cur'] = (el) => openCurrencyPicker((c) => { el.closest('form').elements.cur.value = c; el.textContent = `${flagOf(c)} ${c} ▾`; }, { title: 'Currency', keep: false });
+
+// a type that does not exist yet can be made right inside the account form
+export function createAccountType(name, liab) {
+  const key = 'c_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 24) + '_' + Math.random().toString(36).slice(2, 5);
+  commit((d) => { d.settings.customTypes = { ...(d.settings.customTypes || {}), [key]: { label: name, liab } }; });
+  applyTypes(get().settings);
+  return key;
+}
+document.addEventListener('change', async (e) => {
+  const sel = e.target; if (!sel.matches || !sel.matches('select[name="type"]') || sel.value !== '__new') return;
+  const back = () => { sel.value = sel.dataset.prev || 'bank'; };
+  const name = (await promptDialog('New account type', '', { okLabel: 'Next', hint: 'For example: Money owed to me, Savings pot, Prepaid card' }))?.trim();
+  if (!name) { back(); return; }
+  if (Object.values(typeNames).some((l) => l.toLowerCase() === name.toLowerCase())) { toast('That type already exists. Pick it from the list.'); back(); return; }
+  const liab = await confirmDialog(`Is “${name}” money you owe (a liability)? Choose Cancel if it is money you have or are owed.`, 'Yes, I owe it');
+  const key = createAccountType(name, liab);
+  const o = new Option(name, key); sel.insertBefore(o, sel.querySelector('option[value="__new"]')); sel.value = key; sel.dataset.prev = key;
+  toast(`Added “${name}” and selected it.`, { ms: 4000 });
+});

@@ -11,6 +11,7 @@ import { applyHide } from './appearance.js';
 import { openDatePicker, prettyDate } from './datepicker.js';
 import { openCurrencyPicker, favCurs, flagOf } from './curpicker.js';
 import { openAccountPicker } from './acctpicker.js';
+import { similarNames } from './merchants.js';
 
 // ---- models are rebuilt only when the data changed ----
 const cache = {};
@@ -373,6 +374,13 @@ export function openEntry(opts = {}) {
     renderAccts(); renderFx();
   }
   function useAccount(id) { f.acct = id; f.acctSuggested = true; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; renderAccts(); renderFx(); }
+  // a new name that looks like one you already use: ask, remember the answer
+  function renderNameHelp() {
+    let el = form.querySelector('#namehelp');
+    if (!el) { const nf = $f('namefield'); if (!nf) return; el = document.createElement('div'); el.id = 'namehelp'; el.className = 'namehelp'; nf.after(el); }
+    const c = f.kind === 'transfer' ? [] : similarNames(get(), f.name, 1);
+    el.innerHTML = c.map((x) => `<div class="nmcard"><span>Is this the same as <b>${esc(x.name)}</b>${x.category ? ` (${esc(x.category)})` : ''}?</span><span class="nmbtns"><button type="button" class="btn sm" data-act="nm-same" data-a="${esc(f.name)}" data-b="${esc(x.name)}">Same</button><button type="button" class="btn sm ghost" data-act="nm-diff" data-a="${esc(f.name)}" data-b="${esc(x.name)}">Different</button></span></div>`).join('');
+  }
   function applyPick(name) {
     f.name = name; $f('f-name').value = name;
     if (f.kind === 'transfer') {
@@ -413,7 +421,7 @@ export function openEntry(opts = {}) {
       else if (!f.qtabManual || f.qtab === 'fit') renderFreq();
     }
     else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
-    else if (id === 'f-name') { f.name = e.target.value; suggestAcct(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
+    else if (id === 'f-name') { f.name = e.target.value; renderNameHelp(); suggestAcct(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
     else if (id === 'f-fx') { f.fx = e.target.value; f.fxMode = 'rate'; updateFxVal(); }
     else if (id === 'f-peso') { f.peso = e.target.value; f.fxMode = 'peso'; updateFxVal(); }
     else if (id === 'f-crate') { f.cRate = e.target.value; syncCross('rate'); }
