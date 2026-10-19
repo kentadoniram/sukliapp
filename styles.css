@@ -568,3 +568,22 @@ img.rcpt { width: 100%; max-height: 180px; object-fit: contain; border-radius: 1
 #sc-items .item { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; } #sc-items .in-n { flex: 1; min-width: 0; } #sc-items .in-a { width: 84px; }
 .row2 { display: grid; grid-template-columns: 1fr 120px; gap: 10px; }
 .bar { height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; margin: 8px 0; } .bar > i { display: block; height: 100%; width: 0; background: var(--accent, #3a6ee8); transition: width .2s; }
+
+.sgroup { border: 1px solid var(--rule); border-radius: 14px; margin: 10px 0; background: var(--sheet); }
+.sgroup > summary { list-style: none; cursor: pointer; padding: 14px 16px; display: grid; gap: 2px; }
+.sgroup > summary::-webkit-details-marker { display: none; }
+.sgroup > summary b { font-size: calc(16px * var(--fs, 1)); }
+.sgroup > summary small { color: var(--ink2); }
+.sgroup > summary::after { content: "▾"; position: absolute; right: 18px; color: var(--ink2); }
+.sgroup { position: relative; }
+.sgroup[open] > summary::after { content: "▴"; }
+.sgroup > section { padding: 0 16px 12px; border-top: 1px solid var(--rule); margin: 0; }
+.nmhint { display: block; color: var(--ink2); font-size: calc(11px * var(--fs, 1)); margin-top: 2px; }
+
+.amtclear { display: none; width: 30px; height: 30px; flex: none; border: 0; border-radius: 50%; background: var(--rule); color: var(--ink2); font-size: 18px; line-height: 28px; padding: 0; margin-right: 2px; place-items: center; }
+.amtwrap input:not(:placeholder-shown) ~ .amtclear { display: grid; }
+.daily { margin: 12px 0; } .daily h2 { margin: 0 0 6px; font-size: calc(15px * var(--fs, 1)); }
+.dcols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.dcols > div { display: grid; gap: 2px; padding: 10px; border-radius: 12px; background: var(--rule); }
+.dcols span { color: var(--ink2); font-size: calc(12px * var(--fs, 1)); } .dcols b { font-size: calc(17px * var(--fs, 1)); } .dcols small { color: var(--ink2); font-size: calc(11px * var(--fs, 1)); }
+.nwcmp { width: 100%; border-collapse: collapse; margin: 8px 0; } .nwcmp th, .nwcmp td { text-align: right; padding: 7px 4px; border-bottom: 1px solid var(--rule); font-size: calc(13px * var(--fs, 1)); } .nwcmp th:first-child { text-align: left; font-weight: 600; } .nwcmp td small { display: block; font-size: calc(11px * var(--fs, 1)); }

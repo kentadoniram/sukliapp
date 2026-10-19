@@ -21,7 +21,8 @@ import { fetchRates, ratesStatus, RATE_CREDIT, hasLive } from './rates.js';
 import { liveRate, curName, rateFor as rateFor2 } from './core.js';
 export { accounts };
 import { esc, ic, ACT, sheet, toast, confirmDialog, promptDialog, download } from './ui.js';
-import { nameRules, similarPairs, learnSame, learnApart, forget } from './merchants.js';
+import { dailySummary } from './finance.js';
+import { nameRules, similarPairs, learnSame, learnApart, learnRelated, forget } from './merchants.js';
 import { buildGraph, clusters, neighbourhood, matches, explain, edgeText } from './simgraph.js';
 
 export const ui = { month: thisMonth(), q: '', filter: 'all', acct: '', limit: 120, by: 'group', collapsed: (() => { try { return JSON.parse(localStorage.getItem('sukli-coll') || '{}'); } catch { return {}; } })() };
@@ -113,6 +114,7 @@ export function home(db) {
   const ins = insights(db, ui.month);
   return `${monthNav()}
     ${strip(st)}
+    ${dailyCard(db)}
     <section class="spendable"><div><span>Spendable now</span><b>${money(sp.total)}</b></div><div class="curs">${chips || '<span class="muted">No balances yet</span>'}</div>
       ${sp.missing.length ? `<p class="hint">Not counted: ${sp.missing.join(', ')} (set a rate in Settings).</p>` : ''}</section>
     ${reminderBanner(db)}
@@ -418,7 +420,7 @@ export function settings(db) {
   const lk = look();
   const cl = s.cloud || {};
   const me = signedIn() ? (session() || {}).user : null;
-  return `${hdr('Settings')}
+  return settingsGrouped(`${hdr('Settings')}
     <section><h2>Categories</h2>
       <p class="hint">Add, rename and delete your expense and income categories, with keywords so the app guesses them.</p>
       <div class="btnrow left"><a class="btn" href="#/categories?k=expense">Expense categories</a><a class="btn ghost" href="#/categories?k=income">Income categories</a></div></section>
@@ -428,6 +430,7 @@ export function settings(db) {
       <button type="button" class="btn ghost wide" data-act="nm-review">Review similar names</button>
       <button type="button" class="btn ghost wide" data-act="nm-map">Name map (how names connect)</button>
       ${[...groups.entries()].map(([k, as]) => `<div class="nmgroup"><b>${esc(k)}</b><div>${as.filter((a) => a !== k).map((a) => `<span class="chip">${esc(a)} <button type="button" class="x" data-act="nm-forget" data-kind="same" data-v="${esc(a)}" aria-label="Unlink ${esc(a)}">×</button></span>`).join('') || '<small class="muted">only itself</small>'}</div></div>`).join('')}
+      ${(r.related || []).length ? `<h3>Related (same family, separate)</h3>${r.related.map((k) => `<div class="nmgroup"><span>${esc(k.replace('|', '  ~  '))}</span><button type="button" class="btn sm ghost" data-act="nm-forget" data-kind="related" data-v="${esc(k)}">Undo</button></div>`).join('')}` : ''}
       ${r.apart.length ? `<h3>Kept apart</h3>${r.apart.map((k) => `<div class="nmgroup"><span>${esc(k.replace('|', '  ≠  '))}</span><button type="button" class="btn sm ghost" data-act="nm-forget" data-kind="apart" data-v="${esc(k)}">Undo</button></div>`).join('')}` : ''}</section>`; })()}
     ${(() => { const st = db.settings, custom = st.customTypes || {}, n = (k) => db.accounts.filter((a) => !a.deleted && a.type === k).length;
       return `<section id="atypes"><h2>Account types</h2><p class="hint">Rename any type, or add your own, for example "Money owed to me" or "Savings pot". Choose whether a new type is something you have or something you owe.</p>
@@ -502,7 +505,7 @@ export function settings(db) {
       <p class="hint">Edit either side: the other follows. Each entry also lets you type the ${HOME} value from your bill.</p></section>
     <section><h2>Put it on your phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
     <section><h2>Erase</h2><button class="btn danger ghost" data-act="erase">Erase everything on this device</button>
-      <p class="hint">Backups in your Google Drive are not touched.</p></section>`;
+      <p class="hint">Backups in your Google Drive are not touched.</p></section>`);
 }
 export function bindSettings() {
   for (const [id, k] of [['c-url', 'url'], ['c-key', 'key'], ['c-email', 'email']]) {
@@ -644,11 +647,12 @@ document.addEventListener('change', (e) => {
 });
 
 ACT['nm-same'] = (el) => { commitQuiet((d) => learnSame(d, el.dataset.a, el.dataset.b)); toast(`Counted as the same place or item.`, { ms: 3000 }); el.closest('.nmcard')?.remove(); };
+ACT['nm-rel'] = (el) => { commitQuiet((d) => learnRelated(d, el.dataset.a, el.dataset.b)); toast('Marked as related: same family, kept separate.', { ms: 3000 }); el.closest('.nmcard')?.remove(); };
 ACT['nm-diff'] = (el) => { commitQuiet((d) => learnApart(d, el.dataset.a, el.dataset.b)); toast(`Kept as different things.`, { ms: 3000 }); el.closest('.nmcard')?.remove(); };
 ACT['nm-forget'] = (el) => { commit((d) => forget(d, el.dataset.kind, el.dataset.v)); };
 ACT['nm-review'] = () => {
   const pairs = similarPairs(get());
-  sheet(`<p class="hint">Names that start the same way. Tell Sukli which are the same.</p>${pairs.length ? pairs.map((x) => `<div class="nmcard"><span><b>${esc(x.a)}</b> and <b>${esc(x.b)}</b></span><span class="nmbtns"><button type="button" class="btn sm" data-act="nm-same" data-a="${esc(x.a)}" data-b="${esc(x.b)}">Same</button><button type="button" class="btn sm ghost" data-act="nm-diff" data-a="${esc(x.a)}" data-b="${esc(x.b)}">Different</button></span></div>`).join('') : '<p class="empty">Nothing to review. All similar names are decided.</p>'}`, { title: 'Review similar names' });
+  sheet(`<p class="hint">Names that start the same way. Tell Sukli which are the same.</p>${pairs.length ? pairs.map((x) => `<div class="nmcard"><span><b>${esc(x.a)}</b> and <b>${esc(x.b)}</b></span><span class="nmbtns"><button type="button" class="btn sm" data-act="nm-same" title="Exactly the same thing" data-a="${esc(x.a)}" data-b="${esc(x.b)}">Same thing</button><button type="button" class="btn sm ghost" data-act="nm-rel" data-a="${esc(x.a)}" data-b="${esc(x.b)}" title="Same family, but its own category">Related</button><button type="button" class="btn sm ghost" data-act="nm-diff" data-a="${esc(x.a)}" data-b="${esc(x.b)}">Different</button></span></div>`).join('') : '<p class="empty">Nothing to review. All similar names are decided.</p>'}`, { title: 'Review similar names' });
 };
 
 // ---- name map: the similarity graph, drawn ----
@@ -680,3 +684,29 @@ function mapSheet(key, q = '') {
 }
 ACT['nm-map'] = () => mapSheet();
 ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
+
+// Settings, grouped by what they are for. Advanced items sit in their own folded group.
+const SET_GROUPS = [
+  ['look', 'Look and feel', 'Colours, text size, what is shown', ['Appearance', 'Display']],
+  ['money', 'Money and alerts', 'Home currency, spending warnings', ['Currency', 'Spending safety', 'Left out of cash outflow']],
+  ['organise', 'Accounts, categories and names', 'How things are sorted and matched', ['Categories', 'Account types', 'Name matching']],
+  ['data', 'Backup and data', 'Reminders, backups, export', ['Backup reminder', 'Your data', 'Google backup (optional)']],
+  ['adv', 'Advanced', 'Most people never need these', ['Exchange rates', 'Live exchange rates', 'Coins and tokens: decimals', 'Cloud sync', 'Erase']],
+  ['help', 'Help', 'Install on your phone', ['Put it on your phone']],
+];
+const SET_OPEN = new Set(['look']);
+document.addEventListener('toggle', (e) => { const g = e.target.dataset && e.target.dataset.sgroup; if (g) { if (e.target.open) SET_OPEN.add(g); else SET_OPEN.delete(g); } }, true);
+function settingsGrouped(html) {
+  const i = html.indexOf('<section'); if (i < 0) return html;
+  const head = html.slice(0, i), secs = [...html.slice(i).matchAll(/<section[\s\S]*?<\/section>/g)].map((m) => m[0]);
+  const title = (x) => ((x.match(/<h2>([^<]*)<\/h2>/) || [])[1] || '').trim();
+  const by = new Map(SET_GROUPS.map((g) => [g[0], []]));
+  for (const sec of secs) { const t = title(sec), g = SET_GROUPS.find((x) => x[3].includes(t)) || SET_GROUPS.find((x) => x[0] === 'adv'); by.get(g[0]).push(sec); }
+  return head + SET_GROUPS.filter((g) => by.get(g[0]).length).map(([k, name, desc]) => `<details class="sgroup" data-sgroup="${k}" ${SET_OPEN.has(k) ? 'open' : ''}><summary><b>${name}</b><small>${desc}</small></summary>${by.get(k).join('')}</details>`).join('');
+}
+
+function dailyCard(db) {
+  const d = dailySummary(db); if (!d.d30 || !d.d30.raw) return '';
+  const cell = (l, x) => x ? `<div><span>${l}</span><b>${money(x.avg)}</b><small>typical day ${money(x.median)}${x.trimmed ? ' · ' + x.trimmed + ' big day' + (x.trimmed > 1 ? 's' : '') + ' trimmed' : ''}</small></div>` : `<div><span>${l}</span><b>-</b></div>`;
+  return `<section class="daily" aria-label="Daily spending"><h2>Spending per day</h2><div class="dcols">${cell('Last 7 days', d.d7)}${cell('This month', d.month)}${cell('Last 30 days', d.d30)}</div><p class="hint">Complete days only. Unusually big days are capped so one expensive dinner does not distort your usual day.</p></section>`;
+}

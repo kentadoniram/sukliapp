@@ -9,6 +9,20 @@ A private money tracker that runs entirely in the browser. Your data stays on yo
 - **Receipt scanner** (Menu, Scan a receipt): take or choose a photo; Japanese and English text is read on the device (Tesseract, bundled in `vendor/ocr`, about 9 MB, works offline, nothing uploaded). It finds the shop, date and time, total and item lines (quantity lines, discounts, 軽 marks, tax on top or included), matches the shop to a name in your history, guesses the category, and shows a confidence for each field. A cross-check tells you whether the items add up to the total. You correct anything, then **Continue to entry** to pick the account and save. Or paste receipt text instead of a photo.
   - Limits: confidence is a guide, not a probability; small, blurry or crumpled thermal prints lose digits (the 軽 mark is often read as 8; this is repaired only when it makes the receipt add up); Japanese item names are the least reliable part.
 
+## What's new in v11
+
+- **Swipe to close:** swipe down or left on a detail view to close it. Forms (new entry, new account) only close by swiping down from the title bar, so a stray swipe cannot lose what you typed. Charts, text boxes and scrolling rows are left alone.
+- **Home: spending per day** for the last 7 days, this month and the last 30 days. Complete days only, zero-spend days counted; unusually big days are capped so one expensive dinner does not distort the figure, and the card says when that happened.
+- **Net worth: assets, liabilities and net worth** for now, last month-end and two months ago, with the change from the month before.
+- **Amount: a clear (x) button** inside the amount field.
+- **Receipts:** a total can no longer be smaller than the subtotal (LIFE: a lost digit gave 54 instead of 754), tax is worked out from the taxable amount, ID and registration numbers are never amounts or items, and an item needs a real name.
+
+## What's new in v10
+
+- **Receipt reading, rebuilt around real photos** (tested on three cisca receipts): the photo is cropped to the paper, the table texture and shadows are removed, the reader uses a one-block layout, and it takes two looks (sharp black-and-white and soft grey) and keeps the more consistent one. The parser now finds the total by agreement (a "合計" line, the payment line, or taxable amount plus tax), ignores IC-card balances, card numbers, phone numbers and register codes, reads dates even when 年/月/日 are misread, finds the shop name above the address, and keeps one correct line instead of several wrong items.
+- **Settings are grouped:** Look and feel, Money and alerts, Accounts/categories/names, Backup and data, Advanced (folded), Help.
+- **Name matching has a middle answer:** Same thing, Related (same family, its own category), Different.
+
 ## What's new in v8 (statistics)
 
 - **Name matching helper:** when you type a new name that looks like one you already use ("tennis socks" vs "tennis", "mang inasal antipolo" vs "mang inasal tagaytay"), a small card asks Same or Different and remembers your answer. Settings, Name matching lists what you linked or kept apart (undo any), and has "Review similar names" for the whole history.

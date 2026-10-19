@@ -9,12 +9,13 @@ const CHAINS = [
 ];
 const PLACES = /\b(tokyo|shibuya|shinjuku|ikebukuro|ginza|akihabara|ueno|yokohama|osaka|makati|bgc|manila|branch|store|shop|station|st|ave)\b|東京|渋谷|新宿|池袋|銀座|秋葉原|上野|横浜|大阪|駅前?|支店|店/g;
 // what you have taught the app: names that mean the same thing, and pairs that must stay apart ("tennis" vs "tennis socks")
-let RULES = { same: {}, apart: [] };
-export const setNameRules = (r) => { RULES = { same: {}, apart: [], ...(r || {}) }; };
+let RULES = { same: {}, apart: [], related: [] };
+export const setNameRules = (r) => { RULES = { same: {}, apart: [], related: [], ...(r || {}) }; };
 export const nameRules = () => RULES;
 export const norm = (name) => String(name || '').normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
 const pairKey = (a, b) => [norm(a), norm(b)].sort().join('|');
 export const isApart = (a, b) => RULES.apart.includes(pairKey(a, b));
+export const isRelated = (a, b) => (RULES.related || []).includes(pairKey(a, b));   // same family, but its own thing and its own category
 export function merchantKey(name) {
   let s = norm(name);
   if (!s) return '';
@@ -34,7 +35,7 @@ export function similarNames(db, name, limit = 2) {
   if (known.has(n)) return [];                                                        // an exact old name needs no question
   const toks = n.split(' '), out = [];
   for (const [k, e] of known) {
-    if (k === n || isApart(n, k) || merchantKey(n) === merchantKey(k)) continue;
+    if (k === n || isApart(n, k) || isRelated(n, k) || merchantKey(n) === merchantKey(k)) continue;
     const kt = k.split(' '), same1 = kt[0] === toks[0] && toks[0].length >= 3;
     const extends1 = n.startsWith(k + ' ') || k.startsWith(n + ' ');
     if (!(same1 && (toks.length > 1 || kt.length > 1)) && !extends1) continue;
@@ -51,7 +52,7 @@ export function similarPairs(db, max = 12) {
   for (const a of keys) for (const b of keys) {
     if (a >= b) continue; const at = a.split(' '), bt = b.split(' ');
     if (!(at[0] === bt[0] && at[0].length >= 3 && (at.length > 1 || bt.length > 1))) continue;
-    if (isApart(a, b) || merchantKey(a) === merchantKey(b) || seen.has(a + b)) continue;
+    if (isApart(a, b) || isRelated(a, b) || merchantKey(a) === merchantKey(b) || seen.has(a + b)) continue;
     seen.add(a + b); out.push({ a, b, score: names.get(a) + names.get(b) });
   }
   return out.sort((x, y) => y.score - x.score).slice(0, max);
@@ -61,15 +62,22 @@ export function learnSame(d, a, b) {                  // d = db inside commit
   const r = d.settings.nameRules = { same: {}, apart: [], ...(d.settings.nameRules || {}) };
   const target = merchantKey(b) || norm(b), na = norm(a);
   r.same = { ...r.same, [na]: target, [norm(b)]: target };
-  r.apart = r.apart.filter((k) => k !== pairKey(a, b)); setNameRules(r);
+  r.apart = r.apart.filter((k) => k !== pairKey(a, b)); r.related = (r.related || []).filter((k) => k !== pairKey(a, b)); setNameRules(r);
 }
 export function learnApart(d, a, b) {
   const r = d.settings.nameRules = { same: {}, apart: [], ...(d.settings.nameRules || {}) };
   const same = { ...r.same }; if (same[norm(a)] === (same[norm(b)] || merchantKey(b))) delete same[norm(a)];
-  r.same = same; if (!r.apart.includes(pairKey(a, b))) r.apart = [...r.apart, pairKey(a, b)]; setNameRules(r);
+  r.same = same; r.related = (r.related || []).filter((k) => k !== pairKey(a, b)); if (!r.apart.includes(pairKey(a, b))) r.apart = [...r.apart, pairKey(a, b)]; setNameRules(r);
 }
 export function forget(d, kind, v) {
   const r = d.settings.nameRules = { same: {}, apart: [], ...(d.settings.nameRules || {}) };
-  if (kind === 'same') { const s = { ...r.same }; delete s[v]; r.same = s; } else r.apart = r.apart.filter((k) => k !== v);
+  if (kind === 'same') { const s = { ...r.same }; delete s[v]; r.same = s; } else if (kind === 'related') r.related = (r.related || []).filter((k) => k !== v); else r.apart = r.apart.filter((k) => k !== v);
   setNameRules(r);
+}
+
+export function learnRelated(d, a, b) {
+  const r = d.settings.nameRules = { same: {}, apart: [], related: [], ...(d.settings.nameRules || {}) };
+  const same = { ...r.same }; if (same[norm(a)] === (same[norm(b)] || merchantKey(b))) delete same[norm(a)];
+  r.same = same; r.apart = r.apart.filter((k) => k !== pairKey(a, b));
+  if (!(r.related || []).includes(pairKey(a, b))) r.related = [...(r.related || []), pairKey(a, b)]; setNameRules(r);
 }

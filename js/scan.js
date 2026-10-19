@@ -3,7 +3,8 @@ import { get } from './core.js';
 import { esc, ic, ACT, sheet, toast } from './ui.js';
 import { modelFor, openEntry } from './entry.js';
 import { predict } from './predict.js';
-import { parseReceipt, linesFromOcr } from './receipt.js';
+import { parseReceipt, linesFromOcr, bestLines } from './receipt.js';
+import { prepareReceipt } from './receiptimg.js';
 import { buildGraph, matches } from './simgraph.js';
 
 const OCR = () => ({ base: 'vendor/ocr/', cdn: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/', ...(window.__ocrPaths || {}) });
@@ -24,6 +25,7 @@ async function engine(onStatus) {
       workerPath: o.base + 'worker.min.js', corePath: o.base + 'tesseract-core-simd-lstm.wasm.js', langPath: o.base, gzip: true,
       logger: (m) => { if (m.status === 'recognizing text') onStatus(`Reading… ${Math.round(m.progress * 100)}%`, m.progress); else if (m.status) onStatus(String(m.status).replace(/_/g, ' ') + '…'); },
     }).catch(async () => window.Tesseract.createWorker(['jpn', 'eng'], 1, { logger: () => {} }));   // last resort: the library's own download
+    try { await w.setParameters({ tessedit_pageseg_mode: '6', preserve_interword_spaces: '1' }); } catch { /* keep the default */ }   // one block of lines suits a receipt
     worker = w; return w;
   })();
   try { return await loading; } finally { loading = null; }
@@ -110,11 +112,14 @@ function start(api) {
     if (!file) return;
     try {
       status('Preparing the picture…');
-      const canvas = await prepare(file), url = canvas.toDataURL('image/jpeg', 0.5);
+      const canvas = await prepareReceipt(file), grey = await prepareReceipt(file, { binarise: false }), url = grey.toDataURL('image/jpeg', 0.5);
       const w = await engine(status);
-      status('Reading…', 0.02);
+      status('Reading', 0.02);
       const { data } = await w.recognize(canvas, {}, { blocks: true, text: true });
-      S = analyse(linesFromOcr(data)); S.previewUrl = url; S.ocrConf = data.confidence;
+      status('Second look at the picture', 0.6);
+      const second = await w.recognize(grey, {}, { blocks: true, text: true }).then((r) => r.data).catch(() => null);
+      const la = linesFromOcr(data), lines = second ? bestLines(la, linesFromOcr(second)) : la;
+      S = analyse(lines); S.previewUrl = url; S.ocrConf = data.confidence;
       render(api);
     } catch (err) { status('Could not read the picture here (' + (err && err.message ? err.message : 'error') + '). You can paste the text below, or add the entry by hand.'); }
   };

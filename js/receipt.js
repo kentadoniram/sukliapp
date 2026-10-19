@@ -13,6 +13,7 @@ const avg = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0);
 
 // shops we can name with certainty (display name is what you probably typed before; history can override it)
 export const SHOPS = [
+  ['cisca', /c[i1l|]s[ce][a-zq0o]/i],
   ['LIFE', /ライフ|\bLIFE\b/i], ['AEON', /イオン|\bAEON\b/i], ['Maruetsu', /マルエツ/], ['Seiyu', /西友|SEIYU/i], ['Ito-Yokado', /イトーヨーカドー|イトーヨーカ堂/],
   ['Daiei', /ダイエー/], ['OK Store', /オーケー|\bOK\b store/i], ['Maibasket', /まいばすけっと/], ['Summit', /サミット/], ['Gyomu Super', /業務スーパー/],
   ['7-Eleven', /セブン[- ]?イレブン|7[- ]?eleven/i], ['FamilyMart', /ファミリーマート|family ?mart/i], ['Lawson', /ローソン|lawson/i],
@@ -37,6 +38,7 @@ export function findDate(lines, today = new Date()) {
     [/(20\d{2})\s*[年\/.\-]\s*(\d{1,2})\s*[月\/.\-]\s*(\d{1,2})/, (m) => [+m[1], +m[2], +m[3]]],
     [/令和\s*(\d{1,2})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})/, (m) => [2018 + +m[1], +m[2], +m[3]]],
     [/(?<!\d)(\d{2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{1,2})(?!\d)/, (m) => [2000 + +m[1], +m[2], +m[3]]],
+    [/(20\d{2})[^\d\n]{1,2}(\d{1,2})[^\d\n]{1,2}(\d{1,2})/, (m) => [+m[1], +m[2], +m[3]]],        // 2026生10有19日: the year/month/day marks are misread but the numbers survive
   ];
   const limit = new Date(today.getTime() + 864e5);
   let best = null;
@@ -64,6 +66,12 @@ export function findMerchant(lines, known = []) {
   }
   // a name already in your history that appears in the first lines
   for (const [i, l] of head.entries()) { const t = NK(l.text).toLowerCase(); for (const k of known) if (k.length >= 4 && t.includes(k.toLowerCase())) return { value: k, branch: '', conf: 0.75, line: i, how: 'in your history' }; }
+  // the shop name usually sits right above its address
+  for (const [i, l] of head.entries()) {
+    if (i === 0 || !/[都道府県].*[市区町村郡]|〒/.test(NK(l.text))) continue;
+    const nm = NK(lines[i - 1].text).replace(/[^\p{L}\p{N}×x&\- ]/gu, ' ').replace(/\s+/g, ' ').trim();
+    if (nm.replace(/[^\p{L}]/gu, '').length >= 2) return { value: nm.slice(0, 40), branch: '', conf: clamp(0.5 + 0.2 * ((lines[i - 1].conf ?? 70) / 100)), line: i - 1, how: 'above the address' };
+  }
   // otherwise the first line that looks like a name (letters, not a phone, address or date)
   for (const [i, l] of head.entries()) {
     const t = NK(l.text).trim();
@@ -85,7 +93,9 @@ export function findItems(lines) {
     }
     const q = t.match(/^(\d{1,3})\s*[コ個点]\s*[x×＊*@]\s*(?:単|@)?\s*¥?(\d{1,5})\s*$/);
     if (q && items.length) { items[items.length - 1].qty = +q[1]; items[items.length - 1].unit = +q[2]; continue; }
+    if (/20\d{2}[^\d\n]{1,2}\d{1,2}[^\d\n]{1,2}\d{1,2}|\d{1,2}\s*[:：]\s*\d{2}/.test(t) || NOT_AMOUNT.test(t)) continue;   // date, time, phone, card and register lines
     if (SKIP_ITEM.test(t) && !/値引|割引|クーポン/.test(t)) continue;
+    if ((t.replace(/[ーンニ一\-—―]/g, '').match(/[\p{L}]/gu) || []).length < 2) continue;
     const m = t.match(PRICE_END); if (!m) continue;
     const name = t.slice(0, m.index).replace(/[¥\s.:*]+$/, '').replace(/^[\d\s]*(?=\D)/, '').trim();
     const amt = money(m[1].replace(/\s/g, '')); if (amt == null || !name || name.length < 1) continue;
@@ -95,19 +105,42 @@ export function findItems(lines) {
   return { items, tax, taxIncluded };
 }
 
+const NOT_AMOUNT = /残高|カード番号|\*{3,}|登録番号|電話|TEL|レジ|セルフ|\d{2,4}-\d{2,4}-\d{3,4}|[TＴ]\s?\d{10,}|\d{9,}|No\.?\s?\d{4,}/i;
+const PAY_LINE = /支払|PayPay|ペイ|交通系|nanaco|WAON|Suica|PASMO|QUICPay|クレジット|電子マネー/i;
 export function findTotal(lines, items) {
-  const cand = [];
-  for (const [i, l] of lines.entries()) {
-    const t = NK(l.text); if (!TOTAL_KEY.test(t) || NOT_TOTAL.test(t.replace(/合計|total/gi, ''))) continue;
+  const cand = [], T = (l) => NK(l.text);
+  for (const [i, l] of lines.entries()) {                                   // 1. a line labelled total
+    const t = T(l); if (!TOTAL_KEY.test(t) || NOT_TOTAL.test(t.replace(/合計|total/gi, '')) || NOT_AMOUNT.test(t)) continue;
     let a = amountsIn(t).filter((x) => !/%|点|個/.test(t.slice(x.at + x.len, x.at + x.len + 2))).pop();
     if (!a) { const n = amountsIn((lines[i + 1] || {}).text || '').pop(); if (n) a = n; }
-    if (a && a.v > 0) cand.push({ value: a.v, conf: clamp(0.6 + 0.35 * ((l.conf ?? 75) / 100)), line: i, how: 'labelled total' });
+    if (a && a.v > 0 && a.v < 5e5) cand.push({ value: a.v, conf: clamp(0.6 + 0.35 * ((l.conf ?? 75) / 100)), line: i, how: 'labelled total', src: 'label' });
   }
-  const sum = items.reduce((s, x) => s + x.amt, 0);
-  if (cand.length) { cand.sort((a, b) => b.value - a.value); const pick = cand.find((c) => items.length && Math.abs(c.value - sum) <= 1) || cand[cand.length - 1]; return { ...pick, alternatives: cand.filter((c) => c !== pick).map((c) => c.value) }; }
-  // no label found: the biggest amount that is not cash handed over, change or tax
+  for (const [i, l] of lines.entries()) {                                   // 2. what was paid by card, IC card or app
+    const t = T(l); if (!PAY_LINE.test(t) || NOT_AMOUNT.test(t) || /お預|お釣|ポイント/.test(t)) continue;
+    const a = amountsIn(t).pop(); if (a && a.v >= 10 && a.v < 5e5) cand.push({ value: a.v, conf: clamp(0.55 + 0.3 * ((l.conf ?? 75) / 100)), line: i, how: 'payment line', src: 'pay' });
+  }
+  let base = 0, taxSum = 0, seen = false;                                    // 3. taxable amount + tax, per rate
+  for (const [i, l] of lines.entries()) {
+    const t = T(l); if (!/対象(額|金額)/.test(t)) continue;
+    const b = amountsIn(t).pop(); if (!b) continue;
+    const next = amountsIn(T(lines[i + 1] || { text: '' })).pop();
+    seen = true; base += b.v; if (/外税/.test(t) && next && next.v < b.v) taxSum += next.v;
+  }
+  if (seen && base > 0) cand.push({ value: base + taxSum, conf: 0.6, line: -1, how: 'taxable amount plus tax', src: 'tax' });
+  let sub = 0;                                                                // subtotal / taxable amount shown above the total
+  for (const l of lines) { const t = T(l); if (/小計|対象(額|金額)?/.test(t) && !NOT_AMOUNT.test(t)) { const a = amountsIn(t).pop(); if (a && a.v > sub && a.v < 5e5) sub = a.v; } }
+  for (const l of lines) { const t = T(l), m = t.match(/外\s*(8|10)\s*[%％]/); if (m && sub > 0) { cand.push({ value: sub + Math.floor(sub * +m[1] / 100), conf: 0.62, line: -1, how: `subtotal plus ${m[1]}% tax`, src: 'tax2' }); break; } }
+  if (sub > 0) for (let i = cand.length - 1; i >= 0; i--) if (cand[i].value < sub * 0.95) cand.splice(i, 1);   // "54" cannot be the total of a 699 subtotal: a digit was lost
+  if (cand.length) {
+    const sum = items.reduce((s, x) => s + x.amt, 0);
+    for (const c of cand) { c.agree = new Set(cand.filter((o) => Math.abs(o.value - c.value) <= 1).map((o) => o.src)).size; if (items.length && Math.abs(c.value - sum) <= 1) c.agree++; }
+    cand.sort((a, b) => b.agree - a.agree || b.conf - a.conf);
+    const pick = cand[0], how = pick.agree > 1 ? `${pick.agree} readings agree` : pick.how;
+    return { value: pick.value, conf: clamp(pick.conf + 0.15 * (pick.agree - 1)), line: pick.line, how, alternatives: [...new Set(cand.filter((c) => Math.abs(c.value - pick.value) > 1).map((c) => c.value))] };
+  }
+  // no label found: the biggest amount that is not cash handed over, change, tax or an ID number
   let big = null;
-  for (const [i, l] of lines.entries()) { const t = NK(l.text); if (NOT_TOTAL.test(t) || /お預|現金|cash|\d{4}\s*[年\/.\-]|\d{1,2}\s*[:：]\d{2}|TEL|電話|\d{2,4}-\d{2,4}-\d{3,4}|登録番号/i.test(t)) continue; for (const a of amountsIn(t)) if (a.v < 1e6 && (!big || a.v > big.value)) big = { value: a.v, conf: 0.3, line: i, how: 'largest amount' }; }
+  for (const [i, l] of lines.entries()) { const t = T(l); if (NOT_TOTAL.test(t) || NOT_AMOUNT.test(t) || /お預|現金|cash|\d{4}\s*[年\/.\-]|\d{1,2}\s*[:：]\d{2}/i.test(t)) continue; for (const a of amountsIn(t)) if (a.v < 5e5 && (!big || a.v > big.value)) big = { value: a.v, conf: 0.3, line: i, how: 'largest amount' }; }
   return big;
 }
 
@@ -133,7 +166,7 @@ export function parseReceipt(lines, { known = [], today = new Date() } = {}) {
     for (let mask = 1; mask < 1 << idx.length; mask++) {
       let sum2 = items.reduce((s2, x) => s2 + x.amt, 0);
       for (let b = 0; b < idx.length; b++) if (mask >> b & 1) sum2 += Math.floor(items[idx[b]].amt / 10) - items[idx[b]].amt;
-      if (Math.abs(sum2 - want) <= 1) ways.push(mask);
+      if (Math.abs(sum2 - want) <= 1 || (tax && Math.abs(sum2 + tax - want) <= 1)) ways.push(mask);
     }
     if (ways.length === 1) {
       for (let b = 0; b < idx.length; b++) if (ways[0] >> b & 1) { const it = items[idx[b]]; it.was = it.amt; it.amt = Math.floor(it.amt / 10); it.reduced = true; it.conf = Math.min(it.conf, 0.6); }
@@ -142,6 +175,8 @@ export function parseReceipt(lines, { known = [], today = new Date() } = {}) {
       total.conf = clamp(total.conf + 0.2);
     }
   }
+  if (total && items.length && check.ok === false && total.conf >= 0.6 && !check.repaired) { items.length = 0; check = { ...check, itemsUnreadable: true }; }   // better one correct line than several wrong ones
+  if (total && !items.length) items.push({ name: (merchant && merchant.value) || 'Receipt', amt: total.value, reduced: false, conf: 0.4, line: -1, whole: true });
   return { merchant, date, total, items, tax, taxIncluded, check, lineCount: lines.length };
 }
 
@@ -151,4 +186,10 @@ export function linesFromOcr(data) {
   const out = [];
   for (const b of (data && data.blocks) || []) for (const p of b.paragraphs || []) for (const l of p.lines || []) out.push({ text: l.text, conf: l.confidence });
   return out.length ? out : String((data && data.text) || '').split('\n').map((t) => ({ text: t, conf: undefined }));
+}
+
+// Two readings of the same photo (sharp black-and-white and soft grey): keep the one whose fields agree and look most complete.
+export function bestLines(a, b, opts = {}) {
+  const score = (lines) => { const r = parseReceipt(lines, opts); return (r.total ? 2 * r.total.conf : 0) + (r.date ? r.date.conf : 0) + (r.merchant ? r.merchant.conf : 0) + (r.check && r.check.ok ? 0.5 : 0) + (r.check && r.check.ok === false ? -0.3 : 0); };
+  return score(b) > score(a) ? b : a;
 }

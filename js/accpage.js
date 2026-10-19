@@ -4,7 +4,7 @@ import {
   get, commit, uid, stamp, nowStamp, rateFor, fmt, BASE, HOME, homeFx, allCurrencies, curName, CUR, balances, catMap, accountMap, live, groupColor, groupLetter,
   adjustmentCategory, shiftMonth, thisMonth, monthLabel, monthParts, deltaFor, dayLabel,
 } from './core.js';
-import { accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, setLiab, today, postInterest } from './finance.js';
+import { netWorthCompare, accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, setLiab, today, postInterest } from './finance.js';
 import { esc, ic, ACT, sheet, toast, download, confirmDialog, promptDialog } from './ui.js';
 import { applyHide } from './appearance.js';
 import { money, eq, hdr, coll, ui } from './screens.js';
@@ -111,6 +111,10 @@ ACT['acct-sp'] = () => toast('Spendable counts cash, bank, e-wallet and card acc
 
 // ---------- net worth ----------
 ACT.nw = () => openNetWorth();
+function nwCompare(db) {
+  const c = netWorthCompare(db), row = (label, k, bad) => `<tr><th>${label}</th>${c.map((x, i) => { const prev = c[i + 1], d = prev ? x[k] - prev[k] : null; return `<td>${money(x[k])}${d == null || Math.abs(d) < 0.5 ? '' : `<small class="${(d > 0) === !bad ? 'pos' : 'neg'}">${d > 0 ? '+' : '-'}${money(Math.abs(d))}</small>`}</td>`; }).join('')}</tr>`;
+  return `<table class="nwcmp"><thead><tr><th></th>${c.map((x, i) => `<th>${i === 0 ? 'Now' : esc(monthLabel(x.label))}</th>`).join('')}</tr></thead><tbody>${row('Assets', 'assets', false)}${row('Liabilities', 'debts', true)}${row('Net worth', 'net', false)}</tbody></table><p class="hint">Month ends, at today's exchange rates. The small figure is the change since the month before it.</p>`;
+}
 function openNetWorth() {
   const s = sheet('<div id="nw"></div>', { title: 'Net worth', wide: true });
   const db = get(), nw = netWorth(db);
@@ -138,6 +142,7 @@ function openNetWorth() {
     <span class="ramt"><b class="${i.base < 0 ? 'neg' : ''}">${money(i.base)}</b>${i.a.cur !== HOME ? `<small>${money(i.v, i.a.cur)}</small>` : ''}</span></button>`;
   s.el.querySelector('#nw').innerHTML = `
     <div class="gdhead"><b class="big ${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b><span class="muted">Assets ${money(nw.assets)} − debts ${money(nw.debts)}, in ${BASE} at your current rates.</span></div>
+    ${nwCompare(db)}
     <h3>Last 12 months <small class="muted">(today’s rates · tap a bar)</small></h3>
     <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Net worth at each month end"><line x1="0" x2="${W}" y1="${mid}" y2="${mid}" stroke="var(--rule)"/>${bars}</svg>
     <h3>By kind</h3>${types.map(([k, v]) => `<div class="gbar" data-tip="${esc(`${typeNames[k] || k}: ${money(v)}`)}"><i class="badge sm" style="background:${groupColor(k)}">${groupLetter(typeNames[k] || k)}</i>

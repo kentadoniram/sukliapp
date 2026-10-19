@@ -449,3 +449,24 @@ export function safetyCheck(db, { amount, acctId, kind = 'expense', date, group 
   const rank = { danger: 0, warn: 1, info: 2 };
   return out.sort((x, y) => rank[x.level] - rank[y.level]).slice(0, 4);
 }
+
+// ---------- daily spending, careful with outliers ----------
+// Complete days only (up to yesterday), zero-spend days included. The headline average caps unusually big days at the
+// median plus three robust spreads, so one expensive dinner does not drag "your usual day" up. The plain average is kept for comparison.
+export function dailySummary(db, now = today()) {
+  const days = new Map(), from = addDays(now, -30), yday = addDays(now, -1);
+  for (const p of partsBetween(db, from, yday)) if (p.kind === 'expense') { const d = p.t.date.slice(0, 10); days.set(d, (days.get(d) || 0) + p.v); }
+  const win = (n, start) => {
+    const vals = []; for (let i = 0; i < n; i++) { const d = addDays(yday, -i); if (start && d < start) break; vals.push(days.get(d) || 0); }
+    if (!vals.length) return null;
+    const med = median(vals), cap = med + 3 * Math.max(1.4826 * mad(vals), 0.15 * med, 1), cut = vals.filter((v) => v > cap).length;
+    return { avg: ssum(vals.map((v) => Math.min(v, cap))) / vals.length, raw: ssum(vals) / vals.length, median: med, days: vals.length, trimmed: cut };
+  };
+  return { d7: win(7), month: win(31, now.slice(0, 7) + '-01'), d30: win(30) };
+}
+// ---------- assets, liabilities and net worth at month ends (today's exchange rates) ----------
+export function netWorthCompare(db) {
+  const at = (asOf) => { const b = balances(db, asOf); let assets = 0, debts = 0; for (const a of live(db.accounts)) { const v = (b.get(a.id) || 0) * (homeFx(db, a.cur) || 0); if (v > 0) assets += v; else debts += -v; } return { assets, debts, net: assets - debts }; };
+  const m = thisMonth(), cols = [['Now', '9999-12-31'], [shiftMonth(m, -1), shiftMonth(m, -1) + '-31 23:59:59'], [shiftMonth(m, -2), shiftMonth(m, -2) + '-31 23:59:59']];
+  return cols.map(([label, asOf]) => ({ label, ...at(asOf) }));
+}
