@@ -38,7 +38,17 @@ A private money tracker that runs entirely in the browser. Your data stays on yo
 - **Appearance** (Settings): colour, light/dark, five text sizes, and hide style (dots or blur). Appearance is stored per device.
 - Smaller default text and smaller name suggestions.
 
-## What it does
+### What's new in v8 — local intelligence improvements
+
+- **Forecasts choose among lightweight methods by rolling-origin backtesting** instead of assuming a three-month average is always best. Candidate methods are median of the last three months, mean of the last three months, weighted recent average, and seasonal-naive when enough history exists.
+- **Zero-spending months remain in the history.** They are treated as real observations instead of being skipped, which avoids biasing forecasts upward.
+- **Forecast estimates show data coverage and a rough historical-error range** when there are enough backtest predictions. This range is descriptive, not a formal confidence interval.
+- **Repeated expense detection aggregates duplicate same-name transactions within each month**, rather than silently retaining only one transaction.
+- **Behavior observations identify gaps in previously frequent purchases** using transaction timing. They are worded as recorded-history observations, not assumptions about health or intent.
+- **CSV import recognizes `Category Type` as the category group** for exports that use that header, preserving parent/child category structure.
+- All new calculations run locally. No AI service, model download, or transaction upload is added.
+
+# What it does
 
 Open the menu (top left) for every window.
 
@@ -110,3 +120,9 @@ The app asks only for its own hidden folder (`drive.appdata`) and keeps one snap
 - Google sign-in has only been tested against a simulated Drive, not real Google. Sign-in tokens are short-lived, so auto-backup may sometimes ask you to tap **Back up now**.
 - Receipts are entered by hand for now (split into items on the entry sheet). Photo reading is the next piece.
 - Crypto balances are shown as money moved in and out, not market value.
+
+Developer check for the forecast selector (requires Node.js):
+
+```sh
+node --experimental-default-type=module tests/forecasting.test.mjs
+```

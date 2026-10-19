@@ -4,7 +4,8 @@ import {
   BASE, HOME, homeFx, CUR, accountMap, balances, catMap, deltaFor, feeOf, findOrAddCategory, live, monthParts, partsBetween,
   nowStamp, rateFor, shiftMonth, stamp, thisMonth, daysInMonth, fmt,
 } from './core.js';
-import { totals, baselineMonths } from './insights.js';
+import { totals } from './insights.js';
+import { forecastSeries } from './forecasting.js';
 
 const p2 = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
@@ -202,38 +203,126 @@ export function predictFee(db, from, to, amount) {
 }
 
 // ---------- forecast ----------
-// Next month by group: average of up to 3 recent complete months, nudged by the recent direction.
+// Forecast complete calendar months only. Zero-spend months are real observations, not missing data.
+// A small set of methods is compared by rolling-origin backtesting; no model is assumed to be best.
 export function forecastNext(db, ym = thisMonth()) {
   const next = shiftMonth(ym, 1);
-  const past = [];
-  for (let i = 1; i <= 12 && past.length < 3; i++) { const m = shiftMonth(ym, -i); if (totals(db, m).total > 0) past.push(m); }
-  const live0 = totals(db, ym);
-  const usedMonths = past.length ? past : [];
-  const by = new Map();
-  for (const m of usedMonths) for (const [g, v] of totals(db, m).by) by.set(g, (by.get(g) || 0) + v / usedMonths.length);
-  const total = sum([...by.values()]);
-  const incomeAvg = usedMonths.length ? sum(usedMonths.map((m) => totals(db, m, 'income').total)) / usedMonths.length : 0;
-  const fixed = []; // repeated names in each of the base months (rent, subscriptions…)
-  if (usedMonths.length >= 2) {
-    const sets = usedMonths.map((m) => new Map(monthParts(db, m).filter((p) => p.kind === 'expense' && p.t.name).map((p) => [p.t.name.trim().toLowerCase(), p])));
-    for (const [k, p] of sets[0]) if (sets.every((s) => s.has(k))) fixed.push({ name: p.t.name, v: sum(sets.map((s) => s.get(k).v)) / sets.length });
+  const previousMonth = shiftMonth(ym, -1);
+  const dated = live(db.txs).filter((t) => !t.reval && t.date && t.date.slice(0, 7) < ym).map((t) => t.date.slice(0, 7)).sort();
+  const firstMonth = dated[0] || previousMonth;
+  const historyMonths = [];
+  for (let m = firstMonth; m <= previousMonth; m = shiftMonth(m, 1)) historyMonths.push(m);
+  const usedMonths = historyMonths.slice(-24);
+  const groups = new Set();
+  const monthByGroup = new Map();
+  const expenseSeries = [], incomeSeries = [];
+  for (const m of usedMonths) {
+    const ex = totals(db, m, 'expense');
+    const inc = totals(db, m, 'income');
+    expenseSeries.push(ex.total);
+    incomeSeries.push(inc.total);
+    for (const [g, v] of ex.by) {
+      groups.add(g);
+      if (!monthByGroup.has(g)) monthByGroup.set(g, new Map());
+      monthByGroup.get(g).set(m, v);
+    }
   }
-  return { next, months: usedMonths, total, by, incomeAvg, fixed: fixed.sort((a, b) => b.v - a.v).slice(0, 5), thisSoFar: live0.total };
+  const by = new Map();
+  const groupModels = new Map();
+  for (const g of groups) {
+    const map = monthByGroup.get(g) || new Map();
+    const series = usedMonths.map((m) => map.get(m) || 0);
+    const fc = forecastSeries(series);
+    if (fc.value > 0.005) by.set(g, fc.value);
+    groupModels.set(g, fc);
+  }
+  const groupTotal = sum([...by.values()]);
+  const totalModel = forecastSeries(expenseSeries);
+  const total = totalModel.value;
+  // Keep the displayed category estimates consistent with the separately backtested total forecast.
+  if (groupTotal > 0 && total >= 0) {
+    const scale = total / groupTotal;
+    for (const [g, v] of by) by.set(g, v * scale);
+  }
+  const rangeLower = totalModel.mae == null ? null : Math.max(0, total - totalModel.mae);
+  const rangeUpper = totalModel.mae == null ? null : total + totalModel.mae;
+  const incomeModel = forecastSeries(incomeSeries);
+  const recentMonths = usedMonths.slice(-3);
+
+  // Aggregate repeated same-name expenses within each month; a Map of raw transactions used to lose duplicates.
+  const monthlyNames = recentMonths.map((m) => {
+    const names = new Map();
+    for (const p of monthParts(db, m)) {
+      if (p.kind !== 'expense' || p.split || !p.t.name) continue;
+      const key = p.t.name.trim().toLowerCase();
+      const old = names.get(key) || { name: p.t.name.trim(), v: 0 };
+      old.v += p.v;
+      names.set(key, old);
+    }
+    return names;
+  });
+  const fixed = [];
+  if (monthlyNames.length >= 2) {
+    for (const [k, p] of monthlyNames[0]) {
+      if (monthlyNames.every((m) => m.has(k))) {
+        fixed.push({ name: p.name, v: sum(monthlyNames.map((m) => m.get(k).v)) / monthlyNames.length });
+      }
+    }
+  }
+  const thisSoFar = totals(db, ym).total;
+  return {
+    next, months: recentMonths, historyMonths: usedMonths, total, by,
+    incomeAvg: incomeModel.value, incomeForecast: incomeModel.value,
+    fixed: fixed.sort((a, b) => b.v - a.v).slice(0, 5), thisSoFar,
+    method: totalModel.method, error: totalModel.mae,
+    lower: rangeLower, upper: rangeUpper,
+    backtestCount: totalModel.backtestCount, historyCount: totalModel.historyCount,
+    dataCoverage: totalModel.dataCoverage,
+    modelScores: totalModel.scores || [], groupModels,
+  };
+}
+
+// Descriptive behavior signals from actual logged expenses. These are observations, not diagnoses.
+export function behaviorPatterns(db, asOf = today()) {
+  const rows = live(db.txs).filter((t) => t.kind === 'expense' && !t.auto && !t.reval && t.name && t.date.slice(0, 10) <= asOf);
+  const byName = new Map();
+  for (const t of rows) {
+    const key = String(t.name).trim().toLowerCase();
+    if (!key) continue;
+    const e = byName.get(key) || { name: t.name.trim(), dates: [], count: 0 };
+    e.dates.push(t.date.slice(0, 10)); e.count++;
+    byName.set(key, e);
+  }
+  const dayNo = (s) => Math.floor(new Date(s + 'T12:00:00').getTime() / 86400000);
+  const now = dayNo(asOf), out = [];
+  for (const e of byName.values()) {
+    const dates = [...new Set(e.dates)].sort();
+    if (dates.length < 4) continue;
+    const lastDays = now - dayNo(dates[dates.length - 1]);
+    if (lastDays < 0 || lastDays > 90) continue;
+    const gaps = [];
+    for (let i = 1; i < dates.length; i++) gaps.push(dayNo(dates[i]) - dayNo(dates[i - 1]));
+    const sorted = gaps.sort((a, b) => a - b), mid = Math.floor(sorted.length / 2);
+    const usualGap = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    const threshold = Math.max(7, usualGap * 1.8);
+    if (usualGap <= 35 && lastDays > threshold) {
+      out.push({ type: 'routine-gap', tone: 'note', name: e.name, daysSince: lastDays, usualGap: Math.round(usualGap), text: `No “${e.name}” purchase has been recorded for ${lastDays} days; it was previously recorded about every ${Math.max(1, Math.round(usualGap))} days. Your routine may have changed.` });
+    }
+  }
+  return out.sort((a, b) => b.daysSince / Math.max(1, b.usualGap) - a.daysSince / Math.max(1, a.usualGap)).slice(0, 2);
 }
 
 // ---------- behaviour notes: warnings, tips and a bit of praise ----------
 export function behaviorNotes(db, ym = thisMonth()) {
   const out = [], money = (n) => fmt(n, HOME, { round: true });
   const f = forecastNext(db, ym);
-  if (!f.months.length) return [{ tone: 'note', text: 'Add a month or two of entries and Sukli will start forecasting.' }];
-  const [last, ...older] = [shiftMonth(ym, -1), shiftMonth(ym, -2), shiftMonth(ym, -3)];
+  if (!f.historyMonths.length) return [{ tone: 'note', text: 'Add a few months of entries and Sukli will start forecasting.' }];
+  const [last] = [shiftMonth(ym, -1)];
   const t = (m, k = 'expense') => totals(db, m, k);
   const cur = t(ym), prev = t(last);
   const inc = f.incomeAvg;
-  // overspending against income
   if (inc > 0 && f.total > inc) out.push({ tone: 'warn', text: `Forecast ${money(f.total)} is more than the ${money(inc)} that usually comes in. Trim about ${money(f.total - inc)} or expect to dip into savings.` });
   else if (inc > 0) out.push({ tone: 'good', text: `Forecast leaves about ${money(inc - f.total)} (${Math.round((inc - f.total) / inc * 100)}% of usual income) unspent.` });
-  // streak of rising groups
   const rising = [];
   for (const g of f.by.keys()) {
     const v = [3, 2, 1].map((i) => t(shiftMonth(ym, -i)).by.get(g) || 0);
@@ -241,19 +330,18 @@ export function behaviorNotes(db, ym = thisMonth()) {
   }
   rising.sort((a, b) => (b.to - b.from) - (a.to - a.from));
   if (rising[0]) out.push({ tone: 'warn', text: `${rising[0].g} has gone up three months in a row (${money(rising[0].from)} → ${money(rising[0].to)}). Watch it.` });
-  // weekend / payday style spikes
   const byDay = new Map();
   for (const p of monthParts(db, last)) if (p.kind === 'expense') { const d = +p.t.date.slice(8, 10); byDay.set(d, (byDay.get(d) || 0) + p.v); }
   const dayVals = [...byDay.values()], avg = sum(dayVals) / Math.max(1, daysInMonth(last));
   const spikes = [...byDay.entries()].filter(([, v]) => v > avg * 4).length;
   if (spikes >= 2) out.push({ tone: 'note', text: `${spikes} days last month were each over 4× your daily average. Planning big purchases for fewer days makes them easier to see.` });
-  // tip: biggest discretionary group
   const disc = [...f.by.entries()].filter(([g]) => /entertain|shop|personal|dining|travel|hobby/i.test(g)).sort((a, b) => b[1] - a[1])[0];
   if (disc && disc[1] > 1000) out.push({ tone: 'note', text: `Tip: ${disc[0]} is your biggest flexible group (about ${money(disc[1])}). Cutting 10% frees ${money(disc[1] * 0.1)}.` });
-  // reward
   if (prev.total > 0 && cur.total > 0 && cur.total < prev.total * 0.9 && ym !== thisMonth()) out.push({ tone: 'good', text: `Nice: spending fell ${Math.round((1 - cur.total / prev.total) * 100)}% from last month. Treat yourself to something small within the forecast.` });
   const room = inc > 0 ? inc - f.total : 0;
   if (room > 0) out.push({ tone: 'good', text: `Reward budget: if you keep to the forecast you could spend up to ${money(Math.min(room * 0.2, room))} on something you want and still stay positive.` });
+  if (f.lower != null && f.upper != null) out.push({ tone: 'note', text: `Rough historical error range: about ${money(f.lower)}–${money(f.upper)}, based on past forecast errors. Method: ${f.method}; tested on ${f.backtestCount} historical months.` });
+  out.push(...behaviorPatterns(db).map((x) => ({ tone: x.tone, text: x.text })));
   return out.slice(0, 6);
 }
 

@@ -43,7 +43,7 @@ const ALIASES = {
   Amount: ['amount', 'transactionamount', 'value'],
   Currency: ['currency', 'currencycode', 'cur'],
   'Exchange Rate': ['exchangerate', 'rate', 'fxrate'],
-  'Category Group': ['categorygroup', 'parentcategory', 'group', 'categorygroupname', 'parent', 'maincategory', 'categoryparent'],
+  'Category Group': ['categorygroup', 'parentcategory', 'group', 'categorygroupname', 'parent', 'maincategory', 'categoryparent', 'categorytype'],
   Category: ['category', 'childcategory', 'categoryname', 'subcategory'],
   Account: ['account', 'accountname', 'wallet'],
   Notes: ['notes', 'note', 'memo', 'remarks'],

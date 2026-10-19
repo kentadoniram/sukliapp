@@ -362,7 +362,7 @@ export function outlook(db) {
     ${reminderBanner(db)}
     <section class="outhead"><span class="muted">${esc(monthLabel(f.next))} forecast</span><b class="big">${R(f.total)}</b>
       <span class="${left >= 0 ? 'in' : 'neg'}">${f.incomeAvg ? (left >= 0 ? `About ${R(left)} left after the usual ${R(f.incomeAvg)} income` : `About ${R(-left)} more than the usual ${R(f.incomeAvg)} income`) : 'Add income entries to compare against what comes in'}</span>
-      <small class="muted">Based on ${f.months.length === 1 ? 'one earlier month' : f.months.length + ' earlier months'} (${f.months.slice().reverse().map((m) => monthLabel(m).split(' ')[0]).join(', ')}). It is a plain average of your own history, not a promise.</small></section>
+      <small class="muted">Uses ${f.historyCount} months of history. Selected method: ${esc(f.method)}${f.lower != null && f.upper != null ? ` · rough historical error range ${R(f.lower)}–${R(f.upper)}` : ' · not enough historical tests for a reliable range'}. Forecasts are estimates, not promises.</small></section>
     ${coll('o-chart', 'Spending by month', `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Spending in recent months and the forecast">${inc}${bars}</svg><p class="legend"><i class="k bar"></i>Actual <i class="k dash"></i>Forecast${f.incomeAvg ? ' <i class="k inc"></i>Usual income' : ''} · tap a bar</p>`)}
     ${coll('o-notes', 'Warnings, tips and rewards', notesList(notes))}
     ${coll('o-groups', 'Where it will probably go', rows ? `${rows}<p class="hint tap">The tick shows how far this month is. Tap a group for its details.</p>` : '<p class="empty">Nothing to show yet.</p>')}
