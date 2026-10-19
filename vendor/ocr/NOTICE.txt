@@ -1,0 +1,4 @@
+Receipt reading runs on your device with these open-source parts (Apache License 2.0):
+ - tesseract.js 5.1.1 and tesseract.js-core 5.1.0 (https://github.com/naptha/tesseract.js)
+ - Tesseract OCR language data "jpn" and "eng" (best, integer) from https://github.com/tesseract-ocr/tessdata_best
+Nothing is uploaded: the photo stays in the browser.

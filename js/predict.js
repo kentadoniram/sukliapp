@@ -3,9 +3,25 @@
 //   2. naive Bayes over character trigrams + amount size for names it has not seen
 // Nothing leaves the device and nothing is downloaded.
 
-const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+import { canon, nearest } from './textnorm.js';
+const norm = canon;   // width, kana, case, branch labels and receipt codes are cleaned away
+
+// the known name closest to a typo or variant ("starbuck" for "starbucks"); remembered per model
+function fuzzy(model, name) {
+  const k = norm(name);
+  if (!model.fz) model.fz = new Map();
+  if (model.fz.has(k)) return model.fz.get(k);
+  let e = null;
+  const v = model.resolve && model.resolve(name);          // the similarity graph first: it knows what you linked and its path explains the match
+  if (v && model.byName.get(v.key)) e = { e: model.byName.get(v.key), score: v.score, via: v };
+  if (!e) { const r = nearest(k, model.byName.keys()); e = r ? { e: model.byName.get(r.key), score: r.score } : null; }
+  if (model.fz.size > 200) model.fz.clear();
+  model.fz.set(k, e);
+  return e;
+}
 
 export const TUNE = { ctxWeight: 1, amountWeight: 1, temp: 3 };
+export const CORRECTED_WEIGHT = 3;
 
 function features(name, amount, ctx = {}) {
   const n = ' ' + norm(name) + ' ';
@@ -22,7 +38,7 @@ function features(name, amount, ctx = {}) {
 }
 const ctxOf = (t) => ({ acct: t.acct, cur: t.cur, hour: parseInt(String(t.date).slice(11, 13), 10) });
 
-export function buildModel(txs, kindFilter = 'expense', cats = []) {
+export function buildModel(txs, kindFilter = 'expense', cats = [], resolve = null) {
   const byName = new Map();
   const classes = new Map(); // cat -> {n, feats:Map, total}
   const vocab = new Set();
@@ -33,19 +49,20 @@ export function buildModel(txs, kindFilter = 'expense', cats = []) {
     const k = norm(t.name);
     let e = byName.get(k);
     if (!e) { e = { n: 0, cats: new Map(), accts: new Map(), curs: new Map(), amts: [], last: t.date, name: t.name.trim() }; byName.set(k, e); }
+    const wt = t.corrected ? CORRECTED_WEIGHT : 1;   // a category you fixed by hand teaches the model more than a guess you accepted
     e.n++;
     e.last = t.date;
-    e.cats.set(t.cat, (e.cats.get(t.cat) || 0) + 1);
+    e.cats.set(t.cat, (e.cats.get(t.cat) || 0) + wt);
     e.accts.set(t.acct, (e.accts.get(t.acct) || 0) + 1);
     e.curs.set(t.cur, (e.curs.get(t.cur) || 0) + 1);
     e.amts.push(t.amount);
     if (e.amts.length > 7) e.amts.shift();
     let c = classes.get(t.cat);
     if (!c) { c = { n: 0, feats: new Map(), total: 0 }; classes.set(t.cat, c); }
-    c.n++; total++;
+    c.n += wt; total += wt;
     for (const f of features(t.name, t.amount, ctxOf(t))) {
-      c.feats.set(f, (c.feats.get(f) || 0) + 1);
-      c.total++;
+      c.feats.set(f, (c.feats.get(f) || 0) + wt);
+      c.total += wt;
       vocab.add(f);
     }
   }
@@ -56,16 +73,17 @@ export function buildModel(txs, kindFilter = 'expense', cats = []) {
     const words = String(c.keywords).split(/[,\n]/).map(norm).filter((w) => w.length >= 2);
     if (words.length) kw.push({ id: c.id, words });
   }
-  return { byName, classes, vocab: vocab.size, total, kw };
+  return { byName, classes, vocab: vocab.size, total, kw, resolve };
 }
 
 const top = (m) => [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 const median = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : 0; };
 
 export function lookup(model, name) {
-  const e = model.byName.get(norm(name));
+  let e = model.byName.get(norm(name)), fz = false, via = null, fscore = 0.85;
+  if (!e) { const f = fuzzy(model, name); if (f) { e = f.e; fz = true; via = f.via || null; fscore = Math.min(0.95, f.score); } }
   if (!e) return null;
-  return { cat: top(e.cats), acct: top(e.accts), amount: median(e.amts), n: e.n };
+  return { cat: top(e.cats), acct: top(e.accts), amount: median(e.amts), n: e.n, fuzzy: fz, via };
 }
 
 // returns {cats:[{id,p}], conf, exact}
@@ -87,12 +105,13 @@ export function predict(model, name, amount = 0, ctx = {}) {
   for (const r of raw) { r[1] = Math.exp(r[1] - best); z += r[1]; }
   for (const [cat, v] of raw) nb.set(cat, v / z);
 
-  const e = model.byName.get(norm(name));
+  let e = model.byName.get(norm(name)), fz = false, via = null, fscore = 0.85;
+  if (!e) { const f = fuzzy(model, name); if (f) { e = f.e; fz = true; via = f.via || null; fscore = Math.min(0.95, f.score); } }
   const mix = new Map(nb);
   let exact = false;
   if (e) {
-    exact = true;
-    const w = e.n / (e.n + 1.5);
+    exact = !fz;
+    const w = (e.n / (e.n + 1.5)) * (fz ? fscore : 1);
     const cs = [...e.cats.values()].reduce((a, b) => a + b, 0);
     for (const [cat] of mix) mix.set(cat, (1 - w) * (nb.get(cat) || 0) + w * ((e.cats.get(cat) || 0) / cs));
   }
@@ -105,7 +124,7 @@ export function predict(model, name, amount = 0, ctx = {}) {
     for (const [id] of hit) mix.set(id, (mix.get(id) || 0) + share);
   }
   const cats = [...mix.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id, p]) => ({ id, p }));
-  return { cats, conf: cats[0] ? cats[0].p : 0, exact, keyword: hit.size > 0 };
+  return { cats, conf: cats[0] ? cats[0].p : 0, exact, fuzzy: fz, via, keyword: hit.size > 0 };
 }
 
 function keywordHit(model, name) {

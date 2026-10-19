@@ -31,6 +31,7 @@ ACT.menu = () => {
     <ul>${item('home', 'Home', 'home')}${item('ledger', 'Entries', 'list')}${item('calendar', 'Calendar', 'calendar')}${item('budget', 'Budget', 'pie')}${item('cashflow', 'Cash flow', 'flow')}${item('outlook', 'Outlook', 'spark')}${item('analytics', 'Analytics', 'chart')}${item('accounts', 'Accounts', 'wallet')}${item('review', 'Review', 'check', n)}</ul>
     <h3>Categories</h3>
     <ul>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
+    <ul>${'<li><a href="#" data-act="scan">'}${ic('camera')}<span>Scan a receipt</span></a></li>${''}</ul>
     <ul class="last">${item('bin', 'Recycle bin', 'trash')}${item('settings', 'Settings', 'gear')}</ul></nav>`;
   document.body.appendChild(wrap);
   document.body.classList.add('noscroll');
@@ -39,7 +40,7 @@ ACT.menu = () => {
   const close = () => ov.close();
   drawerOpen = close;
   document.addEventListener('keydown', onKey);
-  wrap.addEventListener('click', (e) => { if (e.target === wrap || e.target.closest('[data-x]') || e.target.closest('a')) close(); });
+  wrap.addEventListener('click', (e) => { if (e.target === wrap || e.target.closest('[data-x]') || e.target.closest('a, [data-act]')) close(); });
   const first = wrap.querySelector('a'); if (first && matchMedia('(pointer:fine)').matches) first.focus();
 };
 

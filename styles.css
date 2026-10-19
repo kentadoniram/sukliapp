@@ -554,3 +554,17 @@ button.gbar { width: 100%; text-align: left; background: none; border: 0; color:
 .nmgroup { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--rule); }
 .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; margin: 2px; border-radius: 999px; background: var(--rule); font-size: calc(12px * var(--fs, 1)); }
 .chip .x { border: 0; background: transparent; color: var(--ink2); font-size: 16px; padding: 0 6px; cursor: pointer; }
+.namemap { width: 100%; height: auto; max-height: 320px; }
+.namemap .mapc { fill: var(--ink2); } .namemap .mapc.on { fill: var(--accent, #3a6ee8); }
+.namemap .mapt { font-size: 10px; fill: var(--ink); text-anchor: middle; }
+.namemap .mapw { font-size: 9px; fill: var(--ink2); text-anchor: middle; paint-order: stroke; stroke: var(--bg, #fff); stroke-width: 3px; }
+.legend .k.you { background: var(--ok, #2a8a4a); } .legend .k.chain { background: var(--accent, #3a6ee8); } .legend .k.text { background: var(--muted, #888); }
+small.via { display: block; margin-top: 2px; font-size: calc(11px * var(--fs, 1)); }
+.conf { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: calc(11px * var(--fs, 1)); font-weight: 600; margin-left: 6px; background: var(--rule); color: var(--ink2); }
+.conf.hi { background: color-mix(in srgb, #2a8a4a 18%, transparent); color: #1f6b38; } .conf.mid { background: color-mix(in srgb, #d49a1a 22%, transparent); color: #8a5f00; } .conf.lo { background: color-mix(in srgb, #c0392b 18%, transparent); color: #a02a1d; }
+@media (prefers-color-scheme: dark) { .conf.hi { color: #7fd69a; } .conf.mid { color: #f0c36a; } .conf.lo { color: #ff9a8e; } }
+img.rcpt { width: 100%; max-height: 180px; object-fit: contain; border-radius: 12px; background: var(--rule); margin-bottom: 8px; }
+.okline { color: #1f6b38; font-size: calc(13px * var(--fs, 1)); margin: 6px 0 0; } .warnline { color: #a02a1d; font-size: calc(13px * var(--fs, 1)); margin: 6px 0 0; }
+#sc-items .item { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; } #sc-items .in-n { flex: 1; min-width: 0; } #sc-items .in-a { width: 84px; }
+.row2 { display: grid; grid-template-columns: 1fr 120px; gap: 10px; }
+.bar { height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; margin: 8px 0; } .bar > i { display: block; height: 100%; width: 0; background: var(--accent, #3a6ee8); transition: width .2s; }
