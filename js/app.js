@@ -17,6 +17,7 @@ import { initGestures } from './gestures.js';
 import { bin, autoPurge } from './bin.js';
 import { analytics } from './analytics.js';
 import './scan.js';
+import './compare.js';
 import { commitQuiet } from './core.js';
 
 const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook, bin, analytics };

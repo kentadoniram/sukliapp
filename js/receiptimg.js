@@ -30,8 +30,34 @@ function binarise(g, w, h, win, k) {
   for (let y = 0; y < h; y++) { const y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1); for (let x = 0; x < w; x++) { const x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1), n = (x1 - x0) * (y1 - y0), m = (I[y1 * (w + 1) + x1] - I[y0 * (w + 1) + x1] - I[y1 * (w + 1) + x0] + I[y0 * (w + 1) + x0]) / n; out[y * w + x] = g[y * w + x] < m * k ? 0 : 255; } }
   return out;
 }
-export async function prepareReceipt(file, { target = 1500, k = 0.86, crop = true, binarise: bin = true } = {}) {
+// turn a bitmap by 0 / 90 / 180 / 270 degrees clockwise
+function turn(bmp, deg) {
+  if (!deg) return bmp;
+  const c = document.createElement('canvas'), q = deg === 90 || deg === 270;
+  c.width = q ? bmp.height : bmp.width; c.height = q ? bmp.width : bmp.height;
+  const g = c.getContext('2d'); g.translate(c.width / 2, c.height / 2); g.rotate((deg * Math.PI) / 180); g.drawImage(bmp, -bmp.width / 2, -bmp.height / 2);
+  return c;
+}
+// do the text lines run across the picture ('h', upright or upside down) or up and down ('v', a sideways photo)? Lines of text make the ink
+// bunch up in rows; the direction with the stronger bunching is the direction of the lines.
+export async function textAxis(file) {
   const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => createImageBitmap(file));
+  const s0 = Math.min(1, 700 / Math.max(bmp.width, bmp.height)), w = Math.round(bmp.width * s0), h = Math.round(bmp.height * s0);
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(bmp, 0, 0, w, h);
+  const d = g.getImageData(0, 0, w, h).data, lum = new Uint8Array(w * h);
+  for (let i = 0; i < lum.length; i++) lum[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0;
+  const box = paperBox(lum, w, h), x0 = Math.floor(box.x), y0 = Math.floor(box.y), bw = Math.floor(box.w), bh = Math.floor(box.h);
+  const ink = binarise(lum, w, h, Math.max(15, Math.round(w / 25)) | 1, 0.8);
+  const rows = new Float64Array(bh), cols = new Float64Array(bw);
+  for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) if (ink[(y0 + y) * w + x0 + x] === 0) { rows[y]++; cols[x]++; }
+  // strength = how much neighbouring lines differ (text rows alternate ink and gap), normalised by the mean
+  const rough = (a) => { let m = 0, v = 0; for (const x of a) m += x; m /= a.length || 1; for (let i = 1; i < a.length; i++) v += Math.abs(a[i] - a[i - 1]); return m ? v / a.length / m : 0; };
+  const rr = rough(rows), rc = rough(cols);
+  return { axis: rr >= rc ? 'h' : 'v', rows: rr, cols: rc };
+}
+export async function prepareReceipt(file, { target = 1500, k = 0.86, crop = true, binarise: bin = true, rot = 0 } = {}) {
+  const bmp0 = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => createImageBitmap(file));
+  const bmp = turn(bmp0, rot);
   const s0 = Math.min(1, 1100 / Math.max(bmp.width, bmp.height)), aw = Math.round(bmp.width * s0), ah = Math.round(bmp.height * s0);
   const a = document.createElement('canvas'); a.width = aw; a.height = ah; const ag = a.getContext('2d', { willReadFrequently: true }); ag.drawImage(bmp, 0, 0, aw, ah);
   const ad = ag.getImageData(0, 0, aw, ah).data, lum = new Uint8Array(aw * ah);
