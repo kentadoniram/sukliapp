@@ -96,8 +96,10 @@ export function findItems(lines) {
     if (/20\d{2}[^\d\n]{1,2}\d{1,2}[^\d\n]{1,2}\d{1,2}|\d{1,2}\s*[:：]\s*\d{2}/.test(t) || NOT_AMOUNT.test(t)) continue;   // date, time, phone, card and register lines
     if (SKIP_ITEM.test(t) && !/値引|割引|クーポン/.test(t)) continue;
     if ((t.replace(/[ーンニ一\-—―]/g, '').match(/[\p{L}]/gu) || []).length < 2) continue;
-    const m = t.match(PRICE_END); if (!m) continue;
-    const name = t.slice(0, m.index).replace(/[¥\s.:*]+$/, '').replace(/^[\d\s]*(?=\D)/, '').trim();
+    // OCR leaves stray marks after the price ("¥249 ¢") and reads digits as letters ("¥I0" for ¥10): tidy both, then read the price
+    const tt = t.replace(/([¥￥])\s?([0-9IlOo|S,]{1,7})/, (_, y, d) => y + d.replace(/[Il|]/g, '1').replace(/[Oo]/g, '0').replace(/S/g, '5')).replace(/(\d)[^\d軽※*外内A-Z\s]{1,3}\s*$/, '$1').replace(/(\d)\s+[^\d軽※*外内A-Z\s]{1,3}\s*$/, '$1');
+    const m = tt.match(PRICE_END); if (!m) continue;
+    const name = tt.slice(0, m.index).replace(/[¥\s.:*]+$/, '').replace(/^[\d\s]*(?=\D)/, '').trim();
     const amt = money(m[1].replace(/\s/g, '')); if (amt == null || !name || name.length < 1) continue;
     const disc = /値引|割引|クーポン|discount/i.test(name);
     items.push({ name, amt: disc && amt > 0 ? -amt : amt, reduced: m[2] === '軽', conf: clamp(0.35 + 0.65 * ((l.conf ?? 70) / 100)), line: i });
@@ -153,29 +155,43 @@ export function parseReceipt(lines, { known = [], today = new Date() } = {}) {
   const total = findTotal(lines, items);
   const sum = items.reduce((s, x) => s + x.amt, 0);
   let check = { ok: null, sum, diff: null };
+  // what the item prices should add up to: the printed subtotal, or the total minus tax, or the total itself
+  let subtotal = 0; for (const l of lines) { const t = NK(l.text); if (/小計|対象(額|金額)?/.test(t) && !NOT_AMOUNT.test(t)) { const a = amountsIn(t).pop(); if (a && a.v > subtotal && a.v < 5e5) subtotal = a.v; } }
+  const targets = () => [subtotal, total && tax ? total.value - tax : 0, total ? total.value : 0].filter((v) => v > 0);
+  const fits = (sm) => targets().some((v) => Math.abs(sm - v) <= 1);
   if (total && items.length) {
     const d = Math.min(Math.abs(sum - total.value), tax ? Math.abs(sum + tax - total.value) : 1e9);
-    check = { ok: d <= 1, sum, diff: Math.round(total.value - sum), tax };
+    check = { ok: d <= 1 || fits(sum), sum, diff: Math.round(total.value - sum), tax };
     if (check.ok) { total.conf = clamp(total.conf + 0.15); for (const it of items) it.conf = clamp(it.conf + 0.1); }       // two separate readings agree
     else if (total.how === 'labelled total') total.conf = clamp(total.conf - 0.25);
   }
   // "198軽" is often read as "1988": try dropping that last 8 from some items, and keep it only if the receipt then adds up exactly
   if (total && items.length && check.ok === false && items.length <= 14) {
     const idx = items.map((x, i) => (x.amt >= 100 && x.amt % 10 === 8 ? i : -1)).filter((i) => i >= 0).slice(0, 10);
-    const want = total.value, ways = [];
+    const ways = [];
     for (let mask = 1; mask < 1 << idx.length; mask++) {
       let sum2 = items.reduce((s2, x) => s2 + x.amt, 0);
       for (let b = 0; b < idx.length; b++) if (mask >> b & 1) sum2 += Math.floor(items[idx[b]].amt / 10) - items[idx[b]].amt;
-      if (Math.abs(sum2 - want) <= 1 || (tax && Math.abs(sum2 + tax - want) <= 1)) ways.push(mask);
+      if (fits(sum2) || (tax && Math.abs(sum2 + tax - total.value) <= 1)) ways.push(mask);
     }
     if (ways.length === 1) {
       for (let b = 0; b < idx.length; b++) if (ways[0] >> b & 1) { const it = items[idx[b]]; it.was = it.amt; it.amt = Math.floor(it.amt / 10); it.reduced = true; it.conf = Math.min(it.conf, 0.6); }
       const sum2 = items.reduce((s2, x) => s2 + x.amt, 0);
-      check = { ok: true, sum: sum2, diff: Math.round(want - sum2), tax, repaired: true };
+      check = { ok: true, sum: sum2, diff: Math.round(total.value - sum2), tax, repaired: true };
       total.conf = clamp(total.conf + 0.2);
     }
   }
-  if (total && items.length && check.ok === false && total.conf >= 0.6 && !check.repaired) { items.length = 0; check = { ...check, itemsUnreadable: true }; }   // better one correct line than several wrong ones
+  // one price unreadable ("¥I0" for ¥190): the rest of the list and the printed subtotal say what it must be
+  if (total && items.length && check.ok === false && !check.repaired) {
+    const bad = items.map((x, i) => (x.amt > 0 && x.amt < 30 ? i : -1)).filter((i) => i >= 0);
+    if (bad.length === 1) {
+      const rest = items.reduce((s2, x, i) => s2 + (i === bad[0] ? 0 : x.amt), 0), need = targets().map((v) => v - rest).find((v) => v >= 30 && v <= 50000);
+      if (need) { const it = items[bad[0]]; it.was = it.amt; it.amt = need; it.conf = Math.min(it.conf, 0.55); it.fromSubtotal = true; check = { ok: true, sum: rest + need, diff: 0, tax, repaired: true }; total.conf = clamp(total.conf + 0.1); }
+    }
+  }
+  for (const it of items) it.name = it.name.replace(/^[*＊●・\s]+/, '');
+  // prices that do not add up to anything we can check are not trusted: keep the one line we are sure of
+  if (total && items.length && check.ok === false && total.conf >= 0.6 && !check.repaired) { items.length = 0; check = { ...check, itemsUnreadable: true }; }
   if (total && !items.length) items.push({ name: (merchant && merchant.value) || 'Receipt', amt: total.value, reduced: false, conf: 0.4, line: -1, whole: true });
   return { merchant, date, total, items, tax, taxIncluded, check, lineCount: lines.length };
 }

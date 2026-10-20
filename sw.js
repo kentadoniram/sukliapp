@@ -1,5 +1,5 @@
 // Offline shell: serve the app from cache, refresh it quietly in the background.
-const VERSION = 'sukli-v11';
+const VERSION = 'sukli-v12';
 const FILES = ['./', 'index.html', 'styles.css', 'manifest.webmanifest',
   'js/app.js', 'js/finance.js', 'js/stats.js', 'js/merchants.js', 'js/textnorm.js', 'js/simgraph.js', 'js/receipt.js', 'js/receiptimg.js', 'js/scan.js', 'js/accpage.js', 'js/calc.js', 'js/appearance.js', 'js/core.js', 'js/importer.js', 'js/predict.js', 'js/drive.js', 'js/cloud.js', 'js/insights.js', 'js/views.js', 'config.js', 'js/ui.js', 'js/entry.js', 'js/screens.js', 'js/rates.js', 'js/backup.js', 'js/acctpicker.js', 'js/curpicker.js', 'js/datepicker.js', 'js/gestures.js', 'js/bin.js', 'js/analytics.js',
   'fonts/schibsted-grotesk-latin-wght-normal.woff2', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];

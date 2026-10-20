@@ -116,9 +116,11 @@ function start(api) {
       const w = await engine(status);
       status('Reading', 0.02);
       const { data } = await w.recognize(canvas, {}, { blocks: true, text: true });
-      status('Second look at the picture', 0.6);
-      const second = await w.recognize(grey, {}, { blocks: true, text: true }).then((r) => r.data).catch(() => null);
-      const la = linesFromOcr(data), lines = second ? bestLines(la, linesFromOcr(second)) : la;
+      const la = linesFromOcr(data), first = parseReceipt(la);
+      const sure = first.total && first.total.conf >= 0.85 && first.check && first.check.ok;          // everything adds up: no need for a second, slower look
+      let second = null;
+      if (!sure) { status('Second look at the picture', 0.6); second = await w.recognize(grey, {}, { blocks: true, text: true }).then((r) => r.data).catch(() => null); }
+      const lines = second ? bestLines(la, linesFromOcr(second)) : la;
       S = analyse(lines); S.previewUrl = url; S.ocrConf = data.confidence;
       render(api);
     } catch (err) { status('Could not read the picture here (' + (err && err.message ? err.message : 'error') + '). You can paste the text below, or add the entry by hand.'); }

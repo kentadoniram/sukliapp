@@ -9,6 +9,11 @@ A private money tracker that runs entirely in the browser. Your data stays on yo
 - **Receipt scanner** (Menu, Scan a receipt): take or choose a photo; Japanese and English text is read on the device (Tesseract, bundled in `vendor/ocr`, about 9 MB, works offline, nothing uploaded). It finds the shop, date and time, total and item lines (quantity lines, discounts, 軽 marks, tax on top or included), matches the shop to a name in your history, guesses the category, and shows a confidence for each field. A cross-check tells you whether the items add up to the total. You correct anything, then **Continue to entry** to pick the account and save. Or paste receipt text instead of a photo.
   - Limits: confidence is a guide, not a probability; small, blurry or crumpled thermal prints lose digits (the 軽 mark is often read as 8; this is repaired only when it makes the receipt add up); Japanese item names are the least reliable part.
 
+## What's new in v12
+
+- **Receipts keep the per-item prices.** Stray marks after a price ("¥249 ¢") are ignored, letters read as digits ("¥I0") are tidied, the item prices are checked against the printed subtotal (or total minus tax), and a single unreadable price is worked out from that subtotal. On the LIFE receipt: 6 lines that add up to the 699 subtotal. If the prices cannot be verified the app still keeps one correct total line.
+- The second reading pass only runs when the first one does not add up, so clear receipts finish faster.
+
 ## What's new in v11
 
 - **Swipe to close:** swipe down or left on a detail view to close it. Forms (new entry, new account) only close by swiping down from the title bar, so a stray swipe cannot lose what you typed. Charts, text boxes and scrolling rows are left alone.
