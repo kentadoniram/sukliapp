@@ -3,7 +3,7 @@ import { get, commitQuiet } from './core.js';
 import { esc, ic, ACT, sheet, toast } from './ui.js';
 import { modelFor, openEntry } from './entry.js';
 import { predict } from './predict.js';
-import { parseReceipt, parseBoth, linesFromOcr } from './receipt.js';
+import { parseReceipt, parseBoth, linesFromOcr, joinLines } from './receipt.js';
 import { guessItemCat, itemCatIndex, learnItemCat } from './itemcat.js';
 import { prepareReceipt } from './receiptimg.js';
 
@@ -77,7 +77,7 @@ function analyse(r) {
   const top = p.cats.slice(0, 3).filter((x) => cats.some((c) => c.id === x.id));
   return { r, name, nameConf, matched, cat: top[0] ? top[0].id : '', catConf: top[0] ? top[0].p : 0, guess: top[0] ? top[0].id : '', alts: top,
     date: r.date ? r.date.value : '', time: r.date ? r.date.time : '', dateConf: r.date ? r.date.conf : 0, total, totalConf: r.total ? r.total.conf : 0,
-    ids: r.ids || {}, items: r.items.map((i) => { const g = i.whole ? null : guessItemCat(db, i.name, idx); return { n: i.name, amt: String(i.amt), conf: i.conf, was: i.was, whole: i.whole, note: i.note || '', cat: g ? g.cat : '', catConf: g ? g.conf : 0, why: g ? g.why || g.how : '' }; }),
+    ids: r.ids || {}, items: r.items.map((i) => { const g = i.whole ? null : guessItemCat(db, i.name, idx); return { n: i.name, amt: String(i.amt), conf: i.conf, was: i.was, whole: i.whole, note: (i.implied ? 'price worked out from the subtotal' + (i.note ? ' · ' : '') : '') + (i.note || ''), implied: !!i.implied, cat: g ? g.cat : '', catConf: g ? g.conf : 0, why: g ? g.why || g.how : '' }; }),
     settled: r.settled || null, check: r.check };
 }
 
@@ -98,35 +98,44 @@ function render(api) {
         <div class="isub">${it.note ? `<small class="muted">${esc(it.note)}</small>` : ''}<select class="in-c" aria-label="Item category"><option value="">Same as receipt${a.cat ? ' (' + esc((cats.find((c) => c.id === a.cat) || {}).name || '') + ')' : ''}</option>${cats.map((c) => `<option value="${c.id}" ${c.id === it.cat ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>${it.cat && it.catConf ? `<small class="muted" title="${esc(it.why || '')}">${Math.round(it.catConf * 100)}%</small>` : ''}</div></div>`).join('') || '<p class="muted">No item lines were read. You can still save the total.</p>'}</div>
       <button type="button" class="linkbtn" data-act="sc-add">+ Add an item</button>
       ${a.settled && (a.settled.discount || a.settled.tax) ? `<p class="muted sumline">Items ${yen(Math.round(a.settled.gross))}${a.settled.discount ? ` − discounts ${yen(Math.round(a.settled.discount))}` : ''}${a.settled.tax ? ` + tax ${yen(Math.round(a.settled.tax))}` : ''} = ${yen(Math.round(a.settled.paid))} paid. Each price below is the final price after discount and tax.</p>` : ''}
+      ${a.check && a.check.itemsUnreadable ? '<p class="warnline">The item lines could not be read reliably, only the total. For a long receipt, take 2 or 3 closer photos from the top down and use “Add the next part” below; closer text reads much better.</p>' : ''}
       ${a.items.length ? `<p class="${ok ? 'okline' : 'warnline'}">${ok ? '✓ The items add up to the total.' : `Items add up to ${yen(Math.round(sum))}, total says ${yen(Math.round(tot))} (difference ${yen(Math.round(tot - sum))}). One of them is probably misread.`}${a.check && a.check.repaired ? ' A trailing 8 was removed from some prices (the 軽 mark is often read as 8); please verify.' : ''}</p>` : ''}</div>
     <div class="field"><span>Category ${a.alts.length ? badge(a.alts.find((x) => x.id === a.cat) ? a.alts.find((x) => x.id === a.cat).p : 0) : '<span class="conf lo">no guess</span>'}</span>
       <select id="sc-cat"><option value="">Choose…</option>${cats.map((c) => `<option value="${c.id}" ${c.id === a.cat ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
       ${a.alts.length ? `<div class="chips">${a.alts.map((x) => `<button type="button" class="chip ${x.id === a.cat ? 'on' : ''}" data-act="sc-cat" data-id="${x.id}">${esc((cats.find((c) => c.id === x.id) || {}).name || '')} ${pct(x.p)}%</button>`).join('')}</div>` : ''}</div>
+    ${a.raw ? `<label class="btn ghost wide moreb"><input type="file" id="rc-more" accept="image/*" capture="environment" hidden>Long receipt? Add the next part (photo)</label><p class="hint" id="rc-more-status" aria-live="polite"></p>` : ''}
     <div class="btnrow"><button type="button" class="btn ghost" data-act="sc-again">Scan another</button><button type="button" class="btn" data-act="sc-use">Continue to entry</button></div></form>`;
   const f = api.el;
   const sync = () => { a.name = f.querySelector('#sc-name').value; a.date = f.querySelector('#sc-date').value; a.time = f.querySelector('#sc-time').value; a.total = f.querySelector('#sc-total').value; a.cat = f.querySelector('#sc-cat').value;
     f.querySelectorAll('#sc-items .item').forEach((row, i) => { if (a.items[i]) { a.items[i].n = row.querySelector('.in-n').value; a.items[i].amt = row.querySelector('.in-a').value; const sc = row.querySelector('.in-c'); if (sc) a.items[i].cat = sc.value; } }); };
   api.sync = sync;
+  const more = f.querySelector('#rc-more');
+  if (more) more.onchange = async (e) => {
+    const file = e.target.files[0]; if (!file) return; const st = f.querySelector('#rc-more-status');
+    try { const r = await addPart({ first: a.raw.first, second: a.raw.second }, file, (t) => { if (st) st.textContent = t; }); const prevUrl = a.previewUrl; S = analyse(r.parsed); S.previewUrl = prevUrl; S.raw = { first: r.first, second: r.second }; render(api); }
+    catch (err) { if (st) st.textContent = 'Could not read that photo (' + (err && err.message ? err.message : 'error') + ').'; }
+  };
   f.querySelector('#scanform').addEventListener('change', (e) => { sync(); if (e.target.id === 'sc-total' || e.target.classList.contains('in-a') || e.target.id === 'sc-cat') render(api); });
 }
 
 function start(api) {
   api.el.innerHTML = `<p class="hint">Photograph the receipt flat, in good light, filling the frame. Reading happens on this device; the photo is not uploaded or saved.</p>
     <div class="btnrow"><label class="btn wide"><input type="file" id="rc-cam" accept="image/*" capture="environment" hidden>${ic('camera')} Take a photo</label>
-    <label class="btn ghost wide"><input type="file" id="rc-file" accept="image/*" hidden>Choose a picture</label></div>
+    <label class="btn ghost wide"><input type="file" id="rc-file" accept="image/*" multiple hidden>Choose picture(s)</label></div>
+    <p class="hint">Long receipt? Take 2 or 3 photos from the top down, each overlapping the one before by a few lines, and choose them together in order (or add the next part afterwards). Closer photos read much better than one far-away photo.</p>
     <div id="rc-status" class="hint" aria-live="polite"></div><div class="bar" id="rc-bar" hidden><i></i></div>
     <details><summary>Or paste the receipt text</summary><textarea id="rc-text" rows="6" placeholder="Paste text copied from a receipt scan or e-receipt"></textarea><button type="button" class="btn ghost" data-act="sc-text">Read this text</button></details>`;
   const status = (t, p) => { const s = api.el.querySelector('#rc-status'); if (s) s.textContent = t; const b = api.el.querySelector('#rc-bar'); if (b && p != null) { b.hidden = false; b.firstElementChild.style.width = Math.round(p * 100) + '%'; } };
-  const go = async (file) => {
-    if (!file) return;
+  const go = async (files) => {
+    files = [...(files || [])]; if (!files.length) return;
     try {
-      const r = await readReceiptFile(file, status), url = r.url, data = { confidence: r.conf };
-      S = analyse(r.parsed); S.previewUrl = url; S.ocrConf = data.confidence;
+      const r = files.length > 1 ? await readReceiptFiles(files, status) : await readReceiptFile(files[0], status), url = r.url, data = { confidence: r.conf };
+      S = analyse(r.parsed); S.previewUrl = url; S.ocrConf = data.confidence; S.raw = { first: r.first, second: r.second };
       render(api);
     } catch (err) { status('Could not read the picture here (' + (err && err.message ? err.message : 'error') + '). You can paste the text below, or add the entry by hand.'); }
   };
-  api.el.querySelector('#rc-cam').onchange = (e) => go(e.target.files[0]);
-  api.el.querySelector('#rc-file').onchange = (e) => go(e.target.files[0]);
+  api.el.querySelector('#rc-cam').onchange = (e) => go(e.target.files);
+  api.el.querySelector('#rc-file').onchange = (e) => go(e.target.files);
 }
 
 // A phone photo can be sideways or upside down. Read a small copy turned each way and keep the way that reads best.
@@ -143,20 +152,57 @@ export async function findRotation(file, w, status = () => {}) {
   return { rot: +best[0], scores };
 }
 
+// A long receipt is a tall, narrow picture. Read as one piece the text gets small and the layout search loses its way,
+// so it is cut into overlapping bands that are read one by one; each line is kept from the band where it sits away from the cut.
+export function tileCanvas(c) {
+  if (c.height <= c.width * 1.9) return [{ c, y0: 0, y1: c.height, first: true, last: true }];
+  const hb = Math.round(c.width * 1.5), ov = Math.round(hb * 0.18), step = hb - ov, out = [];
+  for (let y = 0; ; y += step) {
+    const y1 = Math.min(c.height, y + hb), t = document.createElement('canvas'); t.width = c.width; t.height = y1 - y;
+    const g = t.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, t.width, t.height); g.drawImage(c, 0, y, c.width, y1 - y, 0, 0, c.width, y1 - y);
+    out.push({ c: t, y0: y, y1, ov, first: y === 0, last: y1 >= c.height });
+    if (y1 >= c.height) break;
+  }
+  return out;
+}
+export async function readCanvas(w, canvas, status = () => {}, label = 'Reading', p0 = 0.02, p1 = 0.6) {
+  const tiles = tileCanvas(canvas), lines = []; let conf = 0;
+  for (const [i, t] of tiles.entries()) {
+    status(tiles.length > 1 ? `${label}: part ${i + 1} of ${tiles.length} (long receipt)` : label, p0 + ((p1 - p0) * i) / tiles.length);
+    const { data } = await w.recognize(t.c, {}, { blocks: true, text: true }); conf = Math.max(conf, data.confidence || 0);
+    const lo = t.first ? -1 : t.y0 + t.ov / 2, hi = t.last ? Infinity : t.y1 - t.ov / 2;
+    for (const l of linesFromOcr(data)) { const y = l.y == null ? null : t.y0 + l.y; if (y == null || (y >= lo && y < hi)) lines.push({ ...l, y }); }
+  }
+  return { lines, conf };
+}
+// several photos of one long receipt, top to bottom, each overlapping the one before a little
+export async function readReceiptFiles(files, status = () => {}) {
+  let first = [], second = [], head = null;
+  for (const [i, f] of files.entries()) {
+    const r = await readReceiptFile(f, files.length > 1 ? (t, p) => status(`Photo ${i + 1} of ${files.length}: ${t}`, p) : status, { forceSecond: files.length > 1 });
+    first = joinLines(first, r.first); second = joinLines(second, r.second || r.first); head = head || r;
+  }
+  const parsed = parseBoth(first, second, { known: knownNames(get()) });
+  return { ...head, parsed, first, second, lines: first };
+}
+export async function addPart(prev, file, status = () => {}) {
+  const r = await readReceiptFile(file, status, { forceSecond: true });
+  const first = joinLines(prev.first, r.first), second = joinLines(prev.second || prev.first, r.second || r.first);
+  return { ...prev, parsed: parseBoth(first, second, { known: knownNames(get()) }), first, second, lines: first };
+}
+
 // photo -> lines of text. Shared by the scan screen and the tests.
-export async function readReceiptFile(file, status = () => {}) {
+export async function readReceiptFile(file, status = () => {}, { forceSecond = false } = {}) {
   status('Preparing the picture…');
   const w = await engine(status);
   const { rot, scores } = await findRotation(file, w, status);
   const canvas = await prepareReceipt(file, { rot }), grey = await prepareReceipt(file, { binarise: false, rot });
-  status('Reading', 0.02);
-  const { data } = await w.recognize(canvas, {}, { blocks: true, text: true });
-  const la = linesFromOcr(data), known = knownNames(get()), p1 = parseReceipt(la, { known });
-  const good = p1.total && p1.total.conf >= 0.85 && p1.date && p1.check && p1.check.ok && p1.items.length && !p1.items[0].whole;   // everything agrees: skip the slower second look
-  let second = null;
-  if (!good) { status('Second look at the picture', 0.6); second = await w.recognize(grey, {}, { blocks: true, text: true }).then((r) => r.data).catch(() => null); }
-  const lb = second ? linesFromOcr(second) : null, lines = la, parsed = parseBoth(la, lb, { known });
-  return { rot, scores, parsed, lines, first: la, second: lb, url: grey.toDataURL('image/jpeg', 0.5), conf: data.confidence, canvas, grey };
+  const known = knownNames(get()), a = await readCanvas(w, canvas, status, 'Reading', 0.02, 0.55), la = a.lines, p1 = parseReceipt(la, { known });
+  const good = !forceSecond && p1.total && p1.total.conf >= 0.85 && p1.date && p1.check && p1.check.ok && p1.items.length && !p1.items[0].whole;   // everything agrees: skip the slower second look
+  let lb = null;
+  if (!good) { const b = await readCanvas(w, grey, status, 'Second look', 0.55, 0.95).catch(() => null); lb = b ? b.lines : null; }
+  const parsed = parseBoth(la, lb, { known });
+  return { rot, scores, parsed, lines: la, first: la, second: lb, url: grey.toDataURL('image/jpeg', 0.5), conf: a.conf, canvas, grey };
 }
 
 let cur = null;

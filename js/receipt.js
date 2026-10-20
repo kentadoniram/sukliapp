@@ -10,7 +10,8 @@ const CJK = '\\p{sc=Han}\\p{sc=Hiragana}\\p{sc=Katakana}ー';
 const GAP = new RegExp(`(?<=[${CJK}])\\s+(?=[${CJK}])|(?<=\\d)\\s+(?=[${CJK}])`, 'gu');
 // OCR puts spaces between Japanese characters ("ライ フ 塚越 店") and reads ¥ as a backslash: tidy both
 const NK = (s) => String(s || '').normalize('NFKC').replace(/[￥円]/g, '¥').replace(/\\(?=\s?\d)/g, '¥').replace(GAP, '')
-  .replace(/(?<=[\d¥])[OoQD](?=[\d,.\s¥軽※*外内]|$)/g, '0').replace(/(?<=¥)[OoQ](?=\d)/g, '0').replace(/(?<=\d)[lI|](?=\d|\s|$)/g, '1');
+  .replace(/(?<=[\d¥])[OoQD](?=[\d,.\s¥軽※*外内]|$)/g, '0').replace(/(?<=¥)[OoQ](?=\d)/g, '0').replace(/(?<=\d)[lI|](?=\d|\s|$)/g, '1')
+  .replace(/(?<=^|[\s*・.:])[yYvV](?=\d{2,5}(?:\D|$))/g, '¥').replace(/(?<=¥)[Il|](?=\d)/g, '1');   // ¥ read as y, Y or v; ¥I08 is ¥108
 // OCR often adds a few junk characters after the price ("¥299 【", "¥754 F ーー"): drop them when nothing numeric follows
 const trimTail = (t) => { const re = /(¥\s?-?\d[\d,]*|-?\d[\d,]*)\s*[軽※*外内E]?/g; let last = null, m; while ((m = re.exec(t))) last = m; if (!last) return t; const end = last.index + last[0].length, tail = t.slice(end); return tail && tail.length <= 14 && !/\d/.test(tail) ? t.slice(0, end).trim() : t; };
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -123,10 +124,10 @@ export function findItems(lines) {
   const items = []; let tax = 0, taxIncluded = false;
   for (const [i, l] of lines.entries()) {
     const t = trimTail(NK(l.text).trim()); if (!t) continue;
-    if (/外税|外\s?\d{1,2}\s?%|消費税|\btax\b|\bvat\b/i.test(t)) {
+    if (/外税|外\s?\d{1,3}\s?%|消費税|\btax\b|\bvat\b/i.test(t)) {
       const all = amountsIn(t), a = all[all.length - 1]; if (/内|うち/.test(t)) taxIncluded = true;
       if (a && /対象/.test(t) && /外/.test(t) && all.length >= 2 && a.v < all[all.length - 2].v) { tax += a.v; continue; }   // "外税 8%対象 356 28": base and tax on one line
-      if (a && /外税|外\s?\d{1,2}\s?%|\btax\b|\bvat\b/i.test(t) && !/内|うち|対象/.test(t)) tax += a.v;     // tax printed on top of the item prices
+      if (a && /外税|外\s?\d{1,3}\s?%|\btax\b|\bvat\b/i.test(t) && !/内|うち|対象/.test(t)) tax += a.v;     // tax printed on top of the item prices
       continue;
     }
     const q = t.match(/^[@＠]?\s?(\d{1,3})\s*[コ個点本]\s*[x×＊*@]\s*(?:単|@)?\s*¥?(\d{1,5})\s*$/) || t.match(/@\s?\d+\s*[x×]\s*(\d{1,2})\s*[点個コ本]/);
@@ -238,9 +239,12 @@ export function parseReceipt(lines, { known = [], today = new Date(), settle: do
     }
   }
   const rawItems = items.map((x) => ({ ...x }));
+  // item lines (marked with * or ・) whose price could not be read at all: if exactly one is missing, the subtotal tells its price
+  const stopAt = stop > 2 ? stop : lines.length, used = new Set(items.map((x) => x.line));
+  const ghosts = lines.filter((l, i) => i < stopAt && !used.has(i) && /^[*＊・]\s*\S{2,}/.test(NK(l.text).trim()) && !SKIP_ITEM.test(NK(l.text)) && !/値引|割引|クーポン/.test(NK(l.text)) && !/\d{2,}/.test(NK(l.text).replace(/\d{4}-\d+|[A-Z]\d{6,}/g, ''))).map((l) => l.text);
   if (total && items.length && check.ok === false && total.conf >= 0.7 && !check.repaired) { items.length = 0; check = { ...check, itemsUnreadable: true }; }   // better one correct line than several wrong ones
   if (total && !items.length) items.push({ name: (merchant && merchant.value) || 'Receipt', amt: total.value, reduced: false, conf: 0.4, line: -1, whole: true });
-  const res = { merchant, date, total, items, rawItems, tax, taxIncluded, check, targets, subs, ids, lineCount: lines.length };
+  const res = { merchant, date, total, items, rawItems, tax, taxIncluded, check, targets, subs, ids, ghosts, lineCount: lines.length };
   return doSettle ? settle(res) : res;
 }
 
@@ -295,9 +299,10 @@ export function settle(r) {
 
 // lines out of a Tesseract result (v5 gives blocks, older gives lines)
 export function linesFromOcr(data) {
-  if (data && Array.isArray(data.lines) && data.lines.length) return data.lines.map((l) => ({ text: l.text, conf: l.confidence }));
+  const yOf = (l) => (l.bbox ? { y: (l.bbox.y0 + l.bbox.y1) / 2, h: l.bbox.y1 - l.bbox.y0 } : {});
+  if (data && Array.isArray(data.lines) && data.lines.length) return data.lines.map((l) => ({ text: l.text, conf: l.confidence, ...yOf(l) }));
   const out = [];
-  for (const b of (data && data.blocks) || []) for (const p of b.paragraphs || []) for (const l of p.lines || []) out.push({ text: l.text, conf: l.confidence });
+  for (const b of (data && data.blocks) || []) for (const p of b.paragraphs || []) for (const l of p.lines || []) out.push({ text: l.text, conf: l.confidence, ...yOf(l) });
   return out.length ? out : String((data && data.text) || '').split('\n').map((t) => ({ text: t, conf: undefined }));
 }
 
@@ -357,7 +362,18 @@ export function parseBoth(a, b, opts = {}) {
   // items: line up both readings and keep the combination that adds up to the subtotal or total
   const m = mergeItems(pa.rawItems.filter((x) => !x.whole), pb.rawItems.filter((x) => !x.whole), tg, tax);
   out.tax = tax; out.targets = tg;
-  const sum = m.items.reduce((s2, x) => s2 + x.amt, 0);
+  let sum = m.items.reduce((s2, x) => s2 + x.amt, 0);
+  if (!m.ok && m.items.length >= 2) {                                              // one price is wrong or missing in both readings: the subtotal tells what it must be
+    const gaps = [...new Set([...pa.subs, ...pb.subs, ...(tax && T0 ? [T0 - tax] : [])])];
+    const fixes = [];
+    m.items.forEach((it, i) => { if (it.amt > 0 && (!it.name || it.conf < 0.5)) for (const t of gaps) { const v = t - (sum - it.amt); if (v >= 10 && v <= 30000 && v !== it.amt) fixes.push({ i, v }); } });
+    if (fixes.length && new Set(fixes.map((f) => f.i)).size === 1 && new Set(fixes.map((f) => f.v)).size === 1) {
+      const f = fixes[0]; m.items = m.items.map((it, i) => (i === f.i ? { ...it, was: it.amt, amt: f.v, conf: 0.45, implied: true } : it)); m.ok = true; sum += f.v - m.items[f.i].was;
+    } else if (Math.max((pa.ghosts || []).length, (pb.ghosts || []).length) === 1) {          // a line whose price vanished completely
+      const g = gaps.map((t) => t - sum).filter((x) => x >= 10 && x <= 30000);
+      if (new Set(g).size === 1) { m.items = [...m.items, { name: '', raw: (pa.ghosts[0] || pb.ghosts[0] || ''), amt: g[0], reduced: false, conf: 0.45, line: 9999, implied: true }]; m.ok = true; sum += g[0]; }
+    }
+  }
   if (m.ok && out.total) { out.items = m.items; out.check = { ok: true, sum, diff: Math.round(out.total.value - sum), tax, merged: true, dropped: m.dropped }; out.total.conf = clamp(out.total.conf + 0.1); }
   else if (out.total && m.items.length) { out.items = []; out.check = { ok: false, sum, diff: Math.round(out.total.value - sum), tax, itemsUnreadable: true }; }
   else { out.items = pa.items.length ? pa.items : pb.items; out.check = pa.check; }
@@ -370,4 +386,16 @@ export function parseBoth(a, b, opts = {}) {
 export function bestLines(a, b, opts = {}) {
   const score = (lines) => { const r = parseReceipt(lines, opts); return (r.total ? 2 * r.total.conf : 0) + (r.date ? r.date.conf : 0) + (r.merchant ? r.merchant.conf : 0) + (r.check && r.check.ok ? 0.5 : 0) + (r.check && r.check.ok === false ? -0.3 : 0); };
   return score(b) > score(a) ? b : a;
+}
+
+// Two photos of one long receipt, top part then next part, overlapping by a few lines: drop the lines that are read twice.
+export function joinLines(A, B, maxOverlap = 18) {
+  if (!A.length) return B.slice(); if (!B.length) return A.slice();
+  const key = (l) => NK(l.text).replace(/[\s¥,.\-*]/g, '').toLowerCase();
+  const same = (x, y) => { const a = key(x), b = key(y); return a.length >= 3 && b.length >= 3 && (a === b || similarity(a, b) >= 0.8); };
+  for (let k = Math.min(maxOverlap, A.length, B.length); k >= 1; k--) {
+    let ok = 0; for (let i = 0; i < k; i++) if (same(A[A.length - k + i], B[i])) ok++;
+    if (ok >= Math.max(1, Math.ceil(k * 0.6)) && (k > 1 || key(B[0]).length >= 6)) return [...A, ...B.slice(k)];
+  }
+  return [...A, ...B];
 }

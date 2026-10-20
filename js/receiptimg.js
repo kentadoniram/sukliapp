@@ -18,7 +18,7 @@ function paperBox(lum, w, h) {
     while (q.length) { const c = q.pop(), x = c % cw, y = (c / cw) | 0; n++; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); for (const nb of [c - 1, c + 1, c - cw, c + cw]) if (nb >= 0 && nb < on.length && on[nb] && !seen[nb] && Math.abs((nb % cw) - x) <= 1) { seen[nb] = 1; q.push(nb); } }
     if (!best || n > best.n) best = { n, x0, y0, x1, y1 };
   }
-  if (!best || best.n < cw * ch * 0.08) return { x: 0, y: 0, w, h, found: false };         // no clear paper: keep everything
+  if (!best || best.n < cw * ch * 0.02) return { x: 0, y: 0, w, h, found: false };         // no clear paper: keep everything
   const pad = cell * 0.4, x = Math.max(0, best.x0 * cell - pad), y = Math.max(0, best.y0 * cell - pad);
   return { x, y, w: Math.min(w - x, (best.x1 + 1) * cell - x + pad), h: Math.min(h - y, (best.y1 + 1) * cell - y + pad), found: true };
 }
@@ -63,7 +63,7 @@ export async function prepareReceipt(file, { target = 1500, k = 0.86, crop = tru
   const ad = ag.getImageData(0, 0, aw, ah).data, lum = new Uint8Array(aw * ah);
   for (let i = 0; i < lum.length; i++) lum[i] = (ad[i * 4] * 0.299 + ad[i * 4 + 1] * 0.587 + ad[i * 4 + 2] * 0.114) | 0;
   const box = crop ? paperBox(lum, aw, ah) : { x: 0, y: 0, w: aw, h: ah, found: false };
-  const sx = bmp.width / aw, sw = box.w * sx, sh = box.h * sx, k2 = Math.min(2.5, target / sw);
+  const sx = bmp.width / aw, sw = box.w * sx, sh = box.h * sx, k2 = Math.min(4, target / sw);
   const W = Math.round(sw * k2), H = Math.round(sh * k2), c = document.createElement('canvas'); c.width = W + 40; c.height = H + 40;
   const g = c.getContext('2d', { willReadFrequently: true }); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
   g.drawImage(bmp, box.x * sx, box.y * sx, sw, sh, 20, 20, W, H);
