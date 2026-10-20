@@ -6,6 +6,7 @@ import {
 import { buildGraph, makeResolver, explain } from './simgraph.js';
 import { nameRules } from './merchants.js';
 import { compareCard, relatedNames } from './compare.js';
+import { guessLabel, transferLabel } from './label.js';
 import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat } from './route.js';
 import { buildModel, predict, suggest, lookup, catCandidates, byAmount, recentNames } from './predict.js';
 import { evalExpr, isExpr, tidy } from './calc.js';
@@ -184,7 +185,12 @@ export function openEntry(opts = {}) {
     if (!list.includes(cur)) list.push(cur);
     $f('curwrap').innerHTML = `<button type="button" class="curbtn sm" data-e="curpick" aria-label="Choose currency" title="Currency">${flagOf(cur)} ${cur} ▾</button><select id="f-cur" hidden aria-hidden="true">${list.map((c) => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join('')}</select>`;
   }
+  function updateNamePh() {                                             // a transfer left unnamed will be called "from - to"
+    const el = form.querySelector('#f-name'); if (!el) return;
+    el.placeholder = f.kind === 'transfer' ? (acctOf(f.acct) && acctOf(f.toAcct) ? `Leave blank: ${acctOf(f.acct).name} - ${acctOf(f.toAcct).name}` : 'Leave blank to use the two account names') : 'e.g. Life Tsukagoshi, bus, salary (blank is filled in for you)';
+  }
   function renderAccts() {
+    updateNamePh();
     const el = $f('acctrow');
     const a = acctOf(f.acct);
     renderCur();
@@ -638,7 +644,14 @@ export function openEntry(opts = {}) {
       items = f.items.filter((i) => i.n.trim() || num(i.amt)).map((i) => ({ n: i.n.trim(), amt: num(i.amt) || 0, cat: i.cat || '' }));
       if (items.length && Math.abs(items.reduce((s2, i) => s2 + i.amt, 0) - amount) >= 0.01) flag = 'review';
     }
-    const rec = { kind: f.kind, amount, cur: a.cur, fx, date: f.date, name: f.name.trim(), cat, acct: a.id,
+    // a blank label is filled in: a transfer gets "from - to", other entries get the usual label for this category and amount, and go to Review
+    let label = f.name.trim(), autoName = false;
+    if (!label) {
+      autoName = true;
+      if (f.kind === 'transfer') label = transferLabel(a, acctOf(f.toAcct));
+      else { label = guessLabel(db2, { kind: f.kind, cat, amount, acct: a.id, hour: hourOf(f.date) }).name; flag = 'review'; }
+    }
+    const rec = { kind: f.kind, amount, cur: a.cur, fx, date: f.date, name: label, autoName, cat, acct: a.id,
       toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), items: items && items.length ? items : [], flag };
     if (f.kind !== 'transfer' && cat && ((f.catTouched && f.guessed && f.guessed !== cat) || (existing && existing.cat && existing.cat !== cat) || (existing && existing.corrected))) rec.corrected = true;
     if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) { rec.from = f.from.trim(); rec.to = f.to.trim(); } else if (existing && (existing.from || existing.to)) { rec.from = ''; rec.to = ''; }

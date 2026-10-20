@@ -98,6 +98,13 @@ const queue = () => { if (!pending) { pending = true; requestAnimationFrame(rend
   window.addEventListener('sukli-latest', () => { showLatest(); queue(); });
   onStatus((s) => { const el = document.getElementById('syncstatus'); if (el) el.textContent = s.text; });
   onCloudStatus((s) => { const el = document.getElementById('cloudstatus'); if (el) el.textContent = s.text; });
+  // Android: the keyboard covers the bottom of the screen. Follow the visible area so a sheet and its Save button stay above the keyboard.
+  if (window.visualViewport) {
+    const vv = window.visualViewport, root = document.documentElement;
+    const fit = () => { const kb = window.innerHeight - vv.height > 120; root.classList.toggle('kb', kb); root.style.setProperty('--vvh', vv.height + 'px'); root.style.setProperty('--vvt', vv.offsetTop + 'px'); };
+    vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); fit();
+    document.addEventListener('focusin', (e) => { if (e.target && e.target.closest && e.target.closest('.sheet')) setTimeout(() => { try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { /* old browser */ } }, 250); });
+  }
   render();
   if (oauthMsg) toast(oauthMsg, { ms: 9000 });
   cloudInit();

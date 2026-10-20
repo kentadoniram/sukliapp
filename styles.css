@@ -591,3 +591,6 @@ img.rcpt { width: 100%; max-height: 180px; object-fit: contain; border-radius: 1
 
 .trip .tripin { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; } .trip .tripin b { color: var(--ink2); } .trip input { min-height: 44px; } #tripchips { margin-top: 6px; display: grid; gap: 4px; } #tripchips .chip small { opacity: .75; margin-left: 4px; }
 .mrows { margin: 6px 0; } .mrows summary { cursor: pointer; font-size: calc(13px * var(--fs, 1)); } .mrow { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--rule); font-size: calc(13px * var(--fs, 1)); }
+.verline { text-align: center; margin: 16px 0 8px; color: var(--ink2); font-size: calc(12px * var(--fs, 1)); }
+
+html.kb .scrim { inset: auto; left: 0; right: 0; top: var(--vvt, 0px); height: var(--vvh, 100%); } html.kb .sheet { max-height: calc(var(--vvh, 100dvh) - 6px); } html.kb .sheet-body { padding-bottom: 16px; } html.kb #btns, html.kb .sheet-body > form > .btnrow:last-child { bottom: -16px; }

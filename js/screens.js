@@ -23,6 +23,7 @@ export { accounts };
 import { esc, ic, ACT, sheet, toast, confirmDialog, promptDialog, download } from './ui.js';
 import { nameRules, similarPairs, learnSame, learnApart, learnRelated, forget } from './merchants.js';
 import { compareCard } from './compare.js';
+import { versionText } from './version.js';
 import { rollingSummary, rollingAvg, dailySpend, today as todayStr } from './rolling.js';
 import { buildGraph, clusters, neighbourhood, matches, explain, edgeText } from './simgraph.js';
 
@@ -322,7 +323,7 @@ export function review(db) {
     const p = predict(modelFor(t.kind === 'income' ? 'income' : 'expense'), t.name, t.amount, { acct: t.acct, cur: t.cur, hour: +t.date.slice(11, 13) });
     const opts = p.cats.slice(0, 3).filter((x) => cats.has(x.id));
     return `<article class="rcard"><div class="rtop"><strong>${esc(t.name || 'Untitled')}</strong><b>${money(t.kind === 'income' ? t.amount : -t.amount, t.cur)}${eq(t.amount, t.cur, t.fx) ? `<small class="eqs"> ${eq(t.amount, t.cur, t.fx)}</small>` : ''}</b></div>
-      <small>${dayLabel(t.date)} · ${esc(a ? a.name : '')}${t.items && t.items.length ? ' · items do not add up to the total' : ''}</small>
+      <small>${dayLabel(t.date)} · ${esc(a ? a.name : '')}${t.autoName ? ' · label was left blank and guessed, tap Edit to rename' : ''}${t.items && t.items.length ? ' · items do not add up to the total' : ''}</small>
       <div class="chips">${opts.map((x) => { const c = cats.get(x.id); return `<button class="chip cat" data-act="confirm" data-id="${t.id}" data-cat="${x.id}"><i style="background:${groupColor(c.group)}">${groupLetter(c.group)}</i>${esc(c.name)} <small>${Math.round(x.p * 100)}%</small></button>`; }).join('')}
       <button class="chip more" data-act="edit" data-id="${t.id}">Edit</button></div></article>`;
   });
@@ -727,5 +728,6 @@ function settingsGrouped(html) {
   const title = (x) => ((x.match(/<h2>([^<]*)<\/h2>/) || [])[1] || '').trim();
   const by = new Map(SET_GROUPS.map((g) => [g[0], []]));
   for (const sec of secs) { const t = title(sec), g = SET_GROUPS.find((x) => x[3].includes(t)) || SET_GROUPS.find((x) => x[0] === 'adv'); by.get(g[0]).push(sec); }
-  return head + SET_GROUPS.filter((g) => by.get(g[0]).length).map(([k, name, desc]) => `<details class="sgroup" data-sgroup="${k}" ${SET_OPEN.has(k) ? 'open' : ''}><summary><b>${name}</b><small>${desc}</small></summary>${by.get(k).join('')}</details>`).join('');
+  const ver = `<p class="hint verline" id="appver">Sukli version ${versionText()}</p>`;
+  return head + SET_GROUPS.filter((g) => by.get(g[0]).length).map(([k, name, desc]) => `<details class="sgroup" data-sgroup="${k}" ${SET_OPEN.has(k) ? 'open' : ''}><summary><b>${name}</b><small>${desc}</small></summary>${by.get(k).join('')}</details>`).join('') + ver;
 }
