@@ -2,25 +2,25 @@
 
 A private money tracker that runs entirely in the browser. Your data stays on your device, with an optional backup to a hidden folder in your own Google Drive. No server, no subscription, no AI service: the category guesser is a small model that learns from your own entries and runs on the phone.
 
+## What's new in v12
+
+- **Receipts: tax, discounts, 支払合計.** 支払合計 (total payment) is now the main total when it can be read; other readings only confirm it. If the total found equals the subtotal while a 外税 line sits on top, the amount paid is subtotal + tax. A discount line (引, 割引, シール割引) is attached to the item above it, so each item shows its final price; a store-wide discount is spread over the items. Tax printed on top (or implied by the total) is shared by rate (軽 = 8%, else 10%) so the item prices add up exactly to what you paid. A small line explains: items, minus discounts, plus tax, equals paid.
+- **Receipts: a category for each item** (`js/itemcat.js`). Order: what you chose before for that item, a Japanese and English word list matched to categories you already have (nothing is created), otherwise it follows the receipt's category. Each item has its own category menu; corrections are remembered; the receipt's category becomes the biggest by amount.
+- **Trips** (`js/route.js`). "San Pedro - Ayala One" and "Ayala One - San Pedro" are now a **return trip**: linked (same stops, same usual mode and fare) but never "the same", and trips are never asked Same/Different. "One Ayala" and "Ayala One" are the same stop.
+- **Optional From / To** appears only when the category is public transport. It fills the name ("From - To"), and suggests trips by hour of day: your **home stop** (Settings, Name matching, or worked out from the first and last trip of each day) is where you leave in the morning and return to in the evening, the stop where your last trip today ended is where you are now, and typing a From lists likely destinations with the usual mode. The "Usual" quick picks drop the impossible direction.
+- **Daily average is now a rolling 7-day average:** spending over the last 7 consecutive calendar days (days with nothing count as 0) divided by 7, moving forward every day. (Before: month so far divided by the day of the month.) A new card on Home, "Daily average, rolling 7 days", shows the last 12 months of that figure, your typical day (median), usual range, busiest/quietest week, a rising/steady/falling trend (last 3 months against the rest), and a month-by-month list.
+
+## What's new in v11
+
+- **Comparing two names, rebuilt.** The card now shows what Sukli knows about each name (times used, usual category, typical amount, last used), why it thinks they look alike (spelling %, shared words) and three answers with their consequences: **Same** (one thing, guesses are shared), **Related** (same family but its own category, for example coffee beans and coffee matcha; pick *A little / Somewhat / Nearly the same*, stored as 30 / 60 / 85%), **Different** (never compared again). Related pairs never copy a category; they appear as a quiet hint when you type one of the names, in Settings with their closeness, and as dashed links in the Name map.
+- **Receipts, tuned on your four photos** (LIFE and three cisca): sideways photos are turned upright by a small trial read; two readings are merged by arithmetic (items, tax and total must add up); digit look-alikes (O/0, l/1) and trailing junk are cleaned; shops are remembered by phone number or invoice number (T + 13 digits), so the next receipt from the same shop is recognised even if the name is misread. Item names that cannot be read show as "(unclear, type the name)" instead of wrong text.
+
 ## What's new in v9 (name graph, receipt scanner)
 
 - **Name similarity graph.** Names you have used are nodes; a link between two names has a strength from 0 to 100%: *you said same* (100%), *same chain* (95%), or *similar spelling and shared words* (below 90%). "Different" removes a link for good. A new name is attached to the graph and the strongest path to a known name is found (least-cost path, cost = -ln strength, Dijkstra), so a match through two links is weaker than a direct one. The entry sheet shows "Matched through: …" with the percentages, and Settings, Name matching, **Name map** draws the neighbourhood of any name, lets you try a name and shows the path.
 - **Better name matching** (kana/width/branch/receipt-code clean-up, typo matching) and **faster learning from corrections**: a category you change by hand counts three times in the model.
 - **Receipt scanner** (Menu, Scan a receipt): take or choose a photo; Japanese and English text is read on the device (Tesseract, bundled in `vendor/ocr`, about 9 MB, works offline, nothing uploaded). It finds the shop, date and time, total and item lines (quantity lines, discounts, 軽 marks, tax on top or included), matches the shop to a name in your history, guesses the category, and shows a confidence for each field. A cross-check tells you whether the items add up to the total. You correct anything, then **Continue to entry** to pick the account and save. Or paste receipt text instead of a photo.
   - Limits: confidence is a guide, not a probability; small, blurry or crumpled thermal prints lose digits (the 軽 mark is often read as 8; this is repaired only when it makes the receipt add up); Japanese item names are the least reliable part.
-
-## What's new in v12
-
-- **Receipts keep the per-item prices.** Stray marks after a price ("¥249 ¢") are ignored, letters read as digits ("¥I0") are tidied, the item prices are checked against the printed subtotal (or total minus tax), and a single unreadable price is worked out from that subtotal. On the LIFE receipt: 6 lines that add up to the 699 subtotal. If the prices cannot be verified the app still keeps one correct total line.
-- The second reading pass only runs when the first one does not add up, so clear receipts finish faster.
-
-## What's new in v11
-
-- **Swipe to close:** swipe down or left on a detail view to close it. Forms (new entry, new account) only close by swiping down from the title bar, so a stray swipe cannot lose what you typed. Charts, text boxes and scrolling rows are left alone.
-- **Home: spending per day** for the last 7 days, this month and the last 30 days. Complete days only, zero-spend days counted; unusually big days are capped so one expensive dinner does not distort the figure, and the card says when that happened.
-- **Net worth: assets, liabilities and net worth** for now, last month-end and two months ago, with the change from the month before.
-- **Amount: a clear (x) button** inside the amount field.
-- **Receipts:** a total can no longer be smaller than the subtotal (LIFE: a lost digit gave 54 instead of 754), tax is worked out from the taxable amount, ID and registration numbers are never amounts or items, and an item needs a real name.
 
 ## What's new in v10
 

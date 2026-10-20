@@ -1,0 +1,3 @@
+Sukli v12: changed files only. Copy them over your v11 folder (keep the same paths); nothing else changes, vendor/ocr is untouched.
+New:      js/itemcat.js  js/route.js  js/rolling.js
+Changed:  js/receipt.js  js/scan.js  js/entry.js  js/screens.js  js/simgraph.js  js/merchants.js  styles.css  sw.js  README.md

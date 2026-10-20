@@ -5,6 +5,8 @@ import {
 } from './core.js';
 import { buildGraph, makeResolver, explain } from './simgraph.js';
 import { nameRules } from './merchants.js';
+import { compareCard, relatedNames } from './compare.js';
+import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat } from './route.js';
 import { buildModel, predict, suggest, lookup, catCandidates, byAmount, recentNames } from './predict.js';
 import { evalExpr, isExpr, tidy } from './calc.js';
 import { predictFee, safetyCheck, typeGroupName, typeGroupOrder, transferHints } from './finance.js';
@@ -48,7 +50,7 @@ function blank() {
   const accts = db.accounts.filter((a) => !a.deleted && !a.archived);
   const last = accts.find((a) => a.id === db.settings.lastAcct) || accts.find((a) => a.include) || accts[0];
   return { kind: 'expense', amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
-    catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), notes: '', items: [], flag: null, id: null, pred: null, showItems: false,
+    catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), notes: '', items: [], flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
     fee: '', feeCat: '', feeBy: 'from', feeTouched: false, calc: false, convert: false, cRate: '', qtab: '', qtabManual: false };
 }
 function fromTx(t) {
@@ -59,7 +61,7 @@ function fromTx(t) {
     fee: t.fee > 0 ? String(t.fee) : '', feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
     convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
     catTouched: true, acctTouched: true, date: t.date, notes: t.notes || '', flag: t.flag || null, id: t.id, pred: null,
-    items: (t.items || []).map((i) => ({ n: i.n, amt: String(i.amt), cat: i.cat || '' })), showItems: !!(t.items && t.items.length) };
+    items: (t.items || []).map((i) => ({ n: i.n, amt: String(i.amt), cat: i.cat || '' })), showItems: !!(t.items && t.items.length), from: t.from || '', to: t.to || '' };
 }
 
 // accounts grouped by kind (Banks, E-wallets, Crypto…), most recently used first inside each group
@@ -109,13 +111,14 @@ export function openEntry(opts = {}) {
       <input id="f-name" autocomplete="off" value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary" ${existing ? '' : 'autofocus'}>
       <div id="sugg" class="sugg" hidden></div></div>
     <div class="field amount" id="amountbox"><span class="amtlabel">Amount <button type="button" class="linkbtn eye" data-e="eye" aria-label="Hide or show amounts">${priv.on ? 'Show' : 'Hide'} amounts</button></span>
-      <div class="amtrow"><div class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"><button type="button" class="amtclear" data-e="amtclear" aria-label="Clear amount">×</button><button type="button" class="calcbtn" data-e="calc" aria-label="Calculator" aria-pressed="false" title="Calculator">${ic('calc')}</button></div><span id="curwrap" class="curwrap"></span></div>
+      <div class="amtrow"><div class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"><button type="button" class="calcbtn" data-e="calc" aria-label="Calculator" aria-pressed="false" title="Calculator">${ic('calc')}</button></div><span id="curwrap" class="curwrap"></span></div>
       <div id="calcres" class="calcres" hidden></div><div id="keypad" class="keypad" hidden></div></div>
     <div id="fxline"></div>
     <div id="acctrow"></div>
     <div id="convrow"></div>
     <div id="feerow"></div>
     <div id="catrow"></div>
+    <div id="triprow"></div>
     <div id="itemsrow"></div>
     <div class="field" id="whenrow"><span>When</span><button type="button" class="whenbtn" id="f-when" data-e="when"></button></div>
     <label class="field" id="notesrow"><span>Notes</span><textarea id="f-notes" rows="2" placeholder="Optional">${esc(f.notes)}</textarea></label>
@@ -125,7 +128,7 @@ export function openEntry(opts = {}) {
   const $f = (id) => form.querySelector('#' + id);
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
-    flow: ['seg', 'freq', 'namefield', 'amountbox', 'fxline', 'acctrow', 'catrow', 'itemsrow', 'whenrow', 'notesrow', 'safety', 'err', 'btns'],
+    flow: ['seg', 'freq', 'namefield', 'amountbox', 'fxline', 'acctrow', 'catrow', 'triprow', 'itemsrow', 'whenrow', 'notesrow', 'safety', 'err', 'btns'],
     transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'notesrow', 'err', 'btns'],
   };
   function arrange() {
@@ -161,7 +164,7 @@ export function openEntry(opts = {}) {
       if (!f.qtabManual) f.qtab = (!f.name.trim() && amt > 0) ? 'fit' : (f.qtab === 'fit' ? 'usual' : (f.qtab || 'usual'));
       const m = modelFor(f.kind);
       let names = [];
-      if (f.qtab === 'usual') names = freqNames(db2, 90, 6, f.kind).map((n) => ({ name: n }));
+      if (f.qtab === 'usual') { const isT = isTransportCat(db2.categories); names = rankRouteNames(db2, isT, freqNames(db2, 90, 14, f.kind), hourOf(f.date)).slice(0, 6).map((n) => ({ name: n })); }
       else if (f.qtab === 'recent') names = recentNames(m, 6);
       else names = byAmount(m, amt, a && a.cur, 6);
       chips = names.map((x) => `<button type="button" class="chip" data-e="pick" data-v="${esc(x.name)}">${esc(x.name)}${x.amount ? ` <small>${esc(fmt(x.amount, a ? a.cur : HOME, { force: !priv.on }).replace(/\.00$/, ''))}</small>` : ''}</button>`).join('');
@@ -378,6 +381,40 @@ export function openEntry(opts = {}) {
   }
   function useAccount(id) { f.acct = id; f.acctSuggested = true; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; renderAccts(); renderFx(); }
   // remember what the app guessed when you pick something else: a fixed guess teaches the model more
+  // ---------- trips: optional From / To for public transport ----------
+  const tripCat = () => { if (f.kind !== 'expense' || !f.cat) return false; return isTransportCat(get().categories)(f.cat); };
+  function prevTrip() {                                                    // where the last trip today ended: you are probably there now
+    const day = String(f.date).slice(0, 10), isT = isTransportCat(get().categories); let best = null;
+    for (const t of get().txs) { if (t.deleted || t.kind !== 'expense' || !isT(t.cat) || String(t.date).slice(0, 10) !== day || t.date >= f.date || (existing && t.id === existing.id)) continue; const r = parseRoute(t.name) || (t.from && t.to ? { to: t.to } : null); if (r && (!best || t.date > best.date)) best = { date: t.date, to: r.to }; }
+    return best ? best.to : '';
+  }
+  function tripName() {
+    if (f.from.trim() && f.to.trim() && (!f.name.trim() || f.name === f.autoName || parseRoute(f.name))) { f.name = routeName(f.from, f.to); f.autoName = f.name; $f('f-name').value = f.name; refreshPred(); renderSugg(); renderNameHelp(); }
+    if (f.from.trim() && f.to.trim() && !f.catTouched) { const x = suggestTrips(get(), isTransportCat(get().categories), { hour: hourOf(f.date), from: f.from, to: f.to, limit: 1 })[0]; if (x && x.cat && x.cat !== f.cat) { f.cat = x.cat; f.guessWhy = 'your usual for this trip'; renderCats(); } }
+  }
+  function pickTrip(x) {
+    f.from = x.from; f.to = x.to; if (!f.name.trim() || f.name === f.autoName || parseRoute(f.name)) { f.name = x.name; f.autoName = x.name; $f('f-name').value = x.name; }
+    if (x.cat && (!f.catTouched || !tripCat())) { f.cat = x.cat; f.catTouched = false; f.guessWhy = 'your usual for this trip'; }
+    if (!num(f.amount) && x.amount) { f.amount = String(x.amount); $f('f-amount').value = f.amount; updateFxVal && updateFxVal(); }
+    refreshPred(); renderCats(); renderTrip(); renderSugg();
+  }
+  function tripChips() {
+    const el = form.querySelector('#tripchips'); if (!el) return;
+    const db2 = get(), isT = isTransportCat(db2.categories), cm = catMap(db2), both = f.from.trim() && f.to.trim();
+    const list = both ? [] : suggestTrips(db2, isT, { hour: hourOf(f.date), from: f.from, to: f.to, prevTo: prevTrip() });
+    f._trips = list;
+    const guess = list[0] && !f.to.trim() ? list[0].to : '', inp = form.querySelector('#f-to'); if (inp) inp.placeholder = guess ? `${guess}?` : 'To';
+    el.innerHTML = list.length ? `<small class="muted">${f.from.trim() ? 'Where to from ' + esc(f.from.trim()) + '?' : 'Likely trips now'}</small><div class="chips">${list.map((x, i) => `<button type="button" class="chip" data-e="trip" data-v="${i}">${esc(x.from)} → ${esc(x.to)} <small>${esc((cm.get(x.cat) || {}).name || '')} · ${Math.round(x.p * 100)}%</small></button>`).join('')}</div>` : '';
+  }
+  function renderTrip() {
+    const el = $f('triprow'); if (!tripCat()) { el.innerHTML = ''; return; }
+    const r = parseRoute(f.name); if (!f.from && !f.to && r) { f.from = r.from; f.to = r.to; }
+    const places = [...routeStats(get(), isTransportCat(get().categories)).places.values()].sort((a, b) => b.n - a.n).slice(0, 40);
+    el.innerHTML = `<div class="field trip"><span>Trip <small class="muted">· optional</small></span>
+      <div class="tripin"><input id="f-from" list="placelist" placeholder="From" value="${esc(f.from)}" autocomplete="off" aria-label="From"><b aria-hidden="true">→</b><input id="f-to" list="placelist" placeholder="To" value="${esc(f.to)}" autocomplete="off" aria-label="To"></div>
+      <datalist id="placelist">${places.map((p) => `<option value="${esc(p.name)}">`).join('')}</datalist><div id="tripchips"></div></div>`;
+    tripChips();
+  }
   function pickCat(id) { if (!f.catTouched && f.cat && f.cat !== id) f.guessed = f.cat; f.cat = id; f.catTouched = true; }
 
   // a new name that looks like one you already use: ask, remember the answer
@@ -385,7 +422,8 @@ export function openEntry(opts = {}) {
     let el = form.querySelector('#namehelp');
     if (!el) { const nf = $f('namefield'); if (!nf) return; el = document.createElement('div'); el.id = 'namehelp'; el.className = 'namehelp'; nf.after(el); }
     const c = f.kind === 'transfer' ? [] : similarNames(get(), f.name, 1);
-    el.innerHTML = c.map((x) => `<div class="nmcard"><span>How does this compare with <b>${esc(x.name)}</b>${x.category ? ` (${esc(x.category)})` : ''}?<small class="nmhint">Related = same family, own category (coffee beans, coffee matcha)</small></span><span class="nmbtns"><button type="button" class="btn sm" data-act="nm-same" title="Exactly the same thing" data-a="${esc(f.name)}" data-b="${esc(x.name)}">Same thing</button><button type="button" class="btn sm ghost" data-act="nm-rel" data-a="${esc(f.name)}" data-b="${esc(x.name)}" title="Same family, but its own category">Related</button><button type="button" class="btn sm ghost" data-act="nm-diff" data-a="${esc(f.name)}" data-b="${esc(x.name)}">Different</button></span></div>`).join('');
+    const rel = f.kind === 'transfer' || !f.name.trim() ? [] : relatedNames(get(), f.name).slice(0, 2);
+    el.innerHTML = c.map((x) => compareCard(get(), f.name.trim(), x.name)).join('') + (c.length ? '' : rel.map((x) => `<p class="relhint muted">Related to <b>${esc(x.name)}</b>${x.cat ? ` (${esc(x.cat)})` : ''}, ${Math.round(x.w * 100)}% close. It keeps its own category.</p>`).join(''));
   }
   function applyPick(name) {
     f.name = name; $f('f-name').value = name;
@@ -427,6 +465,7 @@ export function openEntry(opts = {}) {
       else if (!f.qtabManual || f.qtab === 'fit') renderFreq();
     }
     else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
+    else if (id === 'f-from' || id === 'f-to') { if (id === 'f-from') f.from = e.target.value; else f.to = e.target.value; tripName(); tripChips(); }
     else if (id === 'f-name') { f.name = e.target.value; renderNameHelp(); suggestAcct(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
     else if (id === 'f-fx') { f.fx = e.target.value; f.fxMode = 'rate'; updateFxVal(); }
     else if (id === 'f-peso') { f.peso = e.target.value; f.fxMode = 'peso'; updateFxVal(); }
@@ -496,7 +535,6 @@ export function openEntry(opts = {}) {
         arrange(); renderSeg(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderSugg(); renderSafety(); break;
       case 'qtab': f.qtab = v; f.qtabManual = true; renderFreq(); break;
       case 'pick': applyPick(v); break;
-      case 'amtclear': { const inp = $f('f-amount'); inp.value = ''; inp.classList.remove('guess'); inp.dispatchEvent(new Event('input', { bubbles: true })); inp.focus(); break; }
       case 'acctpick': { const to = b.dataset.which === 'to', sel = $f(to ? 'f-to' : 'f-acct'), a = acctOf(f.acct);
         openAccountPicker({ selected: sel.value, skip: to ? f.acct : (f.kind === 'transfer' ? f.toAcct : ''), cur: to ? '' : (a && a.cur) || '', title: to ? 'To account' : f.kind === 'transfer' ? 'From account' : 'Account' }, (id) => { sel.value = id; sel.dispatchEvent(new Event('change', { bubbles: true })); }); break; }
       case 'curpick': openCurrencyPicker((c) => { const sel = $f('f-cur'); if (![...sel.options].some((o) => o.value === c)) sel.add(new Option(c, c)); sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); }, { title: 'Currency' }); break;
@@ -506,7 +544,8 @@ export function openEntry(opts = {}) {
       case 'when': openDatePicker(f.date, (val) => { f.date = val; renderWhen(); refreshPred(); renderSafety(); }, { title: 'When was it?' }); break;
       case 'livecross': { const r = crossRate(); if (r) { f.cRate = prec(r); const cr = $f('f-crate'); if (cr) cr.value = f.cRate; syncCross('rate'); } else toast('No live rate for this pair yet. Type one.'); break; }
       case 'feeby': f.feeBy = v; f.feeTouched = true; f.feeSuggested = false; renderFee(); break;
-      case 'cat': pickCat(v); renderCats(); renderSafety(); break;
+      case 'cat': pickCat(v); renderCats(); renderTrip(); renderSafety(); break;
+      case 'trip': { const x = (f._trips || [])[+v]; if (x) pickTrip(x); break; }
       case 'eye': priv.set(!priv.on); applyHide(); b.textContent = (priv.on ? 'Show' : 'Hide') + ' amounts'; updateFxVal(); updateItemLeft(); window.dispatchEvent(new Event('sukli-render')); break;
       case 'newcat': openCategoryForm({ kind: f.kind, name: f.name.trim().replace(/\b\w/g, (m) => m.toUpperCase()).slice(0, 40), keywords: f.name.trim().toLowerCase(), onDone: (c) => { pickCat(c.id); refreshPred(); renderCats(); } }); break;
       case 'allcats': openCategoryPicker(f.kind, (id) => { pickCat(id); renderCats(); }); break;
@@ -602,6 +641,7 @@ export function openEntry(opts = {}) {
     const rec = { kind: f.kind, amount, cur: a.cur, fx, date: f.date, name: f.name.trim(), cat, acct: a.id,
       toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), items: items && items.length ? items : [], flag };
     if (f.kind !== 'transfer' && cat && ((f.catTouched && f.guessed && f.guessed !== cat) || (existing && existing.cat && existing.cat !== cat) || (existing && existing.corrected))) rec.corrected = true;
+    if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) { rec.from = f.from.trim(); rec.to = f.to.trim(); } else if (existing && (existing.from || existing.to)) { rec.from = ''; rec.to = ''; }
     let savedAs;
     commit((d) => {
       if (fee) {
@@ -619,6 +659,7 @@ export function openEntry(opts = {}) {
 
   arrange(); renderSeg(); renderFreq(); renderAccts(); renderFx(); renderItems(); renderWhen(); renderBtns(); renderSafety();
   if (existing) { refreshPred(); f.cat = existing.cat || ''; renderCats(); } else renderCats();
+  renderTrip();
   updateFxVal();
 }
 

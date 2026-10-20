@@ -8,14 +8,15 @@
 // A new name is attached to the graph and the BEST path to every known name is searched. A path is as strong as the
 // product of its edges, so it is a least-cost path problem with cost = -ln(weight) (Dijkstra). The path is the explanation.
 import { canon, similarity } from './textnorm.js';
-import { norm as plain, merchantKey, isApart, nameRules } from './merchants.js';
+import { routeRelation } from './route.js';
+import { norm as plain, merchantKey, isApart, nameRules, relStrength } from './merchants.js';
 
 export const MIN_EDGE = 0.55;       // weaker links are not drawn
 export const MIN_MATCH = 0.6;       // a whole path weaker than this is not used for prediction
 const STOP = new Set(['the', 'and', 'of', 'shop', 'store', 'branch', 'cafe', 'restaurant', 'and', 'co', 'inc']);
 const toks = (k) => k.split(' ').filter((t) => t.length >= 2 && !STOP.has(t));
 
-function textWeight(ka, kb) {
+export function textWeight(ka, kb) {
   const a = toks(ka), b = toks(kb);
   const common = a.filter((t) => b.includes(t)).length;
   const dice = a.length + b.length ? (2 * common) / (a.length + b.length) : 0;
@@ -51,9 +52,15 @@ export function buildGraph(db) {
       if (seen.has(id)) continue; seen.add(id);
       const na = nodes.get(a).name, nb = nodes.get(b).name;
       if (isApart(na, nb)) continue;
+      const rr = routeRelation(na, nb);                    // trips: the way back is related, never the same; another route is another route
+      if (rr === 'reverse') { link(a, b, 0.9, 'reverse'); continue; }
+      if (rr === 'same') { link(a, b, 0.95, 'chain'); continue; }
+      if (rr === 'other') continue;
       const w = textWeight(a, b); if (w >= MIN_EDGE) link(a, b, w, 'text');
     }
   }
+  // pairs you called "related": drawn with the strength you gave, never used to copy a category
+  for (const k of R.related || []) { const [pa, pb] = k.split('|'), a = canon(pa), b = canon(pb); if (nodes.has(a) && nodes.has(b)) link(a, b, relStrength(pa, pb) || 0.6, 'related'); }
   // chains and your own "Same" answers
   const byRule = new Map();
   for (const e of nodes.values()) {
@@ -80,6 +87,9 @@ export function matches(g, name, limit = 3) {
     if (k === q) { edges.push({ to: k, w: 1, type: 'same' }); continue; }
     if (isApart(name, g.nodes.get(k).name)) continue;
     let w = textWeight(q, k), type = 'text';
+    const rr = routeRelation(name, g.nodes.get(k).name);
+    if (rr === 'other') continue;
+    if (rr === 'reverse') { w = 0.9; type = 'reverse'; } else if (rr === 'same') { w = 0.95; type = 'chain'; }
     if (merchantKey(name) && merchantKey(name) === merchantKey(g.nodes.get(k).name)) { w = Math.max(w, 0.95); type = 'chain'; }
     const r = nameRules().same[plain(name)];                                   // a name you already linked
     if (r && (r === nameRules().same[plain(g.nodes.get(k).name)] || r === merchantKey(g.nodes.get(k).name))) { w = 1; type = 'you'; }
@@ -95,7 +105,7 @@ export function matches(g, name, limit = 3) {
     if (u === null || Math.exp(-best.get(u).c) < MIN_MATCH) break;
     done.add(u);
     for (const x of g.adj.get(u) || []) {
-      if (done.has(x.to)) continue;
+      if (done.has(x.to) || x.type === 'related') continue;          // related = own category: not a way to a match
       const c = best.get(u).c - Math.log(x.w);
       if (!best.has(x.to) || c < best.get(x.to).c) best.set(x.to, { c, prev: u, e: { from: u, to: x.to, w: x.w, type: x.type } });
     }
@@ -111,7 +121,7 @@ export function matches(g, name, limit = 3) {
 
 export const makeResolver = (g) => (name) => { const m = matches(g, name, 1)[0]; return m ? { key: m.key, score: m.score, path: m.path } : null; };
 
-const WHY = { you: 'you said same', chain: 'same chain', text: 'similar spelling', same: 'same name' };
+const WHY = { you: 'you said same', chain: 'same chain', text: 'similar spelling', same: 'same name', related: 'you said related', reverse: 'return trip: same stops, other direction' };
 export const edgeText = (e) => `${Math.round(e.w * 100)}% ${WHY[e.type] || e.type}`;
 // "mang inasal antipolo → mang inasal tagaytay (67% similar spelling) → mang inasal (100% you said same)"
 export const explain = (m) => (m ? [m.path[0].from, ...m.path.map((e) => `${e.to} (${edgeText(e)})`)].join(' → ') : '');
@@ -122,7 +132,7 @@ export function clusters(g, min = 0.8) {
   for (const k of g.nodes.keys()) {
     if (seen.has(k)) continue;
     const comp = [], q = [k]; seen.add(k);
-    while (q.length) { const u = q.pop(); comp.push(u); for (const x of g.adj.get(u)) if (x.w >= min && !seen.has(x.to)) { seen.add(x.to); q.push(x.to); } }
+    while (q.length) { const u = q.pop(); comp.push(u); for (const x of g.adj.get(u)) if (x.w >= min && x.type !== 'reverse' && !seen.has(x.to)) { seen.add(x.to); q.push(x.to); } }
     if (comp.length > 1) out.push(comp.sort((a, b) => g.nodes.get(b).n - g.nodes.get(a).n));
   }
   return out.sort((a, b) => b.length - a.length);
