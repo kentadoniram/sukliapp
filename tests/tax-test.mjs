@@ -1,0 +1,12 @@
+import { postInterest, interestTaxPct } from '../js/finance.js';
+let bad = 0; const ok = (n, c) => { console.log((c ? 'PASS ' : 'FAIL ') + n); if (!c) bad++; };
+const mk = (type, taxPct) => ({ settings: {}, categories: [], txs: [], accounts: [{ id: 'a', name: 'BDO', cur: 'PHP', type, open: 100000, apy: 3.65, include: true, interestFrom: '2026-10-01', ...(taxPct != null ? { taxPct } : {}) }], rates: {} });
+ok('bank defaults to 20%', interestTaxPct({ type: 'bank' }) === 20);
+ok('ewallet/crypto default 0', interestTaxPct({ type: 'ewallet' }) === 0 && interestTaxPct({ type: 'crypto' }) === 0);
+ok('explicit 0 beats default', interestTaxPct({ type: 'bank', taxPct: 0 }) === 0);
+const db = mk('bank'); const m = postInterest(db, '2026-10-01');
+ok('one entry posted', m.length === 1);
+ok('gross 10, tax 2, net 8', m[0] && m[0].gross === 10 && m[0].tax === 2 && m[0].amount === 8);
+const db2 = mk('bank', 0); const m2 = postInterest(db2, '2026-10-01');
+ok('no tax when 0', m2[0] && m2[0].amount === 10 && !m2[0].tax);
+process.exit(bad ? 1 : 0);

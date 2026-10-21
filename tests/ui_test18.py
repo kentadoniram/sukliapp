@@ -1,0 +1,45 @@
+from playwright.sync_api import sync_playwright
+CSV='/home/claude/Transactions.csv'
+errs=[]; res=[]
+def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
+U='http://localhost:8123/index.html'
+with sync_playwright() as p:
+    b=p.chromium.launch(); ctx=b.new_context(viewport={'width':390,'height':844},locale='en-US',service_workers='block'); pg=ctx.new_page()
+    pg.on('pageerror',lambda e: errs.append(str(e)))
+    pg.on('console',lambda m: errs.append(m.text) if m.type=='error' and 'ERR_TUNNEL' not in m.text else None)
+    pg.goto(U); pg.wait_for_selector('#first-file',state='attached')
+    pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
+    pg.goto(U+'#/home'); pg.wait_for_timeout(1200)
+    ok('home cards drawn (deferred filled)', pg.locator('[data-defer]').count()==0 and pg.locator('#view section, #view details').count()>=5)
+    ok('daily bars', pg.locator('svg.chart rect[data-tip]').count()>=30)
+    ok('where it went bars default', pg.locator('.wentpie').count()==0)
+    pg.click('[data-act=went-mode][data-v=pie]'); pg.wait_for_timeout(900)
+    ok('pie shows', pg.locator('.wentpie circle.slice').count()>=2 and pg.locator('.pielegend button').count()>=2)
+    ok('legend has percent', '%' in pg.inner_text('.pielegend'))
+    pg.click('.pielegend button >> nth=0'); pg.wait_for_timeout(500)
+    ok('slice opens detail', pg.locator('.sheet, .sheet-body').count()>0)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    # scroll memory: go down, open outlook, back
+    pg.evaluate("window.scrollTo(0, document.body.scrollHeight*0.6)"); pg.wait_for_timeout(300)
+    y=pg.evaluate("window.scrollY")
+    link=pg.locator('a[href="#/outlook"]')
+    if link.count(): link.first.scroll_into_view_if_needed(); y=pg.evaluate("window.scrollY"); link.first.click()
+    else: pg.goto(U+'#/outlook')
+    pg.wait_for_timeout(700); pg.go_back(); pg.wait_for_timeout(1500)
+    y2=pg.evaluate("window.scrollY"); print('y',y,y2)
+    ok('back keeps scroll', y>200 and abs(y2-y)<60)
+    # settings arrange
+    pg.goto(U+'#/settings'); pg.wait_for_selector('#arrange'); 
+    pg.click('#arrange [data-act=arr-tab-off][data-id=calendar]'); pg.wait_for_timeout(400)
+    pg.click('#arrange [data-act=arr-tab-on][data-id=budget]'); pg.wait_for_timeout(400)
+    tabs=pg.inner_text('#tabs'); ok('tab bar changed', 'Budget' in tabs and 'Calendar' not in tabs)
+    pg.click('#arrange [data-act=arr-up][data-kind=tab][data-id=budget]'); pg.wait_for_timeout(400)
+    ok('tab moved', pg.inner_text('#tabs').index('Budget')<pg.inner_text('#tabs').index('Accounts'))
+    pg.click('#arrange [data-act=arr-down][data-kind=home][data-id=spendable]'); pg.click('#arrange [data-act=arr-show][data-id=six]'); pg.wait_for_timeout(500)
+    pg.goto(U+'#/home'); pg.wait_for_timeout(1200)
+    ok('hidden card gone', 'Last 6 months' not in pg.inner_text('#view'))
+    pg.goto(U+'#/settings'); pg.wait_for_selector('#arrange'); pg.click('[data-act=arr-reset]'); pg.wait_for_timeout(400)
+    ok('reset', 'Calendar' in pg.inner_text('#tabs'))
+    ok('no errors', not errs); print(errs[:5])
+    b.close()
+print(sum(res),'/',len(res))

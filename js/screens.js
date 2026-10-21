@@ -3,7 +3,7 @@ import { softDelete } from './core.js';
 import { safetyCfg } from './finance.js';
 import {
   get, commit, commitQuiet, stamp, uid, fmt, BASE, HOME, homeFx, homeRate, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
-  monthLabel, shiftMonth, thisMonth, dayLabel, rateFor, reviewCount, groupColor, groupLetter, adjustmentCategory, nowStamp,
+  compact, monthLabel, shiftMonth, thisMonth, dayLabel, rateFor, reviewCount, groupColor, groupLetter, adjustmentCategory, nowStamp,
   replaceAll, emptyDb, live, monthParts, priv, flush, factorFor,
 } from './core.js';
 import { pace, insights, trend, totals, baselineMonths, groupTrend } from './insights.js';
@@ -27,7 +27,7 @@ import { versionText } from './version.js';
 import { rollingSummary, rollingAvg, dailySpend, today as todayStr } from './rolling.js';
 import { buildGraph, clusters, neighbourhood, matches, explain, edgeText } from './simgraph.js';
 
-export const ui = { month: thisMonth(), q: '', filter: 'all', acct: '', limit: 120, by: 'group', collapsed: (() => { try { return JSON.parse(localStorage.getItem('sukli-coll') || '{}'); } catch { return {}; } })() };
+export const ui = { month: thisMonth(), q: '', filter: 'all', acct: '', limit: 120, selecting: false, sel: new Set(), by: 'group', collapsed: (() => { try { return JSON.parse(localStorage.getItem('sukli-coll') || '{}'); } catch { return {}; } })() };
 
 // collapsible section: tap the heading to fold it away (remembered on this device)
 export function coll(id, title, body, extra = '') {
@@ -78,7 +78,7 @@ function spendable(db) {
   return { by, total, missing };
 }
 
-export function row(t, accts, cats) {
+export function row(t, accts, cats, sel) {
   const a = accts.get(t.acct), c = cats.get(t.cat), tr = t.kind === 'transfer';
   const group = tr ? 'Transfer' : (c ? c.group : 'Uncategorized');
   const title = t.name || (c ? c.name : 'Untitled');
@@ -86,8 +86,10 @@ export function row(t, accts, cats) {
     : `${esc(c ? c.name : 'No category')} · ${esc(a ? a.name : '')}${t.items && t.items.length ? ` · ${t.items.length} items` : ''}`;
   const signed = tr ? money(t.amount, t.cur) : money(t.kind === 'income' ? t.amount : -t.amount, t.cur);
   const base = !tr && eq(t.amount, t.cur, t.fx, t.date) ? `<small>${eq(t.amount, t.cur, t.fx, t.date)}</small>` : '';
-  return `<button class="row" data-act="edit" data-id="${t.id}">
-    <i class="badge" style="background:${tr ? 'var(--ink2)' : groupColor(group)}">${groupLetter(group)}</i>
+  const on = sel && ui.sel.has(t.id);
+  return `<button class="row ${sel ? 'selrow' : ''} ${on ? 'picked' : ''}" data-act="${sel ? 'sel-toggle' : 'edit'}" data-id="${t.id}" ${sel ? `role="checkbox" aria-checked="${!!on}"` : ''}>
+    ${sel ? `<i class="selbox ${on ? 'on' : ''}">${on ? ic('check') : ''}</i>` : ''}
+    <i class="badge" style="background:${tr ? 'var(--xfer)' : groupColor(group)}">${groupLetter(group)}</i>
     <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub}</small></span>
     <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}</span></button>`;
 }
@@ -101,38 +103,75 @@ const R = (n) => fmt(n, HOME, { round: true });
 
 export function home(db) {
   const st = monthStats(db, ui.month);
-  const accts = accountMap(db), cats = catMap(db);
-  const sp = spendable(db);
-  const n = reviewCount(db);
-  const out = totals(db, ui.month), inc = totals(db, ui.month, 'income');
-  const groups = [...out.by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const max = groups.length ? Math.max(groups[0][1], ...groups.map(([g]) => budgetOf(db, g))) : 1;
-  const incGroups = [...inc.by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const recent = sortedTxs(db).filter((t) => t.date.startsWith(ui.month)).slice(0, 6);
-  const chips = [...sp.by.entries()].filter(([, v]) => Math.abs(v) >= 0.005).map(([c, v]) => {
-    const e = eq(v, c, rateFor(db, c));
-    return `<span>${money(v, c)}${e ? `<small> ${e}</small>` : ''}</span>`;
-  }).join('');
-  const ins = insights(db, ui.month);
+  const lay = homeLayout(db);
+  const body = lay.order.filter((id) => !lay.hidden.includes(id)).map((id) => { const sec = HOME_SECTIONS.find((x) => x[0] === id); if (!sec) return ''; return sec[2] ? `<div class="defer" data-defer="${id}" aria-busy="true"></div>` : homeSection(id, { db }); }).join('');
   return `${monthNav()}
-    ${strip(st)}
-    <section class="spendable"><div><span>Spendable now</span><b>${money(sp.total)}</b></div><div class="curs">${chips || '<span class="muted">No balances yet</span>'}</div>
-      ${sp.missing.length ? `<p class="hint">Not counted: ${sp.missing.join(', ')} (set a rate in Settings).</p>` : ''}</section>
-    ${reminderBanner(db)}
-    ${n ? `<a class="banner" href="#/review"><strong>${n} ${n === 1 ? 'entry needs' : 'entries need'} a quick check</strong><span>Confirm the guessed categories</span>${ic('right')}</a>` : ''}
-    ${ins.length ? coll('h-ins', 'Worth knowing', `<ul class="ins">${ins.map((x) => `<li class="${x.tone}">${x.id ? `<button class="insb" data-act="edit" data-id="${x.id}">${esc(x.text)}</button>` : esc(x.text)}</li>`).join('')}</ul>`) : ''}
-    ${paceCard(db)}
-    ${rollingCard(db)}
-    ${outlookCard(db)}
-    ${coll('h-out', 'Where it went', groups.length ? groups.map(([g, v]) => gbar(db, g, v, max, 'expense', out.total)).join('') + '<p class="hint tap">Tap a group to see what is in it.</p>' : `<p class="empty">Nothing spent in ${esc(monthLabel(ui.month))} yet.</p>`)}
-    ${coll('h-in', 'Where it came from', incGroups.length ? incGroups.map(([g, v]) => gbar(db, g, v, incGroups[0][1], 'income', inc.total)).join('') : `<p class="empty">Nothing came in during ${esc(monthLabel(ui.month))} yet.</p>`)}
-    ${coll('h-6', 'Last 6 months', `${trendChart(trend(db, ui.month, 6), ui.month, 6)}<p class="legend"><i class="k bar"></i>Cash outflow <i class="k inc"></i>Cash inflow · tap a month</p>`)}
-    ${coll('h-latest', 'Latest', `<div class="rows">${recent.length ? recent.map((t) => row(t, accts, cats)).join('') : '<p class="empty">No entries this month. Tap + to add one.</p>'}</div>`, '<a href="#/ledger" class="linkbtn">All entries</a>')}`;
+    ${strip(st)}${body}`;
+}
+// the cards on Home, in the order you chose in Settings. [id, name, heavy: drawn a moment later so the numbers above appear at once]
+export const HOME_SECTIONS = [
+  ['spendable', 'Spendable now', false], ['alerts', 'Reminders and items to check', false], ['insights', 'Worth knowing', true], ['pace', 'Pace', false],
+  ['rolling', 'Daily average, rolling 7 days', false], ['outlook', 'Next month outlook', true], ['went', 'Where it went', false], ['came', 'Where it came from', false],
+  ['six', 'Last 6 months', false], ['latest', 'Latest entries', false],
+];
+export function homeLayout(db) {
+  const L = (db.settings && db.settings.homeLayout) || {}, ids = HOME_SECTIONS.map((x) => x[0]);
+  const order = [...(L.order || []).filter((x) => ids.includes(x)), ...ids.filter((x) => !(L.order || []).includes(x))];
+  return { order, hidden: (L.hidden || []).filter((x) => ids.includes(x)) };
+}
+export function fillDeferred(db, done) {
+  const ctxOf = () => { const st = monthStats(db, ui.month); return { db, st, accts: accountMap(db), cats: catMap(db) }; };
+  const els = [...document.querySelectorAll('[data-defer]')];
+  els.forEach((el, i) => setTimeout(() => { try { if (!el.isConnected) return; el.outerHTML = homeSection(el.dataset.defer, ctxOf()); } catch (e) { el.remove(); } }, 16 * (i + 1)));
+  if (done) setTimeout(done, 16 * (els.length + 1) + 30);
+}
+function homeSection(id, c) {
+  const { db } = c;
+  switch (id) {
+    case 'spendable': { const sp = spendable(db), chips = [...sp.by.entries()].filter(([, v]) => Math.abs(v) >= 0.005).map(([cur, v]) => { const e = eq(v, cur, rateFor(db, cur)); return `<span>${money(v, cur)}${e ? `<small> ${e}</small>` : ''}</span>`; }).join('');
+      return `<section class="spendable"><div><span>Spendable now</span><b>${money(sp.total)}</b></div><div class="curs">${chips || '<span class="muted">No balances yet</span>'}</div>
+      ${sp.missing.length ? `<p class="hint">Not counted: ${sp.missing.join(', ')} (set a rate in Settings).</p>` : ''}</section>`; }
+    case 'alerts': { const n = reviewCount(db); return `${reminderBanner(db)}${n ? `<a class="banner" href="#/review"><strong>${n} ${n === 1 ? 'entry needs' : 'entries need'} a quick check</strong><span>Confirm the guessed categories</span>${ic('right')}</a>` : ''}`; }
+    case 'insights': { const ins = insights(db, ui.month); return ins.length ? coll('h-ins', 'Worth knowing', `<ul class="ins">${ins.map((x) => `<li class="${x.tone}">${x.id ? `<button class="insb" data-act="edit" data-id="${x.id}">${esc(x.text)}</button>` : esc(x.text)}</li>`).join('')}</ul>`) : ''; }
+    case 'pace': return paceCard(db);
+    case 'rolling': return rollingCard(db);
+    case 'outlook': return outlookCard(db);
+    case 'went': { const out = totals(db, ui.month), groups = [...out.by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8), max = groups.length ? Math.max(groups[0][1], ...groups.map(([g]) => budgetOf(db, g))) : 1;
+      return coll('h-out', 'Where it went', groups.length ? wentToggle() + (wentMode() === 'pie' ? wentPie([...out.by.entries()].sort((a, b) => b[1] - a[1]), out.total) : groups.map(([g, v]) => gbar(db, g, v, max, 'expense', out.total)).join('') + '<p class="hint tap">Tap a group to see what is in it.</p>') : `<p class="empty">Nothing spent in ${esc(monthLabel(ui.month))} yet.</p>`); }
+    case 'came': { const inc = totals(db, ui.month, 'income'), g = [...inc.by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+      return coll('h-in', 'Where it came from', g.length ? g.map(([k, v]) => gbar(db, k, v, g[0][1], 'income', inc.total)).join('') : `<p class="empty">Nothing came in during ${esc(monthLabel(ui.month))} yet.</p>`); }
+    case 'six': return coll('h-6', 'Last 6 months', `${trendChart(trend(db, ui.month, 6), ui.month, 6)}<p class="legend"><i class="k bar"></i>Cash outflow <i class="k inc"></i>Cash inflow · tap a month</p>`);
+    case 'latest': { const recent = sortedTxs(db).filter((t) => t.date.startsWith(ui.month)).slice(0, 6), accts = accountMap(db), cats = catMap(db);
+      return coll('h-latest', 'Latest', `<div class="rows">${recent.length ? recent.map((t) => row(t, accts, cats)).join('') : '<p class="empty">No entries this month. Tap + to add one.</p>'}</div>`, '<a href="#/ledger" class="linkbtn">All entries</a>'); }
+    default: return '';
+  }
+}
+// Where it went: bars or a pie with the share on its right (a device choice)
+const wentMode = () => { try { return localStorage.getItem('sukli-went') === 'pie' ? 'pie' : 'bars'; } catch { return 'bars'; } };
+ACT['went-mode'] = (el) => { try { localStorage.setItem('sukli-went', el.dataset.v); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
+const wentToggle = () => `<div class="seg two small" role="group" aria-label="Show as">${[['bars', 'Bars'], ['pie', 'Pie']].map(([v, l]) => `<button type="button" data-act="went-mode" data-v="${v}" class="${wentMode() === v ? 'on' : ''}" aria-pressed="${wentMode() === v}">${l}</button>`).join('')}</div>`;
+function wentPie(all, total) {
+  const top = all.slice(0, 7), rest = all.slice(7).reduce((a, [, v]) => a + v, 0), slices = top.map(([g, v]) => ({ g, v })); if (rest > 0) slices.push({ g: 'Everything else', v: rest, other: true });
+  const C = 2 * Math.PI * 52; let acc = 0;
+  const arcs = slices.map((x) => { const len = total ? (x.v / total) * C : 0, d = Math.max(0, len - 1.5);
+    const el = `<circle class="slice" data-act="${x.other ? 'went-mode' : 'grp'}" ${x.other ? 'data-v="bars"' : `data-g="${esc(x.g)}" data-k="expense"`} data-tip="${esc(`${x.g}: ${money(x.v)} (${total ? Math.round((x.v / total) * 100) : 0}%)`)}" cx="70" cy="70" r="52" fill="none" stroke="${groupColor(x.other ? 'Others' : x.g)}" stroke-width="26" stroke-dasharray="${d.toFixed(2)} ${(C - d).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 70 70)"></circle>`;
+    acc += len; return el; }).join('');
+  return `<div class="wentpie"><svg class="donut sm" viewBox="0 0 140 140" role="img" aria-label="Where the money went">${arcs}<text x="70" y="68" text-anchor="middle" class="dl">Spent</text><text x="70" y="86" text-anchor="middle" class="dv">${esc(compact(total, ''))}</text></svg>
+    <ul class="pielegend">${slices.map((x) => `<li><button type="button" data-act="${x.other ? 'went-mode' : 'grp'}" ${x.other ? 'data-v="bars"' : `data-g="${esc(x.g)}" data-k="expense"`}><i class="dot2" style="background:${groupColor(x.other ? 'Others' : x.g)}"></i><span class="pl">${esc(x.g)}</span><b class="pp">${total ? Math.round((x.v / total) * 100) : 0}%</b><small>${money(x.v)}</small></button></li>`).join('')}</ul></div><p class="hint tap">Tap a slice or a name for the detail.</p>`;
 }
 
 const esc0 = (t) => String(t);
 // the rolling window ends today, or on the last day of the month you are looking at
-const rollEnd = (p) => { const end = p.live ? todayStr() : `${ui.month}-${String(p.dim).padStart(2, '0')}`; return rollingSummary(get(), end); };
+const rollEndDate = (p) => (p.live ? todayStr() : `${ui.month}-${String(p.dim).padStart(2, '0')}`);
+const rollEnd = (p) => rollingSummary(get(), rollEndDate(p));
+// what was spent each day over the last 30 days; the 7 darker bars are the days inside today's average
+function dailyBars(end) {
+  const { dates, vals } = dailySpend(get(), end, 30), top = Math.max(1, ...vals) * 1.05, W = 320, H = 74, bw = (W - 8) / 30;
+  const bars = vals.map((v, i) => { const h = Math.max(v > 0 ? 2 : 0, (v / top) * (H - 16)), last7 = i >= 23;
+    return `<rect x="${(4 + i * bw + 1).toFixed(1)}" y="${(H - 12 - h).toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" fill="${last7 ? 'var(--line)' : 'var(--bar)'}" opacity="${last7 ? 1 : 0.75}" data-tip="${esc(`${dayLabel(dates[i])}: ${v ? money(v) : 'nothing spent'}`)}"></rect>`; }).join('');
+  const lbl = [0, 7, 14, 21, 29].map((i) => `<text x="${(4 + i * bw + bw / 2).toFixed(1)}" y="${H - 1}" font-size="9" fill="var(--ink2)" text-anchor="middle">${+dates[i].slice(8)}</text>`).join('');
+  return `<h3 class="subh">What you spent each day <small class="muted">(last 30 days, darker = the 7 in the average)</small></h3><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Spending for each of the last 30 days">${bars}<line x1="4" x2="${W - 4}" y1="${H - 12}" y2="${H - 12}" stroke="var(--rule)"/>${lbl}</svg>`;
+}
 function rollingCard(db) {
   const p = pace(db, ui.month), r = rollEnd(p);
   if (!r.enough) return '';
@@ -149,6 +188,7 @@ function rollingCard(db) {
       <line x1="4" x2="${W - 4}" y1="${Y(r.typical).toFixed(1)}" y2="${Y(r.typical).toFixed(1)}" stroke="var(--ink2)" stroke-dasharray="3 3"/>
       <path d="${path}" stroke="var(--line)" stroke-width="2" fill="none" stroke-linejoin="round"/>${ticks}</svg>
     <p class="legend"><i class="k lineb"></i>7-day average <i class="k dash"></i>typical (median) <i class="k bar"></i>usual range</p>
+    ${dailyBars(rollEndDate(p))}
     <div class="facts"><div><span>Now (last 7 days)</span><b>${R(r.now)}</b>${r.typical ? `<small class="${vs > 10 ? 'neg' : vs < -10 ? 'in' : ''}">${vs >= 0 ? '+' : '−'}${Math.abs(vs)}% vs typical</small>` : ''}</div>
       <div><span>Typical day</span><b>${R(r.typical)}</b><small>usual ${R(r.low)} to ${R(r.high)}</small></div>
       <div><span>Busiest / quietest week</span><b>${R(r.hi.avg)}</b><small>to ${esc(r.hi.date)} · quietest ${R(r.lo.avg)}</small></div></div>
@@ -282,12 +322,12 @@ function ledgerRows(db) {
   });
   const total = list.length;
   list = list.slice(0, ui.limit);
-  let html = '', day = '', dayTotal = 0, buf = '';
+  let html = '', day = '', dayTotal = 0, buf = ''; const shown = []; ui.shown = shown;
   const flush = () => { if (buf) html += `<div class="day"><div class="dayhead"><span>${dayLabel(day)}</span><span>${dayTotal ? money(-dayTotal) : ''}</span></div><div class="rows">${buf}</div></div>`; buf = ''; dayTotal = 0; };
   for (const t of list) {
     const d = t.date.slice(0, 10);
     if (d !== day) { flush(); day = d; }
-    buf += row(t, accts, cats);
+    buf += row(t, accts, cats, ui.selecting); shown.push(t.id);
     if (t.kind === 'expense') dayTotal += t.amount * factorFor(db, t);
     else if (t.kind === 'income') dayTotal -= 0;
   }
@@ -304,8 +344,28 @@ export function ledger(db) {
     <div class="searchbar">${ic('search')}<input id="q" type="search" placeholder="Search entries, items, notes" value="${esc(ui.q)}" aria-label="Search entries"></div>
     <div class="filters" role="group" aria-label="Filter">${f.map(([v, l]) => `<button class="chip ${ui.filter === v ? 'on' : ''}" data-act="filter" data-v="${v}">${l}</button>`).join('')}
       <select id="acctfilter" aria-label="Account filter"><option value="">All accounts</option>${db.accounts.filter((a) => !a.deleted).sort((a, b) => a.name.localeCompare(b.name)).map((a) => `<option value="${a.id}" ${ui.acct === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></div>
+    <div id="selbar-wrap">${selBar()}</div>
     <div id="ledger-list">${ledgerRows(db)}</div>`;
 }
+// choose several entries and delete them together (they go to the recycle bin and can be undone)
+function selBar() {
+  if (!ui.selecting) return `<div class="btnrow left selstart"><button type="button" class="btn sm ghost" data-act="sel-start">${ic('check')} Select entries</button></div>`;
+  const n = ui.sel.size;
+  return `<div class="selbar" role="toolbar" aria-label="Selected entries"><span><b>${n}</b> selected</span><button type="button" class="btn sm ghost" data-act="sel-all">${n && n >= (ui.shown || []).length ? 'Clear' : 'Select all shown'}</button><button type="button" class="btn sm danger" data-act="sel-del" ${n ? '' : 'disabled'}>${ic('trash')} Delete (${n})</button><button type="button" class="btn sm ghost" data-act="sel-end">Done</button></div>`;
+}
+const selRefresh = () => { const l = document.getElementById('ledger-list'), w = document.getElementById('selbar-wrap'); if (!l) return window.dispatchEvent(new Event('sukli-render')); const y = window.scrollY; l.innerHTML = ledgerRows(get()); w.innerHTML = selBar(); window.scrollTo(0, y); };
+ACT['sel-start'] = () => { ui.selecting = true; ui.sel = new Set(); selRefresh(); };
+ACT['sel-end'] = () => { ui.selecting = false; ui.sel = new Set(); selRefresh(); };
+ACT['sel-toggle'] = (el) => { const id = el.dataset.id; if (ui.sel.has(id)) ui.sel.delete(id); else ui.sel.add(id); selRefresh(); };
+ACT['sel-all'] = () => { const all = ui.shown || []; if (ui.sel.size >= all.length) ui.sel = new Set(); else ui.sel = new Set(all); selRefresh(); };
+ACT['sel-del'] = async () => {
+  const ids = [...ui.sel]; if (!ids.length) return;
+  if (!(await confirmDialog(`Delete ${ids.length} ${ids.length === 1 ? 'entry' : 'entries'}? They move to the recycle bin and can be restored.`, 'Delete', true))) return;
+  const gone = [];
+  commit((d) => { for (const t of d.txs) if (ids.includes(t.id) && !t.deleted) { softDelete(t); gone.push(t.id); } });
+  ui.selecting = false; ui.sel = new Set();
+  toast(`${gone.length} moved to the recycle bin`, { undo: () => commit((d) => { for (const t of d.txs) if (gone.includes(t.id)) { t.deleted = false; delete t.deletedAt; stamp(t); } }) });
+};
 ACT.filter = (el) => { ui.filter = el.dataset.v; ui.limit = 120; window.dispatchEvent(new Event('sukli-render')); };
 export function bindLedger() {
   const q = document.getElementById('q');
@@ -465,6 +525,7 @@ export function settings(db) {
       <div class="field"><span>New account type</span><input id="atype-new" placeholder="e.g. Money owed to me" data-noclear="1"></div>
       <label class="field inline"><span>It is</span><select id="atype-kind"><option value="asset">An asset (money I have or am owed)</option><option value="liab">A liability (money I owe)</option></select></label>
       <button type="button" class="btn" data-act="atype-add">Add account type</button></section>`; })()}
+    ${arrangeSection(db)}
     <section><h2>Appearance</h2>
       <label class="check"><input type="checkbox" data-act="commas" ${localStorage.getItem('sukli.commas') === '0' ? '' : 'checked'}> Show thousands separators when typing (119,000)</label>
       <p class="hint">These are kept on this device only.</p>
@@ -713,7 +774,7 @@ ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
 
 // Settings, grouped by what they are for. Advanced items sit in their own folded group.
 const SET_GROUPS = [
-  ['look', 'Look and feel', 'Colours, text size, what is shown', ['Appearance', 'Display']],
+  ['look', 'Look and feel', 'Tabs, Home cards, colours, text size', ['Tabs and Home cards', 'Appearance', 'Display']],
   ['money', 'Money and alerts', 'Home currency, spending warnings', ['Currency', 'Spending safety', 'Left out of cash outflow']],
   ['organise', 'Accounts, categories and names', 'How things are sorted and matched', ['Categories', 'Account types', 'Name matching']],
   ['data', 'Backup and data', 'Reminders, backups, export', ['Backup reminder', 'Your data', 'Google backup (optional)']],
@@ -731,3 +792,37 @@ function settingsGrouped(html) {
   const ver = `<p class="hint verline" id="appver">Sukli version ${versionText()}</p>`;
   return head + SET_GROUPS.filter((g) => by.get(g[0]).length).map(([k, name, desc]) => `<details class="sgroup" data-sgroup="${k}" ${SET_OPEN.has(k) ? 'open' : ''}><summary><b>${name}</b><small>${desc}</small></summary>${by.get(k).join('')}</details>`).join('') + ver;
 }
+
+// ---------------- Arrange tabs and Home cards (Settings) ----------------
+export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Entries', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'] };
+export const DEFAULT_TABS = ['home', 'ledger', 'calendar', 'accounts'];
+export function tabIds(db) {
+  const t = ((db.settings && db.settings.tabs) || []).filter((x, i, a) => TAB_DEFS[x] && a.indexOf(x) === i).slice(0, 4);
+  return t.length ? t : DEFAULT_TABS;
+}
+function arrangeSection(db) {
+  const tb = tabIds(db), more = Object.keys(TAB_DEFS).filter((x) => !tb.includes(x)), lay = homeLayout(db);
+  const mv = (kind, id, i, n) => `<span class="mv"><button type="button" class="btn sm ghost" data-act="arr-up" data-kind="${kind}" data-id="${id}" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="btn sm ghost" data-act="arr-down" data-kind="${kind}" data-id="${id}" aria-label="Move down" ${i === n - 1 ? 'disabled' : ''}>↓</button></span>`;
+  return `<section id="arrange"><h2>Tabs and Home cards</h2>
+    <p class="hint">The bottom bar holds up to 4 tabs, with the + button always in the middle. Anything not in the bar is still reachable from Home and the menus.</p>
+    <h3>Bottom tabs (${tb.length}/4)</h3>
+    ${tb.map((id, i) => `<div class="arow"><span>${ic(TAB_DEFS[id][1])} ${TAB_DEFS[id][0]}</span>${mv('tab', id, i, tb.length)}<button type="button" class="btn sm ghost" data-act="arr-tab-off" data-id="${id}" ${tb.length <= 2 ? 'disabled' : ''}>Remove</button></div>`).join('')}
+    ${more.length ? `<p class="hint">Add to the bar${tb.length >= 4 ? ' (remove one first)' : ''}:</p><div class="btnrow left">${more.map((id) => `<button type="button" class="btn sm ghost" data-act="arr-tab-on" data-id="${id}" ${tb.length >= 4 ? 'disabled' : ''}>+ ${TAB_DEFS[id][0]}</button>`).join('')}</div>` : ''}
+    <h3>Home cards, top to bottom</h3>
+    ${lay.order.map((id, i) => { const nm = (HOME_SECTIONS.find((x) => x[0] === id) || [])[1], off = lay.hidden.includes(id);
+      return `<div class="arow ${off ? 'off' : ''}"><label class="check"><input type="checkbox" data-act="arr-show" data-id="${id}" ${off ? '' : 'checked'}> ${esc(nm)}</label>${mv('home', id, i, lay.order.length)}</div>`; }).join('')}
+    <button type="button" class="btn ghost wide" data-act="arr-reset">Put tabs and cards back to normal</button></section>`;
+}
+const moveIn = (arr, id, dir) => { const i = arr.indexOf(id), j = i + dir; if (i < 0 || j < 0 || j >= arr.length) return arr; const a = [...arr]; [a[i], a[j]] = [a[j], a[i]]; return a; };
+ACT['arr-up'] = (el) => arrMove(el, -1);
+ACT['arr-down'] = (el) => arrMove(el, 1);
+function arrMove(el, dir) {
+  const db = get(), id = el.dataset.id;
+  commit((d) => { d.settings = d.settings || {};
+    if (el.dataset.kind === 'tab') d.settings.tabs = moveIn(tabIds(d), id, dir);
+    else d.settings.homeLayout = { ...homeLayout(d), order: moveIn(homeLayout(d).order, id, dir) }; });
+}
+ACT['arr-tab-off'] = (el) => commit((d) => { d.settings.tabs = tabIds(d).filter((x) => x !== el.dataset.id); });
+ACT['arr-tab-on'] = (el) => commit((d) => { const t = tabIds(d); if (t.length < 4) d.settings.tabs = [...t, el.dataset.id]; });
+ACT['arr-show'] = (el) => commit((d) => { const L = homeLayout(d), id = el.dataset.id; d.settings.homeLayout = { order: L.order, hidden: el.checked ? L.hidden.filter((x) => x !== id) : [...L.hidden, id] }; });
+ACT['arr-reset'] = () => commit((d) => { delete d.settings.tabs; delete d.settings.homeLayout; });

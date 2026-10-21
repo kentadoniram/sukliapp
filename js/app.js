@@ -6,7 +6,7 @@ import { load, get, subscribe, commit, seedCategories, balances, reviewCount, la
 import { importBluecoins } from './importer.js';
 import { scheduleSync, onStatus } from './drive.js';
 import { cloudSchedule, cloudInit, onCloudStatus, handleOAuthReturn } from './cloud.js';
-import { home, ledger, review, accounts, reports, settings, bindLedger, bindSettings, openAccountSetup, ui } from './screens.js';
+import { home, ledger, review, accounts, reports, settings, bindLedger, bindSettings, openAccountSetup, ui, fillDeferred, tabIds, TAB_DEFS } from './screens.js';
 import { openEntry } from './entry.js';
 import { calendar, budget, cashflow, categories, outlook } from './views.js';
 import { ACT, ic, toast, $ } from './ui.js';
@@ -22,6 +22,10 @@ import { commitQuiet } from './core.js';
 
 const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook, bin, analytics };
 let lastRoute = null, pending = false;
+// remember where you were on each screen so Back returns there instead of the top
+const seen = new Map(), stack = []; let curKey = '', backTo = null;
+window.addEventListener('scroll', () => { if (curKey) seen.set(curKey, window.scrollY); }, { passive: true });
+window.addEventListener('hashchange', () => { const k = location.hash || '#/home'; if (k === stack[stack.length - 2]) { stack.pop(); backTo = seen.get(k) ?? 0; } else { if (stack[stack.length - 1] !== k) stack.push(k); backTo = null; } });
 
 function firstRun() {
   return `<section class="welcome">
@@ -34,7 +38,8 @@ function firstRun() {
 ACT['start-empty'] = () => { commit((d) => seedCategories(d)); ACT['acct-new'](); };
 
 function tabs(route) {
-  const t = [['home', 'Home', 'home'], ['ledger', 'Entries', 'list'], null, ['calendar', 'Calendar', 'calendar'], ['accounts', 'Accounts', 'wallet']];
+  const ids = tabIds(get()), half = Math.ceil(ids.length / 2);
+  const t = ids.map((id) => [id, TAB_DEFS[id][0], TAB_DEFS[id][1]]); t.splice(half, 0, null);
   const n = reviewCount(get());
   return t.map((x) => x === null
     ? `<button class="fab" data-act="add" aria-label="Add an entry">${ic('plus')}</button>`
@@ -50,7 +55,9 @@ function render() {
   const route = (location.hash.replace(/^#\/?/, '') || 'home').split('?')[0];
   const fn = routes[route] || home;
   const empty = !db.accounts.length && !db.txs.length;
-  const y = window.scrollY;
+  const key = location.hash || '#/home';
+  if (!stack.length) stack.push(key);
+  const y = key === curKey ? window.scrollY : 0;
   const ae = document.activeElement;
   if (route === lastRoute && route === 'settings' && ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && document.getElementById('view').contains(ae)) return;
   document.getElementById('view').innerHTML = empty && route !== 'settings' ? firstRun() : fn(db);
@@ -69,7 +76,13 @@ function render() {
       openAccountSetup();
     } catch (e) { toast(e.message, { ms: 9000 }); }
   };
-  if (route !== lastRoute) { window.scrollTo(0, 0); lastRoute = route; document.title = 'Sukli'; } else window.scrollTo(0, y);
+  const changed = route !== lastRoute || key !== curKey;
+  const target = changed ? (backTo ?? 0) : y;
+  curKey = key; backTo = null;
+  if (changed) { lastRoute = route; document.title = 'Sukli'; }
+  window.scrollTo(0, target);
+  // cards drawn a moment later change the page height, so put the scroll position back once they are in
+  if (route === 'home' && !(empty)) fillDeferred(db, () => { if (curKey === key) window.scrollTo(0, target); });
 }
 // if this month has nothing yet (for example right after importing an older export), open the latest month with data
 export function showLatest() {

@@ -50,6 +50,8 @@ export function netWorth(db) {
 // ---------- automatic interest ----------
 // Accounts with a yearly rate (a.apy, in %) get one income entry per day, compounding on that day's balance.
 // Ids are fixed per account and day, so two devices never double-post.
+// tax withheld on interest, in %. Local banks take it before crediting (20% is the usual rate in the Philippines and Japan); crypto, e-wallets and the like default to none. Set per account.
+export const interestTaxPct = (a) => (a.taxPct != null && a.taxPct !== '' ? Math.max(0, +a.taxPct || 0) : (a.type === 'bank' ? 20 : 0));
 export function postInterest(db, upTo = today()) {
   const made = [];
   const cats = live(db.categories);
@@ -71,10 +73,10 @@ export function postInterest(db, upTo = today()) {
       const stop = d + ' 23:59:59';
       const b = balances(db, stop).get(a.id) || 0;
       if (b <= 0) continue;
-      const amt = +(b * a.apy / 100 / 365).toFixed(places);
+      const gross = +(b * a.apy / 100 / 365).toFixed(places), taxPct = interestTaxPct(a), tax = +(gross * taxPct / 100).toFixed(places), amt = +(gross - tax).toFixed(places);
       if (!(amt > 0)) continue;
       if (!cat) cat = findOrAddCategory(db, 'Earn', catName, 'income');
-      const t = stamp({ id, kind: 'income', date: d + ' 23:59:59', acct: a.id, cur: a.cur, amount: amt, fx: rateFor(db, a.cur) || 1, cat: cat.id, name: catName, auto: true });
+      const t = stamp({ id, kind: 'income', date: d + ' 23:59:59', acct: a.id, cur: a.cur, amount: amt, fx: rateFor(db, a.cur) || 1, cat: cat.id, name: catName, auto: true, ...(tax > 0 ? { gross, tax, taxPct, notes: `Interest ${gross}, tax withheld ${tax} (${taxPct}%), credited ${amt}` } : {}) });
       db.txs.push(t); made.push(t);
     }
   }

@@ -7,7 +7,7 @@ import { buildGraph, makeResolver, explain } from './simgraph.js';
 import { nameRules } from './merchants.js';
 import { compareCard, relatedNames } from './compare.js';
 import { guessLabel, transferLabel } from './label.js';
-import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat } from './route.js';
+import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat, transportWord } from './route.js';
 import { buildModel, predict, suggest, lookup, catCandidates, byAmount, recentNames } from './predict.js';
 import { evalExpr, isExpr, tidy } from './calc.js';
 import { predictFee, safetyCheck, typeGroupName, typeGroupOrder, transferHints } from './finance.js';
@@ -199,7 +199,8 @@ export function openEntry(opts = {}) {
       el.innerHTML = `<div class="field ${sug ? 'suggested' : ''}"><span>Account ${sug ? '<small class="sugnote">suggested from your history  tap to change</small>' : ''}</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc((acctOf(f.acct) || { name: 'Choose account' }).name)}${acctOf(f.acct) ? ' · ' + acctOf(f.acct).cur : ''} ▾</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, '', '')}</select></div>`;
     } else {
       if (!f.toAcct) { const o = get().accounts.find((x) => !x.deleted && !x.archived && x.id !== f.acct); f.toAcct = o ? o.id : ''; }
-      el.innerHTML = `<div class="two"><div class="field"><span>From</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc((acctOf(f.acct) || { name: 'Choose' }).name)} ▾</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, f.toAcct, '')}</select></div>
+      el.innerHTML = `<div class="two sw"><div class="field"><span>From</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc((acctOf(f.acct) || { name: 'Choose' }).name)} ▾</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, f.toAcct, '')}</select></div>
+        <button type="button" class="swapbtn" data-e="swapacct" aria-label="Swap From and To" title="Swap From and To">${ic('swap')}</button>
         <div class="field"><span>To</span><button type="button" class="acctbtn" data-e="acctpick" data-which="to">${esc((acctOf(f.toAcct) || { name: 'Choose' }).name)} ▾</button><select id="f-to" hidden aria-hidden="true">${acctOptions(f.toAcct, f.acct)}</select></div></div>`;
     }
     renderConv();
@@ -358,7 +359,9 @@ export function openEntry(opts = {}) {
       else if (cands[0]) { f.cat = cands[0].id; f.guessWhy = cands[0].why; }
       else if (f.pred.cats[0]) { f.cat = f.pred.cats[0].id; f.guessWhy = ''; }
     }
+    typedTransport();
     renderCats();
+    if (tripCat() !== tripShown) renderTrip();
     renderSafety();
   }
   function renderSugg() {
@@ -388,7 +391,17 @@ export function openEntry(opts = {}) {
   function useAccount(id) { f.acct = id; f.acctSuggested = true; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; renderAccts(); renderFx(); }
   // remember what the app guessed when you pick something else: a fixed guess teaches the model more
   // ---------- trips: optional From / To for public transport ----------
-  const tripCat = () => { if (f.kind !== 'expense' || !f.cat) return false; return isTransportCat(get().categories)(f.cat); };
+  const tripCat = () => { if (f.kind !== 'expense') return false; if (transportWord(f.name)) return true; return !!f.cat && isTransportCat(get().categories)(f.cat); };
+  // typing "bus" or "MRT" means a trip: move to a transport category (unless you picked one yourself) and show From / To
+  let tripShown = false;
+  function typedTransport() {
+    if (f.kind !== 'expense' || f.catTouched || !transportWord(f.name)) return;
+    const cats = get().categories.filter((c) => !c.deleted && c.kind !== 'income'), isT = isTransportCat(get().categories);
+    if (f.cat && isT(f.cat)) return;
+    const w = (String(f.name).toLowerCase().match(/bus|mrt|lrt|jeep|train|tricycle|taxi|grab|ferry|metro|subway/) || [''])[0];
+    const c = (w && cats.find((x) => isT(x.id) && x.name.toLowerCase().includes(w))) || cats.find((x) => x.group === 'Transportation') || cats.find((x) => isT(x.id));
+    if (c) { f.cat = c.id; f.guessWhy = 'you typed a transport word'; }
+  }
   function prevTrip() {                                                    // where the last trip today ended: you are probably there now
     const day = String(f.date).slice(0, 10), isT = isTransportCat(get().categories); let best = null;
     for (const t of get().txs) { if (t.deleted || t.kind !== 'expense' || !isT(t.cat) || String(t.date).slice(0, 10) !== day || t.date >= f.date || (existing && t.id === existing.id)) continue; const r = parseRoute(t.name) || (t.from && t.to ? { to: t.to } : null); if (r && (!best || t.date > best.date)) best = { date: t.date, to: r.to }; }
@@ -413,6 +426,7 @@ export function openEntry(opts = {}) {
     el.innerHTML = list.length ? `<small class="muted">${f.from.trim() ? 'Where to from ' + esc(f.from.trim()) + '?' : 'Likely trips now'}</small><div class="chips">${list.map((x, i) => `<button type="button" class="chip" data-e="trip" data-v="${i}">${esc(x.from)} → ${esc(x.to)} <small>${esc((cm.get(x.cat) || {}).name || '')} · ${Math.round(x.p * 100)}%</small></button>`).join('')}</div>` : '';
   }
   function renderTrip() {
+    tripShown = tripCat();
     const el = $f('triprow'); if (!tripCat()) { el.innerHTML = ''; return; }
     const r = parseRoute(f.name); if (!f.from && !f.to && r) { f.from = r.from; f.to = r.to; }
     const places = [...routeStats(get(), isTransportCat(get().categories)).places.values()].sort((a, b) => b.n - a.n).slice(0, 40);
@@ -539,6 +553,7 @@ export function openEntry(opts = {}) {
         if (!f.catTouched || v === 'transfer') { f.cat = ''; f.catTouched = false; }
         else { const c = catMap(get()).get(f.cat); if (c && !(c.kind === v || c.kind === 'both')) { f.cat = ''; f.catTouched = false; } }
         arrange(); renderSeg(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderSugg(); renderSafety(); break;
+      case 'swapacct': { const t = f.acct; f.acct = f.toAcct; f.toAcct = t; f.acctTouched = true; f.acctSuggested = false; f.feeTouched = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; f.cRate = ''; renderAccts(); renderFx(); syncCross(); renderSugg(); break; }
       case 'qtab': f.qtab = v; f.qtabManual = true; renderFreq(); break;
       case 'pick': applyPick(v); break;
       case 'acctpick': { const to = b.dataset.which === 'to', sel = $f(to ? 'f-to' : 'f-acct'), a = acctOf(f.acct);
@@ -649,6 +664,8 @@ export function openEntry(opts = {}) {
     if (!label) {
       autoName = true;
       if (f.kind === 'transfer') label = transferLabel(a, acctOf(f.toAcct));
+      else if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) label = routeName(f.from, f.to);
+      else if (f.kind === 'expense' && tripCat() && (() => { const x = suggestTrips(db2, isTransportCat(db2.categories), { hour: hourOf(f.date), prevTo: prevTrip(), limit: 1 })[0]; if (x && x.p >= 0.4) { label = x.name; if (!f.from.trim() && !f.to.trim()) { f.from = x.from; f.to = x.to; } return true; } return false; })()) flag = 'review';
       else { label = guessLabel(db2, { kind: f.kind, cat, amount, acct: a.id, hour: hourOf(f.date) }).name; flag = 'review'; }
     }
     const rec = { kind: f.kind, amount, cur: a.cur, fx, date: f.date, name: label, autoName, cat, acct: a.id,

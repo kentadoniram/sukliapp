@@ -146,24 +146,40 @@ ACT['acct-flow'] = (el) => { ui.acct = el.dataset.id; ui.filter = 'all'; ui.q = 
 export function calendar(db) {
   const ym = ui.month, [y, m] = ym.split('-').map(Number);
   const first = new Date(y, m - 1, 1).getDay(), dim = daysInMonth(ym);
-  const dt = dayTotals(db, ym), today = nowStamp().slice(0, 10);
-  let cells = '<i class="cal-b"></i>'.repeat(first);
-  let tOut = 0, tIn = 0, tTr = 0;
+  const dt = dayTotals(db, ym), today = nowStamp().slice(0, 10), isNow = ym === today.slice(0, 7), upto = isNow ? +today.slice(8, 10) : (ym < today.slice(0, 7) ? dim : 0);
+  const maxOut = Math.max(0, ...[...dt.values()].map((x) => x.out));
+  let cells = '<i class="cal-b"></i>'.repeat(first), tOut = 0, tIn = 0, tTr = 0, busy = null, quiet = 0, active = 0;
+  const weeks = []; let wk = { from: 1, out: 0 };
   for (let d = 1; d <= dim; d++) {
     const x = dt.get(d) || { out: 0, inc: 0, tr: 0 };
-    tOut += x.out; tIn += x.inc; tTr += x.tr;
-    const date = `${ym}-${String(d).padStart(2, '0')}`;
-    const cls = [date === today ? 'today' : '', x.out ? 'o' : '', x.inc ? 'g' : '', x.tr ? 'b' : ''].join(' ');
-    cells += `<button class="cal-d ${cls}" data-act="day" data-d="${date}" aria-label="${dayLabel(date)}"><span class="n">${d}</span>
+    tOut += x.out; tIn += x.inc; tTr += x.tr; wk.out += x.out;
+    if (x.out > 0) { active++; if (!busy || x.out > busy.out) busy = { d, out: x.out }; } else if (d <= upto) quiet++;
+    if ((first + d) % 7 === 0 || d === dim) { weeks.push({ ...wk, to: d }); wk = { from: d + 1, out: 0 }; }
+    const date = `${ym}-${String(d).padStart(2, '0')}`, heat = maxOut && x.out ? Math.max(0.1, Math.min(0.55, (x.out / maxOut) * 0.55)) : 0;
+    const cls = [date === today ? 'today' : '', x.out ? 'o' : '', x.inc ? 'g' : '', x.tr ? 'b' : '', d > upto && upto ? 'later' : ''].join(' ');
+    cells += `<button class="cal-d ${cls}" ${heat ? `style="--heat:${heat.toFixed(2)}"` : ''} data-act="day" data-d="${date}" aria-label="${dayLabel(date)}"><span class="n">${d}</span>
       ${x.out ? `<i class="o">−${compact(x.out, '')}</i>` : ''}${x.inc ? `<i class="g">+${compact(x.inc, '')}</i>` : ''}${x.tr ? `<i class="b">⇄${compact(x.tr, '')}</i>` : ''}</button>`;
   }
+  const maxW = Math.max(1, ...weeks.map((w) => w.out)), per = upto ? tOut / upto : 0, entries = db.txs.filter((t) => !t.deleted && t.date.startsWith(ym)).length;
+  const st = monthStat(db, ym);
   return `${monthNav()}
+    ${strip(st)}
     <section class="calwrap"><div class="cal-h">${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => `<span>${d}</span>`).join('')}</div>
       <div class="cal">${cells}</div>
-      <p class="legend cal-l"><i class="k o"></i>Cash outflow <i class="k g"></i>Cash inflow <i class="k b"></i>Transfer</p></section>
+      <p class="legend cal-l"><i class="k o"></i>Cash outflow (darker = more) <i class="k g"></i>Cash inflow <i class="k b"></i>Transfer</p>
+      ${isNow ? '' : `<div class="btnrow left"><button type="button" class="btn sm ghost" data-act="cal-today">Go to this month</button></div>`}</section>
     <section class="facts three"><div><span>Cash outflow</span><b class="cr">${R(tOut)}</b></div><div><span>Cash inflow</span><b class="cg">${R(tIn)}</b></div><div><span>Transfers</span><b class="cb">${R(tTr)}</b></div></section>
+    <section><h2>This month by day</h2>
+      <ul class="calfacts">
+        <li><span>Average per day${isNow ? ' so far' : ''}</span><b>${upto ? R(per) : '—'}</b></li>
+        <li><span>Busiest day</span><b>${busy ? `<button type="button" class="linkbtn" data-act="day" data-d="${ym}-${String(busy.d).padStart(2, '0')}">${dayLabel(`${ym}-${String(busy.d).padStart(2, '0')}`)}</button> · ${R(busy.out)}` : '—'}</b></li>
+        <li><span>Days you spent nothing</span><b>${upto ? `${quiet} of ${upto}` : '—'}</b></li>
+        <li><span>Entries this month</span><b>${entries}</b></li></ul>
+      <h3 class="subh">Spending by week</h3>
+      <div class="wkbars">${weeks.map((w) => `<div class="wk"><span>${w.from}–${w.to}</span><i style="width:${Math.max(w.out ? 3 : 0, (w.out / maxW) * 100).toFixed(0)}%"></i><b>${w.out ? R(w.out) : '—'}</b></div>`).join('')}</div></section>
     <p class="hint">Tap a day to see its entries or add one. Amounts are in ${BASE}, shortened (12k = 12,000).</p>`;
 }
+ACT['cal-today'] = () => { ui.month = thisMonth(); render(); };
 ACT.day = (el) => openDay(el.dataset.d);
 
 function openDay(date) {

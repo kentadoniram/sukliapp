@@ -93,3 +93,6 @@ export function rankRouteNames(db, isTransport, names, hour, stats = routeStats(
   return names.map((n, i) => ({ n, s: score(n), i })).filter((x) => x.s > 0.1).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.n);
 }
 export const isTransportCat = (cats) => { const m = new Map(cats.map((c) => [c.id, c])); const re = /bus|mrt|lrt|jeep|train|tricycle|taxi|grab|metro|ferry|ic card|transport/i; return (id) => { const c = m.get(id); return !!c && (c.group === 'Transportation' || re.test(c.name)); }; };
+
+// words typed in the label that mean "a trip": bus, MRT, jeepney, taxi, Grab, train, ferry, tricycle, IC card, Suica...
+export const transportWord = (t) => /(^|[^a-z])(bus|mrt|lrt|jeep(ney)?|train|tricycle|trike|taxi|grab|ferry|metro|subway|shinkansen|suica|pasmo|icoca|ic card|densha|basu)([^a-z]|$)|バス|電車|地下鉄|タクシー|新幹線|電車賃/i.test(String(t || ''));

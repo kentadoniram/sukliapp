@@ -4,7 +4,8 @@ import {
   get, commit, uid, stamp, nowStamp, rateFor, fmt, BASE, HOME, homeFx, allCurrencies, curName, CUR, balances, catMap, accountMap, live, groupColor, groupLetter,
   adjustmentCategory, shiftMonth, thisMonth, monthLabel, monthParts, deltaFor, dayLabel,
 } from './core.js';
-import { accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, setLiab, today, postInterest } from './finance.js';
+import { transferHints } from './finance.js';
+import { accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, setLiab, today, postInterest, interestTaxPct } from './finance.js';
 import { esc, ic, ACT, sheet, toast, download, confirmDialog, promptDialog } from './ui.js';
 import { applyHide } from './appearance.js';
 import { money, eq, hdr, coll, ui } from './screens.js';
@@ -151,6 +152,15 @@ function openNetWorth() {
 ACT.acct = (el) => openAccountDetail(el.dataset.id);
 ACT['acct-new'] = () => openAccount(null);
 
+// a new transfer from an account page: this account on its usual side, the usual other account on the other side.
+// Cards and loans usually receive money, otherwise the most used route decides (this account can be the receiver).
+function transferPreset(db, id) {
+  const a = db.accounts.find((x) => x.id === id), h = transferHints(db), ok = (x) => { const o = db.accounts.find((q) => q.id === x); return o && !o.deleted && !o.archived; };
+  const mine = h.routes.filter((r) => (r.from === id && ok(r.to)) || (r.to === id && ok(r.from))).sort((x, y) => y.n - x.n || (x.last < y.last ? 1 : -1))[0];
+  if (mine) return mine.from === id ? { kind: 'transfer', acct: id, toAcct: mine.to, ...(mine.amount ? { amount: String(mine.amount) } : {}) } : { kind: 'transfer', acct: mine.from, toAcct: id, ...(mine.amount ? { amount: String(mine.amount) } : {}) };
+  if (a && ['card', 'loan'].includes(a.type)) return { kind: 'transfer', toAcct: id, acct: (db.accounts.find((x) => !x.deleted && !x.archived && x.id !== id && x.include) || {}).id || '' };
+  return { kind: 'transfer', acct: id };
+}
 export function openAccountDetail(id) {
   const s = sheet('<div id="ad"></div>', { title: 'Account', wide: true });
   const root = s.el.querySelector('#ad');
@@ -189,14 +199,14 @@ export function openAccountDetail(id) {
     const path = series.map((x, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(x.v).toFixed(1)}`).join('');
     const area = `${path}L${X(series.length - 1).toFixed(1)} ${Y(lo).toFixed(1)}L${X(0).toFixed(1)} ${Y(lo).toFixed(1)}Z`;
     const card = a.type === 'card' ? cardInfo(db, a, bal) : null;
-    const earned = a.apy > 0 ? sum(hist.filter((h) => h.t.auto).map((h) => h.d)) : 0;
-    const perDay = a.apy > 0 && bal > 0 ? bal * a.apy / 100 / 365 : 0;
+    const earned = a.apy > 0 ? sum(hist.filter((h) => h.t.auto).map((h) => h.d)) : 0, taxed = a.apy > 0 ? sum(hist.filter((h) => h.t.auto).map((h) => h.t.tax || 0)) : 0, taxPct = interestTaxPct(a);
+    const perDay = a.apy > 0 && bal > 0 ? bal * a.apy / 100 / 365 * (1 - taxPct / 100) : 0;
     const rowsHtml = shownH.slice(0, st.more).map((h) => {
       const t = h.t, c = cm.get(t.cat), tr = t.kind === 'transfer';
       const other = tr ? (t.acct === id ? (db.accounts.find((x) => x.id === t.toAcct) || {}).name : (db.accounts.find((x) => x.id === t.acct) || {}).name) : '';
       const title = t.name || (c ? c.name : tr ? 'Transfer' : 'Entry');
       const sub = `${dayLabel(t.date)} · ${tr ? (t.acct === id ? 'to ' : 'from ') + esc(other || '?') : esc(c ? c.name : 'No category')}${t.auto ? ' · automatic' : ''}${t.fee > 0 ? ' · fee' : ''}`;
-      return `<button class="row" data-act="edit" data-id="${t.id}"><i class="badge sm" style="background:${tr ? 'var(--ink2)' : groupColor(c ? c.group : 'Uncategorized')}">${groupLetter(tr ? 'Transfer' : (c ? c.group : 'U'))}</i>
+      return `<button class="row" data-act="edit" data-id="${t.id}"><i class="badge sm" style="background:${tr ? 'var(--xfer)' : groupColor(c ? c.group : 'Uncategorized')}">${groupLetter(tr ? 'Transfer' : (c ? c.group : 'U'))}</i>
         <span class="rmain"><strong>${esc(title)}</strong><small>${sub}</small></span>
         <span class="ramt ${h.d >= 0 ? 'income' : 'expense'}"><b>${h.d >= 0 ? '+' : ''}${money(h.d, a.cur)}</b><small>${money(h.bal, a.cur)}</small></span></button>`;
     }).join('');
@@ -218,7 +228,7 @@ export function openAccountDetail(id) {
         ${card.due ? `<p>${card.dueAmount > 0.005 ? `Amount due: <strong>${money(card.dueAmount, a.cur)}</strong> by <strong>${dayLabel(card.due + ' 00:00:00')}</strong> (${card.overdue ? 'overdue' : card.days === 0 ? 'today, until midnight' : card.days + ' days'}).` : `Paid in full for this cycle. Next due date ${dayLabel(card.due + ' 00:00:00')}.`}</p>` : '<p class="hint">Add the due day in Edit to get reminders.</p>'}
         <div class="btnrow tight">${card.owed > 0.005 ? '<button class="btn sm" data-ad="pay">Pay card</button>' : ''}${card.due ? '<button class="btn sm ghost" data-ad="ics">Add reminders to my calendar (.ics)</button>' : ''}</div>
         <p class="hint">Paying moves money from one of your accounts into the card. It lowers what you owe and is not counted as spending a second time.</p></div>` : ''}
-      ${a.apy > 0 ? `<div class="cardbox"><h3>Interest</h3><p>${a.apy}% a year${perDay ? `, about <strong>${money(perDay, a.cur)}</strong> a day on today’s balance` : ''}. Earned so far in Sukli: <strong>${money(earned, a.cur)}</strong>.</p>
+      ${a.apy > 0 ? `<div class="cardbox"><h3>Interest</h3><p>${a.apy}% a year${perDay ? `, about <strong>${money(perDay, a.cur)}</strong> a day after tax on today’s balance` : ''}. Earned so far in Sukli: <strong>${money(earned, a.cur)}</strong>${taxPct > 0 ? ` after ${taxPct}% tax${taxed ? ` (${money(taxed, a.cur)} withheld)` : ''}` : ''}.</p>
         <p class="hint">Approximate: Sukli adds one entry a day (category ${a.type === 'crypto' ? 'Crypto earned' : 'Interest'}). Set the rate your app shows; edit or delete any entry that differs.</p></div>` : ''}
       <h3>History</h3>
       <div class="histfilter"><div class="seg sm" role="group" aria-label="Show">${[['all', 'All'], ['in', 'Money in'], ['out', 'Money out'], ['tr', 'Transfers']].map(([v, l]) => `<button type="button" data-ad="type" data-v="${v}" class="${st.type === v ? 'on' : ''}" aria-pressed="${st.type === v}">${l}</button>`).join('')}</div>
@@ -226,7 +236,8 @@ export function openAccountDetail(id) {
         <div class="two"><button type="button" class="whenbtn" data-ad="from"><span>${st.from ? esc(st.from) : 'From: any date'}</span>${ic('calendar')}</button><button type="button" class="whenbtn" data-ad="to"><span>${st.to ? esc(st.to) : 'To: any date'}</span>${ic('calendar')}</button></div></div>
       ${st.from || st.to || st.type !== 'all' ? `<div class="facts"><div><span>Income / in</span><b class="in">${money(rsum.inc, a.cur)}</b></div><div><span>Expenses / out</span><b>${money(rsum.exp, a.cur)}</b></div><div><span>Transfers in</span><b>${money(rsum.tin, a.cur)}</b></div><div><span>Transfers out</span><b>${money(rsum.tout, a.cur)}</b></div><div><span>Opening</span><b>${openBal == null ? '—' : money(openBal, a.cur)}</b></div><div><span>Closing</span><b>${closeBal == null ? '—' : money(closeBal, a.cur)}</b></div></div>` : ''}
       <div class="rows plain">${rowsHtml || '<p class="empty">No entries for this filter.</p>'}</div>
-      ${shownH.length > st.more ? `<button class="btn ghost wide" data-ad="more">Show more (${shownH.length - st.more} left)</button>` : ''}`;
+      ${shownH.length > st.more ? `<button class="btn ghost wide" data-ad="more">Show more (${shownH.length - st.more} left)</button>` : ''}
+      <div class="adfab ${st.fab ? 'open' : ''}">${st.fab ? `<div class="adfab-menu" role="menu"><button type="button" role="menuitem" data-ad="fab-new" data-v="expense">Expense</button><button type="button" role="menuitem" data-ad="fab-new" data-v="income">Income</button><button type="button" role="menuitem" data-ad="fab-new" data-v="transfer">Transfer</button></div>` : ''}<button type="button" class="adfab-btn" data-ad="fab" aria-label="Add to this account" aria-expanded="${!!st.fab}">${ic(st.fab ? 'x' : 'plus')}</button></div>`;
   };
   draw();
   const un = (() => { const f = () => draw(); window.addEventListener('sukli-render', f); return () => window.removeEventListener('sukli-render', f); })();
@@ -237,6 +248,8 @@ export function openAccountDetail(id) {
     const db = get(), a = db.accounts.find((x) => x.id === id);
     switch (b.dataset.ad) {
       case 'add': openEntry({ preset: { acct: id } }); break;
+      case 'fab': st.fab = !st.fab; draw(); break;
+      case 'fab-new': { st.fab = false; draw(); const k = b.dataset.v; openEntry({ preset: k === 'transfer' ? transferPreset(db, id) : { kind: k, acct: id } }); break; }
       case 'edit': openAccount(id); break;
       case 'range': st.range = +b.dataset.v; draw(); break;
       case 'more': st.more += 25; draw(); break;
@@ -304,6 +317,8 @@ export function openAccount(id) {
     <div class="field"><span>Interest (optional)</span>
       <div class="two"><label class="amtwrap sm"><input name="apy" inputmode="decimal" value="${a.apy || ''}" placeholder="0" aria-label="Yearly interest percent"><b>% a year</b></label>
       <input name="interestFrom" type="date" value="${esc(a.interestFrom || today())}" aria-label="Start date"></div>
+      <label class="amtwrap sm"><input name="taxPct" inputmode="decimal" value="${interestTaxPct(a)}" aria-label="Tax withheld on interest percent"><b>% tax on interest</b></label>
+      <small class="hint">Local banks withhold tax on interest before crediting it (usually 20%), so only the rest is added to your balance. Use 0 for e-wallets, crypto or anything that pays gross. It applies to interest added from now on.</small>
       <small class="hint">For Maya Savings, Binance Earn and the like. Sukli adds one small entry a day (Interest, or Crypto earned for crypto accounts) based on that day’s balance. It is an estimate, so set the rate your app shows.</small></div>
     <label class="check"><input type="checkbox" name="include" ${a.include ? 'checked' : ''}> Count in spendable total</label>
     ${id ? `<label class="check"><input type="checkbox" name="archived" ${a.archived ? 'checked' : ''}> Hide this account (archive)</label>` : ''}
@@ -325,6 +340,7 @@ export function openAccount(id) {
       stmtDay: Math.min(31, Math.max(0, Math.round(num(fd.get('stmtDay')) || 0))),
       dueDay: Math.min(31, Math.max(0, Math.round(num(fd.get('dueDay')) || 0))),
       apy: num(fd.get('apy')) > 0 ? num(fd.get('apy')) : 0,
+      taxPct: Math.min(100, Math.max(0, num(fd.get('taxPct')) || 0)),
       exchange: (fd.get('exchange') || '').trim(),
       interestFrom: fd.get('interestFrom') || today(),
     };
