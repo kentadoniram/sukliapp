@@ -156,7 +156,7 @@ export function importBluecoins(db, text) {
     if (!type || !nm || !isFinite(amt)) continue;
     const a = ensureAcct(nm, cu);
     if (type === 'Starting Balance') {
-      if (newAcct.has(a.id)) a.open = (a.open || 0) + amt;
+      if (newAcct.has(a.id)) { a.open = (a.open || 0) + amt; a.openRow = { date: col(r, 'Date'), name: col(r, 'Name'), group: col(r, 'Category Group'), cat: col(r, 'Category'), notes: col(r, 'Notes'), fx: fxOf(r, cu) }; }   // kept so the export can write the row back as it came
       continue;
     }
     if (type === 'Transfer') {
@@ -187,7 +187,7 @@ export function importBluecoins(db, text) {
       db.txs.push(stamp({
         id: uid(), kind: 'transfer', date: col(o.r, 'Date'), name: col(o.r, 'Name'),
         amount: Math.abs(o.amt), cur: o.cu, fx: fxOf(o.r, o.cu), acct: o.a.id,
-        toAcct: i.a.id, toAmount: i.amt, notes: col(o.r, 'Notes'), src,
+        toAcct: i.a.id, toAmount: i.amt, toFx: fxOf(i.r, i.cu), notes: col(o.r, 'Notes'), labels: col(o.r, 'Labels'), src,
       }));
       stats.added++;
     }
@@ -217,14 +217,19 @@ const q = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
 
 export function exportCSV(db) {
   const accts = accountMap(db), cats = catMap(db);
+  // an account Bluecoins had in two currencies was split into "Name (CUR)" on import; give it its original name back
+  const an = (x) => (x ? (x.baseName && x.name === `${x.baseName} (${x.cur})` ? x.baseName : x.name) : '');
   const head = ['Type', 'Date', 'Set Time', 'Name', 'Amount', 'Currency', 'Exchange Rate', 'Category Group', 'Category', 'Account', 'Notes', 'Grouping', 'Labels', 'Status'];
   const out = [head.map(q).join(',')];
+  const amtStr = (n) => { const s = String(+n.toFixed(10)), d = (s.split('.')[1] || '').length; return d <= 2 ? n.toFixed(2) : s; };   // keep coin precision
   const line = (type, t, amt, cur, fx, group, cat, acct, notes) =>
-    out.push([type, t.date, t.date.slice(11, 16), t.name, amt.toFixed(2), cur, fx > 0 ? (1 / fx).toString() : '1.0',
+    out.push([type, t.date, t.date.slice(11, 16), t.name, amtStr(amt), cur, fx > 0 ? (1 / fx).toString() : '1.0',
       group, cat, acct, notes, '', t.labels || '', 'None'].map(q).join(','));
   for (const a of db.accounts) {
     if (a.deleted || !a.open) continue;
-    line('Starting Balance', { date: '2000-01-01 00:00:00', name: '', labels: '' }, a.open, a.cur, 0, '', '', a.name, '');
+    const o = a.openRow;
+    if (o) line('Starting Balance', { date: o.date, name: o.name, labels: '' }, a.open, a.cur, o.fx || 0, o.group, o.cat, an(a), o.notes || '');
+    else line('Starting Balance', { date: '2000-01-01 00:00:00', name: '', labels: '' }, a.open, a.cur, 0, '', '', an(a), '');
   }
   for (const t of db.txs.filter((x) => !x.deleted).sort((x, y) => (x.date < y.date ? 1 : -1))) {
     const a = accts.get(t.acct);
@@ -233,16 +238,16 @@ export function exportCSV(db) {
       : (t.notes || '');
     if (t.kind === 'transfer') {
       const b = accts.get(t.toAcct);
-      line('Transfer', t, -t.amount, t.cur, t.fx, 'Transfer', 'Transfer', a ? a.name : '', itemNote);
-      line('Transfer', t, t.toAmount ?? t.amount, b ? b.cur : t.cur, t.fx, 'Transfer', 'Transfer', b ? b.name : '', itemNote);
+      line('Transfer', t, -t.amount, t.cur, t.fx, 'Transfer', 'Transfer', an(a), itemNote);
+      line('Transfer', t, t.toAmount ?? t.amount, b ? b.cur : t.cur, t.toFx != null ? t.toFx : t.fx, 'Transfer', 'Transfer', an(b), itemNote);
       if (t.fee > 0) {                 // the fee leaves as its own expense row, on the account that paid it
         const fc = cats.get(t.feeCat), pa = t.feeBy === 'to' ? b : a;
-        line('Expense', t, -t.fee, pa ? pa.cur : t.cur, t.feeFx || t.fx, fc ? fc.group : '', fc ? fc.name : '', pa ? pa.name : '', 'Transfer fee');
+        line('Expense', t, -t.fee, pa ? pa.cur : t.cur, t.feeFx || t.fx, fc ? fc.group : '', fc ? fc.name : '', an(pa), 'Transfer fee');
       }
     } else {
       const c = cats.get(t.cat);
       line(t.kind === 'income' ? 'Income' : 'Expense', t, t.kind === 'income' ? t.amount : -t.amount, t.cur, t.fx,
-        c ? c.group : '', c ? c.name : '', a ? a.name : '', itemNote);
+        c ? c.group : '', c ? c.name : '', an(a), itemNote);
     }
   }
   return '﻿' + out.join('\r\n');

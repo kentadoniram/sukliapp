@@ -304,9 +304,9 @@ function askValue(a, cur) {
 }
 
 // ---------- add / edit an account ----------
-export function openAccount(id) {
+export function openAccount(id, preset = {}) {
   const db = get();
-  const a = id ? db.accounts.find((x) => x.id === id) : { name: '', cur: HOME, type: 'bank', open: 0, include: true, archived: false };
+  const a = id ? db.accounts.find((x) => x.id === id) : { name: '', cur: HOME, type: 'bank', open: 0, include: true, archived: false, ...preset };
   const used = id && db.txs.some((t) => !t.deleted && (t.acct === id || t.toAcct === id));
   const bal = id ? (balances(db).get(id) || 0) : 0;
   const curs = [...new Set([...favCurs(), ...db.accounts.map((x) => x.cur), ...allCurrencies()])];
@@ -329,6 +329,7 @@ export function openAccount(id) {
       <small class="hint">For Maya Savings, Binance Earn and the like. Sukli adds one small entry a day (Interest, or Crypto earned for crypto accounts) based on that day’s balance. It is an estimate, so set the rate your app shows.</small></div></div>
     <p class="hint" id="liabnote" ${['card', 'loan'].includes(a.type) ? '' : 'hidden'}>Debts do not earn interest. Record interest charges, late fees and penalties from the account page with “Add charge”.</p>
     <label class="check"><input type="checkbox" name="include" ${a.include ? 'checked' : ''}> Count in spendable total</label>
+    <label class="check"><input type="checkbox" name="invtab" ${a.invtab || ['crypto', 'invest'].includes(a.type) ? 'checked' : ''}> Show in the Investments tab (crypto, funds, MP2…)</label>
     ${id ? `<label class="check"><input type="checkbox" name="archived" ${a.archived ? 'checked' : ''}> Hide this account (archive)</label>` : ''}
     ${used ? '<p class="hint">Currency is locked because this account has entries.</p>' : ''}
     <div class="btnrow">${id && !used ? '<button type="button" class="btn danger ghost" data-del>Delete</button>' : ''}<button class="btn">Save</button></div></form>
@@ -349,7 +350,7 @@ export function openAccount(id) {
       dueDay: Math.min(31, Math.max(0, Math.round(num(fd.get('dueDay')) || 0))),
       apy: num(fd.get('apy')) > 0 ? num(fd.get('apy')) : 0,
       taxPct: Math.min(100, Math.max(0, num(fd.get('taxPct')) || 0)),
-      exchange: (fd.get('exchange') || '').trim(),
+      exchange: (fd.get('exchange') || '').trim(), invtab: fd.has('invtab'),
       interestFrom: fd.get('interestFrom') || today(),
     };
     if (isLiability({ type: fd.get('type') })) extra.apy = 0;

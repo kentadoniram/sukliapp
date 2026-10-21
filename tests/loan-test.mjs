@@ -1,8 +1,13 @@
-import { loanCalc, smartKind } from '../js/loancalc.js';
+import { loanCalc, smartKind, loanProgress } from '../js/loancalc.js';
 let bad=0; const ok=(n,c)=>{console.log((c?'PASS ':'FAIL ')+n); if(!c) bad++;};
 const c=loanCalc({principal:1200000,rate:6,months:120,fees:12000,lateFee:3});
 ok('monthly ~13322', Math.abs(c.monthly-13322.0)<5); ok('interest ~398,6xx', Math.abs(c.interest-398640)<500);
 ok('net received', c.net===1188000); ok('late each 3%', Math.abs(c.lateEach-c.monthly*0.03)<1e-6);
 ok('zero rate divides', Math.abs(loanCalc({principal:1200,rate:0,months:12}).monthly-100)<1e-9);
 ok('smart labels', smartKind('Credit to Cash')==='cash' && smartKind('Loan Payment')==='loanpay' && smartKind('credit card payment')==='cardpay' && smartKind('Loan')==='loan' && smartKind('lunch')==='');
+const L={principal:120000,rate:12,months:12,monthly:10661.85};
+const pr=loanProgress(L,[{date:'a',amount:10661.85},{date:'b',amount:10661.85}]);
+ok('first payment interest is 1% of principal', Math.abs(pr.rows[0].interest-1200)<0.01);
+ok('balance falls by principal', Math.abs(pr.balance-(120000-pr.principal))<0.01 && pr.principal>19000);
+ok('about 10 payments left', pr.paymentsLeft===10);
 process.exit(bad?1:0);

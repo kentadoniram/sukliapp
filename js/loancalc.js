@@ -17,3 +17,15 @@ export const smartKind = (text) => {
   return '';
 };
 
+
+// How a loan's payments split into interest and principal. Each payment first covers the interest of the month on what is still owed,
+// the rest reduces the principal. payments = [{ date, amount }] oldest first. An estimate: the real schedule is the lender's.
+export function loanProgress(L, payments) {
+  const r = (+L.rate || 0) / 100 / 12; let bal = +L.principal || 0, interest = 0, paid = 0; const rows = [];
+  for (const p of payments) {
+    const i = Math.min(bal * r, p.amount), pr = Math.min(bal, p.amount - i);
+    bal = Math.max(0, bal - pr); interest += i; paid += p.amount; rows.push({ date: p.date, amount: p.amount, interest: i, principal: pr });
+  }
+  const left = L.monthly > 0 && bal > 0 ? Math.min(L.months, Math.ceil((r > 0 ? -Math.log(1 - (bal * r) / L.monthly) / Math.log(1 + r) : bal / L.monthly) - 0.02)) : 0;
+  return { rows, paid, interest, principal: paid - interest, balance: bal, paymentsLeft: Number.isFinite(left) ? left : 0, count: payments.length };
+}

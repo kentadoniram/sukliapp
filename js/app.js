@@ -16,12 +16,14 @@ import { ratesInit } from './rates.js';
 import { initGestures } from './gestures.js';
 import { bin, autoPurge } from './bin.js';
 import { analytics } from './analytics.js';
+import { investments } from './invest.js';
 import './scan.js';
 import './compare.js';
 import './loans.js';
+import './trades.js';
 import { commitQuiet } from './core.js';
 
-const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook, bin, analytics };
+const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook, bin, analytics, invest: investments };
 let lastRoute = null, pending = false;
 // remember where you were on each screen so Back returns there instead of the top
 const seen = new Map(), stack = []; let curKey = '', backTo = null;

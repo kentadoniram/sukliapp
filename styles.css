@@ -626,3 +626,5 @@ html.kb .scrim { inset: auto; left: 0; right: 0; top: var(--vvt, 0px); height: v
 @media (max-width: 360px) { .wentpie { grid-template-columns: 1fr; } .donut.sm { width: min(220px, 70vw); height: min(220px, 70vw); } }
 .lpwarn { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--bad) 10%, var(--sheet)); border: 1px solid color-mix(in srgb, var(--bad) 30%, var(--rule)); font-size: calc(13px * var(--fs, 1)); } .lpwarn .ic { width: 15px; height: 15px; vertical-align: -2px; color: var(--bad); }
 .lpout { margin: 8px 0; }
+.seg.two3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; } .seg.two3 button { min-height: 40px; border-radius: 10px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); font-weight: 600; } .seg.two3 button.on { background: var(--line); color: #fff; border-color: var(--line); }
+.hold small .cg { color: var(--in); } .hold small .cr { color: var(--bad); }

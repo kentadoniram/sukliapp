@@ -1,10 +1,12 @@
 // Borrowing: a planner that shows what a loan really costs before you take it, recording a loan with fees taken upfront,
 // charges and late fees on a debt, and the "financial losses" card for Home. Rough first version.
-import { get, commit, uid, stamp, nowStamp, rateFor, findOrAddCategory, catMap, accountMap, balances, shiftMonth, groupColor, thisMonth, monthOf } from './core.js';
+import { homeFx as homeFxOf, get, commit, uid, stamp, nowStamp, rateFor, findOrAddCategory, catMap, accountMap, balances, shiftMonth, groupColor, thisMonth, monthOf } from './core.js';
 import { ACT, sheet, ic, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
-import { loanCalc, smartKind } from './loancalc.js';
-export { loanCalc, smartKind };
+import { loanCalc, smartKind, loanProgress } from './loancalc.js';
+export { loanCalc, smartKind, loanProgress };
+// payments into a loan account (not the money you received from it), oldest first, in the loan's currency
+export const loanPayments = (db, a) => db.txs.filter((t) => !t.deleted && t.kind === 'transfer' && t.toAcct === a.id && !t.loan).sort((x, y) => (x.date < y.date ? -1 : 1)).map((t) => ({ date: t.date, amount: t.toAmount != null ? t.toAmount : t.amount }));
 
 export const LOAN_KINDS = { home: 'Home loan', car: 'Car loan', personal: 'Personal loan', cash: 'Credit to cash', other: 'Other loan' };
 const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
@@ -86,7 +88,7 @@ export function loanBox(db, a, money) {
   if (dd && !paid) { const days = Math.round((new Date(today) - new Date(due)) / 86400000); if (days > 0) { const late = L && L.monthly && L.lateFee ? L.monthly * L.lateFee / 100 : 0; status = `<p class="lpwarn">${ic('spark')} Payment was due ${esc(due)} (${days} day${days === 1 ? '' : 's'} ago) and none is recorded this month.${late ? ` A late fee of about ${money(late, a.cur)} may apply.` : ''} Late payments can add penalties and hurt your credit record.</p>`; } else status = `<p class="hint">Next payment due ${esc(due)}${days === 0 ? ' (today)' : ` (in ${-days} day${days === -1 ? '' : 's'})`}.</p>`; }
   else if (dd && paid) status = '<p class="hint">This month’s payment is recorded.</p>';
   return `<div class="cardbox"><h3>${L ? esc(LOAN_KINDS[L.kind] || 'Loan') : 'Payments'}</h3>
-    ${L ? `<ul class="calfacts"><li><span>Borrowed</span><b>${money(L.principal, a.cur)}</b></li><li><span>Received after fees</span><b>${money(L.net, a.cur)}</b></li><li><span>Monthly payment</span><b>${money(L.monthly, a.cur)}</b></li><li><span>Rate and length</span><b>${L.rate}% · ${L.months} months</b></li></ul>` : ''}
+    ${L ? `<ul class="calfacts"><li><span>Borrowed</span><b>${money(L.principal, a.cur)}</b></li><li><span>Received after fees</span><b>${money(L.net, a.cur)}</b></li><li><span>Monthly payment</span><b>${money(L.monthly, a.cur)}</b></li><li><span>Rate and length</span><b>${L.rate}% · ${L.months} months</b></li></ul>${(() => { const pr = loanProgress(L, loanPayments(db, a)); return pr.count ? `<h3 class="subh">Paid so far (${pr.count} ${pr.count === 1 ? 'payment' : 'payments'})</h3><ul class="calfacts"><li><span>Total paid</span><b>${money(pr.paid, a.cur)}</b></li><li><span>Of which interest (estimate)</span><b class="cr">${money(pr.interest, a.cur)}</b></li><li><span>Of which principal</span><b>${money(pr.principal, a.cur)}</b></li><li><span>Still owed (principal)</span><b>${money(pr.balance, a.cur)}</b></li><li><span>Payments left</span><b>about ${pr.paymentsLeft}</b></li></ul>` : '<p class="hint">Payments you record as transfers into this account are split into interest and principal here.</p>'; })()}` : ''}
     ${status}
     <div class="btnrow tight"><button class="btn sm ghost" data-act="loan-charge" data-id="${a.id}">Add interest, late fee or penalty</button></div></div>`;
 }
@@ -99,8 +101,11 @@ export function lossCard(db, ym, coll, R) {
   const from = shiftMonth(ym, -11), in12 = (t) => monthOf(t.date) >= from && monthOf(t.date) <= ym;
   const by = new Map(); for (const t of tx.filter(in12)) { const n = (cm.get(t.cat) || {}).name || 'Other'; by.set(n, (by.get(n) || 0) + t.amount * (t.fx || 1)); }
   const tm = sum(taxes.filter(inM), (t) => t.tax * (t.fx || 1)), t12 = sum(taxes.filter(in12), (t) => t.tax * (t.fx || 1));
-  if (!tx.length && !taxes.length) return '';
+  const li = db.accounts.filter((a) => !a.deleted && a.loan).flatMap((a) => loanProgress(a.loan, loanPayments(db, a)).rows.map((x) => ({ date: x.date, v: x.interest * (homeFxOf(db, a.cur)) })));
+  const intM = li.filter((x) => x.date.startsWith(ym)).reduce((q, x) => q + x.v, 0), int12 = li.filter((x) => monthOf(x.date) >= from && monthOf(x.date) <= ym).reduce((q, x) => q + x.v, 0);
+  if (!tx.length && !taxes.length && !li.length) return '';
   return coll('h-loss', 'Money lost to fees and interest', `<ul class="calfacts"><li><span>This month</span><b class="cr">${R(sum(tx.filter(inM)))}</b></li><li><span>Last 12 months (by kind below)</span><b class="cr">${R(sum(tx.filter(in12)))}</b></li>
     ${[...by.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => `<li><span>${esc(k)}</span><b>${R(v)}</b></li>`).join('')}
+    ${int12 ? `<li><span>Loan interest paid, estimate (12 months${intM ? `, ${R(intM)} this month` : ''})</span><b>${R(int12)}</b></li>` : ''}
     ${t12 ? `<li><span>Tax taken from interest (12 months)</span><b>${R(t12)}</b></li>` : ''}</ul><p class="hint">Fees, interest charges, late fees and penalties you recorded.</p>`);
 }
