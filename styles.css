@@ -628,3 +628,13 @@ html.kb .scrim { inset: auto; left: 0; right: 0; top: var(--vvt, 0px); height: v
 .lpout { margin: 8px 0; }
 .seg.two3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; } .seg.two3 button { min-height: 40px; border-radius: 10px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); font-weight: 600; } .seg.two3 button.on { background: var(--line); color: #fff; border-color: var(--line); }
 .hold small .cg { color: var(--in); } .hold small .cr { color: var(--bad); }
+
+/* cards: every group sits in its own bordered card, and groups inside a group are nested cards */
+.coll { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 10px 12px 12px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.coll .coll { background: transparent; box-shadow: none; border-color: color-mix(in srgb, var(--rule) 80%, var(--ink2)); margin: 12px 0; }
+.coll .badge, .topgrp .badge { box-shadow: 0 0 0 4px var(--sheet); }
+.topgrp { margin: 18px 0; padding: 12px 12px 4px; border: 2px solid var(--rule); border-radius: 18px; background: color-mix(in srgb, var(--paper) 60%, var(--sheet)); }
+.topgrp.assets { border-color: color-mix(in srgb, var(--in) 55%, var(--rule)); } .topgrp.liabs { border-color: color-mix(in srgb, var(--bad) 55%, var(--rule)); }
+.topgrp > .hint { margin: 0 0 4px; } .tophead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .tophead h2 { margin: 0; } .tophead b { font-size: calc(18px * var(--fs, 1)); }
+.topgrp.assets .tophead b { color: var(--in); } .topgrp.liabs .tophead b { color: var(--bad); }
+.topgrp .coll { margin: 10px 0; }

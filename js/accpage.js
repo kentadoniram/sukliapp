@@ -30,8 +30,8 @@ export function applyTypes(st = {}) {
 const typeOrder = ['cash', 'bank', 'ewallet', 'crypto', 'invest', 'asset', 'other', 'card', 'loan'];
 
 // ---- view choices (remembered on this device) ----
-const VKEY = 'sukli-acctview';
-const view = (() => { try { return { group: 'cur', sort: 'high', ...JSON.parse(localStorage.getItem(VKEY) || '{}') }; } catch { return { group: 'cur', sort: 'high' }; } })();
+const VKEY = 'sukli-acctview2';
+const view = (() => { try { return { group: 'class', sort: 'high', ...JSON.parse(localStorage.getItem(VKEY) || '{}') }; } catch { return { group: 'class', sort: 'high' }; } })();
 const saveView = () => { try { localStorage.setItem(VKEY, JSON.stringify(view)); } catch { /* blocked */ } };
 const render = () => window.dispatchEvent(new Event('sukli-render'));
 const num = (s) => parseFloat(String(s ?? '').replace(/,/g, ''));
@@ -76,9 +76,13 @@ export function accounts(db) {
     groups = [...m.entries()].map(([k, list]) => ({ key: 'ex-' + k, title: k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)) }))
       .sort((a, b) => (a.title === 'No exchange') - (b.title === 'No exchange') || b.base - a.base);
   } else if (view.group === 'class') {
-    const cls = (a) => (isLiability(a) || val(a) < 0 ? 'Liabilities' : ['invest', 'crypto'].includes(a.type) ? 'Investments and crypto' : ['asset'].includes(a.type) ? 'Property and other assets' : 'Cash and bank');
-    const m = new Map(['Cash and bank', 'Investments and crypto', 'Property and other assets', 'Liabilities'].map((k) => [k, []])); for (const a of shown) m.get(cls(a)).push(a);
-    groups = [...m.entries()].filter(([, l]) => l.length).map(([k, list]) => ({ key: 'cls-' + k, title: k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)) }));
+    const cls = (a) => {
+      if (isLiability(a) || val(a) < 0) return a.type === 'card' ? 'Credit cards' : (a.type === 'loan' || a.loan) ? 'Loans and money owed' : 'Other debts';
+      return ['invest', 'crypto'].includes(a.type) ? 'Investments and crypto' : a.type === 'asset' ? 'Property and other assets' : 'Cash and bank';
+    };
+    const order = [['Assets', ['Cash and bank', 'Investments and crypto', 'Property and other assets']], ['Liabilities', ['Credit cards', 'Loans and money owed', 'Other debts']]];
+    const m = new Map(order.flatMap(([, ks]) => ks).map((k) => [k, []])); for (const a of shown) m.get(cls(a)).push(a);
+    groups = []; for (const [top, ks] of order) for (const k of ks) { const list = m.get(k); if (list.length) groups.push({ key: 'cls-' + k, title: k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)), top }); }
   } else if (view.group === 'type') {
     const m = new Map(); for (const a of shown) { if (!m.has(a.type)) m.set(a.type, []); m.get(a.type).push(a); }
     groups = [...m.entries()].map(([k, list]) => ({ key: 'type-' + k, title: typeNames[k] || k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)), t: k }))
@@ -96,7 +100,10 @@ export function accounts(db) {
       <span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(meta.join(' · '))}</small>${bar}</span>
       <span class="ramt"><b class="${v < 0 ? 'neg' : ''}">${money(v, a.cur)}</b>${eq(v, a.cur, rateFor(db, a.cur)) ? `<small>${eq(v, a.cur, rateFor(db, a.cur))}</small>` : ''}</span></button>`;
   };
-  const sections = groups.map((g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.total)}</small>`,
+  const secOf = (g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.top === 'Liabilities' ? Math.abs(g.total) : g.total)}</small>`,
+    `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, '');
+  const sections = view.group === 'class' ? ['Assets', 'Liabilities'].map((top) => { const gs = groups.filter((g) => g.top === top); if (!gs.length) return ''; const tot = sum(gs.map((g) => g.total));
+    return `<section class="topgrp ${top === 'Assets' ? 'assets' : 'liabs'}"><div class="tophead"><h2>${top}</h2><b>${money(Math.abs(tot))}</b></div><p class="hint">${top === 'Assets' ? 'What you own: cash, bank, investments, property.' : 'What you owe: credit cards, loans, money owed.'}</p>${gs.map(secOf).join('')}</section>`; }).join('') : groups.map((g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.total)}</small>`,
     `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, '')).join('');
   const segs = (name, opts, cur) => `<div class="seg sm" role="group" aria-label="${name}">${opts.map(([v, l]) => `<button type="button" data-act="aview" data-k="${name}" data-v="${v}" class="${cur === v ? 'on' : ''}" aria-pressed="${cur === v}">${l}</button>`).join('')}</div>`;
   return `${hdr('Accounts', '<button class="btn sm ghost" data-act="loan-plan">Loan planner</button> <button class="btn sm" data-act="acct-new">Add account</button>')}

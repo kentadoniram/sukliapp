@@ -4,6 +4,7 @@ A private money tracker that runs entirely in the browser. Your data stays on yo
 
 ## What's new in v12
 
+- **Bordered cards and Assets / Liabilities.** Every group is a bordered card, and groups inside a group are nested cards. Accounts now opens as two big cards, **Assets** (green: cash and bank, investments and crypto, property and other assets) and **Liabilities** (red: credit cards, loans and money owed, other debts), each with its total. The other groupings (Currency, Category, Exchange) are still one tap away.
 - **Investments tab** (menu, and you can put it in the bottom bar): crypto grouped by exchange, every coin its own balance with its own market value (price in your home currency, share of the exchange), "+ Add a coin to <exchange>", plus investments and other products such as MP2. Tick "show in Investments" on any account to include it.
 - **Buy / sell / convert** (`js/trades.js`, `js/tradecalc.js`): recorded between your cash account and the holding, marked as a trade (not ordinary spending or a plain transfer). Fees are saved as a financial loss; realized gains and losses use average cost (units you held before Sukli have no known cost, so they never inflate a gain). The holding page lists its trades.
 - **Loan payments split into interest and principal** on the loan's account page (estimate from the rate: each payment first covers that month's interest), with total paid, what is still owed and about how many payments are left. Estimated loan interest also appears in "Money lost to fees and interest".
