@@ -9,9 +9,8 @@ const NOISE = new Set(['station', 'sta', 'stop', 'terminal', 'mrt', 'lrt', 'the'
 export const placeKey = (s) => canon(s).split(' ').filter((w) => w && !NOISE.has(w)).sort().join(' ');
 const clean = (s) => String(s || '').replace(/\s+/g, ' ').trim();
 
-const MODEPFX = /^\s*(bus|train|mrt|lrt|jeep(ney)?|taxi|grab|tricycle|trike|ferry|metro|subway|shinkansen|jr)\s*[:：]\s*/i;
 export function parseRoute(name) {
-  const n = clean(String(name || '').normalize('NFKC').replace(MODEPFX, ''));
+  const n = clean(String(name || '').normalize('NFKC'));
   if (!n || n.length > 60) return null;
   let parts = n.split(SEP);
   if (parts.length === 1) { const m = n.match(/^([^\d-]{3,})-([^\d-]{3,})$/); if (m) parts = [m[1], m[2]]; }   // "San Pedro-Ayala One"
@@ -75,7 +74,7 @@ export function suggestTrips(db, isTransport, { hour = 12, from = '', to = '', p
   for (const e of stats.dir.values()) {
     if (!match(e.fk, fk) || !match(e.tk, tk)) continue;
     let s = Math.pow(e.n, 0.7) * (0.12 + hourWeight(e.hours, hour));
-    if (home && !pk) {
+    if (home) {
       if (hour >= 4 && hour <= 11) { if (e.fk === home) s *= 2.5; if (e.tk === home) s *= 0.08; }      // you do not travel towards home at 6 am
       else if (hour >= 17) { if (e.tk === home) s *= 2.5; if (e.fk === home) s *= 0.3; }
     }
@@ -97,21 +96,3 @@ export const isTransportCat = (cats) => { const m = new Map(cats.map((c) => [c.i
 
 // words typed in the label that mean "a trip": bus, MRT, jeepney, taxi, Grab, train, ferry, tricycle, IC card, Suica...
 export const transportWord = (t) => /(^|[^a-z])(bus|mrt|lrt|jeep(ney)?|train|tricycle|trike|taxi|grab|ferry|metro|subway|shinkansen|suica|pasmo|icoca|ic card|densha|basu)([^a-z]|$)|バス|電車|地下鉄|タクシー|新幹線|電車賃/i.test(String(t || ''));
-
-// the kind of vehicle, from what was typed ("bus", "Train: A - B") or from the category name; "" when unknown
-const MODES = { bus: 'Bus', train: 'Train', mrt: 'MRT', lrt: 'LRT', jeep: 'Jeepney', jeepney: 'Jeepney', taxi: 'Taxi', grab: 'Grab', tricycle: 'Tricycle', trike: 'Tricycle', ferry: 'Ferry', metro: 'Metro', subway: 'Subway', shinkansen: 'Shinkansen', jr: 'Train', 'ic card': 'Train', suica: 'Train', pasmo: 'Train', icoca: 'Train', basu: 'Bus', densha: 'Train', バス: 'Bus', 電車: 'Train', 地下鉄: 'Subway', タクシー: 'Taxi', 新幹線: 'Shinkansen' };
-export function modeOf(text, catName = '') {
-  for (const src of [String(text || ''), String(catName || '')]) {
-    const t = src.toLowerCase(); let best = null;
-    for (const k of Object.keys(MODES)) { const i = /^[a-z ]+$/.test(k) ? t.search(new RegExp('(^|[^a-z])' + k + '([^a-z]|$)')) : t.indexOf(k); if (i >= 0 && (best === null || i < best.i)) best = { i, k }; }
-    if (best) return MODES[best.k];
-  }
-  return '';
-}
-// "Bus: One Ayala - San Pedro" with both stops, else "Bus Commute"
-export const tripLabel = (mode, from, to) => {
-  const m = mode || 'Transport';
-  return from && to ? `${m}: ${routeName(from, to)}` : `${m} Commute`;
-};
-// a label that only names the vehicle ("bus", "Train", "Bus Commute") says nothing yet about the trip
-export const bareMode = (text) => { const t = String(text || '').trim().toLowerCase().replace(/\s+commute$/, ''); return !!t && t.split(/\s+/).length <= 2 && !/[-–→>:]/.test(t) && !!modeOf(t) && Object.keys(MODES).some((k) => k === t || MODES[k].toLowerCase() === t); };

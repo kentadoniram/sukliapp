@@ -31,7 +31,7 @@ ACT.menu = () => {
     <ul>${item('home', 'Home', 'home')}${item('ledger', 'Entries', 'list')}${item('calendar', 'Calendar', 'calendar')}${item('budget', 'Budget', 'pie')}${item('cashflow', 'Cash flow', 'flow')}${item('outlook', 'Outlook', 'spark')}${item('analytics', 'Analytics', 'chart')}${item('accounts', 'Accounts', 'wallet')}${item('review', 'Review', 'check', n)}</ul>
     <h3>Categories</h3>
     <ul>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
-    <ul>${'<li><a href="#" data-act="scan">'}${ic('camera')}<span>Scan a receipt</span></a></li><li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan planner</span></a></li></ul>
+    <ul>${'<li><a href="#" data-act="scan">'}${ic('camera')}<span>Scan a receipt</span></a></li>${''}</ul>
     <ul class="last">${item('bin', 'Recycle bin', 'trash')}${item('settings', 'Settings', 'gear')}</ul></nav>`;
   document.body.appendChild(wrap);
   document.body.classList.add('noscroll');

@@ -110,7 +110,7 @@ export function home(db) {
 }
 // the cards on Home, in the order you chose in Settings. [id, name, heavy: drawn a moment later so the numbers above appear at once]
 export const HOME_SECTIONS = [
-  ['spendable', 'Spendable now', false], ['alerts', 'Reminders and items to check', false], ['insights', 'Worth knowing', true], ['pace', 'Pace', false], ['projpie', 'Spending vs expected income', false],
+  ['spendable', 'Spendable now', false], ['alerts', 'Reminders and items to check', false], ['insights', 'Worth knowing', true], ['pace', 'Pace', false],
   ['rolling', 'Daily average, rolling 7 days', false], ['outlook', 'Next month outlook', true], ['went', 'Where it went', false], ['came', 'Where it came from', false],
   ['six', 'Last 6 months', false], ['latest', 'Latest entries', false],
 ];
@@ -134,7 +134,6 @@ function homeSection(id, c) {
     case 'alerts': { const n = reviewCount(db); return `${reminderBanner(db)}${n ? `<a class="banner" href="#/review"><strong>${n} ${n === 1 ? 'entry needs' : 'entries need'} a quick check</strong><span>Confirm the guessed categories</span>${ic('right')}</a>` : ''}`; }
     case 'insights': { const ins = insights(db, ui.month); return ins.length ? coll('h-ins', 'Worth knowing', `<ul class="ins">${ins.map((x) => `<li class="${x.tone}">${x.id ? `<button class="insb" data-act="edit" data-id="${x.id}">${esc(x.text)}</button>` : esc(x.text)}</li>`).join('')}</ul>`) : ''; }
     case 'pace': return paceCard(db);
-    case 'projpie': return projPie(db);
     case 'rolling': return rollingCard(db);
     case 'outlook': return outlookCard(db);
     case 'went': { const out = totals(db, ui.month), groups = [...out.by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8), max = groups.length ? Math.max(groups[0][1], ...groups.map(([g]) => budgetOf(db, g))) : 1;
@@ -827,33 +826,3 @@ ACT['arr-tab-off'] = (el) => commit((d) => { d.settings.tabs = tabIds(d).filter(
 ACT['arr-tab-on'] = (el) => commit((d) => { const t = tabIds(d); if (t.length < 4) d.settings.tabs = [...t, el.dataset.id]; });
 ACT['arr-show'] = (el) => commit((d) => { const L = homeLayout(d), id = el.dataset.id; d.settings.homeLayout = { order: L.order, hidden: el.checked ? L.hidden.filter((x) => x !== id) : [...L.hidden, id] }; });
 ACT['arr-reset'] = () => commit((d) => { delete d.settings.tabs; delete d.settings.homeLayout; });
-
-// ---------------- Spending against the income you expect this month ----------------
-// expected income = what you set yourself, else the middle value of the last 3 months that had income; never less than what already came in
-export function projIncome(db, ym) {
-  const got = totals(db, ym, 'income').total, own = +((db.settings || {}).projIncome) || 0;
-  if (own > 0) return { v: Math.max(own, got), got, own: true };
-  const prev = [1, 2, 3, 4, 5, 6].map((i) => totals(db, shiftMonth(ym, -i), 'income').total).filter((x) => x > 0).slice(0, 3).sort((a, b) => a - b);
-  const typ = prev.length ? prev[Math.floor(prev.length / 2)] : 0;
-  return { v: Math.max(typ, got), got, own: false, typ };
-}
-function projPie(db) {
-  const ym = ui.month, out = totals(db, ym), pi = projIncome(db, ym), inc = pi.v, spent = out.total;
-  if (!(inc > 0)) return coll('h-proj', 'Spending vs expected income', `<p class="empty">No income found yet to compare with.</p><button type="button" class="btn ghost" data-act="proj-set">Set my expected monthly income</button>`);
-  const all = [...out.by.entries()].sort((a, b) => b[1] - a[1]), top = all.slice(0, 6), rest = all.slice(6).reduce((a, [, v]) => a + v, 0);
-  const slices = top.map(([g, v]) => ({ g, v })); if (rest > 0) slices.push({ g: 'Everything else', v: rest, other: true });
-  const left = inc - spent, over = left < 0, den = Math.max(inc, spent), C = 2 * Math.PI * 52; let acc = 0;
-  const arcs = slices.map((x) => { const len = (x.v / den) * C, d = Math.max(0, len - 1.2);
-    const el = `<circle class="slice" ${x.other ? '' : `data-act="grp" data-g="${esc(x.g)}" data-k="expense"`} data-tip="${esc(`${x.g}: ${money(x.v)} (${Math.round((x.v / inc) * 100)}% of expected income)`)}" cx="70" cy="70" r="52" fill="none" stroke="${groupColor(x.other ? 'Others' : x.g)}" stroke-width="26" stroke-dasharray="${d.toFixed(2)} ${(C - d).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 70 70)"></circle>`; acc += len; return el; }).join('');
-  const track = over ? '' : `<circle cx="70" cy="70" r="52" fill="none" stroke="var(--rule)" stroke-width="26" stroke-dasharray="${Math.max(0, (left / den) * C - 1.2).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 70 70)"></circle>`;
-  const pct = Math.round((spent / inc) * 100);
-  return coll('h-proj', 'Spending vs expected income', `<div class="wentpie"><svg class="donut sm" viewBox="0 0 140 140" role="img" aria-label="${pct}% of expected income spent">${track}${arcs}<text x="70" y="68" text-anchor="middle" class="dv">${pct}%</text><text x="70" y="85" text-anchor="middle" class="dl">${over ? 'over income' : 'spent'}</text></svg>
-    <ul class="pielegend"><li><div class="pj"><span>Expected income</span><b>${money(inc)}</b></div></li><li><div class="pj"><span>Came in so far</span><b>${money(pi.got)}</b></div></li><li><div class="pj"><span>Spent</span><b>${money(spent)}</b></div></li><li><div class="pj ${over ? 'bad' : ''}"><span>${over ? 'Over by' : 'Left'}</span><b>${money(Math.abs(left))}</b></div></li></ul></div>
-    <p class="hint">${pi.own ? 'Using the income you set.' : pi.typ ? `Expected income is your usual month (middle of your last ${Math.min(3, [1, 2, 3, 4, 5, 6].filter((i) => totals(db, shiftMonth(ym, -i), 'income').total > 0).length)} months with income)${pi.got > pi.typ ? ', raised to what already came in' : ''}.` : 'No earlier months to go on, so this is what came in so far.'} Tap a slice for what is in it. <button type="button" class="linkbtn" data-act="proj-set">Set my own</button></p>`);
-}
-ACT['proj-set'] = async () => {
-  const cur = (get().settings || {}).projIncome || '';
-  const v = await promptDialog('Expected income per month (leave empty to use your usual)', String(cur));
-  if (v == null) return; const n = parseFloat(String(v).replace(/,/g, ''));
-  commit((d) => { if (n > 0) d.settings.projIncome = n; else delete d.settings.projIncome; });
-};

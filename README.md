@@ -4,8 +4,6 @@ A private money tracker that runs entirely in the browser. Your data stays on yo
 
 ## What's new in v12
 
-- **Spending vs expected income** (new Home card, arrangeable in Settings): a ring of your expected monthly income filled by what you spent, split by group, with the % spent, income came in, spent and left. Expected income = the middle of your last 3 months with income (never less than what already came in), or the amount you set with "Set my own". Pies are larger with smaller side text.
-- **Trip labels:** a transport entry saved without From/To is named "Bus Commute" / "Train Commute"; with both stops, "Bus: One Ayala - San Pedro". Trip chains follow the order you entered them, not the clock time, so catching up at night still gives the right starting point.
 - **Home cards and tabs are yours to arrange** (Settings, Tabs and Home cards): reorder or hide every Home card, and choose up to 4 bottom tabs from Home, Entries, Calendar, Accounts, Budget, Cash flow, Outlook and Analytics (the + button stays in the middle). Heavy cards now draw a moment after the top of Home so it appears at once.
 - **Back returns to where you were** (including after opening Next month outlook): each screen remembers its scroll position (`js/app.js`).
 - **Where it went** can be bars or a pie (choice remembered on the device): percentages on the right, tap a slice or a name for the detail. **Daily average** now has a 30-day bar graph of daily spending under it.

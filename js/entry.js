@@ -7,7 +7,7 @@ import { buildGraph, makeResolver, explain } from './simgraph.js';
 import { nameRules } from './merchants.js';
 import { compareCard, relatedNames } from './compare.js';
 import { guessLabel, transferLabel } from './label.js';
-import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat, transportWord, modeOf, tripLabel, bareMode } from './route.js';
+import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat, transportWord } from './route.js';
 import { buildModel, predict, suggest, lookup, catCandidates, byAmount, recentNames } from './predict.js';
 import { evalExpr, isExpr, tidy } from './calc.js';
 import { predictFee, safetyCheck, typeGroupName, typeGroupOrder, transferHints } from './finance.js';
@@ -402,21 +402,17 @@ export function openEntry(opts = {}) {
     const c = (w && cats.find((x) => isT(x.id) && x.name.toLowerCase().includes(w))) || cats.find((x) => x.group === 'Transportation') || cats.find((x) => isT(x.id));
     if (c) { f.cat = c.id; f.guessWhy = 'you typed a transport word'; }
   }
-  // where the last trip you entered today ended: you are probably there now. Entry ORDER counts, not the clock time, so a night of catching up
-  // ("Shibuya - Harajuku" then "Harajuku - Shibuya") still chains correctly.
-  function prevTrip() {
-    const day = String(f.date).slice(0, 10), isT = isTransportCat(get().categories), txs = get().txs; let best = '';
-    const stop = existing ? txs.findIndex((t) => t.id === existing.id) : txs.length;
-    for (let i = 0; i < (stop < 0 ? txs.length : stop); i++) { const t = txs[i]; if (t.deleted || t.kind !== 'expense' || !isT(t.cat) || String(t.date).slice(0, 10) !== day) continue; const r = parseRoute(t.name) || (t.from && t.to ? { to: t.to } : null); if (r) best = r.to; }
-    return best;
+  function prevTrip() {                                                    // where the last trip today ended: you are probably there now
+    const day = String(f.date).slice(0, 10), isT = isTransportCat(get().categories); let best = null;
+    for (const t of get().txs) { if (t.deleted || t.kind !== 'expense' || !isT(t.cat) || String(t.date).slice(0, 10) !== day || t.date >= f.date || (existing && t.id === existing.id)) continue; const r = parseRoute(t.name) || (t.from && t.to ? { to: t.to } : null); if (r && (!best || t.date > best.date)) best = { date: t.date, to: r.to }; }
+    return best ? best.to : '';
   }
-  const modeNow = () => modeOf(f.name, (catMap(get()).get(f.cat) || {}).name);
   function tripName() {
-    if (f.from.trim() && f.to.trim() && (!f.name.trim() || f.name === f.autoName || parseRoute(f.name) || bareMode(f.name))) { f.name = tripLabel(modeNow(), f.from, f.to); f.autoName = f.name; $f('f-name').value = f.name; refreshPred(); renderSugg(); renderNameHelp(); }
+    if (f.from.trim() && f.to.trim() && (!f.name.trim() || f.name === f.autoName || parseRoute(f.name))) { f.name = routeName(f.from, f.to); f.autoName = f.name; $f('f-name').value = f.name; refreshPred(); renderSugg(); renderNameHelp(); }
     if (f.from.trim() && f.to.trim() && !f.catTouched) { const x = suggestTrips(get(), isTransportCat(get().categories), { hour: hourOf(f.date), from: f.from, to: f.to, limit: 1 })[0]; if (x && x.cat && x.cat !== f.cat) { f.cat = x.cat; f.guessWhy = 'your usual for this trip'; renderCats(); } }
   }
   function pickTrip(x) {
-    f.from = x.from; f.to = x.to; if (!f.name.trim() || f.name === f.autoName || parseRoute(f.name) || bareMode(f.name)) { f.name = tripLabel(modeNow(), x.from, x.to); f.autoName = f.name; $f('f-name').value = f.name; }
+    f.from = x.from; f.to = x.to; if (!f.name.trim() || f.name === f.autoName || parseRoute(f.name)) { f.name = x.name; f.autoName = x.name; $f('f-name').value = x.name; }
     if (x.cat && (!f.catTouched || !tripCat())) { f.cat = x.cat; f.catTouched = false; f.guessWhy = 'your usual for this trip'; }
     if (!num(f.amount) && x.amount) { f.amount = String(x.amount); $f('f-amount').value = f.amount; updateFxVal && updateFxVal(); }
     refreshPred(); renderCats(); renderTrip(); renderSugg();
@@ -439,7 +435,7 @@ export function openEntry(opts = {}) {
       <datalist id="placelist">${places.map((p) => `<option value="${esc(p.name)}">`).join('')}</datalist><div id="tripchips"></div></div>`;
     tripChips();
   }
-  function pickCat(id) { const nm = $f('f-name'); if (nm && nm.value !== f.name) f.name = nm.value; if (!f.catTouched && f.cat && f.cat !== id) f.guessed = f.cat; f.cat = id; f.catTouched = true; }
+  function pickCat(id) { if (!f.catTouched && f.cat && f.cat !== id) f.guessed = f.cat; f.cat = id; f.catTouched = true; }
 
   // a new name that looks like one you already use: ask, remember the answer
   function renderNameHelp() {
@@ -665,13 +661,10 @@ export function openEntry(opts = {}) {
     }
     // a blank label is filled in: a transfer gets "from - to", other entries get the usual label for this category and amount, and go to Review
     let label = f.name.trim(), autoName = false;
-    if (f.kind === 'expense' && tripCat() && label && bareMode(label)) {      // only "bus" was typed: name the trip
-      const mode = modeNow(); label = tripLabel(mode, f.from.trim(), f.to.trim()); autoName = true;
-    } else if (!label && f.kind === 'expense' && tripCat() && !(f.from.trim() && f.to.trim())) { label = tripLabel(modeNow(), '', ''); autoName = true; }
     if (!label) {
       autoName = true;
       if (f.kind === 'transfer') label = transferLabel(a, acctOf(f.toAcct));
-      else if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) label = tripLabel(modeNow(), f.from.trim(), f.to.trim());
+      else if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) label = routeName(f.from, f.to);
       else if (f.kind === 'expense' && tripCat() && (() => { const x = suggestTrips(db2, isTransportCat(db2.categories), { hour: hourOf(f.date), prevTo: prevTrip(), limit: 1 })[0]; if (x && x.p >= 0.4) { label = x.name; if (!f.from.trim() && !f.to.trim()) { f.from = x.from; f.to = x.to; } return true; } return false; })()) flag = 'review';
       else { label = guessLabel(db2, { kind: f.kind, cat, amount, acct: a.id, hour: hourOf(f.date) }).name; flag = 'review'; }
     }
