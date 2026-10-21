@@ -6,8 +6,10 @@ import {
 import { buildGraph, makeResolver, explain } from './simgraph.js';
 import { nameRules } from './merchants.js';
 import { compareCard, relatedNames } from './compare.js';
+import { smartKind, openLoanPlanner } from './loans.js';
+import { isLiability } from './finance.js';
 import { guessLabel, transferLabel } from './label.js';
-import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat, transportWord } from './route.js';
+import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat, transportWord, modeOf, tripLabel, bareMode } from './route.js';
 import { buildModel, predict, suggest, lookup, catCandidates, byAmount, recentNames } from './predict.js';
 import { evalExpr, isExpr, tidy } from './calc.js';
 import { predictFee, safetyCheck, typeGroupName, typeGroupOrder, transferHints } from './finance.js';
@@ -360,6 +362,7 @@ export function openEntry(opts = {}) {
       else if (f.pred.cats[0]) { f.cat = f.pred.cats[0].id; f.guessWhy = ''; }
     }
     typedTransport();
+    renderSmart();
     renderCats();
     if (tripCat() !== tripShown) renderTrip();
     renderSafety();
@@ -402,17 +405,21 @@ export function openEntry(opts = {}) {
     const c = (w && cats.find((x) => isT(x.id) && x.name.toLowerCase().includes(w))) || cats.find((x) => x.group === 'Transportation') || cats.find((x) => isT(x.id));
     if (c) { f.cat = c.id; f.guessWhy = 'you typed a transport word'; }
   }
-  function prevTrip() {                                                    // where the last trip today ended: you are probably there now
-    const day = String(f.date).slice(0, 10), isT = isTransportCat(get().categories); let best = null;
-    for (const t of get().txs) { if (t.deleted || t.kind !== 'expense' || !isT(t.cat) || String(t.date).slice(0, 10) !== day || t.date >= f.date || (existing && t.id === existing.id)) continue; const r = parseRoute(t.name) || (t.from && t.to ? { to: t.to } : null); if (r && (!best || t.date > best.date)) best = { date: t.date, to: r.to }; }
-    return best ? best.to : '';
+  // where the last trip you entered today ended: you are probably there now. Entry ORDER counts, not the clock time, so a night of catching up
+  // ("Shibuya - Harajuku" then "Harajuku - Shibuya") still chains correctly.
+  function prevTrip() {
+    const day = String(f.date).slice(0, 10), isT = isTransportCat(get().categories), txs = get().txs; let best = '';
+    const stop = existing ? txs.findIndex((t) => t.id === existing.id) : txs.length;
+    for (let i = 0; i < (stop < 0 ? txs.length : stop); i++) { const t = txs[i]; if (t.deleted || t.kind !== 'expense' || !isT(t.cat) || String(t.date).slice(0, 10) !== day) continue; const r = parseRoute(t.name) || (t.from && t.to ? { to: t.to } : null); if (r) best = r.to; }
+    return best;
   }
+  const modeNow = () => modeOf(f.name, (catMap(get()).get(f.cat) || {}).name);
   function tripName() {
-    if (f.from.trim() && f.to.trim() && (!f.name.trim() || f.name === f.autoName || parseRoute(f.name))) { f.name = routeName(f.from, f.to); f.autoName = f.name; $f('f-name').value = f.name; refreshPred(); renderSugg(); renderNameHelp(); }
+    if (f.from.trim() && f.to.trim() && (!f.name.trim() || f.name === f.autoName || parseRoute(f.name) || bareMode(f.name))) { f.name = tripLabel(modeNow(), f.from, f.to); f.autoName = f.name; $f('f-name').value = f.name; refreshPred(); renderSugg(); renderNameHelp(); }
     if (f.from.trim() && f.to.trim() && !f.catTouched) { const x = suggestTrips(get(), isTransportCat(get().categories), { hour: hourOf(f.date), from: f.from, to: f.to, limit: 1 })[0]; if (x && x.cat && x.cat !== f.cat) { f.cat = x.cat; f.guessWhy = 'your usual for this trip'; renderCats(); } }
   }
   function pickTrip(x) {
-    f.from = x.from; f.to = x.to; if (!f.name.trim() || f.name === f.autoName || parseRoute(f.name)) { f.name = x.name; f.autoName = x.name; $f('f-name').value = x.name; }
+    f.from = x.from; f.to = x.to; if (!f.name.trim() || f.name === f.autoName || parseRoute(f.name) || bareMode(f.name)) { f.name = tripLabel(modeNow(), x.from, x.to); f.autoName = f.name; $f('f-name').value = f.name; }
     if (x.cat && (!f.catTouched || !tripCat())) { f.cat = x.cat; f.catTouched = false; f.guessWhy = 'your usual for this trip'; }
     if (!num(f.amount) && x.amount) { f.amount = String(x.amount); $f('f-amount').value = f.amount; updateFxVal && updateFxVal(); }
     refreshPred(); renderCats(); renderTrip(); renderSugg();
@@ -435,9 +442,26 @@ export function openEntry(opts = {}) {
       <datalist id="placelist">${places.map((p) => `<option value="${esc(p.name)}">`).join('')}</datalist><div id="tripchips"></div></div>`;
     tripChips();
   }
-  function pickCat(id) { if (!f.catTouched && f.cat && f.cat !== id) f.guessed = f.cat; f.cat = id; f.catTouched = true; }
+  function pickCat(id) { const nm = $f('f-name'); if (nm && nm.value !== f.name) f.name = nm.value; if (!f.catTouched && f.cat && f.cat !== id) f.guessed = f.cat; f.cat = id; f.catTouched = true; }
 
   // a new name that looks like one you already use: ask, remember the answer
+  // labels like "Loan Payment", "Credit Card Payment", "Credit to Cash" point to a different kind of entry: offer it (never switches by itself)
+  function renderSmart() {
+    let el = form.querySelector('#smarthint');
+    if (!el) { const nf = $f('namefield'); if (!nf) return; el = document.createElement('div'); el.id = 'smarthint'; nf.after(el); }
+    const k = smartKind(f.name); let html = '';
+    if (k === 'cash') html = `<button type="button" class="chip" data-e="smart" data-v="cash">Credit to cash: see the fees and interest first</button>`;
+    else if (k === 'loan') html = `<button type="button" class="chip" data-e="smart" data-v="loan">Taking a loan? Open the loan planner</button>`;
+    else if ((k === 'cardpay' || k === 'loanpay') && f.kind !== 'transfer') html = `<button type="button" class="chip" data-e="smart" data-v="${k}">This is money moving to ${k === 'cardpay' ? 'your card' : 'your loan'}: record it as a transfer</button>`;
+    el.innerHTML = html ? `<div class="chips">${html}</div>` : '';
+  }
+  function smartAct(v) {
+    if (v === 'cash') return openLoanPlanner({ kind: 'cash' });
+    if (v === 'loan') return openLoanPlanner({ kind: 'personal' });
+    const accts = get().accounts.filter((a) => !a.deleted && !a.archived), t = accts.filter((a) => (v === 'cardpay' ? a.type === 'card' : a.type === 'loan' || a.loan) && a.id !== f.acct).sort((x, y) => (y.loan ? 1 : 0) - (x.loan ? 1 : 0))[0];
+    form.querySelector('[data-e=kind][data-v=transfer]').click();
+    if (t) { f.toAcct = t.id; if (!num(f.amount) && t.loan && t.loan.monthly) { f.amount = String(t.loan.monthly); $f('f-amount').value = f.amount; } renderAccts(); renderFx(); syncCross(); }
+  }
   function renderNameHelp() {
     let el = form.querySelector('#namehelp');
     if (!el) { const nf = $f('namefield'); if (!nf) return; el = document.createElement('div'); el.id = 'namehelp'; el.className = 'namehelp'; nf.after(el); }
@@ -554,6 +578,7 @@ export function openEntry(opts = {}) {
         else { const c = catMap(get()).get(f.cat); if (c && !(c.kind === v || c.kind === 'both')) { f.cat = ''; f.catTouched = false; } }
         arrange(); renderSeg(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderSugg(); renderSafety(); break;
       case 'swapacct': { const t = f.acct; f.acct = f.toAcct; f.toAcct = t; f.acctTouched = true; f.acctSuggested = false; f.feeTouched = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; f.cRate = ''; renderAccts(); renderFx(); syncCross(); renderSugg(); break; }
+      case 'smart': smartAct(v); break;
       case 'qtab': f.qtab = v; f.qtabManual = true; renderFreq(); break;
       case 'pick': applyPick(v); break;
       case 'acctpick': { const to = b.dataset.which === 'to', sel = $f(to ? 'f-to' : 'f-acct'), a = acctOf(f.acct);
@@ -661,10 +686,13 @@ export function openEntry(opts = {}) {
     }
     // a blank label is filled in: a transfer gets "from - to", other entries get the usual label for this category and amount, and go to Review
     let label = f.name.trim(), autoName = false;
+    if (f.kind === 'expense' && tripCat() && label && bareMode(label)) {      // only "bus" was typed: name the trip
+      const mode = modeNow(); label = tripLabel(mode, f.from.trim(), f.to.trim()); autoName = true;
+    } else if (!label && f.kind === 'expense' && tripCat() && !(f.from.trim() && f.to.trim())) { label = tripLabel(modeNow(), '', ''); autoName = true; }
     if (!label) {
       autoName = true;
       if (f.kind === 'transfer') label = transferLabel(a, acctOf(f.toAcct));
-      else if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) label = routeName(f.from, f.to);
+      else if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) label = tripLabel(modeNow(), f.from.trim(), f.to.trim());
       else if (f.kind === 'expense' && tripCat() && (() => { const x = suggestTrips(db2, isTransportCat(db2.categories), { hour: hourOf(f.date), prevTo: prevTrip(), limit: 1 })[0]; if (x && x.p >= 0.4) { label = x.name; if (!f.from.trim() && !f.to.trim()) { f.from = x.from; f.to = x.to; } return true; } return false; })()) flag = 'review';
       else { label = guessLabel(db2, { kind: f.kind, cat, amount, acct: a.id, hour: hourOf(f.date) }).name; flag = 'review'; }
     }
