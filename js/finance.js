@@ -56,7 +56,7 @@ export function postInterest(db, upTo = today()) {
   const made = [];
   const cats = live(db.categories);
   for (const a of live(db.accounts)) {
-    if (!(a.apy > 0) || a.archived) continue;
+    if (!(a.apy > 0) || a.archived || isLiability(a)) continue;
     const dec = (CUR[a.cur] || { dec: 2 }).dec;
     const places = a.type === 'crypto' ? Math.max(dec, 6) : dec;
     let from = a.interestFrom || upTo;
@@ -81,6 +81,19 @@ export function postInterest(db, upTo = today()) {
     }
   }
   return made;
+}
+
+// change the tax rate of an account and recompute every interest entry it already earned (gross stays, tax and net follow)
+export function retaxInterest(db, acctId, pct) {
+  const a = db.accounts.find((x) => x.id === acctId); if (!a) return 0;
+  const dec = (CUR[a.cur] || { dec: 2 }).dec, places = a.type === 'crypto' ? Math.max(dec, 6) : dec; let n = 0;
+  for (const t of db.txs) {
+    if (t.deleted || !t.auto || t.acct !== acctId || t.kind !== 'income') continue;
+    const gross = t.gross != null ? t.gross : t.amount, tax = +(gross * pct / 100).toFixed(places), net = +(gross - tax).toFixed(places);
+    if (net === t.amount && (t.taxPct || 0) === pct) continue;
+    t.gross = gross; t.tax = tax; t.taxPct = pct; t.amount = net; t.notes = pct > 0 ? `Interest ${gross}, tax withheld ${tax} (${pct}%), credited ${net}` : ''; stamp(t); n++;
+  }
+  return n;
 }
 
 // ---------- credit cards ----------

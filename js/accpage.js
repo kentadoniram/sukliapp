@@ -1,15 +1,16 @@
 // Accounts page (grouped and sorted), account detail with history, net worth, interest and credit-card details.
-import { softDelete } from './core.js';
+import { softDelete, subscribe } from './core.js';
 import {
   get, commit, uid, stamp, nowStamp, rateFor, fmt, BASE, HOME, homeFx, allCurrencies, curName, CUR, balances, catMap, accountMap, live, groupColor, groupLetter,
   adjustmentCategory, shiftMonth, thisMonth, monthLabel, monthParts, deltaFor, dayLabel,
 } from './core.js';
 import { transferHints } from './finance.js';
-import { accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, setLiab, today, postInterest, interestTaxPct } from './finance.js';
+import { accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, setLiab, today, postInterest, interestTaxPct, retaxInterest } from './finance.js';
 import { esc, ic, ACT, sheet, toast, download, confirmDialog, promptDialog } from './ui.js';
 import { applyHide } from './appearance.js';
 import { money, eq, hdr, coll, ui } from './screens.js';
 import { openEntry } from './entry.js';
+import { loanBox } from './loans.js';
 import { favCurs, openCurrencyPicker, flagOf } from './curpicker.js';
 import { openDatePicker } from './datepicker.js';
 
@@ -74,6 +75,10 @@ export function accounts(db) {
     const m = new Map(); for (const a of shown) { const k = a.exchange || 'No exchange'; if (!m.has(k)) m.set(k, []); m.get(k).push(a); }
     groups = [...m.entries()].map(([k, list]) => ({ key: 'ex-' + k, title: k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)) }))
       .sort((a, b) => (a.title === 'No exchange') - (b.title === 'No exchange') || b.base - a.base);
+  } else if (view.group === 'class') {
+    const cls = (a) => (isLiability(a) || val(a) < 0 ? 'Liabilities' : ['invest', 'crypto'].includes(a.type) ? 'Investments and crypto' : ['asset'].includes(a.type) ? 'Property and other assets' : 'Cash and bank');
+    const m = new Map(['Cash and bank', 'Investments and crypto', 'Property and other assets', 'Liabilities'].map((k) => [k, []])); for (const a of shown) m.get(cls(a)).push(a);
+    groups = [...m.entries()].filter(([, l]) => l.length).map(([k, list]) => ({ key: 'cls-' + k, title: k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)) }));
   } else if (view.group === 'type') {
     const m = new Map(); for (const a of shown) { if (!m.has(a.type)) m.set(a.type, []); m.get(a.type).push(a); }
     groups = [...m.entries()].map(([k, list]) => ({ key: 'type-' + k, title: typeNames[k] || k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)), t: k }))
@@ -94,7 +99,7 @@ export function accounts(db) {
   const sections = groups.map((g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.total)}</small>`,
     `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, '')).join('');
   const segs = (name, opts, cur) => `<div class="seg sm" role="group" aria-label="${name}">${opts.map(([v, l]) => `<button type="button" data-act="aview" data-k="${name}" data-v="${v}" class="${cur === v ? 'on' : ''}" aria-pressed="${cur === v}">${l}</button>`).join('')}</div>`;
-  return `${hdr('Accounts', '<button class="btn sm" data-act="acct-new">Add account</button>')}
+  return `${hdr('Accounts', '<button class="btn sm ghost" data-act="loan-plan">Loan planner</button> <button class="btn sm" data-act="acct-new">Add account</button>')}
     ${reminderBanner(db)}
     <section class="nwcard"><button class="nwmain" data-act="nw" aria-label="Net worth details">
       <span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b>
@@ -102,7 +107,7 @@ export function accounts(db) {
       ${nw.assets + nw.debts > 0 ? `<span class="nwbar" role="img" aria-label="Assets against debts"><i style="width:${Math.round(nw.assets / (nw.assets + nw.debts) * 100)}%"></i></span>` : ''}</button>
       <button class="nwsp" data-act="acct-sp"><span>Spendable now</span><b>${money(sp)}</b></button></section>
     ${nw.missing ? `<p class="hint">Some accounts have no exchange rate yet, so they are left out of these totals. Set rates in Settings.</p>` : ''}
-    <div class="aview">${segs('group', [['cur', 'Currency'], ['type', 'Category'], ['exchange', 'Exchange'], ['none', 'None']], view.group)}
+    <div class="aview">${segs('group', [['class', 'Assets / debts'], ['cur', 'Currency'], ['type', 'Category'], ['exchange', 'Exchange'], ['none', 'None']], view.group)}
       ${segs('sort', [['high', 'High → low'], ['low', 'Low → high'], ['name', 'A–Z']], view.sort)}</div>
     ${sections || '<p class="empty">No accounts yet. Add one, or import your Bluecoins export in Settings.</p>'}
     ${hidden ? `<p class="muted center">${hidden} hidden ${hidden === 1 ? 'account' : 'accounts'} (archived).</p>` : ''}`;
@@ -213,7 +218,7 @@ export function openAccountDetail(id) {
     root.innerHTML = `
       <div class="gdhead"><span class="muted">${esc(typeNames[a.type] || a.type)} · ${a.cur}</span><b class="big ${bal < 0 ? 'neg' : ''}">${money(bal, a.cur)}</b>
         ${a.cur !== HOME && r ? `<span class="muted">≈ ${money(bal * r)} at ${fmt(r, HOME)} per ${a.cur}</span>` : ''}<strong class="adname">${esc(a.name)}</strong></div>
-      <div class="btnrow tight"><button class="btn sm" data-ad="add">Add entry</button>
+      <div class="btnrow tight"><button class="btn sm" data-ad="add">Add entry</button>${isLiability(a) ? `<button class="btn sm ghost" data-act="loan-charge" data-id="${a.id}">Add charge</button>` : ''}
         ${['asset', 'invest', 'other'].includes(a.type) ? '<button class="btn sm ghost" data-ad="reval">Update value</button>' : ''}
         <button class="btn sm ghost" data-ad="edit">Edit</button></div>
       <div class="rangebar seg sm" role="group" aria-label="Chart range">${[[30, '30 days'], [90, '90 days'], [365, '1 year'], [0, 'All']].map(([v, l]) => `<button type="button" data-ad="range" data-v="${v}" class="${st.range === v ? 'on' : ''}" aria-pressed="${st.range === v}">${l}</button>`).join('')}</div>
@@ -228,6 +233,8 @@ export function openAccountDetail(id) {
         ${card.due ? `<p>${card.dueAmount > 0.005 ? `Amount due: <strong>${money(card.dueAmount, a.cur)}</strong> by <strong>${dayLabel(card.due + ' 00:00:00')}</strong> (${card.overdue ? 'overdue' : card.days === 0 ? 'today, until midnight' : card.days + ' days'}).` : `Paid in full for this cycle. Next due date ${dayLabel(card.due + ' 00:00:00')}.`}</p>` : '<p class="hint">Add the due day in Edit to get reminders.</p>'}
         <div class="btnrow tight">${card.owed > 0.005 ? '<button class="btn sm" data-ad="pay">Pay card</button>' : ''}${card.due ? '<button class="btn sm ghost" data-ad="ics">Add reminders to my calendar (.ics)</button>' : ''}</div>
         <p class="hint">Paying moves money from one of your accounts into the card. It lowers what you owe and is not counted as spending a second time.</p></div>` : ''}
+      ${(a.type === 'loan' || a.loan) ? loanBox(db, a, money) : ''}
+      ${a.type === 'card' && a.limits && a.limits.length > 1 ? `<div class="cardbox"><h3>Credit limit history</h3><ul class="calfacts">${[...a.limits].reverse().map((l, i, arr) => { const nx = arr[i + 1]; return `<li><span>${l.date ? esc(l.date) : 'Earlier'}</span><b>${money(l.limit, a.cur)}${nx ? ` <small class="${l.limit >= nx.limit ? 'in' : 'neg'}">${l.limit >= nx.limit ? '+' : '−'}${money(Math.abs(l.limit - nx.limit), a.cur)}</small>` : ''}</b></li>`; }).join('')}</ul></div>` : ''}
       ${a.apy > 0 ? `<div class="cardbox"><h3>Interest</h3><p>${a.apy}% a year${perDay ? `, about <strong>${money(perDay, a.cur)}</strong> a day after tax on today’s balance` : ''}. Earned so far in Sukli: <strong>${money(earned, a.cur)}</strong>${taxPct > 0 ? ` after ${taxPct}% tax${taxed ? ` (${money(taxed, a.cur)} withheld)` : ''}` : ''}.</p>
         <p class="hint">Approximate: Sukli adds one entry a day (category ${a.type === 'crypto' ? 'Crypto earned' : 'Interest'}). Set the rate your app shows; edit or delete any entry that differs.</p></div>` : ''}
       <h3>History</h3>
@@ -240,7 +247,7 @@ export function openAccountDetail(id) {
       <div class="adfab ${st.fab ? 'open' : ''}">${st.fab ? `<div class="adfab-menu" role="menu"><button type="button" role="menuitem" data-ad="fab-new" data-v="expense">Expense</button><button type="button" role="menuitem" data-ad="fab-new" data-v="income">Income</button><button type="button" role="menuitem" data-ad="fab-new" data-v="transfer">Transfer</button></div>` : ''}<button type="button" class="adfab-btn" data-ad="fab" aria-label="Add to this account" aria-expanded="${!!st.fab}">${ic(st.fab ? 'x' : 'plus')}</button></div>`;
   };
   draw();
-  const un = (() => { const f = () => draw(); window.addEventListener('sukli-render', f); return () => window.removeEventListener('sukli-render', f); })();
+  const un = (() => { let q = false; const f = () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; if (root.isConnected) draw(); }); }; window.addEventListener('sukli-render', f); const u2 = subscribe(f); return () => { window.removeEventListener('sukli-render', f); u2(); }; })();
   const oldClose = s.close; s.close = () => { un(); oldClose(); };
   s.root.querySelector('[data-close]').onclick = () => s.close();
   root.addEventListener('click', async (e) => {
@@ -314,12 +321,13 @@ export function openAccount(id) {
       <div class="two"><label class="field"><span>Statement closes on day</span><input name="stmtDay" inputmode="numeric" value="${a.stmtDay || ''}" placeholder="1–31"></label>
       <label class="field"><span>Payment due on day</span><input name="dueDay" inputmode="numeric" value="${a.dueDay || ''}" placeholder="1–31"></label></div>
       <p class="hint">Sukli shows a banner on Home when the payment is near, and can give you calendar reminders (.ics) from the account page.</p></div>
-    <div class="field"><span>Interest (optional)</span>
+    <div id="intfields" ${['card', 'loan'].includes(a.type) ? 'hidden' : ''}><div class="field"><span>Interest (optional)</span>
       <div class="two"><label class="amtwrap sm"><input name="apy" inputmode="decimal" value="${a.apy || ''}" placeholder="0" aria-label="Yearly interest percent"><b>% a year</b></label>
       <input name="interestFrom" type="date" value="${esc(a.interestFrom || today())}" aria-label="Start date"></div>
       <label class="amtwrap sm"><input name="taxPct" inputmode="decimal" value="${interestTaxPct(a)}" aria-label="Tax withheld on interest percent"><b>% tax on interest</b></label>
       <small class="hint">Local banks withhold tax on interest before crediting it (usually 20%), so only the rest is added to your balance. Use 0 for e-wallets, crypto or anything that pays gross. It applies to interest added from now on.</small>
-      <small class="hint">For Maya Savings, Binance Earn and the like. Sukli adds one small entry a day (Interest, or Crypto earned for crypto accounts) based on that day’s balance. It is an estimate, so set the rate your app shows.</small></div>
+      <small class="hint">For Maya Savings, Binance Earn and the like. Sukli adds one small entry a day (Interest, or Crypto earned for crypto accounts) based on that day’s balance. It is an estimate, so set the rate your app shows.</small></div></div>
+    <p class="hint" id="liabnote" ${['card', 'loan'].includes(a.type) ? '' : 'hidden'}>Debts do not earn interest. Record interest charges, late fees and penalties from the account page with “Add charge”.</p>
     <label class="check"><input type="checkbox" name="include" ${a.include ? 'checked' : ''}> Count in spendable total</label>
     ${id ? `<label class="check"><input type="checkbox" name="archived" ${a.archived ? 'checked' : ''}> Hide this account (archive)</label>` : ''}
     ${used ? '<p class="hint">Currency is locked because this account has entries.</p>' : ''}
@@ -329,7 +337,7 @@ export function openAccount(id) {
       <div class="two"><input name="real" inputmode="decimal" placeholder="Real balance" aria-label="Real balance"><button class="btn ghost">Correct it</button></div></form>` : ''}`,
   { title: id ? 'Edit account' : 'New account' });
   const form = s.el.querySelector('#acct-form');
-  form.type.addEventListener('change', () => { s.el.querySelector('#cardfields').hidden = form.type.value !== 'card'; });
+  form.type.addEventListener('change', () => { s.el.querySelector('#cardfields').hidden = form.type.value !== 'card'; const L = isLiability({ type: form.type.value }); s.el.querySelector('#intfields').hidden = L; s.el.querySelector('#liabnote').hidden = !L; });
   form.onsubmit = (e) => {
     e.preventDefault();
     const fd = new FormData(form);
@@ -344,17 +352,22 @@ export function openAccount(id) {
       exchange: (fd.get('exchange') || '').trim(),
       interestFrom: fd.get('interestFrom') || today(),
     };
+    if (isLiability({ type: fd.get('type') })) extra.apy = 0;
     if (fd.get('type') !== 'card') { extra.limit = 0; extra.stmtDay = 0; extra.dueDay = 0; }
+    let retaxed = 0;
     commit((d) => {
       if (id) {
         const x = d.accounts.find((q) => q.id === id);
+        if (extra.limit > 0 && (x.limit || 0) !== extra.limit && x.type === 'card') { x.limits = [...(x.limits || (x.limit ? [{ date: x.limitSince || '', limit: x.limit }] : [])), { date: today(), limit: extra.limit }]; x.limitSince = today(); }
+        if (extra.taxPct !== interestTaxPct(x)) retaxed = retaxInterest(d, id, extra.taxPct);
         Object.assign(x, { name, type: fd.get('type'), open, include: fd.has('include'), archived: fd.has('archived'), guessed: false }, extra);
         if (!used) x.cur = fd.get('cur');
         stamp(x);
-      } else d.accounts.push(stamp({ id: uid(), name, cur: fd.get('cur'), type: fd.get('type'), open, include: fd.has('include'), archived: false, ...extra }));
+      } else d.accounts.push(stamp({ id: uid(), name, cur: fd.get('cur'), type: fd.get('type'), open, include: fd.has('include'), archived: false, ...extra, ...(extra.limit > 0 && fd.get('type') === 'card' ? { limits: [{ date: today(), limit: extra.limit }], limitSince: today() } : {}) }));
       if (extra.apy > 0) postInterest(d);
     });
     s.close();
+    if (retaxed) toast(`Tax rate updated on ${retaxed} interest ${retaxed === 1 ? 'entry' : 'entries'}.`);
   };
   const del = s.el.querySelector('[data-del]');
   if (del) del.onclick = () => { commit((d) => { const x = d.accounts.find((q) => q.id === id); softDelete(x); }); s.close(); toast('Account deleted'); };
@@ -395,3 +408,16 @@ document.addEventListener('change', async (e) => {
   const o = new Option(name, key); sel.insertBefore(o, sel.querySelector('option[value="__new"]')); sel.value = key; sel.dataset.prev = key;
   toast(`Added “${name}” and selected it.`, { ms: 4000 });
 });
+
+// tap an automatic interest entry: gross, tax, net, and a way to change the account's tax rate
+export function openInterestDetail(t) {
+  const db = get(), a = db.accounts.find((x) => x.id === t.acct); if (!a) return false;
+  const pct = t.taxPct != null ? t.taxPct : 0, gross = t.gross != null ? t.gross : t.amount;
+  const s = sheet(`<div class="facts three"><div><span>Interest</span><b>${money(gross, a.cur)}</b></div><div><span>Tax ${pct}%</span><b class="cr">${money(t.tax || 0, a.cur)}</b></div><div><span>Credited</span><b class="cg">${money(t.amount, a.cur)}</b></div></div>
+    <p class="hint">${esc(a.name)} · ${esc(String(t.date).slice(0, 10))}. Current tax rate for this account: <b>${interestTaxPct(a)}%</b>. Changing it recalculates every interest entry this account has earned.</p>
+    <label class="amtwrap sm"><input id="it-pct" inputmode="decimal" value="${interestTaxPct(a)}" aria-label="Tax percent"><b>% tax on interest</b></label>
+    <div class="btnrow"><button class="btn ghost" data-close2>Close</button><button class="btn" data-go>Apply to all</button></div>`, { title: 'Interest details' });
+  s.el.querySelector('[data-close2]').onclick = () => s.close();
+  s.el.querySelector('[data-go]').onclick = () => { const p = Math.min(100, Math.max(0, parseFloat(s.el.querySelector('#it-pct').value) || 0)); let n = 0; commit((d) => { const x = d.accounts.find((q) => q.id === a.id); x.taxPct = p; stamp(x); n = retaxInterest(d, a.id, p); }); s.close(); toast(`Tax rate ${p}%: ${n} ${n === 1 ? 'entry' : 'entries'} updated.`); };
+  return true;
+}

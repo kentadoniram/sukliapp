@@ -619,3 +619,10 @@ html.kb .scrim { inset: auto; left: 0; right: 0; top: var(--vvt, 0px); height: v
 .adfab-menu { display: grid; gap: 6px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.28); } .adfab-menu button { all: unset; cursor: pointer; padding: 10px 18px; min-height: 24px; border-radius: 8px; font-weight: 600; } .adfab-menu button:hover, .adfab-menu button:focus-visible { background: var(--rule); }
 .swapbtn { align-self: end; margin-bottom: 4px; width: 40px; height: 44px; border-radius: 10px; border: 1px solid var(--rule); background: var(--sheet); color: var(--xfer); cursor: pointer; display: grid; place-items: center; flex: none; } .swapbtn .ic { width: 20px; height: 20px; }
 .two.sw { grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: end; }
+.pj { display: flex; justify-content: space-between; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--rule); font-size: calc(13px * var(--fs, 1)); } .pj span { color: var(--ink2); } .pj.bad b { color: var(--bad); }
+.wentpie { grid-template-columns: min(200px, 54vw) 1fr; gap: 8px; } .donut.sm { width: min(200px, 54vw); height: min(200px, 54vw); }
+.pielegend button { font-size: calc(12px * var(--fs, 1)); padding: 4px 3px; min-height: 34px; column-gap: 6px; } .pielegend small { font-size: calc(10px * var(--fs, 1)); } .pielegend .pp { font-size: calc(12px * var(--fs, 1)); }
+.pj { font-size: calc(11.5px * var(--fs, 1)); padding: 4px 3px; } .pj b { font-size: calc(12px * var(--fs, 1)); }
+@media (max-width: 360px) { .wentpie { grid-template-columns: 1fr; } .donut.sm { width: min(220px, 70vw); height: min(220px, 70vw); } }
+.lpwarn { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--bad) 10%, var(--sheet)); border: 1px solid color-mix(in srgb, var(--bad) 30%, var(--rule)); font-size: calc(13px * var(--fs, 1)); } .lpwarn .ic { width: 15px; height: 15px; vertical-align: -2px; color: var(--bad); }
+.lpout { margin: 8px 0; }
