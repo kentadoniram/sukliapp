@@ -624,3 +624,5 @@ html.kb .scrim { inset: auto; left: 0; right: 0; top: var(--vvt, 0px); height: v
 .pielegend button { font-size: calc(12px * var(--fs, 1)); padding: 4px 3px; min-height: 34px; column-gap: 6px; } .pielegend small { font-size: calc(10px * var(--fs, 1)); } .pielegend .pp { font-size: calc(12px * var(--fs, 1)); }
 .pj { font-size: calc(11.5px * var(--fs, 1)); padding: 4px 3px; } .pj b { font-size: calc(12px * var(--fs, 1)); }
 @media (max-width: 360px) { .wentpie { grid-template-columns: 1fr; } .donut.sm { width: min(220px, 70vw); height: min(220px, 70vw); } }
+.lpwarn { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--bad) 10%, var(--sheet)); border: 1px solid color-mix(in srgb, var(--bad) 30%, var(--rule)); font-size: calc(13px * var(--fs, 1)); } .lpwarn .ic { width: 15px; height: 15px; vertical-align: -2px; color: var(--bad); }
+.lpout { margin: 8px 0; }

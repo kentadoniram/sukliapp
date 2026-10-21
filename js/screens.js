@@ -13,7 +13,8 @@ import { modelFor, openEntry, openBulk, openCategoryForm } from './entry.js';
 import { syncNow, status as syncStatus } from './drive.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
-import { typeNames, accounts, openAccount, reminderBanner } from './accpage.js';
+import { lossCard } from './loans.js';
+import { typeNames, accounts, openAccount, reminderBanner, openInterestDetail } from './accpage.js';
 import { outlookCard } from './views.js';
 import { openCurrencyPicker } from './curpicker.js';
 import { backupSection } from './backup.js';
@@ -93,7 +94,7 @@ export function row(t, accts, cats, sel) {
     <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub}</small></span>
     <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}</span></button>`;
 }
-ACT.edit = (el) => openEntry({ id: el.dataset.id });
+ACT.edit = (el) => { const t = get().txs.find((x) => x.id === el.dataset.id); if (t && t.auto && t.kind === 'income' && openInterestDetail(t)) return; openEntry({ id: el.dataset.id }); };
 ACT.add = () => openEntry();
 ACT.bulk = () => openBulk();
 
@@ -112,7 +113,7 @@ export function home(db) {
 export const HOME_SECTIONS = [
   ['spendable', 'Spendable now', false], ['alerts', 'Reminders and items to check', false], ['insights', 'Worth knowing', true], ['pace', 'Pace', false], ['projpie', 'Spending vs expected income', false],
   ['rolling', 'Daily average, rolling 7 days', false], ['outlook', 'Next month outlook', true], ['went', 'Where it went', false], ['came', 'Where it came from', false],
-  ['six', 'Last 6 months', false], ['latest', 'Latest entries', false],
+  ['loss', 'Money lost to fees and interest', false], ['six', 'Last 6 months', false], ['latest', 'Latest entries', false],
 ];
 export function homeLayout(db) {
   const L = (db.settings && db.settings.homeLayout) || {}, ids = HOME_SECTIONS.map((x) => x[0]);
@@ -133,6 +134,7 @@ function homeSection(id, c) {
       ${sp.missing.length ? `<p class="hint">Not counted: ${sp.missing.join(', ')} (set a rate in Settings).</p>` : ''}</section>`; }
     case 'alerts': { const n = reviewCount(db); return `${reminderBanner(db)}${n ? `<a class="banner" href="#/review"><strong>${n} ${n === 1 ? 'entry needs' : 'entries need'} a quick check</strong><span>Confirm the guessed categories</span>${ic('right')}</a>` : ''}`; }
     case 'insights': { const ins = insights(db, ui.month); return ins.length ? coll('h-ins', 'Worth knowing', `<ul class="ins">${ins.map((x) => `<li class="${x.tone}">${x.id ? `<button class="insb" data-act="edit" data-id="${x.id}">${esc(x.text)}</button>` : esc(x.text)}</li>`).join('')}</ul>`) : ''; }
+    case 'loss': return lossCard(db, ui.month, coll, (n) => money(n));
     case 'pace': return paceCard(db);
     case 'projpie': return projPie(db);
     case 'rolling': return rollingCard(db);

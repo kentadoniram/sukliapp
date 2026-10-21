@@ -6,6 +6,8 @@ import {
 import { buildGraph, makeResolver, explain } from './simgraph.js';
 import { nameRules } from './merchants.js';
 import { compareCard, relatedNames } from './compare.js';
+import { smartKind, openLoanPlanner } from './loans.js';
+import { isLiability } from './finance.js';
 import { guessLabel, transferLabel } from './label.js';
 import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat, transportWord, modeOf, tripLabel, bareMode } from './route.js';
 import { buildModel, predict, suggest, lookup, catCandidates, byAmount, recentNames } from './predict.js';
@@ -360,6 +362,7 @@ export function openEntry(opts = {}) {
       else if (f.pred.cats[0]) { f.cat = f.pred.cats[0].id; f.guessWhy = ''; }
     }
     typedTransport();
+    renderSmart();
     renderCats();
     if (tripCat() !== tripShown) renderTrip();
     renderSafety();
@@ -442,6 +445,23 @@ export function openEntry(opts = {}) {
   function pickCat(id) { const nm = $f('f-name'); if (nm && nm.value !== f.name) f.name = nm.value; if (!f.catTouched && f.cat && f.cat !== id) f.guessed = f.cat; f.cat = id; f.catTouched = true; }
 
   // a new name that looks like one you already use: ask, remember the answer
+  // labels like "Loan Payment", "Credit Card Payment", "Credit to Cash" point to a different kind of entry: offer it (never switches by itself)
+  function renderSmart() {
+    let el = form.querySelector('#smarthint');
+    if (!el) { const nf = $f('namefield'); if (!nf) return; el = document.createElement('div'); el.id = 'smarthint'; nf.after(el); }
+    const k = smartKind(f.name); let html = '';
+    if (k === 'cash') html = `<button type="button" class="chip" data-e="smart" data-v="cash">Credit to cash: see the fees and interest first</button>`;
+    else if (k === 'loan') html = `<button type="button" class="chip" data-e="smart" data-v="loan">Taking a loan? Open the loan planner</button>`;
+    else if ((k === 'cardpay' || k === 'loanpay') && f.kind !== 'transfer') html = `<button type="button" class="chip" data-e="smart" data-v="${k}">This is money moving to ${k === 'cardpay' ? 'your card' : 'your loan'}: record it as a transfer</button>`;
+    el.innerHTML = html ? `<div class="chips">${html}</div>` : '';
+  }
+  function smartAct(v) {
+    if (v === 'cash') return openLoanPlanner({ kind: 'cash' });
+    if (v === 'loan') return openLoanPlanner({ kind: 'personal' });
+    const accts = get().accounts.filter((a) => !a.deleted && !a.archived), t = accts.filter((a) => (v === 'cardpay' ? a.type === 'card' : a.type === 'loan' || a.loan) && a.id !== f.acct).sort((x, y) => (y.loan ? 1 : 0) - (x.loan ? 1 : 0))[0];
+    form.querySelector('[data-e=kind][data-v=transfer]').click();
+    if (t) { f.toAcct = t.id; if (!num(f.amount) && t.loan && t.loan.monthly) { f.amount = String(t.loan.monthly); $f('f-amount').value = f.amount; } renderAccts(); renderFx(); syncCross(); }
+  }
   function renderNameHelp() {
     let el = form.querySelector('#namehelp');
     if (!el) { const nf = $f('namefield'); if (!nf) return; el = document.createElement('div'); el.id = 'namehelp'; el.className = 'namehelp'; nf.after(el); }
@@ -558,6 +578,7 @@ export function openEntry(opts = {}) {
         else { const c = catMap(get()).get(f.cat); if (c && !(c.kind === v || c.kind === 'both')) { f.cat = ''; f.catTouched = false; } }
         arrange(); renderSeg(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderSugg(); renderSafety(); break;
       case 'swapacct': { const t = f.acct; f.acct = f.toAcct; f.toAcct = t; f.acctTouched = true; f.acctSuggested = false; f.feeTouched = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; f.cRate = ''; renderAccts(); renderFx(); syncCross(); renderSugg(); break; }
+      case 'smart': smartAct(v); break;
       case 'qtab': f.qtab = v; f.qtabManual = true; renderFreq(); break;
       case 'pick': applyPick(v); break;
       case 'acctpick': { const to = b.dataset.which === 'to', sel = $f(to ? 'f-to' : 'f-acct'), a = acctOf(f.acct);
