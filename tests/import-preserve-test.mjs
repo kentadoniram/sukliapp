@@ -1,0 +1,21 @@
+// Importing a new Bluecoins CSV must never change an existing account's type, and similar new names must be flagged.
+import { emptyDb } from '../js/core.js';
+import { importBluecoins, previewImport } from '../js/importer.js';
+let bad = 0; const ok = (c, m) => { if (!c) { bad++; console.log('FAIL', m); } else console.log('ok  ', m); };
+const hdr = 'Type,Date,Item or Payee,Amount,Currency,Exchange Rate,Category Group,Category,Account,Notes,Labels\n';
+const row = (d, acc, amt) => `Expense,${d},Lunch,${amt},PHP,1,Food,Eating out,${acc},,\n`;
+const db = emptyDb();
+importBluecoins(db, hdr + row('2026-01-02 12:00:00', 'Metrobank', -100));
+const m = db.accounts.find((a) => a.name === 'Metrobank'); m.type = 'bank';
+const csv2 = hdr + row('2026-02-02 12:00:00', 'Metrobank', -50) + row('2026-02-03 12:00:00', 'Metrobank Savings', -20) + row('2026-02-04 12:00:00', 'Brand New', -5);
+const pv = previewImport(db, csv2);
+ok(db.accounts.length === 1, 'preview writes nothing');
+ok(pv.fresh.length === 2, 'two new accounts listed, existing not listed');
+const sv = pv.fresh.find((f) => f.name === 'Metrobank Savings');
+ok(sv && sv.like.length && sv.like[0].name === 'Metrobank', 'similar name flagged against existing Metrobank');
+ok(!pv.fresh.find((f) => f.name === 'Brand New').like.length, 'unrelated name not flagged');
+importBluecoins(db, csv2, { types: { 'Brand New|PHP': 'crypto' }, into: { 'Metrobank Savings|PHP': 'Metrobank|PHP' } });
+ok(db.accounts.find((a) => a.name === 'Metrobank').type === 'bank', 'Metrobank still a bank');
+ok(db.accounts.find((a) => a.name === 'Brand New').type === 'crypto', 'chosen type applied to new account');
+ok(!db.accounts.find((a) => a.name === 'Metrobank Savings'), 'merged into existing, no duplicate');
+process.exit(bad ? 1 : 0);

@@ -5,7 +5,7 @@ import {
   reviewCount, catMap, accountMap, groupColor, groupLetter, sortedTxs,
 } from './core.js';
 import { pace, totals, trend, baselineMonths } from './insights.js';
-import { ui, hdr, monthNav, strip, money, row, gbar, coll, trendChart, budgetOf } from './screens.js';
+import { ui, hdr, monthNav, strip, money, row, gbar, coll, trendChart, budgetOf, sliceLabel } from './screens.js';
 import { openEntry, openCategoryForm } from './entry.js';
 import { forecastNext, behaviorNotes, detectRecurring } from './finance.js';
 import { reminderBanner } from './accpage.js';
@@ -241,8 +241,9 @@ export function budget(db) {
     const el = `<circle data-tip="${esc(`${x.label}: ${money(x.v)} (${total ? Math.round(x.v / total * 100) : 0}%)`)}" class="slice ${sel ? (sel === x ? 'sel' : 'dim') : ''}" cx="90" cy="90" r="64" fill="none" stroke="${groupColor(x.color)}" stroke-width="${sel === x ? 34 : 28}" stroke-dasharray="${d} ${C - d}" stroke-dashoffset="${-acc}" transform="rotate(-90 90 90)" data-act="slice" data-k="${esc(x.key)}" role="button" tabindex="0" aria-label="${esc(x.label)} ${total ? Math.round(x.v / total * 100) : 0}%"><title>${esc(x.label)}: ${money(x.v)}</title></circle>`;
     acc += len; return el;
   }).join('');
+  let la = 0; const pcts = total ? slices.map((x) => { const len = x.v / total * C, t = sliceLabel(la, len, C, x.v / total, 90, 90, 64); la += len; return t; }).join('') : '';
   const donut = total
-    ? `<svg class="donut" viewBox="0 0 180 180" role="img" aria-label="Spending split">${arcs}
+    ? `<svg class="donut" viewBox="0 0 180 180" role="img" aria-label="Spending split">${arcs}${pcts}
         <text x="90" y="84" text-anchor="middle" class="dl">${esc(sel ? sel.label : 'Cash outflow')}</text>
         <text x="90" y="104" text-anchor="middle" class="dv">${sel ? money(sel.v) : money(total)}</text>
         <text x="90" y="121" text-anchor="middle" class="dl">${sel ? Math.round(sel.v / total * 100) + '% of outflow' : monthLabel(ym).split(' ')[0]}</text></svg>`
