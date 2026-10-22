@@ -1,5 +1,4 @@
 from playwright.sync_api import sync_playwright
-from pkhelp import choose, open_menu
 CSV='/home/claude/Transactions.csv'
 errs=[]; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
@@ -19,7 +18,7 @@ with sync_playwright() as p:
         pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic'); pg.select_option('#ic [name=type]','stock'); pg.fill('#ic [name=ex]',ex); pg.fill('#ic [name=coin]',tk); pg.select_option('#ic [name=market]',mk); pg.fill('#ic [name=quote]','JPY' if tk=='7203' else 'KRW'); pg.click('#ic button:text-is("Add asset")'); pg.wait_for_timeout(600)
     t=pg.inner_text('#view'); ok('Korean and Japanese tickers listed', '005930' in t and '7203' in t and 'Kiwoom' in t and 'SBI' in t)
     # buy 2 NVDA at 7000 paying from first account
-    open_menu(pg,'trade'); pg.wait_for_selector('#tr'); choose(pg,'#tr [name=plat]',text='Moomoo'); choose(pg,'#tr [name=asset]',text='NVDA')
+    pg.click('[data-act=trade-new]'); pg.wait_for_selector('#tr'); pg.select_option('#tr [name=asset]', label=pg.eval_on_selector('#tr [name=asset]','s=>[...s.options].find(o=>o.textContent.includes("NVDA")).textContent'))
     pg.fill('#tr [name=qty]','2'); pg.fill('#tr [name=price]','7000'); pg.fill('#tr [name=fee]','50'); pg.click('#tr button:text-is("Record")'); pg.wait_for_timeout(900)
     pg.goto(U+'#/invest'); pg.wait_for_timeout(500); t=pg.inner_text('#view')
     ok('row shows amount, paid and value', '2 NVDA' in t.replace('\n',' ') and 'paid 14,000' in t)

@@ -1,5 +1,4 @@
 from playwright.sync_api import sync_playwright
-from pkhelp import choose, open_menu
 CSV='/home/claude/Transactions.csv'
 errs=[]; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
@@ -14,9 +13,9 @@ with sync_playwright() as p:
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic')
     pg.fill('#ic [name=ex]','Binance'); pg.fill('#ic [name=coin]','zzz'); pg.fill('#ic [name=amt]','0'); pg.click('#ic .btn:not(.ghost)'); pg.wait_for_timeout(600)
     def trade(side, qty, total, fee='', asset_text='ZZZ'):
-        open_menu(pg,'trade'); pg.wait_for_selector('#tr'); choose(pg,'#tr [name=plat]',text='Binance')
+        pg.click('[data-act=trade-new]'); pg.wait_for_selector('#tr')
         pg.click(f'[data-side={side}]')
-        choose(pg,'#tr [name=asset]',text='Binance ZZZ')
+        pg.select_option('#tr [name=asset]', label=[o for o in pg.eval_on_selector_all('#tr [name=asset] option','e=>e.map(x=>x.textContent)') if 'Binance ZZZ' in o][0])
         pg.fill('#tr [name=qty]',qty); pg.fill('#tr [name=total]',total)
         pg.dispatch_event('#tr [name=total]','input')
         if fee: pg.fill('#tr [name=fee]',fee)

@@ -77,7 +77,7 @@ function typeName(v) {
   if (t === 'startingbalance' || t === 'openingbalance' || t === 'initialbalance') return 'Starting Balance';
   return String(v || '').trim();
 }
-export function importBluecoins(db, text, opts = {}) {
+export function importBluecoins(db, text) {
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
   const firstLine = text.split(/\r?\n/, 1)[0] || '';
   const count = (ch) => (firstLine.match(new RegExp(ch === '\t' ? '\t' : '\\' + ch, 'g')) || []).length;
@@ -122,9 +122,8 @@ export function importBluecoins(db, text, opts = {}) {
   const ensureAcct = (nm, cu) => {
     const lab = label(nm, cu);
     let a = accts.get(lab + '|' + cu) || accts.get(nm + '|' + cu);
-    if (!a && opts.into && opts.into[lab + '|' + cu]) a = accts.get(opts.into[lab + '|' + cu]);   // the user chose an existing account for this name
     if (!a) {
-      const type = (opts.types && opts.types[lab + '|' + cu]) || guessAccountType(nm);
+      const type = guessAccountType(nm);
       a = stamp({ id: uid(), name: lab, baseName: nm, cur: cu, type, open: 0, include: SPENDABLE_TYPES.has(type), archived: false, guessed: true });
       db.accounts.push(a);
       accts.set(lab + '|' + cu, a);
@@ -252,21 +251,4 @@ export function exportCSV(db) {
     }
   }
   return '﻿' + out.join('\r\n');
-}
-
-// What would importing this file change? Nothing is written: it runs on a copy.
-// Existing accounts are never touched (matched by name and currency). New accounts get a guessed type the user can correct,
-// and a new name that looks like an existing account is flagged so it can be merged instead of duplicated.
-export function previewImport(db, text) {
-  const copy = JSON.parse(JSON.stringify(db));
-  const before = new Set(copy.accounts.map((a) => a.id));
-  const st = importBluecoins(copy, text);
-  const sq = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const old = db.accounts.filter((a) => !a.deleted);
-  const fresh = copy.accounts.filter((a) => !before.has(a.id)).map((a) => {
-    const k = sq(a.baseName || a.name);
-    const like = old.filter((o) => o.cur === a.cur && o.name !== a.name && k.length >= 4 && (sq(o.baseName || o.name) === k || sq(o.name).includes(k) || k.includes(sq(o.name)) && sq(o.name).length >= 4));
-    return { key: a.name + '|' + a.cur, name: a.name, cur: a.cur, type: a.type, like: like.map((o) => ({ name: o.name, type: o.type })) };
-  });
-  return { stats: st, fresh, existing: old.length };
 }
