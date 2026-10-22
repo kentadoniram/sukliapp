@@ -655,8 +655,16 @@ html.kb .scrim { inset: auto; left: 0; right: 0; top: var(--vvt, 0px); height: v
 .seg button[aria-pressed=true], .seg button.on { font-weight: 700; }
 .slice-pct { font-size: 10px; font-weight: 800; fill: #fff; stroke: rgba(0,0,0,.6); stroke-width: 2.6px; paint-order: stroke; pointer-events: none; }
 /* shared picker */
-.pkbtn{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card,transparent);color:inherit;font:inherit;text-align:left;cursor:pointer}
+.pkbtn{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:46px;padding:0 12px;border:1px solid var(--rule)!important;border-radius:10px;background:var(--sheet)!important;color:var(--ink)!important;font:inherit;font-weight:400!important;text-align:left;cursor:pointer;box-shadow:none}
 .pkbtn .pkval{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pk-add{margin:8px 0}
-.pk-opt.on{outline:2px solid var(--accent,#2f6fed);outline-offset:-2px}
+.row.pk-opt{grid-template-columns:1fr auto;padding:12px 10px;border-radius:8px;text-align:left}
+.row.pk-opt .rmain{min-width:0}
+.row.pk-opt:focus,.row.pk-opt:focus-visible{outline:none}
+.row.pk-opt.on{background:var(--tint, rgba(127,127,127,.12))}
+.row.pk-opt.on strong{font-weight:700}
+.row.pk-opt:active{background:var(--tint, rgba(127,127,127,.18))}
+.pkbtn:focus{outline:none}
+.pkbtn:focus-visible{outline:2px solid var(--line);outline-offset:0}
+.pkbtn .pkcar{color:var(--ink2);font-size:.8em}
 .pk-list h3{margin:14px 0 4px;font-size:.85rem;opacity:.75}
