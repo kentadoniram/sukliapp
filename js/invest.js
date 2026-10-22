@@ -1,6 +1,6 @@
 // Investments tab: crypto grouped by exchange (every coin is its own balance with its own market value), plus investments and
 // other financial products such as MP2. First rough version: valuation and structure; buy/sell comes next.
-import { enhanceSelect } from './picker.js';
+import { enhanceSelect, pickAll } from './picker.js';
 import { get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, findOrAddCategory, factorFor } from './core.js';
 import { ACT, sheet, ic, esc, toast, promptDialog } from './ui.js';
 import { hdr, money, coll } from './screens.js';
@@ -83,6 +83,7 @@ export function addAsset(pre = {}) {
       <label class="field"><span>Decimals</span><input name="dec" inputmode="numeric" placeholder="auto"></label></div>
     <p class="hint">Creates its own balance, kept separate from PHP, JPY or USDT. Tickers on exchanges that are not listed (Tokyo, Korea, anywhere) can be added the same way. Without a price the value shows once you buy or sell it, or set a price later.</p>
     <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Add asset</button></div></form>`, { title: 'Add an asset' });
+  pickAll(s.el);
   const f = s.el.querySelector('#ic'), sync = () => { s.el.querySelector('#mk').hidden = f.type.value === 'crypto'; s.el.querySelector('#cgf').hidden = f.type.value !== 'crypto'; }; s.el.querySelectorAll('[data-plat]').forEach((b) => { b.onclick = () => { f.ex.value = b.dataset.plat; }; }); f.type.onchange = sync; sync();
   s.el.querySelector('[data-x]').onclick = () => s.close();
   f.onsubmit = (e) => { e.preventDefault(); const exn = f.ex.value.trim(), raw = f.coin.value.trim().toUpperCase(), type = f.type.value, market = type === 'crypto' ? '' : f.market.value;
@@ -211,6 +212,7 @@ function openPredict(pre = {}) {
     <label class="field"><span>Why (optional)</span><input name="note" autocomplete="off"></label>
     <p class="hint">This is your own guess. It is never used as the price of the asset.</p>
     <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Save estimate</button></div></form>`, { title: 'Add a prediction' });
+  pickAll(s.el);
   const f = s.el.querySelector('#ip'); s.el.querySelector('[data-x]').onclick = () => s.close();
   const pq = () => { const t = (db.settings.tickers || {})[f.asset.value]; if (t && t.quote) f.quote.value = t.quote; }; f.asset.onchange = pq; pq();
   f.onsubmit = (e) => { e.preventDefault(); const p = parseFloat(String(f.price.value).replace(/,/g, '')) || 0; if (!(p > 0)) return; const a = uniq.find((x) => x.cur === f.asset.value);

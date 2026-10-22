@@ -10,7 +10,7 @@ const readOptions = (sel) => {
     if (n.tagName === 'OPTGROUP') for (const o of n.children) out.push({ value: o.value, label: o.textContent, group: n.label, off: o.disabled });
     else out.push({ value: n.value, label: n.textContent, group: '', off: n.disabled });
   }
-  return out;
+  return out.filter((o) => o.value !== '__new');
 };
 export function pickerList(options, { value = '', title = 'Choose', onAdd = null, addLabel = 'Add new', onPick }) {
   const many = options.length > SEARCH_AFTER;
@@ -40,5 +40,13 @@ export function enhanceSelect(sel, { title, onAdd, addLabel } = {}) {
   if (lab) lab.addEventListener('click', (e) => { if (e.target === lab || e.target === cap) open(e); });   // tapping the caption opens the list too
   new MutationObserver(paint).observe(sel, { childList: true, subtree: true });
   sel.addEventListener('change', paint);
+  // code that sets select.value directly (presets, smart hints) must repaint the button too
+  const d = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+  Object.defineProperty(sel, 'value', { configurable: true, get() { return d.get.call(this); }, set(v) { d.set.call(this, v); paint(); } });
   paint(); sel._pk = { paint, open }; return sel._pk;
+}
+
+// every <select name=...> in a form becomes the shared list; per-field options (title, onAdd) come in by name
+export function pickAll(root, per = {}) {
+  root.querySelectorAll('select[name]').forEach((sel) => { if (!sel.dataset.picked && !sel.hasAttribute('data-nopick')) enhanceSelect(sel, per[sel.name] || {}); });
 }
