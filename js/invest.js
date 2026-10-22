@@ -2,7 +2,7 @@
 // other financial products such as MP2. First rough version: valuation and structure; buy/sell comes next.
 import { enhanceSelect, pickAll } from './picker.js';
 import { get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, findOrAddCategory, factorFor } from './core.js';
-import { ACT, sheet, ic, esc, toast, promptDialog } from './ui.js';
+import { ACT, sheet, ic, esc, toast, promptDialog, confirmDialog } from './ui.js';
 import { hdr, money, coll } from './screens.js';
 import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
@@ -12,7 +12,35 @@ export const inInvest = (a) => !a.archived && (a.type === 'crypto' || a.type ===
 const val = (db, a, v) => v * (homeFx(db, a.cur) || 0);
 const priced = (db, a) => a.cur === HOME || (homeFx(db, a.cur) || 0) > 0;
 const EXCH = /bybit|bitget|okx|binance|kucoin|mexc|gate\.io|coins\.ph|phantom|metamask|ledger|trust wallet/i;
-export const exchangeOf = (a) => a.exchange || ((a.name.match(EXCH) || [''])[0] ? (a.name.match(EXCH)[0].replace(/^./, (c) => c.toUpperCase())) : '');
+const rawEx = (a) => a.exchange || ((a.name.match(EXCH) || [''])[0] ? (a.name.match(EXCH)[0].replace(/^./, (c) => c.toUpperCase())) : '');
+const sqp = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+// One spelling per platform: "binance", "Binance " and "BINANCE" are the same place. The known name wins, then the most used spelling.
+let _canonFor = null, _canon = new Map();
+function canonMap() {
+  const db = get(); if (_canonFor === db.accounts && _canon.size >= 0 && _canonN === db.accounts.length + ':' + db.accounts.map((a) => a.exchange || '').join('|')) return _canon;
+  const m = new Map(), cnt = new Map();
+  for (const p of PLATFORMS) m.set(sqp(p), p);
+  for (const a of db.accounts) { if (a.deleted) continue; const r = rawEx(a).trim(); if (!r) continue; const k = sqp(r); if (!cnt.has(k)) cnt.set(k, new Map()); cnt.get(k).set(r, (cnt.get(k).get(r) || 0) + 1); }
+  for (const [k, spell] of cnt) if (!m.has(k)) m.set(k, [...spell.entries()].sort((x, y) => y[1] - x[1] || (x[0] === x[0].toLowerCase()) - (y[0] === y[0].toLowerCase()))[0][0]);
+  _canonFor = db.accounts; _canonN = db.accounts.length + ':' + db.accounts.map((a) => a.exchange || '').join('|'); _canon = m; return m;
+}
+let _canonN = '';
+export const exchangeOf = (a) => { const r = rawEx(a).trim(); return r ? canonMap().get(sqp(r)) || r : ''; };
+// the existing spelling of a typed platform, or '' when it is new
+export const canonPlatform = (typed) => { const t = String(typed || '').trim(); return t ? canonMap().get(sqp(t)) || t : ''; };
+// a typed name that is not known but is one slip away from a known one (Binace -> Binance)
+export function nearPlatform(typed) {
+  const t = sqp(typed); if (t.length < 4 || canonMap().has(t)) return '';
+  const lev = (a, b) => { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; };
+  for (const [k, v] of canonMap()) if (k !== t && (lev(k, t) <= 1 || (k.length >= 4 && (k.startsWith(t) || t.startsWith(k))))) return v;
+  return '';
+}
+// every platform the user has (used first) plus the popular ones, for pick lists
+export function platformNames() {
+  const db = get(), used = new Map(); for (const a of db.accounts) { if (a.deleted) continue; const e = exchangeOf(a); if (e) used.set(e, (used.get(e) || 0) + 1); }
+  const u = [...used.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).map((x) => x[0]);
+  return { used: u, popular: PLATFORMS.filter((p) => !u.includes(p)) };
+}
 export const ASSET_TYPES = { crypto: 'Cryptocurrency', stock: 'Stocks', etf: 'ETFs', fund: 'Funds', bond: 'Bonds', other: 'Other investments' };
 const MARKETS = ['NASDAQ', 'NYSE', 'TSE (Tokyo)', 'KRX (Korea)', 'PSE (Philippines)', 'HKEX', 'Other'];
 const PLATFORMS = ['Binance', 'Bybit', 'Bitget', 'OKX', 'Coins.ph', 'Moomoo', 'Interactive Brokers', 'SBI Securities', 'Rakuten Securities', 'Webull', 'COL Financial', 'Kiwoom', 'Toss Securities'];
@@ -86,10 +114,12 @@ export function addAsset(pre = {}) {
   pickAll(s.el);
   const f = s.el.querySelector('#ic'), sync = () => { s.el.querySelector('#mk').hidden = f.type.value === 'crypto'; s.el.querySelector('#cgf').hidden = f.type.value !== 'crypto'; }; s.el.querySelectorAll('[data-plat]').forEach((b) => { b.onclick = () => { f.ex.value = b.dataset.plat; }; }); f.type.onchange = sync; sync();
   s.el.querySelector('[data-x]').onclick = () => s.close();
-  f.onsubmit = (e) => { e.preventDefault(); const exn = f.ex.value.trim(), raw = f.coin.value.trim().toUpperCase(), type = f.type.value, market = type === 'crypto' ? '' : f.market.value;
+  f.onsubmit = async (e) => { e.preventDefault(); const exn0 = f.ex.value.trim(), raw = f.coin.value.trim().toUpperCase(), type = f.type.value, market = type === 'crypto' ? '' : f.market.value;
     let sym = raw.replace(/[^A-Z0-9]/g, ''); if (/^\d/.test(sym)) sym = ((market.match(/^[A-Z]+/) || ['X'])[0].slice(0, 3)) + sym; sym = sym.slice(0, 10);
     const amt = parseFloat(String(f.amt.value).replace(/,/g, '')) || 0, price = parseFloat(f.price.value) || 0, quote = f.quote.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || 'USD', dec = Math.min(12, Math.max(0, parseInt(f.dec.value, 10) || (type === 'crypto' ? 6 : 4)));
+    let exn = canonPlatform(exn0);
     if (!exn || sym.length < 2) { toast('Enter the platform and a ticker.'); return; }
+    const nr = nearPlatform(exn); if (nr && !(await confirmDialog(`Did you mean ${nr}? You typed ${exn}.`, `Yes, ${nr}`))) { /* keep what was typed */ } else if (nr) exn = nr;
     if (get().accounts.some((a) => !a.deleted && a.cur === sym && (a.exchange || '').toLowerCase() === exn.toLowerCase())) { toast(`${exn} already has a ${sym} balance.`); return; }
     const nid = uid();
     commit((d) => {
