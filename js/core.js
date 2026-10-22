@@ -54,6 +54,7 @@ export function allCurrencies() {
   return allCache;
 }
 export function curName(c) {
+  const tk = state && state.settings && state.settings.tickers && state.settings.tickers[c]; if (tk && tk.name) return tk.name;
   const crypto = { USDT: 'Tether', USDC: 'USD Coin', DAI: 'Dai', BTC: 'Bitcoin', ETH: 'Ethereum', BNB: 'BNB', SOL: 'Solana', XRP: 'XRP', DOGE: 'Dogecoin', TON: 'Toncoin', TRX: 'TRON', ADA: 'Cardano', LTC: 'Litecoin', MATIC: 'Polygon', FDUSD: 'First Digital USD' };
   if (crypto[c]) return crypto[c];
   try { return new Intl.DisplayNames(['en'], { type: 'currency' }).of(c) || c; } catch { return c; }
@@ -254,6 +255,8 @@ export function sortedTxs(db) {
 export function rateFor(db, cur) {
   if (cur === BASE) return 1;
   if (db.settings.rates && db.settings.rates[cur] > 0) return db.settings.rates[cur];
+  const tk = db.settings.tickers && db.settings.tickers[cur];            // a stock or token you added yourself, priced by hand or by its last trade
+  if (tk && tk.price > 0 && tk.quote && tk.quote !== cur) { const q = rateFor(db, tk.quote); if (q > 0) return tk.price * q; }
   const lv = liveRate(db, cur);
   if (lv > 0) return lv;
   return lastTxRate(db, cur);

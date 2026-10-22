@@ -11,4 +11,14 @@ ok('unknown-cost units do not inflate the gain', Math.abs(c.realized[0].gain-(20
 const d=tradeBook([T('1','2026-01-01',{side:'buy',asset:'btc',qty:1,valueHome:2000}),T('2','2026-02-01',{side:'convert',asset:'btc',qty:1,asset2:'sol',qty2:30,valueHome:3000})]);
 ok('conversion realizes gain and sets new cost', Math.abs(d.total-1000)<1e-9 && d.pos.get('sol').cost===3000 && d.pos.get('btc').qty===0);
 ok('loss is negative', tradeBook([T('1','2026-01-01',{side:'buy',asset:'x',qty:2,valueHome:200}),T('2','2026-01-02',{side:'sell',asset:'x',qty:2,valueHome:150})]).total===-50);
-process.exit(bad?1:0);
+import { emptyDb, rateFor } from '../js/core.js';
+const bad2 = (() => { let b = 0; const k = (n, c) => { console.log((c ? 'PASS ' : 'FAIL ') + n); if (!c) b++; };
+  // 0.5 BNB bought by converting 370 USDT: the position remembers what was paid in USDT
+  const e = tradeBook([T('1', '2026-01-01', { side: 'convert', asset: 'usdt', qty: 370, asset2: 'bnb', qty2: 0.5, valueHome: 23310, paidCur: 'USDT', paidAmt: 370 })]);
+  k('paid remembered in the currency used', e.pos.get('bnb').paid.USDT === 370 && e.pos.get('bnb').cost === 23310);
+  const h = tradeBook([T('1', '2026-01-01', { side: 'buy', asset: 'nv', qty: 4, valueHome: 400, paidCur: 'USD', paidAmt: 8 }), T('2', '2026-02-01', { side: 'sell', asset: 'nv', qty: 1, valueHome: 120 })]);
+  k('selling part keeps the rest of the paid amount', Math.abs(h.pos.get('nv').paid.USD - 6) < 1e-9);
+  const db = emptyDb(); db.settings.tickers = { NVDA: { price: 120, quote: 'USD' } }; db.settings.rates = { USD: 56 };
+  k('a manual ticker is valued by price x currency rate', Math.abs(rateFor(db, 'NVDA') - 6720) < 1e-6);
+  return b; })();
+process.exit(bad || bad2 ? 1 : 0);

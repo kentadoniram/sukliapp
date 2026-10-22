@@ -20,7 +20,7 @@ export function openTrade(pre = {}) {
     <label class="field"><span id="l-asset">Holding</span><select name="asset">${opt(hold, pre.asset)}</select></label>
     <div id="f-conv" hidden><label class="field"><span>Convert into</span><select name="asset2">${opt(hold, (hold.find((a) => a.id !== (pre.asset || hold[0].id)) || hold[0]).id)}</select></label>
       <div class="two"><label class="field"><span>Amount you receive</span><input name="qty2" inputmode="decimal"></label><label class="field"><span>Worth in ${HOME} (optional)</span><input name="worth" inputmode="decimal"></label></div></div>
-    <div id="f-cash"><label class="field"><span id="l-cash">Paid from</span><select name="cash">${opt(cash.filter((a) => !inInvest(a)).length ? cash.filter((a) => !inInvest(a)) : cash, lastCash && lastCash.id)}</select></label></div>
+    <div id="f-cash"><label class="field"><span id="l-cash">Paid from</span><select name="cash">${opt([...cash.filter((a) => !inInvest(a)), ...cash.filter((a) => inInvest(a))], lastCash && lastCash.id)}</select></label></div>
     <div class="two"><label class="field"><span id="l-qty">Units</span><input name="qty" inputmode="decimal" placeholder="e.g. 0.01"></label><label class="field" id="f-price"><span>Price per unit</span><input name="price" inputmode="decimal"></label></div>
     <label class="field" id="f-total"><span id="l-total">Total paid</span><input name="total" inputmode="decimal"></label>
     <label class="field"><span id="l-fee">Fee (in the account’s currency)</span><input name="fee" inputmode="decimal" placeholder="0"></label>
@@ -51,17 +51,18 @@ export function openTrade(pre = {}) {
     if (side === 'convert') {
       const b = acct(f.asset2.value), q2 = num(f.qty2.value); if (!b || b.id === a.id || !(q2 > 0)) { toast('Choose the other coin and the amount you receive.'); return; }
       const worth = num(f.worth.value) || q2 * (homeFx(db, b.cur) || 0); if (!(worth > 0)) { toast(`No price for ${b.cur} yet. Type what it is worth in ${HOME}.`); return; }
-      name = `Convert ${q} ${a.cur} to ${q2} ${b.cur}`; trade = { side, asset: a.id, qty: q, asset2: b.id, qty2: q2, valueHome: worth, feeHome: fee * (homeFx(db, c.cur) || 0) };
+      name = `Convert ${q} ${a.cur} to ${q2} ${b.cur}`; trade = { side, asset: a.id, qty: q, asset2: b.id, qty2: q2, valueHome: worth, paidCur: a.cur, paidAmt: q, feeHome: fee * (homeFx(db, c.cur) || 0) };
       rec = { amount: q, cur: a.cur, fx: rateFor(db, a.cur) || 1, acct: a.id, toAcct: b.id, toAmount: q2 };
     } else {
       if (!(t > 0)) { const p = num(f.price.value); t = p * q; } if (!(t > 0)) { toast('Enter the price or the total.'); return; }
       const hv = t * (homeFx(db, c.cur) || 0), buy = side === 'buy';
-      name = `${buy ? 'Buy' : 'Sell'} ${q} ${a.cur}`; trade = { side, asset: a.id, qty: q, valueHome: hv, feeHome: fee * (homeFx(db, c.cur) || 0) };
+      name = `${buy ? 'Buy' : 'Sell'} ${q} ${a.cur}`; trade = { side, asset: a.id, qty: q, valueHome: hv, paidCur: c.cur, paidAmt: t, feeHome: fee * (homeFx(db, c.cur) || 0) };
       rec = buy ? { amount: t, cur: c.cur, fx: rateFor(db, c.cur) || 1, acct: c.id, toAcct: a.id, toAmount: q } : { amount: q, cur: a.cur, fx: rateFor(db, a.cur) || 1, acct: a.id, toAcct: c.id, toAmount: t };
     }
     const bal = balances(db), src = acct(rec.acct), have = bal.get(src.id) || 0;
     if (have < rec.amount - 1e-9 && !(await confirmDialog(`${src.name} only has ${money(have, src.cur)}. Record it anyway?`, 'Record anyway'))) return;
     commit((d) => {
+      const tk = d.settings.tickers && side !== 'convert' && d.settings.tickers[a.cur]; if (tk && q > 0 && t > 0) { tk.price = +(t / q).toPrecision(8); tk.quote = c.cur; tk.priceDate = when.slice(0, 10); }   // a ticker you added is priced by its last trade
       d.txs.push(stamp({ id: tid, kind: 'transfer', date: when, name, cat: '', notes: `Price per unit ${r6(num(f.price.value))}`.replace(/ 0$/, ''), trade, ...rec }));
       if (fee > 0) { const cat = findOrAddCategory(d, 'Financial loss', 'Trading fees', 'expense'); d.txs.push(stamp({ id: uid(), kind: 'expense', date: when, name: `Trading fee: ${name}`, cat: cat.id, acct: c.id, cur: c.cur, fx: rateFor(d, c.cur) || 1, amount: fee, tradeOf: tid })); }
     });
