@@ -3,6 +3,7 @@
 import { homeFx as homeFxOf, get, commit, uid, stamp, nowStamp, rateFor, findOrAddCategory, catMap, accountMap, balances, shiftMonth, groupColor, thisMonth, monthOf } from './core.js';
 import { ACT, sheet, ic, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
+import { pickAll } from './picker.js';
 import { loanCalc, smartKind, loanProgress } from './loancalc.js';
 export { loanCalc, smartKind, loanProgress };
 // payments into a loan account (not the money you received from it), oldest first, in the loan's currency
@@ -28,6 +29,7 @@ export function openLoanPlanner(pre = {}) {
     ${recv.length ? `<label class="field"><span>Money arrives in</span><select name="recv">${recv.map((a) => `<option value="${a.id}">${esc(a.name)} · ${a.cur}</option>`).join('')}</select></label>
     <label class="field"><span>Record the debt in</span><select name="debt"><option value="">A new loan account</option>${debts.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select></label>` : '<p class="hint">Add an account first to record a loan.</p>'}
     <div class="btnrow"><button type="button" class="btn ghost" data-close2>Close</button>${recv.length ? '<button type="button" class="btn" data-rec>Record this loan</button>' : ''}</div></form>`, { title: 'Loan planner', wide: true });
+  pickAll(s.el);
   const form = s.el.querySelector('#lp'), out = s.el.querySelector('#lp-out');
   const vals = () => ({ kind: form.kind.value, principal: num(form.principal.value), rate: num(form.rate.value), months: num(form.months.value), fees: num(form.fees.value), lateFee: num(form.lateFee.value), dueDay: Math.round(num(form.dueDay.value)) });
   const draw = () => {
@@ -71,6 +73,7 @@ export function openLoanCharge(acctId) {
     <label class="field"><span>Amount (${esc(a.cur)})</span><input name="amt" inputmode="decimal" autofocus></label>
     <div class="btnrow"><button type="button" class="btn ghost" data-close2>Cancel</button><button class="btn">Add charge</button></div></form>`, { title: `Charge on ${a.name}` });
   s.el.querySelector('[data-close2]').onclick = () => s.close();
+  pickAll(s.el);
   s.el.querySelector('#lc').onsubmit = (e) => { e.preventDefault(); const f = e.target, amt = num(f.amt.value); if (!(amt > 0)) return;
     commit((d) => { const cat = findOrAddCategory(d, 'Financial loss', f.what.value, 'expense'); d.txs.push(stamp({ id: uid(), kind: 'expense', amount: amt, cur: a.cur, fx: rateFor(d, a.cur) || 1, date: nowStamp(), name: f.what.value, cat: cat.id, acct: a.id, notes: `Charged on ${a.name}` })); });
     s.close(); toast('Added. It counts as a financial loss.'); };
