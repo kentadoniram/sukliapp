@@ -77,7 +77,7 @@ export function accounts(db) {
       .sort((a, b) => (a.title === 'No exchange') - (b.title === 'No exchange') || b.base - a.base);
   } else if (view.group === 'class') {
     const cls = (a) => {
-      if (isLiability(a)) return a.type === 'card' ? 'Credit cards' : (a.type === 'loan' || a.loan) ? 'Loans and money owed' : 'Other debts';
+      if (isLiability(a) || val(a) < 0) return a.type === 'card' ? 'Credit cards' : (a.type === 'loan' || a.loan) ? 'Loans and money owed' : 'Other debts';
       return ['invest', 'crypto'].includes(a.type) ? 'Investments and crypto' : a.type === 'asset' ? 'Property and other assets' : 'Cash and bank';
     };
     const order = [['Assets', ['Cash and bank', 'Investments and crypto', 'Property and other assets']], ['Liabilities', ['Credit cards', 'Loans and money owed', 'Other debts']]];
@@ -114,12 +114,11 @@ export function accounts(db) {
       ${nw.assets + nw.debts > 0 ? `<span class="nwbar" role="img" aria-label="Assets against debts"><i style="width:${Math.round(nw.assets / (nw.assets + nw.debts) * 100)}%"></i></span>` : ''}</button>
       <button class="nwsp" data-act="acct-sp"><span>Spendable now</span><b>${money(sp)}</b></button></section>
     ${nw.missing ? `<p class="hint">Some accounts have no exchange rate yet, so they are left out of these totals. Set rates in Settings.</p>` : ''}
-    <div class="aview compact"><label>Group <select data-aview="group" aria-label="Group accounts by">${[['class', 'Assets / debts'], ['cur', 'Currency'], ['type', 'Category'], ['exchange', 'Exchange'], ['none', 'None']].map(([v, l]) => `<option value="${v}" ${view.group === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-      <label>Sort <select data-aview="sort" aria-label="Sort accounts">${[['high', 'High → low'], ['low', 'Low → high'], ['name', 'A–Z']].map(([v, l]) => `<option value="${v}" ${view.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+    <div class="aview">${segs('group', [['class', 'Assets / debts'], ['cur', 'Currency'], ['type', 'Category'], ['exchange', 'Exchange'], ['none', 'None']], view.group)}
+      ${segs('sort', [['high', 'High → low'], ['low', 'Low → high'], ['name', 'A–Z']], view.sort)}</div>
     ${sections || '<p class="empty">No accounts yet. Add one, or import your Bluecoins export in Settings.</p>'}
     ${hidden ? `<p class="muted center">${hidden} hidden ${hidden === 1 ? 'account' : 'accounts'} (archived).</p>` : ''}`;
 }
-document.addEventListener('change', (e) => { const el = e.target.closest && e.target.closest('select[data-aview]'); if (el) { view[el.dataset.aview] = el.value; saveView(); render(); } });
 ACT.aview = (el) => { view[el.dataset.k] = el.dataset.v; saveView(); render(); };
 ACT['acct-sp'] = () => toast('Spendable counts cash, bank, e-wallet and card accounts marked “Count in spendable total”.');
 
@@ -167,7 +166,6 @@ ACT['acct-new'] = () => openAccount(null);
 
 // a new transfer from an account page: this account on its usual side, the usual other account on the other side.
 // Cards and loans usually receive money, otherwise the most used route decides (this account can be the receiver).
-const inInvestAcct = (a) => !!a && !a.archived && (a.type === 'crypto' || a.type === 'invest' || !!a.invtab);
 function transferPreset(db, id) {
   const a = db.accounts.find((x) => x.id === id), h = transferHints(db), ok = (x) => { const o = db.accounts.find((q) => q.id === x); return o && !o.deleted && !o.archived; };
   const mine = h.routes.filter((r) => (r.from === id && ok(r.to)) || (r.to === id && ok(r.from))).sort((x, y) => y.n - x.n || (x.last < y.last ? 1 : -1))[0];
@@ -248,12 +246,12 @@ export function openAccountDetail(id) {
         <p class="hint">Approximate: Sukli adds one entry a day (category ${a.type === 'crypto' ? 'Crypto earned' : 'Interest'}). Set the rate your app shows; edit or delete any entry that differs.</p></div>` : ''}
       <h3>History</h3>
       <div class="histfilter"><div class="seg sm" role="group" aria-label="Show">${[['all', 'All'], ['in', 'Money in'], ['out', 'Money out'], ['tr', 'Transfers']].map(([v, l]) => `<button type="button" data-ad="type" data-v="${v}" class="${st.type === v ? 'on' : ''}" aria-pressed="${st.type === v}">${l}</button>`).join('')}</div>
-        <div class="seg sm" role="group" aria-label="Period">${[['m', 'This month'], ['p', 'Last month'], ['y', 'This year'], ['', 'All time']].map(([v, l]) => `<button type="button" data-ad="preset" data-v="${v}" class="${(st.preset ?? '') === v && (v === '' ? (!st.from && !st.to) : true) ? 'on' : ''}" aria-pressed="${(st.preset ?? '') === v}">${l}</button>`).join('')}</div>
+        <div class="seg sm" role="group" aria-label="Period">${[['m', 'This month'], ['p', 'Last month'], ['y', 'This year'], ['', 'All time']].map(([v, l]) => `<button type="button" data-ad="preset" data-v="${v}" class="${(!st.from && !st.to && v === '') ? 'on' : ''}">${l}</button>`).join('')}</div>
         <div class="two"><button type="button" class="whenbtn" data-ad="from"><span>${st.from ? esc(st.from) : 'From: any date'}</span>${ic('calendar')}</button><button type="button" class="whenbtn" data-ad="to"><span>${st.to ? esc(st.to) : 'To: any date'}</span>${ic('calendar')}</button></div></div>
       ${st.from || st.to || st.type !== 'all' ? `<div class="facts"><div><span>Income / in</span><b class="in">${money(rsum.inc, a.cur)}</b></div><div><span>Expenses / out</span><b>${money(rsum.exp, a.cur)}</b></div><div><span>Transfers in</span><b>${money(rsum.tin, a.cur)}</b></div><div><span>Transfers out</span><b>${money(rsum.tout, a.cur)}</b></div><div><span>Opening</span><b>${openBal == null ? '—' : money(openBal, a.cur)}</b></div><div><span>Closing</span><b>${closeBal == null ? '—' : money(closeBal, a.cur)}</b></div></div>` : ''}
       <div class="rows plain">${rowsHtml || '<p class="empty">No entries for this filter.</p>'}</div>
       ${shownH.length > st.more ? `<button class="btn ghost wide" data-ad="more">Show more (${shownH.length - st.more} left)</button>` : ''}
-      <div class="adfab ${st.fab ? 'open' : ''}">${st.fab ? `<div class="adfab-menu" role="menu">${(inInvestAcct(a) ? ['trade', 'transfer', 'expense', 'income'] : ['expense', 'income', 'transfer']).map((k) => `<button type="button" role="menuitem" data-ad="fab-new" data-v="${k}">${k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</div>` : ''}<button type="button" class="adfab-btn" data-ad="fab" aria-label="Add to this account" aria-expanded="${!!st.fab}">${ic(st.fab ? 'x' : 'plus')}</button></div>`;
+      <div class="adfab ${st.fab ? 'open' : ''}">${st.fab ? `<div class="adfab-menu" role="menu"><button type="button" role="menuitem" data-ad="fab-new" data-v="expense">Expense</button><button type="button" role="menuitem" data-ad="fab-new" data-v="income">Income</button><button type="button" role="menuitem" data-ad="fab-new" data-v="transfer">Transfer</button></div>` : ''}<button type="button" class="adfab-btn" data-ad="fab" aria-label="Add to this account" aria-expanded="${!!st.fab}">${ic(st.fab ? 'x' : 'plus')}</button></div>`;
   };
   draw();
   const un = (() => { let q = false; const f = () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; if (root.isConnected) draw(); }); }; window.addEventListener('sukli-render', f); const u2 = subscribe(f); return () => { window.removeEventListener('sukli-render', f); u2(); }; })();
@@ -265,23 +263,21 @@ export function openAccountDetail(id) {
     switch (b.dataset.ad) {
       case 'add': openEntry({ preset: { acct: id } }); break;
       case 'fab': st.fab = !st.fab; draw(); break;
-      case 'fab-new': { st.fab = false; draw(); const k = b.dataset.v;
-        if (k === 'trade') { import('./trades.js').then((m) => m.openTrade({ asset: id })); break; }
-        if (k === 'income' && inInvestAcct(db.accounts.find((x) => x.id === id))) { import('./invest.js').then((m) => m.openIncome({ asset: id })); break; } openEntry({ preset: k === 'transfer' ? transferPreset(db, id) : { kind: k, acct: id } }); break; }
+      case 'fab-new': { st.fab = false; draw(); const k = b.dataset.v; openEntry({ preset: k === 'transfer' ? transferPreset(db, id) : { kind: k, acct: id } }); break; }
       case 'edit': openAccount(id); break;
       case 'range': st.range = +b.dataset.v; draw(); break;
       case 'more': st.more += 25; draw(); break;
       case 'type': st.type = b.dataset.v; st.more = 25; draw(); break;
       case 'preset': {
-        const v = b.dataset.v, ym = thisMonth(); st.more = 25; st.preset = v;
+        const v = b.dataset.v, ym = thisMonth(); st.more = 25;
         if (v === 'm') { st.from = ym + '-01'; st.to = ym + '-31'; }
         else if (v === 'p') { const pm = shiftMonth(ym, -1); st.from = pm + '-01'; st.to = pm + '-31'; }
         else if (v === 'y') { st.from = ym.slice(0, 4) + '-01-01'; st.to = ym.slice(0, 4) + '-12-31'; }
         else { st.from = ''; st.to = ''; }
         draw(); break;
       }
-      case 'from': openDatePicker((st.from || today()) + ' 00:00:00', (v) => { st.preset = 'custom'; st.from = v.slice(0, 10); if (st.to && st.to < st.from) st.to = st.from; draw(); }, { title: 'From date', time: false }); break;
-      case 'to': openDatePicker((st.to || today()) + ' 00:00:00', (v) => { st.preset = 'custom'; st.to = v.slice(0, 10); if (st.from && st.to < st.from) st.from = st.to; draw(); }, { title: 'To date', time: false }); break;
+      case 'from': openDatePicker((st.from || today()) + ' 00:00:00', (v) => { st.from = v.slice(0, 10); if (st.to && st.to < st.from) st.to = st.from; draw(); }, { title: 'From date', time: false }); break;
+      case 'to': openDatePicker((st.to || today()) + ' 00:00:00', (v) => { st.to = v.slice(0, 10); if (st.from && st.to < st.from) st.from = st.to; draw(); }, { title: 'To date', time: false }); break;
       case 'pay': {
         const other = db.accounts.find((x) => !x.deleted && !x.archived && x.type !== 'card' && x.cur === a.cur) || db.accounts.find((x) => !x.deleted && !x.archived && x.type !== 'card');
         const c2 = cardInfo(db, a, balances(db).get(id));

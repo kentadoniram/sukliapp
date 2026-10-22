@@ -4,13 +4,6 @@ A private money tracker that runs entirely in the browser. Your data stays on yo
 
 ## What's new in v12
 
-- **Investments, round 2.** *Performance* card: for every asset, what you paid against what it is worth now (two bars, gain or loss in money and %), with an "I paid…" button for assets bought before Sukli. *Investment income* (Income button): staking rewards, airdrops, dividends, yield or other distributions, with amount, date, asset, and whether it arrived as more of the asset or as cash into an account. *My predictions*: your own price estimates with a date, always labelled "Your estimate" and shown beside the "Actual" price and how far it is. Tap a ticker in *Tickers and prices* for its price history (each update with the % change from the one before) and to update its price.
-- **Prices and when they were updated.** Coins with a price feed (the built-in list plus any token you give a CoinGecko id, for example `bitget-token` for BGB) refresh on their own when you are online (every 12 hours, on opening the app); the time of the last update is shown on top of Investments and next to each ticker, and a daily history is kept. Shares have no free live feed, so enter the price now and then (or trade): each entry is dated and kept so you can see how it moved.
-- **Platforms stand out:** platform names are bold, and the platform field offers tap-to-fill chips: the ones you already use first, then popular exchanges and brokers.
-- **Layout fixes:** the Investments "Market value" box was missing its layout (it looked cramped); fixed and made larger. Accounts: the Group and Sort controls are now two small dropdowns.
-- **Your own tickers (stocks, ETFs, funds, bonds, tokens).** Investments > Add > "Add an asset": asset type (Cryptocurrency, Stocks, ETFs, Funds, Bonds, Other), platform or broker (Binance, Bybit, Bitget, Moomoo, SBI, Kiwoom… or type your own), ticker (BNB, BGB, NVDA, 7203 for Tokyo, 005930 for Korea), name, market (NASDAQ, NYSE, TSE, KRX, PSE, HKEX, Other), price currency and optional price. Each asset is its own balance, kept apart from PHP, JPY or USDT. A ticker with a manual price is valued as price × the price currency's rate; a buy or sell updates its price to the trade price; "Tickers and prices" lists them with a Change button.
-- **Buy by paying or converting:** the holding row reads like "0.5 BNB · paid 370 USDT · price ₱46,620", with the home-currency value on the right and the cost, gain or loss underneath. What you paid is remembered in the currency you used (USDT, PHP, JPY…), also after partial sales. Fees are saved as a financial loss.
-- **Group Investments by platform or by asset type** (one tap).
 - **Bordered cards and Assets / Liabilities.** Every group is a bordered card, and groups inside a group are nested cards. Accounts now opens as two big cards, **Assets** (green: cash and bank, investments and crypto, property and other assets) and **Liabilities** (red: credit cards, loans and money owed, other debts), each with its total. The other groupings (Currency, Category, Exchange) are still one tap away.
 - **Investments tab** (menu, and you can put it in the bottom bar): crypto grouped by exchange, every coin its own balance with its own market value (price in your home currency, share of the exchange), "+ Add a coin to <exchange>", plus investments and other products such as MP2. Tick "show in Investments" on any account to include it.
 - **Buy / sell / convert** (`js/trades.js`, `js/tradecalc.js`): recorded between your cash account and the holding, marked as a trade (not ordinary spending or a plain transfer). Fees are saved as a financial loss; realized gains and losses use average cost (units you held before Sukli have no known cost, so they never inflate a gain). The holding page lists its trades.
@@ -179,16 +172,3 @@ The app asks only for its own hidden folder (`drive.appdata`) and keeps one snap
 - Google sign-in has only been tested against a simulated Drive, not real Google. Sign-in tokens are short-lived, so auto-backup may sometimes ask you to tap **Back up now**.
 - Receipts are entered by hand for now (split into items on the entry sheet). Photo reading is the next piece.
 - Crypto balances are shown as money moved in and out, not market value.
-
-## What's new (12.38, 22 Oct)
-- Import never changes an existing account's type; new accounts are listed first, similar names can be merged.
-- Assets/Liabilities grouping follows the account type, not the balance sign.
-- Shared searchable pick list (search after 5 options, "Add new" under search, grouped).
-- Trade is platform-first; fees can be % or fixed, in any currency; units × price = total both ways.
-- Investments "+ Entry": Trade, Transfer, Expense, Income (same on the account page and per platform).
-- Income combines investment types and your normal income categories; "Cash into an account" lists the platform's accounts first.
-- Manual price updates are each kept; the automatic price keeps one record per day.
-- History filters highlighted; header wraps on small phones; pie percentages drawn inside slices.
-
-## How to check the app
-Run `./run-all-tests.sh` (optionally with the path to your Bluecoins CSV). It starts a local server, runs all tests and prints one SUMMARY line.
