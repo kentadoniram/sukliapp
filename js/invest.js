@@ -46,7 +46,13 @@ const MARKETS = ['NASDAQ', 'NYSE', 'TSE (Tokyo)', 'KRX (Korea)', 'PSE (Philippin
 const PLATFORMS = ['Binance', 'Bybit', 'Bitget', 'OKX', 'Coins.ph', 'Moomoo', 'Interactive Brokers', 'SBI Securities', 'Rakuten Securities', 'Webull', 'COL Financial', 'Kiwoom', 'Toss Securities'];
 const assetTypeOf = (a) => a.assetType || (a.type === 'crypto' ? 'crypto' : '');
 const isAsset = (a) => !!assetTypeOf(a);
-const gmode = () => { try { return localStorage.getItem('sukli-invgroup') === 'type' ? 'type' : 'platform'; } catch { return 'platform'; } };
+const gmode = () => { try { const v = localStorage.getItem('sukli-invgroup'); return v === 'type' || v === 'risk' ? v : 'platform'; } catch { return 'platform'; } };
+// "By group": how risky or steady a holding is. Automatic by default; the user can set a group (or make a new one) for any ticker.
+export const RISK_GROUPS = ['Stablecoins', 'Major coins', 'High-volatility coins', 'Stocks and ETFs', 'Funds and bonds', 'Other'];
+const STABLE = ['USDT', 'USDC', 'DAI', 'FDUSD', 'TUSD', 'USDD', 'PYUSD', 'RLUSD', 'USDE', 'USD', 'EUR'], MAJOR = ['BTC', 'ETH', 'BNB', 'XRP', 'SOL'];
+export const riskOf = (db, a) => { const tk = (db.settings.tickers || {})[a.cur] || {}; if (tk.riskGroup) return tk.riskGroup; const t = assetTypeOf(a) || tk.assetType || '';
+  if (STABLE.includes(a.cur)) return 'Stablecoins'; if (t === 'stock' || t === 'etf') return 'Stocks and ETFs'; if (t === 'fund' || t === 'bond') return 'Funds and bonds';
+  if (t === 'crypto' || a.type === 'crypto') return MAJOR.includes(a.cur) ? 'Major coins' : 'High-volatility coins'; return 'Other'; };
 ACT['inv-group'] = (el) => { try { localStorage.setItem('sukli-invgroup', el.dataset.v); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
 const COINS = ['USDT', 'USDC', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'TON', 'ADA'];
 
@@ -54,7 +60,7 @@ export function investments(db) {
   const bal = balances(db), items = live(db.accounts).filter(inInvest), book = tradeBook(db.txs);
   const crypto = items.filter(isAsset), other = items.filter((a) => !isAsset(a)), mode = gmode(), tickers = db.settings.tickers || {};
   const total = items.reduce((s, a) => s + val(db, a, bal.get(a.id) || 0), 0), unpriced = items.filter((a) => !priced(db, a) && (bal.get(a.id) || 0) !== 0);
-  const byEx = new Map(); for (const a of crypto) { const k = mode === 'type' ? (ASSET_TYPES[assetTypeOf(a)] || 'Other investments') : (exchangeOf(a) || 'Wallets and other'); if (!byEx.has(k)) byEx.set(k, []); byEx.get(k).push(a); }
+  const byEx = new Map(); for (const a of crypto) { const k = mode === 'type' ? (ASSET_TYPES[assetTypeOf(a)] || 'Other investments') : mode === 'risk' ? riskOf(db, a) : (exchangeOf(a) || 'Wallets and other'); if (!byEx.has(k)) byEx.set(k, []); byEx.get(k).push(a); }
   const exSum = (l) => l.reduce((s, a) => s + val(db, a, bal.get(a.id) || 0), 0);
   const qty = (n, cur) => `${n.toLocaleString('en-US', { maximumFractionDigits: Math.max(2, Math.min(8, (CUR[cur] || { dec: 2 }).dec)) })} ${cur}`;
   const paidTxt = (a) => { const p = book.pos.get(a.id); if (!p || !(p.qty > 0)) return ''; const e = Object.entries(p.paid || {}).filter(([, v]) => v > 0); return e.length ? ` · paid ${e.map(([c, v]) => qty(v, c)).join(' + ')}` : ''; };
@@ -66,16 +72,16 @@ export function investments(db) {
     return `<button class="row acct hold" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:var(--xfer)">${esc(a.cur.slice(0, 1))}</i>
       <span class="rmain"><strong>${a.cur === 'USD' || a.cur === HOME ? esc(a.name) : `${esc((tickers[a.cur] && tickers[a.cur].ticker) || a.cur)} <small class="muted">${esc(curName(a.cur) || '')}${a.market ? ` · ${esc(a.market)}` : ''}</small>`}</strong><small>${qty(b, a.cur)}${paidTxt(a)}${ok && a.cur !== HOME ? ` · price ${money(px)}` : ''}${tot > 0 && ok ? ` · ${Math.round((v / tot) * 100)}%` : ''}${basis(a)}</small></span>
       <span class="ramt"><b>${ok ? money(v) : '<small class="muted">no price</small>'}</b></span></button>`; };
-  const exHtml = [...byEx.entries()].sort((x, y) => exSum(y[1]) - exSum(x[1])).map(([ex, list]) => {
+  const exHtml = [...byEx.entries()].sort((x, y) => mode === 'risk' ? (((RISK_GROUPS.indexOf(x[0]) + 1) || 99) - ((RISK_GROUPS.indexOf(y[0]) + 1) || 99)) || x[0].localeCompare(y[0]) : exSum(y[1]) - exSum(x[1])).map(([ex, list]) => {
     const t = exSum(list); return coll('ix-' + ex, `<span class="exname">${esc(ex)}</span> <small class="muted gsum">${money(t)}</small>`,
       `<div class="rows plain">${list.slice().sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0)).map((a) => holding(a, t)).join('')}</div>
        ${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="btnrow left"><button type="button" class="btn sm" data-act="inv-add" data-ex="${esc(ex)}">+ Entry on ${esc(ex)}</button><button type="button" class="btn sm ghost" data-act="inv-coin" data-ex="${esc(ex)}">+ Add an asset to ${esc(ex)}</button></div>` : ''}`, ''); }).join('');
   const otherHtml = other.length ? coll('i-other', `Investments and other products <small class="muted gsum">${money(exSum(other))}</small>`, `<div class="rows plain">${other.sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0)).map((a) => { const b = bal.get(a.id) || 0;
     return `<button class="row acct" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:var(--line)">${esc((a.name || '?').slice(0, 1))}</i><span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(a.exchange || (a.type === 'invest' ? 'Investment' : 'Other product'))} · ${fmt(b, a.cur)}</small></span><span class="ramt"><b>${priced(db, a) ? money(val(db, a, b)) : '<small class="muted">no rate</small>'}</b></span></button>`; }).join('')}</div>`, '') : '';
   return `${hdr('Investments', '<button class="btn sm ghost" data-act="inv-add">+ Entry</button> <button class="btn sm" data-act="inv-new">Add</button>')}
-    <section class="nwcard one"><div class="nwmain"><span>Market value</span><b>${money(total)}</b><small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${byEx.size} ${mode === 'type' ? 'type' : 'place'}${byEx.size === 1 ? '' : 's'} · ${other.length} other</small><small class="updated">${updatedLine(db)}</small></div></section>
+    <section class="nwcard one"><div class="nwmain"><span>Market value</span><b>${money(total)}</b><small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${byEx.size} ${mode === 'type' ? 'type' : mode === 'risk' ? 'group' : 'place'}${byEx.size === 1 ? '' : 's'} · ${other.length} other</small><small class="updated">${updatedLine(db)}</small></div></section>
     ${unpriced.length ? `<p class="hint">No price yet for ${unpriced.map((a) => esc(a.cur)).join(', ')}, so ${unpriced.length === 1 ? 'it is' : 'they are'} left out of the total. Prices load when you are online, or set one in Settings, Exchange rates.</p>` : ''}
-    ${crypto.length ? `<div class="seg sm small" role="group" aria-label="Group by">${[['platform', 'By platform'], ['type', 'By asset type']].map(([v, l]) => `<button type="button" data-act="inv-group" data-v="${v}" class="${mode === v ? 'on' : ''}" aria-pressed="${mode === v}">${l}</button>`).join('')}</div>` : ''}
+    ${crypto.length ? `<div class="seg sm small" role="group" aria-label="Group by">${[['platform', 'By platform'], ['type', 'By asset type'], ['risk', 'By group']].map(([v, l]) => `<button type="button" data-act="inv-group" data-v="${v}" class="${mode === v ? 'on' : ''}" aria-pressed="${mode === v}">${l}</button>`).join('')}</div>${mode === 'risk' ? '<p class="hint">Groups: stablecoins (steady value), major coins, high-volatility coins, stocks, funds. Open a ticker below to move it to another group or make your own.</p>' : ''}` : ''}
     ${performanceCard(db, bal, book, items)}${incomeCard(db)}${predictCard(db)}${gains}${exHtml}${otherHtml}${tickerCard(db, tickers)}
     ${items.length ? '' : '<p class="empty">Nothing here yet. Add an exchange coin, an investment, or any account marked “Show in Investments” (for example MP2).</p>'}
     <p class="hint">Each coin or share is its own balance at its platform (for example USDT, BNB and NVDA). The line under it shows the amount, what you paid, and today’s price; the right side is the value in ${HOME}.</p>`;
@@ -183,6 +189,15 @@ ACT['inv-cost'] = async (el) => {
 };
 // income from investments: staking, airdrops, dividends, yield: any date, any amount
 const INCOME_TYPES = ['Staking reward', 'Airdrop', 'Dividend', 'Interest or yield', 'Other distribution'];
+// income kinds, grouped so a long list is easy to scan: crypto rewards, dividends and interest, the user's own kinds, then the normal income categories by their group
+const KIND_GROUPS = [['Crypto rewards', ['Staking reward', 'Airdrop']], ['Dividends and interest', ['Dividend', 'Interest or yield']], ['Other investment income', ['Other distribution']]];
+function kindOptions(db, incCats, pick = '') {
+  const mine = db.settings.incomeKinds || [], o = (v, l) => `<option value="${esc(v)}" ${v === pick ? 'selected' : ''}>${esc(l)}</option>`;
+  const inv = KIND_GROUPS.map(([g, l]) => `<optgroup label="${g}">${l.map((t) => o('inv:' + t, t)).join('')}</optgroup>`).join('');
+  const own = mine.length ? `<optgroup label="Your own kinds">${mine.map((t) => o('inv:' + t, t)).join('')}</optgroup>` : '';
+  const by = new Map(); for (const c of incCats) { const g = c.group || 'Other'; if (!by.has(g)) by.set(g, []); by.get(g).push(c); }
+  return inv + own + [...by.entries()].map(([g, l]) => `<optgroup label="Income: ${esc(g)}">${l.map((c) => o('cat:' + c.id, c.name)).join('')}</optgroup>`).join('');
+}
 function incomeCard(db) {
   const list = db.txs.filter((t) => !t.deleted && t.invIncome); if (!list.length) return '';
   const v = (t) => t.amount * factorFor(db, t), yr = String(new Date().getFullYear()), by = new Map();
@@ -198,7 +213,7 @@ export function openIncome(pre = {}) {
   const nm = (a) => `${esc(a.exchange ? a.exchange + ' · ' : '')}${esc(((db.settings.tickers || {})[a.cur] || {}).ticker || a.name)}`;
   const incCats = (db.categories || []).filter((c) => !c.deleted && (c.kind === 'income' || c.kind === 'both') && c.name);
   const s = sheet(`<form id="ii"><label class="field"><span>Income from</span><select name="asset">${hold.map((a) => `<option value="${a.id}" ${a.id === pre.asset ? 'selected' : ''}>${nm(a)}</option>`).join('')}</select></label>
-    <label class="field"><span>Kind</span><select name="type"><optgroup label="Investment income">${INCOME_TYPES.map((t) => `<option value="inv:${esc(t)}">${t}</option>`).join('')}</optgroup>${incCats.length ? `<optgroup label="Other income">${incCats.map((c) => `<option value="cat:${esc(c.id)}">${esc(c.group ? c.group + ' · ' + c.name : c.name)}</option>`).join('')}</optgroup>` : ''}</select></label>
+    <label class="field"><span>Kind</span><select name="type">${kindOptions(db, incCats)}</select></label>
     <div class="two"><label class="field"><span id="ii-l">Amount received</span><input name="amt" inputmode="decimal" required></label><label class="field"><span>Date</span><input name="date" type="date" value="${today()}"></label></div>
     <label class="field"><span>Received as</span><select name="as"><option value="asset">More of the asset itself (units)</option>${cash.length ? '<option value="cash">Cash into an account</option>' : ''}</select></label>
     <label class="field" id="ii-c" hidden><span>Paid into</span><select name="cash"></select></label>
@@ -208,7 +223,7 @@ export function openIncome(pre = {}) {
   const fillCash = () => { const a = db.accounts.find((x) => x.id === f.asset.value), p = a ? exchangeOf(a) : '', on = cash.filter((x) => p && exchangeOf(x) === p), off = cash.filter((x) => !(p && exchangeOf(x) === p)), o = (l) => l.map((x) => `<option value="${x.id}">${esc(x.name)} · ${esc(x.cur)}</option>`).join('');
     f.cash.innerHTML = (on.length ? `<optgroup label="On ${esc(p)}">${o(on)}</optgroup>` : '') + (off.length ? `<optgroup label="${on.length ? 'Other platforms and accounts' : 'Accounts'}">${o(off)}</optgroup>` : ''); };
   fillCash();
-  enhanceSelect(f.asset, { title: 'Income from' }); enhanceSelect(f.type, { title: 'Kind' }); enhanceSelect(f.as); enhanceSelect(f.cash, { title: 'Paid into', onAdd: () => { const a = db.accounts.find((x) => x.id === f.asset.value); s.close(); openAccount(null, { exchange: a ? exchangeOf(a) : '' }); }, addLabel: 'Add a new account or platform' });
+  enhanceSelect(f.asset, { title: 'Income from' }); enhanceSelect(f.type, { title: 'Kind', addLabel: 'Add a new kind', onAdd: async () => { const k = (await promptDialog('New kind of income', '', { okLabel: 'Add', hint: 'For example: Lending interest, Referral bonus, Cashback reward' }))?.trim(); if (!k) return; const known = [...INCOME_TYPES, ...(get().settings.incomeKinds || [])].find((x) => x.toLowerCase() === k.toLowerCase()); const name = known || k; if (!known) commit((d) => { d.settings.incomeKinds = [...(d.settings.incomeKinds || []), k]; }); f.type.innerHTML = kindOptions(get(), incCats, 'inv:' + name); f.type.value = 'inv:' + name; } }); enhanceSelect(f.as); enhanceSelect(f.cash, { title: 'Paid into', onAdd: () => { const a = db.accounts.find((x) => x.id === f.asset.value); s.close(); openAccount(null, { exchange: a ? exchangeOf(a) : '' }); }, addLabel: 'Add a new account or platform' });
   f.asset.addEventListener('change', fillCash);
   f.as.onchange = () => { s.el.querySelector('#ii-c').hidden = f.as.value !== 'cash'; };
   s.el.querySelector('[data-x]').onclick = () => s.close();
@@ -261,7 +276,11 @@ ACT['inv-ticker'] = (el) => {
     <ul class="calfacts"><li><span>Price now</span><b>${now ? fmt(now.v, now.quote) : 'no price'}</b></li><li><span>Last update</span><b>${a ? esc(priceStamp(db, a)) : ''}</b></li></ul>
     ${spark}<small class="muted">Blue dots: live prices. Purple dots: prices you set or traded at.</small>
     <ul class="calfacts">${h.length ? h.slice().reverse().slice(0, 30).map((p, i, arr) => { const prev = arr[i + 1], ch = prev ? (p.price - prev.price) / prev.price * 100 : null; return `<li><span>${esc(p.date)}${p.ts && p.src !== 'live' ? ' ' + esc(new Date(p.ts).toTimeString().slice(0, 5)) : ''} <small class="muted">${p.src === 'live' ? 'daily close' : p.src === 'trade' ? 'trade' : 'you set'}</small></span><b>${fmt(p.price, p.quote || tk.quote)}${ch != null ? ` <small class="${ch >= 0 ? 'cg' : 'cr'}">${ch >= 0 ? '+' : '−'}${Math.abs(ch).toFixed(1)}%</small>` : ''}</b></li>`; }).join('') : '<li><span>No history yet</span><b></b></li>'}</ul>
+    <label class="field"><span>Group</span><select name="rg">${[...new Set([...RISK_GROUPS, ...Object.values(db.settings.tickers || {}).map((t) => t.riskGroup).filter(Boolean)])].map((g) => `<option ${g === (a ? riskOf(db, a) : tk.riskGroup) ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></label>
     <div class="btnrow"><button type="button" class="btn ghost" data-pr>Set price</button><button type="button" class="btn ghost" data-pd>Add prediction</button><button type="button" class="btn" data-x>Close</button></div>`, { title: 'Price history' });
+  const setGroup = (g) => commit((d) => { const t = (d.settings.tickers || {})[sym]; if (t) t.riskGroup = g; });
+  pickAll(s.el, { rg: { title: 'Group', addLabel: 'Add a new group', onAdd: async () => { const g = (await promptDialog('New group', '', { okLabel: 'Add', hint: 'For example: Long-term, Speculative, Retirement' }))?.trim(); if (!g) return; const sel = s.el.querySelector('select[name=rg]'); if (![...sel.options].some((o) => o.value === g)) sel.add(new Option(g, g)); sel.value = g; setGroup(g); } } });
+  s.el.querySelector('select[name=rg]').addEventListener('change', (e) => setGroup(e.target.value));
   s.el.querySelector('[data-x]').onclick = () => s.close();
   s.el.querySelector('[data-pr]').onclick = () => { s.close(); if (!tk.price && !tk.cgId) { /* ensure the ticker exists for hand pricing */ } ACT['inv-price']({ dataset: { sym } }); };
   s.el.querySelector('[data-pd]').onclick = () => { s.close(); openPredict({ sym }); };
