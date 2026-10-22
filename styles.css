@@ -668,3 +668,14 @@ html.kb .scrim { inset: auto; left: 0; right: 0; top: var(--vvt, 0px); height: v
 .pkbtn:focus-visible{outline:2px solid var(--line);outline-offset:0}
 .pkbtn .pkcar{color:var(--ink2);font-size:.8em}
 .pk-list h3{margin:14px 0 4px;font-size:.85rem;opacity:.75}
+
+/* Entries filters: one tidy row, centred text; account filter on its own line */
+.filters{display:flex;flex-wrap:wrap;gap:6px}
+.filters .chip{flex:1 1 0;min-width:0;justify-content:center;text-align:center;padding:0 6px;min-height:34px;font-size:calc(13.5px * var(--fs, 1))}
+.filters select{flex:1 0 100%;max-width:none;margin-left:0;min-height:38px;font-size:calc(14px * var(--fs, 1))}
+/* Account page: compact one-row segmented filters and chart range */
+.histfilter .seg,.rangebar.seg{display:flex}
+.histfilter .seg button,.rangebar.seg button{flex:1 1 0;min-width:0;min-height:34px;padding:0 4px;display:flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;font-size:calc(12.5px * var(--fs, 1))}
+.histfilter{display:grid;gap:6px}
+.eff{display:block;font-size:calc(11.5px * var(--fs, 1));color:var(--ink2);opacity:.85;margin-top:1px}
+.rmain small.eff{white-space:normal;overflow:visible;text-overflow:clip}

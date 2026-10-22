@@ -91,8 +91,11 @@ export function openTrade(pre = {}) {
     commit((d) => {
       if (exchangeOf(a)) d.settings.lastPlat = exchangeOf(a);
       const tk = d.settings.tickers && side !== 'convert' && d.settings.tickers[a.cur]; if (tk && q > 0 && t > 0) { tk.price = +(t / q).toPrecision(8); tk.quote = c.cur; tk.priceDate = when.slice(0, 10); pushHistory(tk, tk.price, c.cur, 'trade'); }   // a ticker you added is priced by its last trade
-      d.txs.push(stamp({ id: tid, kind: 'transfer', date: when, name, cat: '', notes: `Price per unit ${r6(num(f.price.value))}`.replace(/ 0$/, ''), trade, ...rec }));
-      if (fee > 0) { const cat = findOrAddCategory(d, 'Financial loss', 'Trading fees', 'expense'); d.txs.push(stamp({ id: uid(), kind: 'expense', date: when, name: `Trading fee: ${name}`, cat: cat.id, acct: feeAcct.id, cur: feeAcct.cur, fx: rateFor(d, feeAcct.cur) || 1, amount: fee, tradeOf: tid })); }
+      // the fee stays on the trade itself (like a transfer fee), so one row shows what happened and balances include it; only a fee paid from a third account is its own entry
+      const onTrade = fee > 0 && (feeAcct.id === rec.acct || feeAcct.id === rec.toAcct), fcat = fee > 0 ? findOrAddCategory(d, 'Fees', 'Trading fee', 'expense') : null;
+      d.txs.push(stamp({ id: tid, kind: 'transfer', date: when, name, cat: '', notes: `Price per unit ${r6(num(f.price.value))}`.replace(/ 0$/, ''), trade, ...rec,
+        ...(onTrade ? { fee, feeCat: fcat.id, feeBy: feeAcct.id === rec.acct ? 'from' : 'to', feeCur: feeAcct.cur, feeFx: rateFor(d, feeAcct.cur) || 1 } : {}) }));
+      if (fee > 0 && !onTrade) d.txs.push(stamp({ id: uid(), kind: 'expense', date: when, name: `Trading fee: ${name}`, cat: fcat.id, acct: feeAcct.id, cur: feeAcct.cur, fx: rateFor(d, feeAcct.cur) || 1, amount: fee, tradeOf: tid }));
     });
     s.close(); toast(`${name} recorded.`);
   };

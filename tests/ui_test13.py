@@ -1,4 +1,5 @@
 from playwright.sync_api import sync_playwright
+from pkhelp import choose
 CSV='/home/claude/Transactions.csv'
 errs=[]; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
@@ -17,7 +18,7 @@ with sync_playwright() as p:
     pg.fill('#curq','bbsol'); pg.wait_for_timeout(200)
     pg.click('[data-new]'); pg.wait_for_timeout(400)
     ok('custom token selected in form', pg.input_value('input[name=cur]')=='BBSOL')
-    pg.fill('input[name=name]','Bybit BBSOL'); pg.select_option('select[name=type]','crypto'); pg.fill('input[name=exchange]','Bybit'); pg.click('#acct-form .btn:not(.ghost):not(.danger)'); pg.wait_for_timeout(400)
+    pg.fill('input[name=name]','Bybit BBSOL'); pg.select_option('select[name=type]','crypto'); choose(pg,'select[name=exchange]',value='Bybit'); pg.click('#acct-form .btn:not(.ghost):not(.danger)'); pg.wait_for_timeout(400)
     a=pg.evaluate("window.sukli.get().accounts.find(a=>a.name==='Bybit BBSOL')")
     ok('account saved with token and exchange', a and a['cur']=='BBSOL' and a['exchange']=='Bybit')
     ok('token keeps 8 decimals', pg.evaluate("window.sukli.get().settings.curDec.BBSOL")==8)

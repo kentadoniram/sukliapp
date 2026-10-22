@@ -79,11 +79,34 @@ function spendable(db) {
   return { by, total, missing };
 }
 
+// fee entries that belong to a trade (older trades booked the fee as its own expense): child id -> parent trade
+let _kidsKey = null, _kids = new Map(), _kidsOf = new Map();
+function tradeKids(db) {
+  const key = db.txs.length + ':' + db.txs.reduce((m, t) => Math.max(m, t.updatedAt || 0), 0);
+  if (key === _kidsKey) return { parentOf: _kids, kidsOf: _kidsOf };
+  const by = new Map(db.txs.filter((t) => !t.deleted && t.trade).map((t) => [t.id, t])); _kids = new Map(); _kidsOf = new Map();
+  for (const t of db.txs) if (!t.deleted && t.tradeOf && by.has(t.tradeOf)) { _kids.set(t.id, by.get(t.tradeOf)); if (!_kidsOf.has(t.tradeOf)) _kidsOf.set(t.tradeOf, []); _kidsOf.get(t.tradeOf).push(t); }
+  _kidsKey = key; return { parentOf: _kids, kidsOf: _kidsOf };
+}
+// the small line under an entry: what it did to your records
+function effectLine(t, accts) {
+  const db = get(), { kidsOf, parentOf } = tradeKids(db);
+  let feeTxt = '';
+  if (t.kind === 'transfer' && t.fee > 0) feeTxt = ` · fee ${money(t.fee, t.feeCur || t.cur)} recorded as an expense`;
+  const kids = kidsOf.get(t.id) || []; for (const k of kids) feeTxt += ` · fee ${money(k.amount, k.cur)} recorded as an expense`;
+  if (parentOf.has(t.id)) return `Fee of “${esc(parentOf.get(t.id).name)}” recorded as an expense`;
+  if (t.loanNet) return `Loan: borrowed ${money(t.loanNet.principal, t.cur)}${t.loanNet.fees > 0 ? `, fees ${money(t.loanNet.fees, t.cur)} deducted` : ''}, received ${money(t.loanNet.net, t.cur)}`;
+  if (t.trade) return `Trade, not counted as spending${feeTxt}`;
+  if (t.kind === 'transfer') return `Moved between accounts, not counted as spending${feeTxt}`;
+  if (t.invIncome) return 'Investment income recorded';
+  if (t.auto && t.kind === 'income') return 'Interest posted automatically';
+  return t.kind === 'income' ? 'Income recorded' : 'Expense recorded';
+}
 export function row(t, accts, cats, sel) {
   const a = accts.get(t.acct), c = cats.get(t.cat), tr = t.kind === 'transfer';
   const group = tr ? 'Transfer' : (c ? c.group : 'Uncategorized');
   const title = t.name || (c ? c.name : 'Untitled');
-  const sub = tr ? `${esc(a ? a.name : '?')} → ${esc((accts.get(t.toAcct) || {}).name || '?')}`
+  const sub = tr ? `${t.trade ? 'Trade · ' : 'Transfer · '}${esc(a ? a.name : '?')} → ${esc((accts.get(t.toAcct) || {}).name || '?')}`
     : `${esc(c ? c.name : 'No category')} · ${esc(a ? a.name : '')}${t.items && t.items.length ? ` · ${t.items.length} items` : ''}`;
   const signed = tr ? money(t.amount, t.cur) : money(t.kind === 'income' ? t.amount : -t.amount, t.cur);
   const base = !tr && eq(t.amount, t.cur, t.fx, t.date) ? `<small>${eq(t.amount, t.cur, t.fx, t.date)}</small>` : '';
@@ -91,7 +114,7 @@ export function row(t, accts, cats, sel) {
   return `<button class="row ${sel ? 'selrow' : ''} ${on ? 'picked' : ''}" data-act="${sel ? 'sel-toggle' : 'edit'}" data-id="${t.id}" ${sel ? `role="checkbox" aria-checked="${!!on}"` : ''}>
     ${sel ? `<i class="selbox ${on ? 'on' : ''}">${on ? ic('check') : ''}</i>` : ''}
     <i class="badge" style="background:${tr ? 'var(--xfer)' : groupColor(group)}">${groupLetter(group)}</i>
-    <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub}</small></span>
+    <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub}</small><small class="eff">${effectLine(t, accts)}</small></span>
     <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}</span></button>`;
 }
 ACT.edit = (el) => { const t = get().txs.find((x) => x.id === el.dataset.id); if (t && t.auto && t.kind === 'income' && openInterestDetail(t)) return; openEntry({ id: el.dataset.id }); };
@@ -326,6 +349,10 @@ function ledgerRows(db) {
     const c = cats.get(t.cat), a = accts.get(t.acct);
     return [t.name, t.notes, c && c.name, c && c.group, a && a.name, (t.items || []).map((i) => i.n).join(' ')].join(' ').toLowerCase().includes(q);
   });
+  // a fee that belongs to a trade is shown inside the trade's row, not as a separate entry (still searchable, and in the Expense filter)
+  const kidMap = tradeKids(db).parentOf, hideKids = !q && ui.filter !== 'expense';
+  const hiddenFees = hideKids ? list.filter((t) => kidMap.has(t.id) && list.some((p) => p.id === kidMap.get(t.id).id)) : [];
+  if (hiddenFees.length) { const hs = new Set(hiddenFees.map((t) => t.id)); list = list.filter((t) => !hs.has(t.id)); }
   const total = list.length;
   list = list.slice(0, ui.limit);
   let html = '', day = '', dayTotal = 0, buf = ''; const shown = []; ui.shown = shown;
@@ -335,7 +362,7 @@ function ledgerRows(db) {
     if (d !== day) { flush(); day = d; }
     buf += row(t, accts, cats, ui.selecting); shown.push(t.id);
     if (t.kind === 'expense') dayTotal += t.amount * factorFor(db, t);
-    else if (t.kind === 'income') dayTotal -= 0;
+    for (const k of hiddenFees) if (kidMap.get(k.id).id === t.id) dayTotal += k.amount * factorFor(db, k);
   }
   flush();
   if (!html) html = `<p class="empty">${q ? 'No entries match your search.' : 'No entries here.'}</p>`;

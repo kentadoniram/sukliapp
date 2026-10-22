@@ -16,7 +16,7 @@ with sync_playwright() as p:
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic')
     print(pg.locator('.chip.plat b').count(), repr(pg.inner_text('.platlist')[:80])); ok('platform chips bold with history first', pg.locator('.chip.plat b').count()>5 and 'You used' in pg.inner_text('.platlist'))
     pg.locator('.chip.plat', has_text='Moomoo').click(); ok('chip fills platform', pg.input_value('#ic [name=ex]')=='Moomoo')
-    pg.select_option('#ic [name=type]','stock'); pg.fill('#ic [name=coin]','NVDA'); pg.select_option('#ic [name=market]','NASDAQ'); pg.fill('#ic [name=quote]','PHP'); pg.fill('#ic [name=price]','7000'); pg.fill('#ic [name=amt]','2')
+    choose(pg,'#ic [name=type]',value='stock'); pg.fill('#ic [name=coin]','NVDA'); choose(pg,'#ic [name=market]',value='NASDAQ'); pg.fill('#ic [name=quote]','PHP'); pg.fill('#ic [name=price]','7000'); pg.fill('#ic [name=amt]','2')
     pg.click('#ic button:text-is("Add asset")'); pg.wait_for_timeout(700)
     # set price twice -> history
     pg.click('[data-act=inv-price][data-sym=NVDA]'); pg.fill('.sheet input[name=v]','7700'); pg.click('.sheet .btn:not(.ghost)'); pg.wait_for_timeout(500)
@@ -30,7 +30,7 @@ with sync_playwright() as p:
     open_menu(pg,'income'); pg.wait_for_selector('#ii'); choose(pg,'#ii [name=asset]',text='NVDA'); choose(pg,'#ii [name=type]',value='inv:Dividend'); pg.fill('#ii [name=amt]','0.25'); pg.click('#ii button:text-is("Save")'); pg.wait_for_timeout(700)
     t=pg.inner_text('#view'); ok('investment income card', 'Investment income' in t and 'Dividend' in t)
     # prediction
-    pg.click('[data-act=inv-predict] >> nth=0'); pg.wait_for_selector('#ip'); pg.select_option('#ip [name=asset]','NVDA'); pg.fill('#ip [name=price]','9000'); pg.fill('#ip [name=quote]','PHP'); pg.click('#ip button:text-is("Save estimate")'); pg.wait_for_timeout(600)
+    pg.click('[data-act=inv-predict] >> nth=0'); pg.wait_for_selector('#ip'); choose(pg,'#ip [name=asset]',value='NVDA'); pg.fill('#ip [name=price]','9000'); pg.fill('#ip [name=quote]','PHP'); pg.click('#ip button:text-is("Save estimate")'); pg.wait_for_timeout(600)
     t=pg.inner_text('#view'); ok('prediction apart from actual', 'Your estimate' in t and 'Actual' in t and 'to reach it' in t)
     ok('no errors', not errs); print(errs[:5])
     b.close()

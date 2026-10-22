@@ -82,7 +82,7 @@ export function investments(db) {
     <section class="nwcard one"><div class="nwmain"><span>Market value</span><b>${money(total)}</b><small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${byEx.size} ${mode === 'type' ? 'type' : mode === 'risk' ? 'group' : 'place'}${byEx.size === 1 ? '' : 's'} · ${other.length} other</small><small class="updated">${updatedLine(db)}</small></div></section>
     ${unpriced.length ? `<p class="hint">No price yet for ${unpriced.map((a) => esc(a.cur)).join(', ')}, so ${unpriced.length === 1 ? 'it is' : 'they are'} left out of the total. Prices load when you are online, or set one in Settings, Exchange rates.</p>` : ''}
     ${crypto.length ? `<div class="seg sm small" role="group" aria-label="Group by">${[['platform', 'By platform'], ['type', 'By asset type'], ['risk', 'By group']].map(([v, l]) => `<button type="button" data-act="inv-group" data-v="${v}" class="${mode === v ? 'on' : ''}" aria-pressed="${mode === v}">${l}</button>`).join('')}</div>${mode === 'risk' ? '<p class="hint">Groups: stablecoins (steady value), major coins, high-volatility coins, stocks, funds. Open a ticker below to move it to another group or make your own.</p>' : ''}` : ''}
-    ${performanceCard(db, bal, book, items)}${incomeCard(db)}${predictCard(db)}${gains}${exHtml}${otherHtml}${tickerCard(db, tickers)}
+    ${performanceCard(db, bal, book, items)}${incomeCard(db)}${feesCard(db, book)}${predictCard(db)}${gains}${exHtml}${otherHtml}${tickerCard(db, tickers)}
     ${items.length ? '' : '<p class="empty">Nothing here yet. Add an exchange coin, an investment, or any account marked “Show in Investments” (for example MP2).</p>'}
     <p class="hint">Each coin or share is its own balance at its platform (for example USDT, BNB and NVDA). The line under it shows the amount, what you paid, and today’s price; the right side is the value in ${HOME}.</p>`;
 }
@@ -168,6 +168,20 @@ function platformChips() {
   return `<div class="platlist">${used.length ? `<small class="muted">You used</small><div class="chips">${used.map(chip).join('')}</div>` : ''}<small class="muted">Popular</small><div class="chips">${pop.map(chip).join('')}</div></div>`;
 }
 // what each asset is worth now against what you paid (live where a price is known, otherwise your last price)
+// trading fees and realized losses live here, in Investments only (Entries just shows each fee inside its trade)
+function feesCard(db, book) {
+  const trades = db.txs.filter((t) => !t.deleted && t.trade), ids = new Set(trades.map((t) => t.id));
+  const parts = []; // {date, name, v}
+  for (const t of trades) if (t.fee > 0) parts.push({ date: t.date, name: t.name, v: t.fee * factorFor(db, t, t.feeCur || t.cur, t.feeFx || t.fx) });
+  for (const t of db.txs) if (!t.deleted && t.tradeOf && ids.has(t.tradeOf)) parts.push({ date: t.date, name: (trades.find((x) => x.id === t.tradeOf) || {}).name || t.name, v: t.amount * factorFor(db, t) });
+  const fees = parts.reduce((x, p) => x + p.v, 0), losses = book.realized.filter((r) => r.gain < 0).reduce((x, r) => x + r.gain, 0);
+  if (!parts.length && !losses) return '';
+  const yr = String(new Date().getFullYear()), thisYr = parts.filter((p) => p.date.startsWith(yr)).reduce((x, p) => x + p.v, 0);
+  return coll('i-fees', `Fees and losses <small class="muted gsum">${money(fees + Math.abs(losses))}</small>`,
+    `<ul class="calfacts"><li><span>Trading fees, all time</span><b class="cr">${money(fees)}</b></li><li><span>Trading fees, this year</span><b>${money(thisYr)}</b></li><li><span>Realized losses on sales</span><b class="cr">${money(Math.abs(losses))}</b></li></ul>
+    <h3 class="subh">Latest fees</h3><ul class="calfacts">${parts.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6).map((p) => `<li><span>${esc(p.date.slice(0, 10))} · ${esc(p.name)}</span><b>${money(p.v)}</b></li>`).join('') || '<li><span>No fees recorded</span><b></b></li>'}</ul>
+    <p class="hint">Each fee is saved with its trade and also counted as an expense. They appear here, not as losses in Entries.</p>`, '');
+}
 function performanceCard(db, bal, book, items) {
   const rows = items.filter(isAsset).map((a) => { const p = book.pos.get(a.id), q = bal.get(a.id) || 0, v = val(db, a, q), cost = p && p.qty > 0 && p.cost > 0 ? p.cost : (a.costHome || 0); return { a, q, v, cost, own: !(p && p.qty > 0 && p.cost > 0) }; })
     .filter((r) => r.q > 0 && priced(db, r.a) && !['USD', 'USDT', 'USDC', 'DAI', 'FDUSD', HOME].includes(r.a.cur));   // cash-like balances have no gain to show

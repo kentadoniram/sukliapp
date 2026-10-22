@@ -1,4 +1,5 @@
 from playwright.sync_api import sync_playwright
+from pkhelp import choose, open_menu
 CSV='/home/claude/Transactions.csv'
 errs=[]; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
@@ -11,17 +12,20 @@ with sync_playwright() as p:
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
     # planner
     pg.goto(U+'#/accounts'); pg.wait_for_selector('[data-act=loan-plan]'); pg.click('[data-act=loan-plan]'); pg.wait_for_selector('#lp')
-    pg.select_option('#lp [name=kind]','home'); pg.fill('#lp [name=principal]','1200000'); pg.fill('#lp [name=rate]','6'); pg.fill('#lp [name=months]','120'); pg.fill('#lp [name=fees]','12000'); pg.fill('#lp [name=lateFee]','3'); pg.fill('#lp [name=dueDay]','5')
+    choose(pg,'#lp [name=kind]',value='home'); pg.fill('#lp [name=principal]','1200000'); pg.fill('#lp [name=rate]','6'); pg.fill('#lp [name=months]','120'); pg.fill('#lp [name=fees]','12000'); pg.fill('#lp [name=lateFee]','3'); pg.fill('#lp [name=dueDay]','5')
     pg.wait_for_timeout(300); t=pg.inner_text('#lp-out')
     ok('planner shows monthly, interest and net', '13,32' in t and '1,188,000' in t and 'interest alone' in t and 'late payment' in t)
     pg.click('[data-rec]'); pg.wait_for_timeout(300); ok('asks to confirm fees', 'deducted upfront' in pg.inner_text('.confirm-text'))
     pg.click('[data-yes]'); pg.wait_for_timeout(700)
+    pg.goto(U+'#/ledger'); pg.wait_for_timeout(500)
+    while pg.locator('[data-act=month][data-d="1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="1"]'); pg.wait_for_timeout(200)
+    lt=pg.inner_text('#view'); ok('loan is one entry: borrowed, fees deducted, received', 'Loan: borrowed' in lt and 'fees' in lt and 'received' in lt and 'Loan fees:' not in lt)
     pg.goto(U+'#/accounts'); pg.wait_for_timeout(500)
     pg.select_option('[data-aview=group]','class'); pg.wait_for_timeout(300)
     tx=pg.inner_text('#view'); ok('assets/debts grouping with the new loan', 'Liabilities' in tx and 'Home loan' in tx)
     pg.locator('.row.acct', has_text='Home loan').first.click(); pg.wait_for_selector('#ad'); pg.wait_for_timeout(300)
     d=pg.inner_text('#ad'); ok('loan box with plan and due info', 'Monthly payment' in d and 'Received after fees' in d and ('due' in d.lower()))
-    pg.click('#ad [data-act=loan-charge]'); pg.wait_for_selector('#lc'); pg.select_option('#lc [name=what]','Late fee'); pg.fill('#lc [name=amt]','400'); pg.click('#lc .btn:not(.ghost)'); pg.wait_for_timeout(600)
+    pg.click('#ad [data-act=loan-charge]'); pg.wait_for_selector('#lc'); choose(pg,'#lc [name=what]',value='Late fee'); pg.fill('#lc [name=amt]','400'); pg.click('#lc .btn:not(.ghost)'); pg.wait_for_timeout(600)
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.goto(U+'#/home'); pg.wait_for_timeout(800)
     while pg.locator('[data-act=month][data-d="1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="1"]'); pg.wait_for_timeout(300)

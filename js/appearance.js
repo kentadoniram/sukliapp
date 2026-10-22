@@ -67,8 +67,8 @@ export function initAppearance() {
   applyLook();
   obs = new MutationObserver((muts) => {
     if (!(priv.on && priv.style === 'blur')) return;
-    for (const m of muts) for (const n of m.addedNodes) { if (n.nodeType === 1) blurAll(n); else if (n.nodeType === 3 && n.nodeValue.includes(B)) blurAll(n.parentNode); }
-    for (const m of muts) if (m.type === 'characterData' && m.target.nodeValue.includes(B)) blurAll(m.target.parentNode);
+    for (const m of muts) for (const n of m.addedNodes) { if (n.nodeType === 1) blurAll(n); else if (n.nodeType === 3 && n.nodeValue.includes(B)) n.parentNode && blurAll(n.parentNode); }
+    for (const m of muts) if (m.type === 'characterData' && m.target.nodeValue.includes(B) && m.target.parentNode) blurAll(m.target.parentNode);
   });
   obs.observe(document.body, { childList: true, subtree: true, characterData: true });
   applyHide();

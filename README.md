@@ -190,5 +190,14 @@ The app asks only for its own hidden folder (`drive.appdata`) and keeps one snap
 - Manual price updates are each kept; the automatic price keeps one record per day.
 - History filters highlighted; header wraps on small phones; pie percentages drawn inside slices.
 
+## What's new (12.43, 23 Oct)
+- Entries: filter chips are equal width with centred text, the account filter has its own line; the Account page filters and 30 days / 90 days / 1 year / All sit on one compact row each.
+- Every entry has a small line saying what it did ("Expense recorded", "Trade, not counted as spending · fee … recorded as an expense").
+- A trade's fee is saved on the trade (like a transfer fee), so balances include it and Entries shows one grouped row. Older separate fee entries are folded into their trade on screen. Fees use the category Fees > Trading fee, not "Financial loss".
+- Investments has a "Fees and losses" card (trading fees, realized losses); "By group" view (stable vs volatile); grouped income kinds with "Add a new kind".
+- Loans with upfront deductions are one entry: borrowed amount, fees deducted, amount received.
+- Platform field on accounts is a pick list; platform names ignore capital letters ("binance" = "Binance").
+- Fixed: a hide-amounts (blur) error that appeared when a list was redrawn.
+
 ## How to check the app
 Run `./run-all-tests.sh` (optionally with the path to your Bluecoins CSV). It starts a local server, runs all tests and prints one SUMMARY line.

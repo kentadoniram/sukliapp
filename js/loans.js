@@ -51,15 +51,18 @@ export function openLoanPlanner(pre = {}) {
   if (rec) rec.onclick = async () => {
     const v = vals(); if (!(v.principal > 0 && v.months > 0)) { toast('Fill in the amount and the length first.'); return; }
     const c = loanCalc(v), ra = accountMap(get()).get(form.recv.value);
-    const ok = await confirmDialog(`Record ${LOAN_KINDS[v.kind]}? You borrow ${m2(v.principal)}${c.fees > 0 ? `, ${m2(c.fees)} fees are deducted upfront, and ${m2(c.net)} arrives in ${ra.name}` : ` and ${m2(c.net)} arrives in ${ra.name}`}. The fees are saved as a financial loss for your statistics.`, 'Yes, record it');
+    const ok = await confirmDialog(`Record ${LOAN_KINDS[v.kind]}? You borrow ${m2(v.principal)}${c.fees > 0 ? `, ${m2(c.fees)} fees are deducted upfront, and ${m2(c.net)} arrives in ${ra.name}` : ` and ${m2(c.net)} arrives in ${ra.name}`}. The loan is saved as one entry showing the amount borrowed, the fees deducted and the amount received.`, 'Yes, record it');
     if (!ok) return;
     commit((d) => {
       let debt = form.debt.value && d.accounts.find((a) => a.id === form.debt.value);
       const meta = { kind: v.kind, principal: v.principal, rate: v.rate, months: v.months, fees: v.fees, net: c.net, monthly: +c.monthly.toFixed(2), lateFee: v.lateFee, dueDay: v.dueDay, start: nowStamp().slice(0, 10) };
       if (!debt) { debt = stamp({ id: uid(), name: `${LOAN_KINDS[v.kind]} ${nowStamp().slice(0, 7)}`, cur: ra.cur, type: 'loan', open: 0, include: false, archived: false, loan: meta, dueDay: v.dueDay }); d.accounts.push(debt); } else { debt.loan = meta; if (v.dueDay) debt.dueDay = v.dueDay; stamp(debt); }
       const fx = rateFor(d, ra.cur) || 1, when = nowStamp();
-      d.txs.push(stamp({ id: uid(), kind: 'transfer', amount: v.principal, cur: ra.cur, fx, date: when, name: `${LOAN_KINDS[v.kind]}`, cat: '', acct: debt.id, toAcct: ra.id, toAmount: v.principal, notes: `Borrowed ${m2(v.principal)} at ${v.rate}% for ${v.months} months. Monthly ${m2(c.monthly)}.`, loan: true }));
-      if (v.fees > 0) { const cat = findOrAddCategory(d, 'Financial loss', 'Loan fees', 'expense'); d.txs.push(stamp({ id: uid(), kind: 'expense', amount: v.fees, cur: ra.cur, fx, date: when, name: `Loan fees: ${LOAN_KINDS[v.kind]}`, cat: cat.id, acct: ra.id, notes: 'Deducted upfront from the loan', loan: true })); }
+      // one row: the full amount borrowed leaves the debt account, the fee is deducted on arrival, so the account receives the net amount
+      const lcat = v.fees > 0 ? findOrAddCategory(d, 'Financial loss', 'Loan fees', 'expense') : null;
+      d.txs.push(stamp({ id: uid(), kind: 'transfer', amount: v.principal, cur: ra.cur, fx, date: when, name: `${LOAN_KINDS[v.kind]}`, cat: '', acct: debt.id, toAcct: ra.id, toAmount: v.principal, notes: `Borrowed ${m2(v.principal)} at ${v.rate}% for ${v.months} months. Monthly ${m2(c.monthly)}.`, loan: true,
+        loanNet: { principal: v.principal, fees: v.fees || 0, net: c.net },
+        ...(v.fees > 0 ? { fee: v.fees, feeCat: lcat.id, feeBy: 'to', feeCur: ra.cur, feeFx: fx } : {}) }));
     });
     s.close(); toast('Loan recorded. Open the account to see the payment plan.');
   };
@@ -98,7 +101,8 @@ export function loanBox(db, a, money) {
 
 // Home card: money lost to fees, interest and penalties, plus tax taken from interest
 export function lossCard(db, ym, coll, R) {
-  const cm = catMap(db), tx = db.txs.filter((t) => !t.deleted && t.kind === 'expense' && (cm.get(t.cat) || {}).group === 'Financial loss');
+  const cm = catMap(db), tx = [...db.txs.filter((t) => !t.deleted && t.kind === 'expense' && (cm.get(t.cat) || {}).group === 'Financial loss'),
+    ...db.txs.filter((t) => !t.deleted && t.kind === 'transfer' && t.fee > 0 && (cm.get(t.feeCat) || {}).group === 'Financial loss').map((t) => ({ date: t.date, cat: t.feeCat, amount: t.fee, fx: t.feeFx || t.fx }))];   // a fee kept on its loan or trade row counts too
   const taxes = db.txs.filter((t) => !t.deleted && t.auto && t.tax > 0);
   const inM = (t) => t.date.startsWith(ym), sum = (l, f = (t) => t.amount * (t.fx || 1)) => l.reduce((a, t) => a + f(t), 0);
   const from = shiftMonth(ym, -11), in12 = (t) => monthOf(t.date) >= from && monthOf(t.date) <= ym;
