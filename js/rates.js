@@ -39,7 +39,7 @@ export async function fetchRates({ quiet = false } = {}) {
     for (const a of d.accounts) { if (a.deleted || a.type !== 'crypto' || !(usd[a.cur] > 0) || a.cur === 'USDT' || a.cur === 'USDC') continue;
       const tk = d.settings.tickers[a.cur] || (d.settings.tickers[a.cur] = { ticker: a.cur, name: '', assetType: 'crypto', quote: 'USD', live: true }); tk.live = true; tk.quote = tk.quote || 'USD';
       const px = +(1 / usd[a.cur]).toPrecision(8), h = tk.history = tk.history || [];
-      if (!h.length || h[h.length - 1].date !== day) h.push({ date: day, price: px, quote: 'USD', src: 'live' }); else h[h.length - 1].price = px; tk.liveTs = Date.now(); if (h.length > 400) h.splice(0, h.length - 400); }
+      if (!h.length || h[h.length - 1].date !== day) h.push({ date: day, ts: Date.now(), price: px, quote: 'USD', src: 'live' }); else { const L = h[h.length - 1]; if (L.src === 'live') { L.price = px; L.ts = Date.now(); } else h.push({ date: day, ts: Date.now(), price: px, quote: 'USD', src: 'live' }); } tk.liveTs = Date.now(); if (h.length > 400) h.splice(0, h.length - 400); }
   });
   window.dispatchEvent(new Event('sukli-render'));
   say(`Updated ${new Date().toLocaleString()}.`, true);

@@ -179,3 +179,16 @@ The app asks only for its own hidden folder (`drive.appdata`) and keeps one snap
 - Google sign-in has only been tested against a simulated Drive, not real Google. Sign-in tokens are short-lived, so auto-backup may sometimes ask you to tap **Back up now**.
 - Receipts are entered by hand for now (split into items on the entry sheet). Photo reading is the next piece.
 - Crypto balances are shown as money moved in and out, not market value.
+
+## What's new (12.38, 22 Oct)
+- Import never changes an existing account's type; new accounts are listed first, similar names can be merged.
+- Assets/Liabilities grouping follows the account type, not the balance sign.
+- Shared searchable pick list (search after 5 options, "Add new" under search, grouped).
+- Trade is platform-first; fees can be % or fixed, in any currency; units × price = total both ways.
+- Investments "+ Entry": Trade, Transfer, Expense, Income (same on the account page and per platform).
+- Income combines investment types and your normal income categories; "Cash into an account" lists the platform's accounts first.
+- Manual price updates are each kept; the automatic price keeps one record per day.
+- History filters highlighted; header wraps on small phones; pie percentages drawn inside slices.
+
+## How to check the app
+Run `./run-all-tests.sh` (optionally with the path to your Bluecoins CSV). It starts a local server, runs all tests and prints one SUMMARY line.

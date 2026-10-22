@@ -7,7 +7,7 @@ import {
   replaceAll, emptyDb, live, monthParts, priv, flush, factorFor,
 } from './core.js';
 import { pace, insights, trend, totals, baselineMonths, groupTrend } from './insights.js';
-import { importBluecoins, exportCSV, SPENDABLE_TYPES } from './importer.js';
+import { importBluecoins, previewImport, exportCSV, SPENDABLE_TYPES } from './importer.js';
 import { predict } from './predict.js';
 import { modelFor, openEntry, openBulk, openCategoryForm } from './entry.js';
 import { syncNow, status as syncStatus } from './drive.js';
@@ -149,6 +149,8 @@ function homeSection(id, c) {
     default: return '';
   }
 }
+// the share written on the slice itself (readable without telling colours apart); tiny slices are left to the legend
+export const sliceLabel = (acc, len, C, share, cx = 70, cy = 70, r = 52) => { if (share < 0.06) return ''; const ang = ((acc + len / 2) / C) * 2 * Math.PI - Math.PI / 2; return `<text class="slice-pct" x="${(cx + r * Math.cos(ang)).toFixed(1)}" y="${(cy + r * Math.sin(ang) + 3.5).toFixed(1)}" text-anchor="middle">${Math.round(share * 100)}%</text>`; };
 // Where it went: bars or a pie with the share on its right (a device choice)
 const wentMode = () => { try { return localStorage.getItem('sukli-went') === 'pie' ? 'pie' : 'bars'; } catch { return 'bars'; } };
 ACT['went-mode'] = (el) => { try { localStorage.setItem('sukli-went', el.dataset.v); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
@@ -159,7 +161,8 @@ function wentPie(all, total) {
   const arcs = slices.map((x) => { const len = total ? (x.v / total) * C : 0, d = Math.max(0, len - 1.5);
     const el = `<circle class="slice" data-act="${x.other ? 'went-mode' : 'grp'}" ${x.other ? 'data-v="bars"' : `data-g="${esc(x.g)}" data-k="expense"`} data-tip="${esc(`${x.g}: ${money(x.v)} (${total ? Math.round((x.v / total) * 100) : 0}%)`)}" cx="70" cy="70" r="52" fill="none" stroke="${groupColor(x.other ? 'Others' : x.g)}" stroke-width="26" stroke-dasharray="${d.toFixed(2)} ${(C - d).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 70 70)"></circle>`;
     acc += len; return el; }).join('');
-  return `<div class="wentpie"><svg class="donut sm" viewBox="0 0 140 140" role="img" aria-label="Where the money went">${arcs}<text x="70" y="68" text-anchor="middle" class="dl">Spent</text><text x="70" y="86" text-anchor="middle" class="dv">${esc(compact(total, ''))}</text></svg>
+  let la = 0; const labels = slices.map((x) => { const len = total ? (x.v / total) * C : 0, t = sliceLabel(la, len, C, total ? x.v / total : 0); la += len; return t; }).join('');
+  return `<div class="wentpie"><svg class="donut sm" viewBox="0 0 140 140" role="img" aria-label="Where the money went">${arcs}${labels}<text x="70" y="68" text-anchor="middle" class="dl">Spent</text><text x="70" y="86" text-anchor="middle" class="dv">${esc(compact(total, ''))}</text></svg>
     <ul class="pielegend">${slices.map((x) => `<li><button type="button" data-act="${x.other ? 'went-mode' : 'grp'}" ${x.other ? 'data-v="bars"' : `data-g="${esc(x.g)}" data-k="expense"`}><i class="dot2" style="background:${groupColor(x.other ? 'Others' : x.g)}"></i><span class="pl">${esc(x.g)}</span><b class="pp">${total ? Math.round((x.v / total) * 100) : 0}%</b><small>${money(x.v)}</small></button></li>`).join('')}</ul></div><p class="hint tap">Tap a slice or a name for the detail.</p>`;
 }
 
@@ -633,11 +636,15 @@ export function bindSettings() {
   if (bc) bc.onchange = async () => {
     const file = bc.files[0]; if (!file) return;
     try {
-      const text = await file.text(); let st;
-      commit((d) => { st = importBluecoins(d, text); });
+      const text = await file.text();
+      const pv = previewImport(get(), text);
+      const choice = await confirmImport(pv);
+      if (!choice) { bc.value = ''; return; }
+      let st;
+      commit((d) => { st = importBluecoins(d, text, choice); });
       window.dispatchEvent(new Event('sukli-latest'));
-      toast(`Imported ${st.added} entries, skipped ${st.skipped} already here. ${st.accounts} new accounts.`, { ms: 7000 });
-      openAccountSetup();
+      toast(`Imported ${st.added} entries, skipped ${st.skipped} already here. ${st.accounts} new accounts. Existing accounts were not changed.`, { ms: 7000 });
+      if (st.accounts) openAccountSetup();
     } catch (e) { toast(e.message, { ms: 9000 }); }
     bc.value = '';
   };
@@ -847,9 +854,10 @@ function projPie(db) {
   const left = inc - spent, over = left < 0, den = Math.max(inc, spent), C = 2 * Math.PI * 52; let acc = 0;
   const arcs = slices.map((x) => { const len = (x.v / den) * C, d = Math.max(0, len - 1.2);
     const el = `<circle class="slice" ${x.other ? '' : `data-act="grp" data-g="${esc(x.g)}" data-k="expense"`} data-tip="${esc(`${x.g}: ${money(x.v)} (${Math.round((x.v / inc) * 100)}% of expected income)`)}" cx="70" cy="70" r="52" fill="none" stroke="${groupColor(x.other ? 'Others' : x.g)}" stroke-width="26" stroke-dasharray="${d.toFixed(2)} ${(C - d).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 70 70)"></circle>`; acc += len; return el; }).join('');
+  let la2 = 0; const labels = slices.map((x) => { const len = (x.v / den) * C, t = sliceLabel(la2, len, C, x.v / den); la2 += len; return t; }).join('');
   const track = over ? '' : `<circle cx="70" cy="70" r="52" fill="none" stroke="var(--rule)" stroke-width="26" stroke-dasharray="${Math.max(0, (left / den) * C - 1.2).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 70 70)"></circle>`;
   const pct = Math.round((spent / inc) * 100);
-  return coll('h-proj', 'Spending vs expected income', `<div class="wentpie"><svg class="donut sm" viewBox="0 0 140 140" role="img" aria-label="${pct}% of expected income spent">${track}${arcs}<text x="70" y="68" text-anchor="middle" class="dv">${pct}%</text><text x="70" y="85" text-anchor="middle" class="dl">${over ? 'over income' : 'spent'}</text></svg>
+  return coll('h-proj', 'Spending vs expected income', `<div class="wentpie"><svg class="donut sm" viewBox="0 0 140 140" role="img" aria-label="${pct}% of expected income spent">${track}${arcs}${labels}<text x="70" y="68" text-anchor="middle" class="dv">${pct}%</text><text x="70" y="85" text-anchor="middle" class="dl">${over ? 'over income' : 'spent'}</text></svg>
     <ul class="pielegend"><li><div class="pj"><span>Expected income</span><b>${money(inc)}</b></div></li><li><div class="pj"><span>Came in so far</span><b>${money(pi.got)}</b></div></li><li><div class="pj"><span>Spent</span><b>${money(spent)}</b></div></li><li><div class="pj ${over ? 'bad' : ''}"><span>${over ? 'Over by' : 'Left'}</span><b>${money(Math.abs(left))}</b></div></li></ul></div>
     <p class="hint">${pi.own ? 'Using the income you set.' : pi.typ ? `Expected income is your usual month (middle of your last ${Math.min(3, [1, 2, 3, 4, 5, 6].filter((i) => totals(db, shiftMonth(ym, -i), 'income').total > 0).length)} months with income)${pi.got > pi.typ ? ', raised to what already came in' : ''}.` : 'No earlier months to go on, so this is what came in so far.'} Tap a slice for what is in it. <button type="button" class="linkbtn" data-act="proj-set">Set my own</button></p>`);
 }
@@ -859,3 +867,29 @@ ACT['proj-set'] = async () => {
   if (v == null) return; const n = parseFloat(String(v).replace(/,/g, ''));
   commit((d) => { if (n > 0) d.settings.projIncome = n; else delete d.settings.projIncome; });
 };
+
+// Shows what an import will add. Existing accounts keep their type; only new ones are listed so each can be checked first.
+export function confirmImport(pv) {
+  return new Promise((res) => {
+    if (!pv.fresh.length) return res({});
+    const tn = typeNames;
+    const opt = (v) => Object.entries(tn).map(([k, n]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${esc(n)}</option>`).join('');
+    const rows = pv.fresh.map((f, i) => `<div class="card" style="margin:8px 0"><b>${esc(f.name)}</b> <small class="muted">${esc(f.cur)}</small>
+      ${f.like.length ? `<p class="warn" style="margin:6px 0">⚠ Looks like your existing account <b>${esc(f.like[0].name)}</b> (${esc(tn[f.like[0].type] || f.like[0].type)}). Use that one so it stays as it is?</p>
+        <label class="row"><input type="radio" name="m${i}" value="use" checked> Use existing "${esc(f.like[0].name)}" (type not changed)</label>
+        <label class="row"><input type="radio" name="m${i}" value="new"> Create a new account</label>` : ''}
+      <label>Type <select data-t="${i}">${opt(f.type)}</select></label></div>`).join('');
+    const sh = sheet(`<p>${pv.fresh.length} new account${pv.fresh.length > 1 ? 's' : ''} would be added. Your ${pv.existing} existing accounts are not changed or re-classified.</p>${rows}
+      <div class="btnrow"><button class="btn" data-go>Import</button><button class="btn ghost" data-no>Cancel</button></div>`, { title: 'Check before importing', onClose: () => res(null) });
+    sh.el.querySelector('[data-no]').onclick = () => { sh.close(); };
+    sh.el.querySelector('[data-go]').onclick = () => {
+      const types = {}, into = {};
+      pv.fresh.forEach((f, i) => {
+        types[f.key] = sh.el.querySelector(`[data-t="${i}"]`).value;
+        const r = sh.el.querySelector(`input[name=m${i}]:checked`);
+        if (f.like.length && r && r.value === 'use') into[f.key] = f.like[0].name + '|' + f.cur;
+      });
+      sh.silent = true; sh.dispose(); res({ types, into });
+    };
+  });
+}
