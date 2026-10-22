@@ -10,7 +10,7 @@ with sync_playwright() as p:
     pg.goto(U); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
     pg.goto(U+'#/accounts'); pg.wait_for_timeout(500)
-    pg.click('[data-act=aview][data-k=group][data-v=type]'); pg.wait_for_timeout(300)
+    pg.select_option('[data-aview=group]','type'); pg.wait_for_timeout(300)
     row=pg.locator('.row.acct', has_text='Bank').first
     row.click(); pg.wait_for_selector('#ad'); pg.click('#ad [data-ad=edit]'); pg.wait_for_selector('#acct-form')
     pg.fill('[name=apy]','3.65'); pg.fill('[name=interestFrom]','2026-10-18'); ok('tax default shown 20', pg.input_value('[name=taxPct]')=='20')

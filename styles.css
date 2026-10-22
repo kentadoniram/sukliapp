@@ -638,3 +638,14 @@ html.kb .scrim { inset: auto; left: 0; right: 0; top: var(--vvt, 0px); height: v
 .topgrp > .hint { margin: 0 0 4px; } .tophead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .tophead h2 { margin: 0; } .tophead b { font-size: calc(18px * var(--fs, 1)); }
 .topgrp.assets .tophead b { color: var(--in); } .topgrp.liabs .tophead b { color: var(--bad); }
 .topgrp .coll { margin: 10px 0; }
+
+.aview.compact { display: flex; gap: 8px; margin: 8px 0; } .aview.compact label { flex: 1; display: flex; align-items: center; gap: 6px; font-size: calc(12px * var(--fs, 1)); color: var(--ink2); } .aview.compact select { flex: 1; min-width: 0; font-size: calc(13px * var(--fs, 1)); padding: 5px 6px; min-height: 34px; border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); color: var(--ink); }
+.nwcard.one { grid-template-columns: 1fr; }
+.nwcard div.nwmain { text-align: left; border: 1px solid var(--rule); background: var(--sheet); border-radius: 14px; padding: 12px 14px; display: grid; gap: 4px; align-content: start; }
+.nwcard div.nwmain span { color: var(--ink2); font-size: calc(12.5px * var(--fs, 1)); } .nwcard div.nwmain b { font-size: calc(26px * var(--fs, 1)); letter-spacing: -.02em; } .nwcard div.nwmain small { font-size: calc(13px * var(--fs, 1)); line-height: 1.35; } .nwcard div.nwmain small.updated { font-size: calc(11.5px * var(--fs, 1)); }
+.exname { font-weight: 800; letter-spacing: .01em; }
+.platlist { margin: -4px 0 10px; } .platlist .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; } .chip.plat { padding: 6px 12px; } .chip.plat b { font-weight: 800; }
+.perf { padding: 8px 0; border-bottom: 1px solid var(--rule); } .perfhead { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; } .perfhead span { margin-left: auto; font-weight: 650; font-size: calc(13px * var(--fs, 1)); }
+.perfbars { display: flex; align-items: center; gap: 8px; margin-top: 3px; min-height: 16px; } .perfbars small { color: var(--ink2); font-size: calc(11.5px * var(--fs, 1)); white-space: nowrap; } .pb { display: block; height: 9px; border-radius: 5px; min-width: 2px; flex: none; max-width: 55%; } .pb.paid { background: var(--ink2); opacity: .55; } .pb.now.up { background: var(--in); } .pb.now.down { background: var(--bad); }
+.pred { padding: 8px 0; border-bottom: 1px solid var(--rule); display: grid; gap: 3px; font-size: calc(13px * var(--fs, 1)); } .predtop { display: flex; justify-content: space-between; }
+.estbadge, .actbadge { display: inline-block; font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-right: 4px; } .estbadge { border: 1.5px dashed var(--xfer); color: var(--xfer); } .actbadge { background: var(--line); color: #fff; }

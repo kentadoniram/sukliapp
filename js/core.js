@@ -256,14 +256,15 @@ export function rateFor(db, cur) {
   if (cur === BASE) return 1;
   if (db.settings.rates && db.settings.rates[cur] > 0) return db.settings.rates[cur];
   const tk = db.settings.tickers && db.settings.tickers[cur];            // a stock or token you added yourself, priced by hand or by its last trade
-  if (tk && tk.price > 0 && tk.quote && tk.quote !== cur) { const q = rateFor(db, tk.quote); if (q > 0) return tk.price * q; }
+  if (tk && tk.price > 0 && tk.quote && tk.quote !== cur && !(tk.cgId && liveRate(db, cur) > 0)) { const q = rateFor(db, tk.quote); if (q > 0) return tk.price * q; }
   const lv = liveRate(db, cur);
   if (lv > 0) return lv;
   return lastTxRate(db, cur);
 }
 export function liveRate(db, cur) {
   // a code you gave your own decimals (MNT as Mantle, BBSOL) is a token, not the bank currency of the same name
-  if (db.settings.curDec && db.settings.curDec[cur] && !CRYPTO.includes(cur)) return 0;
+  const tk0 = db.settings.tickers && db.settings.tickers[cur];
+  if (db.settings.curDec && db.settings.curDec[cur] && !CRYPTO.includes(cur) && !(tk0 && tk0.cgId)) return 0;
   const l = db.settings.live;
   if (!l || !l.usd) return 0;
   const a = l.usd[BASE], b = l.usd[cur];

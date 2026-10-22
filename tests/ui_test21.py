@@ -17,7 +17,7 @@ with sync_playwright() as p:
     pg.click('[data-rec]'); pg.wait_for_timeout(300); ok('asks to confirm fees', 'deducted upfront' in pg.inner_text('.confirm-text'))
     pg.click('[data-yes]'); pg.wait_for_timeout(700)
     pg.goto(U+'#/accounts'); pg.wait_for_timeout(500)
-    pg.click('[data-act=aview][data-v=class]'); pg.wait_for_timeout(300)
+    pg.select_option('[data-aview=group]','class'); pg.wait_for_timeout(300)
     tx=pg.inner_text('#view'); ok('assets/debts grouping with the new loan', 'Liabilities' in tx and 'Home loan' in tx)
     pg.locator('.row.acct', has_text='Home loan').first.click(); pg.wait_for_selector('#ad'); pg.wait_for_timeout(300)
     d=pg.inner_text('#ad'); ok('loan box with plan and due info', 'Monthly payment' in d and 'Received after fees' in d and ('due' in d.lower()))
