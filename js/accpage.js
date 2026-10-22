@@ -1,5 +1,4 @@
 // Accounts page (grouped and sorted), account detail with history, net worth, interest and credit-card details.
-import { pickAll } from './picker.js';
 import { softDelete, subscribe } from './core.js';
 import {
   get, commit, uid, stamp, nowStamp, rateFor, fmt, BASE, HOME, homeFx, allCurrencies, curName, CUR, balances, catMap, accountMap, live, groupColor, groupLetter,
@@ -349,7 +348,6 @@ export function openAccount(id, preset = {}) {
       <p class="hint">App says ${money(bal, a.cur)}. Type what your bank or wallet really shows and the app adds one correcting entry.</p>
       <div class="two"><input name="real" inputmode="decimal" placeholder="Real balance" aria-label="Real balance"><button class="btn ghost">Correct it</button></div></form>` : ''}`,
   { title: id ? 'Edit account' : 'New account' });
-  pickAll(s.el, { type: { title: 'Account type', addLabel: 'Add a new account type', onAdd: () => { const t = s.el.querySelector('select[name=type]'); t.value = '__new'; t.dispatchEvent(new Event('change', { bubbles: true })); } } });
   const form = s.el.querySelector('#acct-form');
   form.type.addEventListener('change', () => { s.el.querySelector('#cardfields').hidden = form.type.value !== 'card'; const L = isLiability({ type: form.type.value }); s.el.querySelector('#intfields').hidden = L; s.el.querySelector('#liabnote').hidden = !L; });
   form.onsubmit = (e) => {
