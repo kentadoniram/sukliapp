@@ -1,5 +1,4 @@
 from playwright.sync_api import sync_playwright
-from pkhelp import choose, open_menu
 CSV='/home/claude/Transactions.csv'
 errs=[]; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
@@ -27,7 +26,7 @@ with sync_playwright() as p:
     pg.click('[data-act=inv-cost] >> nth=0'); pg.fill('.sheet input[name=v]','10000'); pg.click('.sheet .btn:not(.ghost)'); pg.wait_for_timeout(600)
     t=pg.inner_text('#view'); ok('performance shows gain vs paid', 'Performance' in t and 'paid ₱10,000' in t and '%' in t)
     # income
-    open_menu(pg,'income'); pg.wait_for_selector('#ii'); choose(pg,'#ii [name=asset]',text='NVDA'); choose(pg,'#ii [name=type]',value='inv:Dividend'); pg.fill('#ii [name=amt]','0.25'); pg.click('#ii button:text-is("Save")'); pg.wait_for_timeout(700)
+    pg.click('#view [data-act=inv-income] >> nth=0'); pg.wait_for_selector('#ii'); pg.select_option('#ii [name=asset]', label=pg.eval_on_selector('#ii [name=asset]','s=>[...s.options].find(o=>o.textContent.includes("NVDA")).textContent')); pg.select_option('#ii [name=type]','Dividend'); pg.fill('#ii [name=amt]','0.25'); pg.click('#ii button:text-is("Save")'); pg.wait_for_timeout(700)
     t=pg.inner_text('#view'); ok('investment income card', 'Investment income' in t and 'Dividend' in t)
     # prediction
     pg.click('[data-act=inv-predict] >> nth=0'); pg.wait_for_selector('#ip'); pg.select_option('#ip [name=asset]','NVDA'); pg.fill('#ip [name=price]','9000'); pg.fill('#ip [name=quote]','PHP'); pg.click('#ip button:text-is("Save estimate")'); pg.wait_for_timeout(600)

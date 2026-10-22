@@ -3,7 +3,7 @@
 import { get, commit, uid, stamp, nowStamp, rateFor, homeFx, fmt, HOME, balances, findOrAddCategory, softDelete } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
-import { inInvest } from './invest.js';
+import { inInvest, pushHistory } from './invest.js';
 
 const money = (n, cur = HOME) => fmt(n, cur);
 const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
@@ -62,7 +62,7 @@ export function openTrade(pre = {}) {
     const bal = balances(db), src = acct(rec.acct), have = bal.get(src.id) || 0;
     if (have < rec.amount - 1e-9 && !(await confirmDialog(`${src.name} only has ${money(have, src.cur)}. Record it anyway?`, 'Record anyway'))) return;
     commit((d) => {
-      const tk = d.settings.tickers && side !== 'convert' && d.settings.tickers[a.cur]; if (tk && q > 0 && t > 0) { tk.price = +(t / q).toPrecision(8); tk.quote = c.cur; tk.priceDate = when.slice(0, 10); }   // a ticker you added is priced by its last trade
+      const tk = d.settings.tickers && side !== 'convert' && d.settings.tickers[a.cur]; if (tk && q > 0 && t > 0) { tk.price = +(t / q).toPrecision(8); tk.quote = c.cur; tk.priceDate = when.slice(0, 10); pushHistory(tk, tk.price, c.cur, 'trade'); }   // a ticker you added is priced by its last trade
       d.txs.push(stamp({ id: tid, kind: 'transfer', date: when, name, cat: '', notes: `Price per unit ${r6(num(f.price.value))}`.replace(/ 0$/, ''), trade, ...rec }));
       if (fee > 0) { const cat = findOrAddCategory(d, 'Financial loss', 'Trading fees', 'expense'); d.txs.push(stamp({ id: uid(), kind: 'expense', date: when, name: `Trading fee: ${name}`, cat: cat.id, acct: c.id, cur: c.cur, fx: rateFor(d, c.cur) || 1, amount: fee, tradeOf: tid })); }
     });
