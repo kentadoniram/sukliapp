@@ -679,3 +679,38 @@ html.kb .scrim { inset: auto; left: 0; right: 0; top: var(--vvt, 0px); height: v
 .histfilter{display:grid;gap:6px}
 .eff{display:block;font-size:calc(11.5px * var(--fs, 1));color:var(--ink2);opacity:.85;margin-top:1px}
 .rmain small.eff{white-space:normal;overflow:visible;text-overflow:clip}
+
+/* input history */
+.ihrow{border-bottom:1px solid var(--rule);padding:2px 0}
+.ihrow.odd{background:color-mix(in srgb, var(--warn, #c77700) 9%, transparent);border-radius:8px}
+.ihmain{grid-template-columns:28px 1fr auto}
+.ihwarn{color:var(--warn, #b25e00);font-weight:600}
+.ihact{padding:0 0 8px 40px}
+.btnrow.left.selstart{gap:8px;flex-wrap:wrap}
+
+/* transfer: usual routes as one small scrolling line; swap button as tall as the account buttons */
+.chips.qpone{flex-wrap:nowrap;overflow-x:auto;gap:6px;padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.chips.qpone::-webkit-scrollbar{display:none}
+.chips.qpone .chip{flex:none;min-height:26px;padding:0 9px;font-size:calc(12px * var(--fs, 1));white-space:nowrap}
+.chips.qpone .chip small{font-size:.92em}
+.qptabs .qtab{font-size:calc(12.5px * var(--fs, 1))}
+.two.sw{align-items:stretch}
+.swapcol{margin:14px 0;display:grid;grid-template-rows:auto 1fr;gap:6px}
+.swapcol > span{visibility:hidden}
+.swapcol .swapbtn{align-self:stretch;height:auto;min-height:44px;margin:0}
+
+.collbody[hidden]{display:none}
+
+/* budget setup */
+.bsgrp{border:1px solid var(--rule);border-radius:12px;margin:8px 0;padding:4px 10px;background:var(--sheet)}
+.bsgrp summary{cursor:pointer;padding:10px 0;list-style:none}
+.bsrow{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;padding:8px 0;border-top:1px solid var(--rule)}
+.bson{display:flex;align-items:center;gap:10px}
+.bson input{width:22px;min-height:22px;height:22px}
+.bsamt{grid-column:1 / -1;min-height:40px}
+.bscls{display:flex;gap:4px}
+.bscls button{min-height:30px;padding:0 8px;border-radius:8px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink2);font-size:12.5px;cursor:pointer}
+.bscls button span{display:none}
+.bscls button.on{background:var(--line);color:var(--line-ink);border-color:var(--line);font-weight:700}
+.bscls button.on span{display:inline}
+.bsalert{margin-bottom:6px}

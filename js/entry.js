@@ -8,6 +8,7 @@ import { nameRules } from './merchants.js';
 import { compareCard, relatedNames } from './compare.js';
 import { smartKind, openLoanPlanner } from './loans.js';
 import { isLiability } from './finance.js';
+import { budgetAlerts, newAlertsSince } from './budgetsetup.js';
 import { guessLabel, transferLabel } from './label.js';
 import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat, transportWord, modeOf, tripLabel, bareMode } from './route.js';
 import { buildModel, predict, suggest, lookup, catCandidates, byAmount, recentNames } from './predict.js';
@@ -158,9 +159,9 @@ export function openEntry(opts = {}) {
       if (!f.qtab || !tabs.some((t) => t[0] === f.qtab)) f.qtab = 'routes';
       const nm = (id) => (am.get(id) || { name: '?' }).name;
       const routes = hints.routes.filter((r) => am.has(r.from) && am.has(r.to) && !am.get(r.from).deleted && !am.get(r.to).deleted);
-      const list = (f.qtab === 'routes' ? routes.sort((a, b) => b.n - a.n) : routes.sort((a, b) => (a.last < b.last ? 1 : -1))).slice(0, 5);
-      chips = list.map((r) => `<button type="button" class="chip" data-e="route" data-from="${r.from}" data-to="${r.to}">${esc(nm(r.from))} → ${esc(nm(r.to))}${r.name ? ` <small>${esc(r.name)}</small>` : ''}</button>`).join('');
-      hint = chips ? 'Tap a route to fill both accounts, the usual amount and fee.' : 'Routes you use often will show here.';
+      const list = (f.qtab === 'routes' ? routes.sort((a, b) => b.n - a.n) : routes.sort((a, b) => (a.last < b.last ? 1 : -1))).slice(0, 6);
+      chips = list.map((r) => `<button type="button" class="chip" data-e="route" data-from="${r.from}" data-to="${r.to}">${esc(nm(r.from))} → ${esc(nm(r.to))}${r.name && r.name !== `${nm(r.from)} → ${nm(r.to)}` ? ` <small>${esc(r.name)}</small>` : ''}</button>`).join('');
+      hint = chips ? '' : 'Routes you use often will show here.';
     } else {
       const amt = num(f.amount), a = acctOf(f.acct);
       tabs = [['usual', 'Usual'], ['recent', 'Recent'], ['fit', amt > 0 ? `Fits ${fmt(amt, a ? a.cur : HOME, { force: !priv.on })}` : 'Fits amount']];
@@ -174,7 +175,7 @@ export function openEntry(opts = {}) {
       hint = f.qtab === 'fit' ? (amt > 0 ? (chips ? 'Names you usually pay about this amount. Tap one to fill the rest.' : 'Nothing matches this amount yet.') : 'Type an amount and your likely entries appear here.') : 'Tap one to fill in the name, amount, account and category.';
     }
     el.innerHTML = `<div class="qptabs" role="tablist" aria-label="Quick picks">${tabs.map(([v, l]) => `<button type="button" role="tab" class="qtab ${f.qtab === v ? 'on' : ''}" aria-selected="${f.qtab === v}" data-e="qtab" data-v="${v}">${l}</button>`).join('')}</div>
-      <div class="chips">${chips || ''}</div><span class="qphint">${hint}</span>`;
+      <div class="chips ${f.kind === 'transfer' ? 'qpone' : ''}">${chips || ''}</div>${hint ? `<span class="qphint">${hint}</span>` : ''}`;
   }
   function currencies() {
     const cnt = new Set(favCurs());
@@ -202,7 +203,7 @@ export function openEntry(opts = {}) {
     } else {
       if (!f.toAcct) { const o = get().accounts.find((x) => !x.deleted && !x.archived && x.id !== f.acct); f.toAcct = o ? o.id : ''; }
       el.innerHTML = `<div class="two sw"><div class="field"><span>From</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc((acctOf(f.acct) || { name: 'Choose' }).name)} ▾</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, f.toAcct, '')}</select></div>
-        <button type="button" class="swapbtn" data-e="swapacct" aria-label="Swap From and To" title="Swap From and To">${ic('swap')}</button>
+        <div class="swapcol field"><span aria-hidden="true">&nbsp;</span><button type="button" class="swapbtn" data-e="swapacct" aria-label="Swap From and To" title="Swap From and To">${ic('swap')}</button></div>
         <div class="field"><span>To</span><button type="button" class="acctbtn" data-e="acctpick" data-which="to">${esc((acctOf(f.toAcct) || { name: 'Choose' }).name)} ▾</button><select id="f-to" hidden aria-hidden="true">${acctOptions(f.toAcct, f.acct)}</select></div></div>`;
     }
     renderConv();
@@ -700,16 +701,22 @@ export function openEntry(opts = {}) {
       toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), items: items && items.length ? items : [], flag };
     if (f.kind !== 'transfer' && cat && ((f.catTouched && f.guessed && f.guessed !== cat) || (existing && existing.cat && existing.cat !== cat) || (existing && existing.corrected))) rec.corrected = true;
     if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) { rec.from = f.from.trim(); rec.to = f.to.trim(); } else if (existing && (existing.from || existing.to)) { rec.from = ''; rec.to = ''; }
-    let savedAs;
+    let savedAs; const alertsBefore = budgetAlerts(get(), rec.date.slice(0, 7));
     commit((d) => {
       if (fee) {
         if (f.feeCat.startsWith('__new:')) rec.feeCat = findOrAddCategory(d, 'Fees', f.feeCat.slice(6), 'expense').id;
         else rec.feeCat = f.feeCat;
       } else rec.feeCat = '';
-      if (existing) { const t = d.txs.find((x) => x.id === existing.id); Object.assign(t, rec); stamp(t); savedAs = t; }
-      else { savedAs = stamp({ id: uid(), ...rec }); d.txs.push(savedAs); }
+      if (existing) { const t = d.txs.find((x) => x.id === existing.id);
+        // keep what it was before this change, so the Input history can put it back (the last 5 versions)
+        const before = {}; for (const k of ['kind', 'date', 'name', 'amount', 'cur', 'fx', 'acct', 'toAcct', 'toAmount', 'cat', 'notes', 'fee', 'feeCat', 'feeBy']) if (t[k] !== undefined) before[k] = t[k];
+        t.rev = [{ at: Date.now(), ...before }, ...(t.rev || [])].slice(0, 5);
+        Object.assign(t, rec); stamp(t); savedAs = t; }
+      else { savedAs = stamp({ id: uid(), ...rec, createdAt: Date.now() }); d.txs.push(savedAs); }
       d.settings.lastAcct = a.id;
     });
+    // say so when this entry pushed a budget past the warning line (once per budget per month)
+    try { const fresh = newAlertsSince(alertsBefore, budgetAlerts(get(), rec.date.slice(0, 7))); if (fresh.length && rec.kind === 'expense') setTimeout(() => toast(fresh[0].text, { ms: 7000 }), 900); } catch { /* alerts are a bonus */ }
     s.close();
     toast(rec.flag === 'review' ? 'Saved. It is in Review so you can confirm the category later.' : 'Saved');
     if (again) openEntry({ preset: { acct: a.id } });

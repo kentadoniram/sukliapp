@@ -134,7 +134,7 @@ export function analytics(db) {
   // budgets + spending limit
   const monthKey = (P.to > today() ? today() : P.to).slice(0, 7);
   const monthExp = partsBetween(db, monthKey + '-01', monthKey + '-31').filter((p) => p.kind === 'expense');
-  const buds = db.budgets.filter((b) => !b.deleted && b.amount > 0).map((b) => { const sp = sum(monthExp.filter((p) => p.group === b.group).map((p) => p.v)); return { g: b.group, lim: b.amount, sp, pct: sp / b.amount * 100 }; }).sort((a, b) => b.pct - a.pct);
+  const buds = db.budgets.filter((b) => !b.deleted && b.amount > 0 && b.group).map((b) => { const sp = sum(monthExp.filter((p) => p.group === b.group).map((p) => p.v)); return { g: b.group, lim: b.amount, sp, pct: sp / b.amount * 100 }; }).sort((a, b) => b.pct - a.pct);
   const cfg = safetyCfg(db);
   const monthTotal = sum(monthExp.map((p) => p.v));
   const gauge = cfg.limit > 0 ? `<div class="gbar static"><div class="gmain"><div class="gtop"><span>Spending limit (${cfg.mode === 'rolling' ? 'last 30 days' : monthLabel(monthKey)})</span><b>${money(monthTotal)} / ${money(cfg.limit)}</b></div><div class="track"><div class="fill" style="width:${Math.min(100, monthTotal / cfg.limit * 100)}%;background:${monthTotal > cfg.limit ? 'var(--bad)' : monthTotal >= cfg.limit * cfg.warnPct / 100 ? 'var(--warn)' : 'var(--in)'}"></div></div></div></div>` : '<p class="hint">Set an overall spending limit in Settings, Spending safety, to track it here.</p>';

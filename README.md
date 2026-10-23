@@ -199,5 +199,12 @@ The app asks only for its own hidden folder (`drive.appdata`) and keeps one snap
 - Platform field on accounts is a pick list; platform names ignore capital letters ("binance" = "Binance").
 - Fixed: a hide-amounts (blur) error that appeared when a list was redrawn.
 
+## What's new (12.44, 23 Oct)
+- Opening balances keep their date (read from the Bluecoins "Starting Balance" row): shown on the account page, counted in balances and charts only from that day, and writable back on export.
+- Input history (Entries tab > "Input history"): entries listed by when you typed them in, "Odd dates" filter for a wrong year, put back the earlier version of an edited entry, restore deleted ones.
+- Transfer form: usual routes are one small scrolling line; the swap button lines up with the account buttons.
+- Opening or closing a card no longer redraws the whole screen, so pie charts beside it don't flicker.
+- Budget setup (Budget tab): tick categories on or off, monthly amount each, mark Need / Want / Luxury (guessed from names), choose the warning percentage (default 80). Alerts on Home and the Budget tab, plus a message when an entry crosses the line. Needs get a gentler message.
+
 ## How to check the app
 Run `./run-all-tests.sh` (optionally with the path to your Bluecoins CSV). It starts a local server, runs all tests and prints one SUMMARY line.

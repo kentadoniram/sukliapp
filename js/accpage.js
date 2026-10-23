@@ -1,5 +1,6 @@
 // Accounts page (grouped and sorted), account detail with history, net worth, interest and credit-card details.
 import { pickAll } from './picker.js';
+import { openDateOf } from './core.js';
 import { exchangeOf, canonPlatform, nearPlatform, platformNames } from './invest.js';
 import { softDelete, subscribe } from './core.js';
 import {
@@ -200,14 +201,14 @@ export function openAccountDetail(id) {
     const t0 = today(), days = st.range === 0 ? Math.min(730, Math.max(30, hist.length ? Math.round((new Date(t0) - new Date(hist[hist.length - 1].t.date.slice(0, 10))) / 864e5) + 1 : 30)) : st.range;
     const series = [];
     const asc = hist.slice().reverse();
-    let k = 0, cur = a.open || 0;
+    const od = openDateOf(a), openV = a.open || 0; let k = 0, cum = 0;
     const startDay = new Date(new Date(t0).getTime() - (days - 1) * 864e5);
-    // balance before the first charted day
-    for (; k < asc.length && asc[k].t.date.slice(0, 10) < startDay.toISOString().slice(0, 10); k++) cur = asc[k].bal;
+    const val = (dstr) => (od && dstr < od ? 0 : openV) + cum;                 // the opening balance counts from its own date
+    for (; k < asc.length && asc[k].t.date.slice(0, 10) < startDay.toISOString().slice(0, 10); k++) cum += asc[k].d;
     for (let i = 0; i < days; i++) {
       const dstr = new Date(startDay.getTime() + i * 864e5).toISOString().slice(0, 10);
-      while (k < asc.length && asc[k].t.date.slice(0, 10) <= dstr) { cur = asc[k].bal; k++; }
-      series.push({ d: dstr, v: cur });
+      while (k < asc.length && asc[k].t.date.slice(0, 10) <= dstr) { cum += asc[k].d; k++; }
+      series.push({ d: dstr, v: val(dstr) });
     }
     const W = 320, H = 110, lo = Math.min(...series.map((x) => x.v), 0), hi = Math.max(...series.map((x) => x.v), 0.0001), span = hi - lo || 1;
     const X = (i) => 4 + i / Math.max(1, series.length - 1) * (W - 8), Y = (v) => H - 8 - (v - lo) / span * (H - 20);
@@ -217,7 +218,9 @@ export function openAccountDetail(id) {
     const card = a.type === 'card' ? cardInfo(db, a, bal) : null;
     const earned = a.apy > 0 ? sum(hist.filter((h) => h.t.auto).map((h) => h.d)) : 0, taxed = a.apy > 0 ? sum(hist.filter((h) => h.t.auto).map((h) => h.t.tax || 0)) : 0, taxPct = interestTaxPct(a);
     const perDay = a.apy > 0 && bal > 0 ? bal * a.apy / 100 / 365 * (1 - taxPct / 100) : 0;
-    const rowsHtml = shownH.slice(0, st.more).map((h) => {
+    const openRowHtml = (o) => `<div class="row openrow"><i class="badge sm" style="background:var(--line)">O</i><span class="rmain"><strong>Opening balance</strong><small>${dayLabel(o.date + ' 00:00:00')} · starting amount of this account</small></span><span class="ramt ${o.amount >= 0 ? 'income' : 'expense'}"><b>${money(o.amount, a.cur)}</b></span></div>`;
+    const showOpen = hist.opening && st.type === 'all' && (!st.from || hist.opening.date >= st.from) && (!st.to || hist.opening.date <= st.to);
+    const rowOf = (h) => {
       const t = h.t, c = cm.get(t.cat), tr = t.kind === 'transfer';
       const other = tr ? (t.acct === id ? (db.accounts.find((x) => x.id === t.toAcct) || {}).name : (db.accounts.find((x) => x.id === t.acct) || {}).name) : '';
       const title = t.name || (c ? c.name : tr ? 'Transfer' : 'Entry');
@@ -225,10 +228,15 @@ export function openAccountDetail(id) {
       return `<button class="row" data-act="edit" data-id="${t.id}"><i class="badge sm" style="background:${tr ? 'var(--xfer)' : groupColor(c ? c.group : 'Uncategorized')}">${groupLetter(tr ? 'Transfer' : (c ? c.group : 'U'))}</i>
         <span class="rmain"><strong>${esc(title)}</strong><small>${sub}</small></span>
         <span class="ramt ${h.d >= 0 ? 'income' : 'expense'}"><b>${h.d >= 0 ? '+' : ''}${money(h.d, a.cur)}</b><small>${money(h.bal, a.cur)}</small></span></button>`;
-    }).join('');
+    };
+    const listed = shownH.slice(0, st.more); let rowsHtml = '', placed = !showOpen;
+    for (const h of listed) { if (!placed && h.t.date.slice(0, 10) < hist.opening.date) { rowsHtml += openRowHtml(hist.opening); placed = true; } rowsHtml += rowOf(h); }
+    if (!placed && shownH.length <= st.more) rowsHtml += openRowHtml(hist.opening);
+    const openLine = hist.opening ? `<p class="hint openline">Opening balance ${money(hist.opening.amount, a.cur)} on ${dayLabel(hist.opening.date + ' 00:00:00')} <button type="button" class="linkbtn" data-ad="edit">change</button></p>` : '';
     root.innerHTML = `
       <div class="gdhead"><span class="muted">${esc(typeNames[a.type] || a.type)} · ${a.cur}</span><b class="big ${bal < 0 ? 'neg' : ''}">${money(bal, a.cur)}</b>
         ${a.cur !== HOME && r ? `<span class="muted">≈ ${money(bal * r)} at ${fmt(r, HOME)} per ${a.cur}</span>` : ''}<strong class="adname">${esc(a.name)}</strong></div>
+      ${openLine}
       <div class="btnrow tight"><button class="btn sm" data-ad="add">Add entry</button>${isLiability(a) ? `<button class="btn sm ghost" data-act="loan-charge" data-id="${a.id}">Add charge</button>` : ''}
         ${['asset', 'invest', 'other'].includes(a.type) ? '<button class="btn sm ghost" data-ad="reval">Update value</button>' : ''}
         <button class="btn sm ghost" data-ad="edit">Edit</button></div>
@@ -328,7 +336,8 @@ export function openAccount(id, preset = {}) {
     <label class="field"><span>Exchange or platform (optional)</span><select name="exchange" data-keep="${esc(exchangeOf(a))}">${(() => { const cur = exchangeOf(a), pn = platformNames(), all = [...new Set([...(cur ? [cur] : []), ...pn.used])]; return `<option value="">None</option><optgroup label="Yours">${all.map((x) => `<option value="${esc(x)}" ${x === cur ? 'selected' : ''}>${esc(x)}</option>`).join('')}</optgroup><optgroup label="Popular">${pn.popular.map((x) => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}</optgroup>`; })()}</select></label>
     <div class="two"><label class="field"><span>Currency</span><input type="hidden" name="cur" value="${esc(a.cur)}"><button type="button" class="curbtn wide" data-act="acct-cur" ${used ? 'disabled' : ''}>${flagOf(a.cur)} ${esc(a.cur)} ▾</button></label>
     <label class="field"><span>Type</span><select name="type" data-prev="${esc(a.type)}">${Object.entries(typeNames).map(([v, l]) => `<option value="${v}" ${v === a.type ? 'selected' : ''}>${esc(l)}</option>`).join('')}<option value="__new">＋ New account type…</option></select></label></div>
-    <label class="field"><span>Opening balance</span><input name="open" inputmode="decimal" value="${a.open || 0}"></label>
+    <div class="two"><label class="field"><span>Opening balance</span><input name="open" inputmode="decimal" value="${a.open || 0}"></label>
+    <label class="field"><span>Opening date</span><input name="openDate" type="date" value="${esc(openDateOf(a))}"></label></div>
     <div id="cardfields" ${a.type === 'card' ? '' : 'hidden'}>
       <label class="field"><span>Credit limit</span><input name="limit" inputmode="decimal" value="${a.limit || ''}" placeholder="e.g. 50000"></label>
       <div class="two"><label class="field"><span>Statement closes on day</span><input name="stmtDay" inputmode="numeric" value="${a.stmtDay || ''}" placeholder="1–31"></label>
@@ -366,6 +375,7 @@ export function openAccount(id, preset = {}) {
       taxPct: Math.min(100, Math.max(0, num(fd.get('taxPct')) || 0)),
       exchange: canonPlatform(fd.get('exchange') || ''), invtab: fd.has('invtab'),
       interestFrom: fd.get('interestFrom') || today(),
+      openDate: fd.get('openDate') || '',
     };
     if (isLiability({ type: fd.get('type') })) extra.apy = 0;
     if (fd.get('type') !== 'card') { extra.limit = 0; extra.stmtDay = 0; extra.dueDay = 0; }

@@ -233,9 +233,11 @@ export function deltaFor(t, id) {
   if (t.toAcct === id) d += (t.toAmount != null ? t.toAmount : t.amount) - (t.feeBy === 'to' ? feeOf(t) : 0);
   return d;
 }
+// the day an account's opening balance counts from: set by the user, or read from the Starting Balance row of an imported file
+export const openDateOf = (a) => a.openDate || (a.openRow && a.openRow.date ? a.openRow.date.slice(0, 10) : '');
 export function balances(db, asOf) {
   const b = new Map();
-  for (const a of db.accounts) if (!a.deleted) b.set(a.id, a.open || 0);
+  for (const a of db.accounts) if (!a.deleted) { const od = openDateOf(a); b.set(a.id, !asOf || !od || od + ' 00:00:00' <= asOf ? a.open || 0 : 0); }
   const add = (id, v) => { if (b.has(id)) b.set(id, b.get(id) + v); };
   for (const t of db.txs) {
     if (t.deleted || (asOf && t.date > asOf)) continue;

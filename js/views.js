@@ -9,6 +9,7 @@ import { ui, hdr, monthNav, strip, money, row, gbar, coll, trendChart, budgetOf,
 import { openEntry, openCategoryForm } from './entry.js';
 import { forecastNext, behaviorNotes, detectRecurring } from './finance.js';
 import { reminderBanner } from './accpage.js';
+import { alertPct, budgetAlerts, budgetStatus, classCard } from './budgetsetup.js';
 import { ACT, sheet, ic, esc, confirmDialog, promptDialog, pushOverlay, toast } from './ui.js';
 
 const sum = (a) => a.reduce((x, y) => x + y, 0);
@@ -206,21 +207,24 @@ export function budget(db) {
   const by = ui.pieBy || 'group';
   const out = totals(db, ym), total = out.total;
   const p = pace(db, ym);
-  const budgets = db.budgets.filter((b) => !b.deleted && b.amount > 0);
-  const budgeted = sum(budgets.map((b) => b.amount));
-  const spentIn = sum(budgets.map((b) => out.by.get(b.group) || 0));
+  const budgets = db.budgets.filter((b) => !b.deleted && b.amount > 0 && b.group);   // group budgets; category budgets are checked by Budget setup
+  const lim = alertPct(db) / 100;
+  const catB = budgetStatus(db, ym).filter((x) => x.kind === 'cat' && !budgets.some((b) => b.group === x.group));   // category budgets count too, unless their whole group has a budget
+  const budgeted = sum(budgets.map((b) => b.amount)) + sum(catB.map((x) => x.budget));
+  const spentIn = sum(budgets.map((b) => out.by.get(b.group) || 0)) + sum(catB.map((x) => x.spent));
   const left = budgeted - spentIn;
   // warnings
   const warns = [];
   for (const b of budgets) {
     const v = out.by.get(b.group) || 0, r = v / b.amount;
     if (r >= 1) warns.push({ tone: 'over', g: b.group, text: `${b.group}: over budget by ${R(v - b.amount)} (${Math.round(r * 100)}% used).` });
-    else if (r >= 0.8) warns.push({ tone: 'warn', g: b.group, text: `${b.group}: ${Math.round(r * 100)}% of the budget used, ${R(b.amount - v)} left.` });
+    else if (r >= lim) warns.push({ tone: 'warn', g: b.group, text: `${b.group}: ${Math.round(r * 100)}% of the budget used, ${R(b.amount - v)} left.` });
     else if (p.live && p.day >= 5 && v / p.day * p.dim > b.amount) {
       const hit = Math.ceil(b.amount / (v / p.day));
       warns.push({ tone: 'warn', g: b.group, text: `${b.group}: at this pace the budget runs out around day ${hit}.` });
     }
   }
+  for (const a of budgetAlerts(db, ym).filter((x) => x.kind === 'cat')) warns.push({ tone: a.tone === 'info' ? 'warn' : a.tone, g: a.group, text: a.text });
   // slices
   let slices;
   if (by === 'category') {
@@ -267,14 +271,15 @@ export function budget(db) {
     }
     return `<details class="pierow" ${open}><summary><i class="dot2" style="background:${groupColor(x.color)}"></i><span class="pl">${esc(x.label)}</span>${chip}<span class="pp">${pct}%</span><b>${money(x.v)}</b>${ic('down', 'chev')}</summary><div class="pbody">${inner}</div></details>`;
   };
-  const sumBlock = budgets.length
+  const sumBlock = (budgets.length || catB.length)
     ? `<div class="facts three"><div><span>Budgeted</span><b>${R(budgeted)}</b></div><div><span>Spent in them</span><b>${R(spentIn)}</b></div><div><span>${left >= 0 ? 'Left' : 'Over by'}</span><b class="${left < 0 ? 'neg' : 'in'}">${R(Math.abs(left))}</b></div></div>
        <div class="track tall"><div class="fill ${spentIn > budgeted ? 'over' : spentIn / budgeted >= 0.8 ? 'warn' : ''}" style="width:${Math.min(100, spentIn / budgeted * 100)}%"></div></div>
        <p class="hint">${Math.round(spentIn / budgeted * 100)}% of the total budget used${p.live && p.dim - p.day > 0 && left > 0 ? `, about ${R(left / (p.dim - p.day))} a day for the ${p.dim - p.day} days left` : ''}.</p>`
     : '<p class="hint">No budgets yet. Open a group below and press “Set a monthly budget”.</p>';
   return `${monthNav()}
     ${warns.length ? `<section class="bwarn">${warns.map((w) => `<button class="warnrow ${w.tone}" data-act="slice" data-k="${esc(w.g)}">${ic('check')}<span>${esc(w.text)}</span></button>`).join('')}</section>` : ''}
-    ${coll('b-sum', 'Budget summary', sumBlock)}
+    ${coll('b-sum', 'Budget summary', sumBlock, '<button type="button" class="btn sm ghost" data-act="budget-setup">Budget setup</button>')}
+    ${coll('b-class', 'Needs, wants and luxury', classCard(db, ym) || '<p class="hint">Nothing spent in this month yet.</p>')}
     <section class="seg-wrap"><div class="seg two" role="group" aria-label="Split by">${[['group', 'By group'], ['category', 'By category']].map(([v, l]) => `<button type="button" data-act="pieby" data-v="${v}" class="${by === v ? 'on' : ''}" aria-pressed="${by === v}">${l}</button>`).join('')}</div>
       ${donut}${total ? '<p class="hint center">Tap a slice or a row for the detail.</p>' : ''}</section>
     <section>${slices.map(rowFor).join('')}</section>`;

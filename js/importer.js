@@ -157,7 +157,8 @@ export function importBluecoins(db, text, opts = {}) {
     if (!type || !nm || !isFinite(amt)) continue;
     const a = ensureAcct(nm, cu);
     if (type === 'Starting Balance') {
-      if (newAcct.has(a.id)) { a.open = (a.open || 0) + amt; a.openRow = { date: col(r, 'Date'), name: col(r, 'Name'), group: col(r, 'Category Group'), cat: col(r, 'Category'), notes: col(r, 'Notes'), fx: fxOf(r, cu) }; }   // kept so the export can write the row back as it came
+      if (!newAcct.has(a.id) && !a.openDate && !a.openRow && Math.abs((a.open || 0) - amt) < 0.005) { a.openDate = col(r, 'Date').slice(0, 10); stamp(a); }   // only the date of an opening balance already here is filled in; nothing is overwritten
+      if (newAcct.has(a.id)) { a.open = (a.open || 0) + amt; a.openDate = col(r, 'Date').slice(0, 10); a.openRow = { date: col(r, 'Date'), name: col(r, 'Name'), group: col(r, 'Category Group'), cat: col(r, 'Category'), notes: col(r, 'Notes'), fx: fxOf(r, cu) }; }   // kept so the export can write the row back as it came
       continue;
     }
     if (type === 'Transfer') {
@@ -230,7 +231,7 @@ export function exportCSV(db) {
     if (a.deleted || !a.open) continue;
     const o = a.openRow;
     if (o) line('Starting Balance', { date: o.date, name: o.name, labels: '' }, a.open, a.cur, o.fx || 0, o.group, o.cat, an(a), o.notes || '');
-    else line('Starting Balance', { date: '2000-01-01 00:00:00', name: '', labels: '' }, a.open, a.cur, 0, '', '', an(a), '');
+    else line('Starting Balance', { date: a.openDate ? a.openDate + ' 12:00:00' : '2000-01-01 00:00:00', name: '', labels: '' }, a.open, a.cur, 0, '', '', an(a), '');
   }
   for (const t of db.txs.filter((x) => !x.deleted).sort((x, y) => (x.date < y.date ? 1 : -1))) {
     const a = accts.get(t.acct);

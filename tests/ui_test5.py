@@ -75,14 +75,14 @@ with sync_playwright() as p:
     # 9 collapse + group by
     pg.goto('http://localhost:8123/index.html#/reports'); pg.wait_for_selector('.coll')
     pg.click('[data-act=coll][data-id=r-by]'); pg.wait_for_timeout(200)
-    ok('section collapses', pg.locator('[data-id=r-by]').first.get_attribute('aria-expanded')=='false' and pg.locator('.seg.four').count()==0)
+    ok('section collapses', pg.locator('[data-id=r-by]').first.get_attribute('aria-expanded')=='false' and pg.locator('.seg.four:visible').count()==0)
     pg.click('[data-act=coll][data-id=r-by]'); pg.wait_for_timeout(200)
     for by in ['category','account','weekday','group']:
         pg.click(f'[data-act=by][data-v={by}]'); pg.wait_for_timeout(150)
         ok('reports grouped by '+by, pg.locator('.gbar, .gdet').count()>0 or 'Nothing' in pg.inner_text('#view'))
     pg.goto('http://localhost:8123/index.html#/home'); pg.wait_for_selector('.coll')
-    pg.click('[data-act=coll][data-id=h-out]'); pg.wait_for_timeout(150); ok('home section collapses', pg.locator('.gbar.click[data-k=expense]').count()==0)
-    pg.reload(); pg.wait_for_selector('.coll'); ok('collapse remembered', pg.locator('.gbar.click[data-k=expense]').count()==0)
+    pg.click('[data-act=coll][data-id=h-out]'); pg.wait_for_timeout(150); ok('home section collapses', pg.locator('.gbar.click[data-k=expense]:visible').count()==0)
+    pg.reload(); pg.wait_for_selector('.coll'); ok('collapse remembered', pg.locator('.gbar.click[data-k=expense]:visible').count()==0)
     pg.click('[data-act=coll][data-id=h-out]')
     # 4 budget
     pg.evaluate("window.sukli.ui.month='2026-08'")
