@@ -1,6 +1,6 @@
 // The five screens: Home, Ledger, Review, Accounts, Reports, and Settings.
 import { softDelete } from './core.js';
-import { safetyCfg } from './finance.js';
+import { safetyCfg, balanceTrail } from './finance.js';
 import {
   get, commit, commitQuiet, stamp, uid, fmt, BASE, HOME, homeFx, homeRate, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
   compact, monthLabel, shiftMonth, thisMonth, dayLabel, rateFor, reviewCount, groupColor, groupLetter, adjustmentCategory, nowStamp,
@@ -112,7 +112,14 @@ function effectLine(t, accts) {
   if (t.auto && t.kind === 'income') return 'Interest posted automatically';
   return t.kind === 'income' ? 'Income recorded' : 'Expense recorded';
 }
-export function row(t, accts, cats, sel) {
+// "balance after": what each affected account holds right after this entry, with an arrow and colour for up or down
+function balLines(t, accts, trail) {
+  if (!trail || t._feeOf) return '';
+  const l = trail.get(t.id); if (!l) return '';
+  return l.map((x) => { const a = accts.get(x.id), up = x.after > x.before + 0.00001, dn = x.after < x.before - 0.00001, cur = a ? a.cur : '';
+    return `<small class="bal ${up ? 'up' : dn ? 'dn' : ''}"><i aria-hidden="true">${up ? '▲' : dn ? '▼' : '•'}</i><span class="sr">${up ? 'Up' : dn ? 'Down' : 'No change'}: </span><span class="bn">${esc(a ? a.name : '?')}</span> <span class="bv">${money(x.before, cur)} → <b>${money(x.after, cur)}</b></span></small>`; }).join('');
+}
+export function row(t, accts, cats, sel, trail) {
   const a = accts.get(t.acct), c = cats.get(t.cat), tr = t.kind === 'transfer';
   const group = tr ? 'Transfer' : (c ? c.group : 'Uncategorized');
   const title = t.name || (c ? c.name : 'Untitled');
@@ -124,7 +131,7 @@ export function row(t, accts, cats, sel) {
   return `<button class="row ${sel ? 'selrow' : ''} ${on ? 'picked' : ''}" data-act="${sel ? 'sel-toggle' : 'edit'}" data-id="${t.id}" ${sel ? `role="checkbox" aria-checked="${!!on}"` : ''}>
     ${sel ? `<i class="selbox ${on ? 'on' : ''}">${on ? ic('check') : ''}</i>` : ''}
     <i class="badge" style="background:${tr ? 'var(--xfer)' : groupColor(group)}">${groupLetter(group)}</i>
-    <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub}</small><small class="eff">${effectLine(t, accts)}</small></span>
+    <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub}</small><small class="eff">${effectLine(t, accts)}</small>${balLines(t, accts, trail)}</span>
     <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}</span></button>`;
 }
 ACT.edit = (el) => { const t = get().txs.find((x) => x.id === el.dataset.id); if (t && t.auto && t.kind === 'income' && openInterestDetail(t)) return; openEntry({ id: el.dataset.id }); };
@@ -147,12 +154,25 @@ export function home(db) {
   return `${monthNav()}
     ${firstEntry}${strip(st)}${weekBars(db)}${body}`;
 }
-// what was spent on each of the last 7 days: plain HTML rows (not SVG) so the day, the bar and the amount never overlap and the text stays readable
+// what was spent on each of the last 7 days: plain HTML (not SVG) so the day, the bar and the amount never overlap and the text stays readable.
+// Horizontal or vertical is a device choice; the data and the numbers are the same in both.
+const weekMode = () => { try { return localStorage.getItem('sukli-week') === 'v' ? 'v' : 'h'; } catch { return 'h'; } };
+ACT['week-mode'] = (el) => {
+  try { localStorage.setItem('sukli-week', el.dataset.v); } catch { /* blocked */ }
+  const sec = el.closest('.week'); if (sec) sec.outerHTML = weekBars(get()); else window.dispatchEvent(new Event('sukli-render'));
+};
 function weekBars(db) {
-  const { dates, vals } = dailySpend(db, todayStr(), 7), top = Math.max(...vals), total = vals.reduce((a, b) => a + b, 0);
-  const lab = (d, i) => (i === 6 ? 'Today' : i === 5 ? 'Yesterday' : new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }));
-  return `<section class="week" aria-label="Spending in the last 7 days"><h3 class="subh">Spent each day, last 7 days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3>
-    ${total ? dates.map((d, i) => `<div class="wk ${i === 6 ? 'now' : ''}"><span class="wd">${esc(lab(d, i))}</span><span class="wtrack"><i style="width:${vals[i] > 0 ? Math.max(2, Math.round(vals[i] / top * 100)) : 0}%"></i></span><b class="wv ${vals[i] ? '' : 'muted'}">${vals[i] ? money(vals[i]) : '–'}</b></div>`).join('') : '<p class="empty">Nothing spent in the last 7 days.</p>'}</section>`;
+  const { dates, vals } = dailySpend(db, todayStr(), 7), top = Math.max(...vals), total = vals.reduce((a, b) => a + b, 0), mode = weekMode();
+  const day = (d, i) => (i === 6 ? 'Today' : new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' }));
+  const full = (d, i) => (i === 6 ? 'Today' : i === 5 ? 'Yesterday' : new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }));
+  // a long amount is shortened (12.3k) so neighbouring labels never touch
+  const amt = (v) => (v < 10 ? money(v) : compact(v));
+  const seg = `<div class="seg two small wkseg" role="group" aria-label="Chart direction">${[['h', 'Horizontal'], ['v', 'Vertical']].map(([v, l]) => `<button type="button" data-act="week-mode" data-v="${v}" class="${mode === v ? 'on' : ''}" aria-pressed="${mode === v}">${l}</button>`).join('')}</div>`;
+  let body;
+  if (!total) body = '<p class="empty">Nothing spent in the last 7 days.</p>';
+  else if (mode === 'v') body = `<div class="wkv" role="img" aria-label="Spending for each of the last 7 days">${dates.map((d, i) => `<div class="wc ${i === 6 ? 'now' : ''}" data-tip="${esc(full(d, i) + ': ' + (vals[i] ? money(vals[i]) : 'nothing spent'))}"><span class="wa ${vals[i] ? '' : 'muted'}">${vals[i] ? esc(amt(vals[i])) : ''}</span><span class="wb"><i style="height:${vals[i] > 0 ? Math.max(3, Math.round(vals[i] / top * 100)) : 0}%"></i></span><span class="wl">${esc(day(d, i))}</span></div>`).join('')}</div>`;
+  else body = dates.map((d, i) => `<div class="wk ${i === 6 ? 'now' : ''}"><span class="wd">${esc(full(d, i))}</span><span class="wtrack"><i style="width:${vals[i] > 0 ? Math.max(2, Math.round(vals[i] / top * 100)) : 0}%"></i></span><b class="wv ${vals[i] ? '' : 'muted'}">${vals[i] ? esc(money(vals[i])) : '–'}</b></div>`).join('');
+  return `<section class="week" aria-label="Spending in the last 7 days"><div class="weekhead"><h3 class="subh">Spent each day, last 7 days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3>${total ? seg : ''}</div>${body}</section>`;
 }
 // the cards on Home, in the order you chose in Settings. [id, name, heavy: drawn a moment later so the numbers above appear at once]
 export const HOME_SECTIONS = [
@@ -395,14 +415,14 @@ function ledgerRows(db) {
   const kidMap = tradeKids(db).parentOf, hideKids = !q && ui.filter !== 'expense';
   const hiddenFees = hideKids ? list.filter((t) => kidMap.has(t.id) && list.some((p) => p.id === kidMap.get(t.id).id)) : [];
   if (hiddenFees.length) { const hs = new Set(hiddenFees.map((t) => t.id)); list = list.filter((t) => !hs.has(t.id)); }
-  const total = list.length;
+  const total = list.length, trail = balanceTrail(db);
   list = list.slice(0, ui.limit);
   let html = '', day = '', dayTotal = 0, buf = ''; const shown = []; ui.shown = shown;
   const flush = () => { if (buf) html += `<div class="day"><div class="dayhead"><span>${dayLabel(day)}</span><span>${dayTotal ? money(-dayTotal) : ''}</span></div><div class="rows">${buf}</div></div>`; buf = ''; dayTotal = 0; };
   for (const t of list) {
     const d = t.date.slice(0, 10);
     if (d !== day) { flush(); day = d; }
-    buf += row(t, accts, cats, ui.selecting); shown.push(t.id);
+    buf += row(t, accts, cats, ui.selecting, trail); shown.push(t.id);
     if (t.kind === 'expense') dayTotal += t.amount * factorFor(db, t);
     for (const k of hiddenFees) if (kidMap.get(k.id).id === t.id) dayTotal += k.amount * factorFor(db, k);
   }

@@ -1,0 +1,52 @@
+# v12x: week chart orientation, balance after in Entries, budget setup polish
+from playwright.sync_api import sync_playwright
+CSV='/home/claude/Transactions.csv'; res=[]
+def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch()
+    for vw in (390,320,1100):
+        pg=b.new_page(viewport={'width':vw,'height':844},service_workers='block'); errs=[]
+        pg.on('pageerror',lambda e:errs.append(str(e)))
+        pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
+        pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(700)
+        pg.evaluate("""(async()=>{const m=await import('/js/core.js');m.commit(d=>{const a=d.accounts.find(x=>!x.deleted&&x.cur===m.HOME),c=d.categories.find(x=>!x.deleted&&x.kind==='expense');const day=n=>{const t=new Date(Date.now()-n*864e5);return t.toISOString().slice(0,10)+' 12:00:00'};[[0,1234567],[1,45],[2,12500],[3,0.5],[5,980]].forEach(([n,v],i)=>d.txs.push(m.stamp({id:'wk'+i,kind:'expense',acct:a.id,cat:c.id,amount:v,cur:m.HOME,date:day(n),name:'wk'+i})))})})()""")
+        pg.evaluate("localStorage.removeItem('sukli-week')")
+        pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(900)
+        ok(f'[{vw}] horizontal by default with 7 rows', pg.locator('.week .wk').count()==7)
+        pg.click('.week [data-act=week-mode][data-v=v]'); pg.wait_for_timeout(300)
+        ok(f'[{vw}] vertical shows 7 columns', pg.locator('.week .wc').count()==7 and pg.locator('.week .wk').count()==0)
+        ok(f'[{vw}] vertical amounts sit above bars and do not overlap', pg.evaluate("""()=>{const r=[...document.querySelectorAll('.week .wa')].filter(e=>e.textContent.trim()).map(e=>{const s=document.createRange();s.selectNodeContents(e);return s.getBoundingClientRect()});for(let i=0;i<r.length;i++)for(let j=i+1;j<r.length;j++){if(r[i].left<r[j].right-0.5&&r[j].left<r[i].right-0.5)return false}const w=document.querySelector('.week').getBoundingClientRect();return r.every(x=>x.left>=w.left&&x.right<=w.right)}"""))
+        ok(f'[{vw}] amounts keep their values', pg.evaluate("document.querySelectorAll('.week .wc').length")==7 and pg.evaluate("[...document.querySelectorAll('.week .wc')].filter(c=>c.querySelector('.wa').textContent.trim()).length")==5)
+        ok(f'[{vw}] no horizontal page scroll', pg.evaluate("document.documentElement.scrollWidth<=innerWidth+1"))
+        pg.click('.week [data-act=week-mode][data-v=h]'); pg.wait_for_timeout(300)
+        ok(f'[{vw}] back to horizontal, same data', pg.locator('.week .wk').count()==7 and pg.evaluate("[...document.querySelectorAll('.week .wv')].filter(e=>e.textContent.trim()!=='–').length")==5)
+        ok(f'[{vw}] bars not bold', pg.evaluate("parseInt(getComputedStyle(document.querySelector('.week .wv')).fontWeight)<=500"))
+        if vw==390:
+            pg.click('.week [data-act=week-mode][data-v=v]'); pg.wait_for_timeout(200)
+            pg.evaluate("window.scrollTo(0,0)"); pg.locator('.week').screenshot(path='/tmp/week_v.png')
+            # balance after in Entries
+            pg.evaluate("""(async()=>{const m=await import('/js/core.js');m.commit(d=>{const a=d.accounts.filter(x=>!x.deleted&&x.cur===m.HOME);a[0].name='Bal Test A';a[1].name='Bal Test B';d.txs.push(m.stamp({id:'bt1',kind:'transfer',acct:a[0].id,toAcct:a[1].id,amount:700,cur:m.HOME,date:m.nowStamp(),name:'BalTest move'}))})})()""")
+            pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_timeout(600)
+            while pg.locator('[data-act=month][data-d="1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="1"]'); pg.wait_for_timeout(150)
+            pg.fill('#q','BalTest'); pg.wait_for_timeout(300)
+            ok('transfer row shows both accounts with arrows', pg.locator('#ledger-list .bal').count()==2 and pg.locator('#ledger-list .bal.dn').count()==1 and pg.locator('#ledger-list .bal.up').count()==1)
+            ok('arrows are down for sender, up for receiver', '▼' in pg.locator('#ledger-list .bal.dn').inner_text() and '▲' in pg.locator('#ledger-list .bal.up').inner_text())
+            pg.fill('#q','wk4'); pg.wait_for_timeout(300)
+            ok('expense row shows before and after', pg.locator('#ledger-list .bal.dn').count()==1 and '→' in pg.locator('#ledger-list .bal').inner_text())
+            pg.locator('#ledger-list').screenshot(path='/tmp/bal.png')
+            # budget setup
+            pg.goto('http://localhost:8123/#/budget'); pg.wait_for_timeout(500); pg.click('[data-act=budget-setup]'); pg.wait_for_selector('#bs')
+            ok('summary line and suggest button', pg.locator('#bssum').count()==1 and pg.locator('[data-suggest]').count()==1)
+            ok('rows show usual spending', pg.locator('#bs .usual').count()>3)
+            first=pg.evaluate("document.querySelector('#bs details.bsgrp summary b').textContent")
+            ok('first group is open', pg.evaluate("document.querySelector('#bs details.bsgrp').open"))
+            pg.click('[data-suggest]'); pg.wait_for_timeout(300)
+            n=pg.locator('#bs [data-on]:checked').count()
+            ok('suggest ticks categories and fills round amounts', n>3 and 'budgeted' in pg.inner_text('#bssum'))
+            ok('amounts are round suggestions', pg.evaluate("[...document.querySelectorAll('#bs [data-amt]')].filter(a=>a.value).every(a=>a.value===a.dataset.sug)"))
+            pg.click('#bs .btn:not(.ghost)'); pg.wait_for_timeout(500)
+            ok('saved as budgets', pg.evaluate("window.sukli.get().budgets.filter(b=>!b.deleted&&b.cat).length")==n)
+        ok(f'[{vw}] no page errors', not errs); print(errs[:2])
+        pg.close()
+    b.close()
+print('SUMMARY', sum(res), '/', len(res)); raise SystemExit(0 if all(res) else 1)

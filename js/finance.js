@@ -32,6 +32,28 @@ export function accountHistory(db, id) {
   return out;
 }
 
+// the balance of each account right after each entry: txId -> [{ id, before, after }] (one item per affected account).
+// Same order as an account's history (date, then when it was saved), so the numbers match the account page.
+let _trailKey = '', _trail = null;
+export function balanceTrail(db) {
+  let mx = 0; for (const t of db.txs) if ((t.updatedAt || 0) > mx) mx = t.updatedAt;
+  const key = `${db.txs.length}:${mx}:${db.accounts.length}:${db.accounts.map((a) => (a.open || 0) + (a.openDate || '')).join(',')}`;
+  if (key === _trailKey && _trail) return _trail;
+  const ods = openDates(db), bal = new Map(), opened = new Map(), out = new Map();
+  for (const a of db.accounts) { const od = ods.get(a.id) || ''; bal.set(a.id, od ? 0 : a.open || 0); opened.set(a.id, !od); }
+  const open = new Map(db.accounts.map((a) => [a.id, a.open || 0]));
+  const rows = live(db.txs).slice().sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : (x.updatedAt || 0) - (y.updatedAt || 0)));
+  for (const t of rows) {
+    const ids = [t.acct]; if (t.kind === 'transfer' && t.toAcct && t.toAcct !== t.acct) ids.push(t.toAcct);
+    const list = [];
+    for (const id of ids) { if (!bal.has(id)) continue;
+      if (!opened.get(id) && t.date.slice(0, 10) >= (ods.get(id) || '')) { bal.set(id, bal.get(id) + open.get(id)); opened.set(id, true); }
+      const before = bal.get(id), after = before + deltaFor(t, id); bal.set(id, after); list.push({ id, before, after }); }
+    if (list.length) out.set(t.id, list);
+  }
+  _trailKey = key; _trail = out; return out;
+}
+
 // ---------- net worth ----------
 export function netWorth(db) {
   const bal = balances(db), items = [];
