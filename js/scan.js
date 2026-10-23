@@ -1,7 +1,8 @@
 // Receipt scanner: photo -> text (Tesseract in the browser, nothing uploaded) -> parseReceipt -> you confirm -> new entry.
 import { get, commitQuiet } from './core.js';
 import { esc, ic, ACT, sheet, toast } from './ui.js';
-import { modelFor, openEntry } from './entry.js';
+import { modelFor, openEntry, openCategoryForm } from './entry.js';
+import { enhanceSelect } from './picker.js';
 import { predict } from './predict.js';
 import { parseReceipt, parseBoth, linesFromOcr, joinLines } from './receipt.js';
 import { guessItemCat, itemCatIndex, learnItemCat } from './itemcat.js';
@@ -106,6 +107,10 @@ function render(api) {
     ${a.raw ? `<label class="btn ghost wide moreb"><input type="file" id="rc-more" accept="image/*" capture="environment" hidden>Long receipt? Add the next part (photo)</label><p class="hint" id="rc-more-status" aria-live="polite"></p>` : ''}
     <div class="btnrow"><button type="button" class="btn ghost" data-act="sc-again">Scan another</button><button type="button" class="btn" data-act="sc-use">Continue to entry</button></div></form>`;
   const f = api.el;
+  // category lists: the shared pick list with search, and a way to add a category that is not there
+  const scc = f.querySelector('#sc-cat');
+  if (scc) enhanceSelect(scc, { title: 'Category', addLabel: 'Add a new category', onAdd: () => openCategoryForm({ kind: 'expense', onDone: (c) => { cur && cur.sync && cur.sync(); a.cat = c.id; render(api); } }) });
+  f.querySelectorAll('select.in-c').forEach((sel) => enhanceSelect(sel, { title: 'Category', addLabel: 'Add a new category', onAdd: () => openCategoryForm({ kind: 'expense', onDone: (c) => { sel.add(new Option(c.name, c.id)); sel.value = c.id; sel.dispatchEvent(new Event('change', { bubbles: true })); } }) }));
   const sync = () => { a.name = f.querySelector('#sc-name').value; a.date = f.querySelector('#sc-date').value; a.time = f.querySelector('#sc-time').value; a.total = f.querySelector('#sc-total').value; a.cat = f.querySelector('#sc-cat').value;
     f.querySelectorAll('#sc-items .item').forEach((row, i) => { if (a.items[i]) { a.items[i].n = row.querySelector('.in-n').value; a.items[i].amt = row.querySelector('.in-a').value; const sc = row.querySelector('.in-c'); if (sc) a.items[i].cat = sc.value; } }); };
   api.sync = sync;

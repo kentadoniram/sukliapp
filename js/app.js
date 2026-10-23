@@ -32,10 +32,16 @@ window.addEventListener('hashchange', () => { const k = location.hash || '#/home
 
 function firstRun() {
   return `<section class="welcome">
-    <h1>Sukli</h1>
-    <p class="lede">A private money tracker for your phone. Your data stays on this device, with an optional backup to your own Google Drive.</p>
-    <label class="btn wide filebtn">Import my Bluecoins export (CSV)<input type="file" id="first-file" accept=".csv,text/csv" hidden></label>
-    <button class="btn ghost wide" data-act="start-empty">Start with an empty ledger</button>
+    <h1>Welcome to Sukli</h1>
+    <p class="lede">Sukli helps you see where your money goes, so there are fewer surprises at the end of the month. You do not need to know anything about finance. Your data stays on this phone.</p>
+    <ol class="steps3">
+      <li><b>Say where your money is.</b><span>Your wallet, a bank account, or an e-wallet like GCash or PayPay. Each one is called an <em>account</em>. Type how much is in it today.</span></li>
+      <li><b>Write down what you spend and earn.</b><span>Tap the round <b>+</b> button each time you pay for something or get paid. Each one is called an <em>entry</em>. It takes a few seconds.</span></li>
+      <li><b>Look at Home.</b><span>You will see what came in, what went out, and which kind of spending is biggest.</span></li></ol>
+    <button class="btn wide" data-act="start-empty">Start: add my first account</button>
+    <p class="hint center">Takes about a minute. You can change everything later.</p>
+    <div class="or"><span>already use another app?</span></div>
+    <label class="btn ghost wide filebtn">I use Bluecoins: import my CSV file<input type="file" id="first-file" accept=".csv,text/csv" hidden></label>
     <p class="hint">Importing keeps your accounts, balances, categories and every entry, including transfers between currencies.</p></section>`;
 }
 ACT['start-empty'] = () => { commit((d) => seedCategories(d)); ACT['acct-new'](); };
@@ -110,6 +116,12 @@ const queue = () => { if (!pending) { pending = true; requestAnimationFrame(rend
   showLatest();
   subscribe(() => { queue(); scheduleSync(); cloudSchedule(); });
   window.addEventListener('hashchange', queue);
+  // tapping the tab you are already on takes you back to the top of it
+  document.getElementById('tabs').addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#/"]'); if (!a) return;
+    const here = (location.hash || '#/home').split('?')[0], to = a.getAttribute('href').split('?')[0];
+    if (here === to || (here === '#/' && to === '#/home')) { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  });
   window.addEventListener('sukli-render', queue);
   window.addEventListener('sukli-latest', () => { showLatest(); queue(); });
   onStatus((s) => { const el = document.getElementById('syncstatus'); if (el) el.textContent = s.text; });

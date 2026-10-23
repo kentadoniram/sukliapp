@@ -103,6 +103,7 @@ function effectLine(t, accts) {
   let feeTxt = '';
   if (t.kind === 'transfer' && t.fee > 0) feeTxt = ` · fee ${money(t.fee, t.feeCur || t.cur)} recorded as an expense`;
   const kids = kidsOf.get(t.id) || []; for (const k of kids) feeTxt += ` · fee ${money(k.amount, k.cur)} recorded as an expense`;
+  if (t._feeOf) return `Fee of “${esc(t._feeOf)}”, saved with it. Tap to open the whole entry`;
   if (parentOf.has(t.id)) return `Fee of “${esc(parentOf.get(t.id).name)}” recorded as an expense`;
   if (t.loanNet) return `Loan: borrowed ${money(t.loanNet.principal, t.cur)}${t.loanNet.fees > 0 ? `, fees ${money(t.loanNet.fees, t.cur)} deducted` : ''}, received ${money(t.loanNet.net, t.cur)}`;
   if (t.trade) return `Trade, not counted as spending${feeTxt}`;
@@ -127,7 +128,11 @@ export function row(t, accts, cats, sel) {
     <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}</span></button>`;
 }
 ACT.edit = (el) => { const t = get().txs.find((x) => x.id === el.dataset.id); if (t && t.auto && t.kind === 'income' && openInterestDetail(t)) return; openEntry({ id: el.dataset.id }); };
-ACT.add = () => openEntry();
+ACT.add = async () => {
+  // on the Investments tab the + button asks which account and what kind of entry
+  if ((location.hash.replace(/^#\/?/, '').split('?')[0]) === 'invest') { (await import('./invest.js')).invEntryMenu(); return; }
+  openEntry();
+};
 ACT.bulk = () => openBulk();
 
 // ---------------- Home ----------------
@@ -138,8 +143,16 @@ export function home(db) {
   const st = monthStats(db, ui.month);
   const lay = homeLayout(db);
   const body = lay.order.filter((id) => !lay.hidden.includes(id)).map((id) => { const sec = HOME_SECTIONS.find((x) => x[0] === id); if (!sec) return ''; return sec[2] ? `<div class="defer" data-defer="${id}" aria-busy="true"></div>` : homeSection(id, { db }); }).join('');
+  const firstEntry = !db.txs.some((t) => !t.deleted) ? `<section class="nextstep"><b>Next step: write down your first spending.</b><br>Tap the round <b>+</b> button below. Type what it was (for example “lunch”), how much, and pick the account you paid from. Sukli learns your usual choices as you go.</section>` : '';
   return `${monthNav()}
-    ${strip(st)}${body}`;
+    ${firstEntry}${strip(st)}${weekBars(db)}${body}`;
+}
+// what was spent on each of the last 7 days: plain HTML rows (not SVG) so the day, the bar and the amount never overlap and the text stays readable
+function weekBars(db) {
+  const { dates, vals } = dailySpend(db, todayStr(), 7), top = Math.max(...vals), total = vals.reduce((a, b) => a + b, 0);
+  const lab = (d, i) => (i === 6 ? 'Today' : i === 5 ? 'Yesterday' : new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }));
+  return `<section class="week" aria-label="Spending in the last 7 days"><h3 class="subh">Spent each day, last 7 days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3>
+    ${total ? dates.map((d, i) => `<div class="wk ${i === 6 ? 'now' : ''}"><span class="wd">${esc(lab(d, i))}</span><span class="wtrack"><i style="width:${vals[i] > 0 ? Math.max(2, Math.round(vals[i] / top * 100)) : 0}%"></i></span><b class="wv ${vals[i] ? '' : 'muted'}">${vals[i] ? money(vals[i]) : '–'}</b></div>`).join('') : '<p class="empty">Nothing spent in the last 7 days.</p>'}</section>`;
 }
 // the cards on Home, in the order you chose in Settings. [id, name, heavy: drawn a moment later so the numbers above appear at once]
 export const HOME_SECTIONS = [
@@ -351,9 +364,15 @@ function ledgerRows(db) {
   const q = ui.q.trim().toLowerCase();
   let list = sortedTxs(db);
   if (!q) list = list.filter((t) => t.date.startsWith(ui.month));
+  const feeSource = ui.filter === 'expense' ? list.filter((t) => t.kind === 'transfer' && t.fee > 0) : [];   // fees saved on transfers, trades and loans are expenses too
   if (ui.filter === 'review') list = list.filter((t) => t.flag === 'review');
   else if (ui.filter !== 'all') list = list.filter((t) => t.kind === ui.filter);
   if (ui.acct) list = list.filter((t) => t.acct === ui.acct || t.toAcct === ui.acct);
+  if (feeSource.length) {
+    const fa = (t) => (t.feeBy === 'to' ? t.toAcct : t.acct);
+    const fees = feeSource.filter((t) => !ui.acct || fa(t) === ui.acct).map((t) => ({ ...t, _feeOf: t.name || 'transfer', kind: 'expense', amount: t.fee, cur: t.feeCur || t.cur, fx: t.feeFx, name: `Fee · ${t.name || (t.trade ? 'trade' : 'transfer')}`, cat: t.feeCat, acct: fa(t), toAcct: undefined, fee: 0, items: [], trade: false, loanNet: undefined, flag: undefined }));
+    list = [...list, ...fees].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  }
   if (q) list = list.filter((t) => {
     const c = cats.get(t.cat), a = accts.get(t.acct);
     return [t.name, t.notes, c && c.name, c && c.group, a && a.name, (t.items || []).map((i) => i.n).join(' ')].join(' ').toLowerCase().includes(q);
@@ -374,7 +393,7 @@ function ledgerRows(db) {
     for (const k of hiddenFees) if (kidMap.get(k.id).id === t.id) dayTotal += k.amount * factorFor(db, k);
   }
   flush();
-  if (!html) html = `<p class="empty">${q ? 'No entries match your search.' : 'No entries here.'}</p>`;
+  if (!html) html = `<p class="empty">${q ? 'No entries match your search.' : ui.filter === 'review' ? 'Nothing to check. Every entry this month is confirmed.' : 'No entries here.'}</p>`;
   if (total > list.length) html += `<button class="btn ghost wide" data-act="more">Show more (${total - list.length} left)</button>`;
   return html;
 }
@@ -384,11 +403,21 @@ export function ledger(db) {
   const f = [['all', 'All'], ['review', 'Check'], ['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']];
   return `${monthNav()}
     <div class="searchbar">${ic('search')}<input id="q" type="search" placeholder="Search entries, items, notes" value="${esc(ui.q)}" aria-label="Search entries"></div>
-    <div class="filters" role="group" aria-label="Filter">${f.map(([v, l]) => `<button class="chip ${ui.filter === v ? 'on' : ''}" data-act="filter" data-v="${v}">${l}</button>`).join('')}
+    <div class="filters" role="group" aria-label="Filter">${f.map(([v, l]) => `<button class="chip ${ui.filter === v ? 'on' : ''}" data-act="filter" data-v="${v}" ${v === 'review' ? 'title="Entries with a guessed category or label that you have not confirmed yet"' : ''}>${l}</button>`).join('')}
       <select id="acctfilter" aria-label="Account filter"><option value="">All accounts</option>${db.accounts.filter((a) => !a.deleted).sort((a, b) => a.name.localeCompare(b.name)).map((a) => `<option value="${a.id}" ${ui.acct === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></div>
+    <p class="hint filterhint" id="filterhint">${filterHint()}</p>
     <div id="selbar-wrap">${selBar()}</div>
     <div id="ledger-list">${ledgerRows(db)}</div>`;
 }
+// one line under the filters saying what the chosen filter shows
+const FILTER_HINTS = {
+  review: 'Check means Sukli guessed something for you (the category or the label) and you have not confirmed it yet. Open an entry and save it to confirm, or use Review in the menu to go through them one by one. Nothing is wrong with the money itself.',
+  expense: 'Money you spent. Fees from trades, transfers and loans are listed here too, each one pointing to its entry.',
+  transfer: 'Money moved between your own accounts, including trades. Not counted as spending, and fees are not listed here (see Expense).',
+  income: 'Money that came in.',
+  all: '',
+};
+const filterHint = () => esc(FILTER_HINTS[ui.filter] || '');
 // choose several entries and delete them together (they go to the recycle bin and can be undone)
 function selBar() {
   if (!ui.selecting) return `<div class="btnrow left selstart"><button type="button" class="btn sm ghost" data-act="sel-start">${ic('check')} Select entries</button><button type="button" class="btn sm ghost" data-act="ih-open">Input history</button></div>`;
@@ -408,7 +437,7 @@ ACT['sel-del'] = async () => {
   ui.selecting = false; ui.sel = new Set();
   toast(`${gone.length} moved to the recycle bin`, { undo: () => commit((d) => { for (const t of d.txs) if (gone.includes(t.id)) { t.deleted = false; delete t.deletedAt; stamp(t); } }) });
 };
-ACT.filter = (el) => { ui.filter = el.dataset.v; ui.limit = 120; window.dispatchEvent(new Event('sukli-render')); };
+ACT.filter = (el) => { ui.filter = el.dataset.v; const h = document.getElementById('filterhint'); if (h) h.textContent = FILTER_HINTS[ui.filter] || ''; ui.limit = 120; window.dispatchEvent(new Event('sukli-render')); };
 export function bindLedger() {
   const q = document.getElementById('q');
   if (q) q.oninput = () => { ui.q = q.value; ui.limit = 120; document.getElementById('ledger-list').innerHTML = ledgerRows(get()); };

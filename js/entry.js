@@ -19,6 +19,7 @@ import { applyHide } from './appearance.js';
 import { openDatePicker, prettyDate } from './datepicker.js';
 import { openCurrencyPicker, favCurs, flagOf } from './curpicker.js';
 import { openAccountPicker } from './acctpicker.js';
+import { pickerList, enhanceSelect } from './picker.js';
 import { similarNames } from './merchants.js';
 
 // ---- models are rebuilt only when the data changed ----
@@ -285,12 +286,23 @@ export function openEntry(opts = {}) {
       <div class="seg sm" role="group" aria-label="Who pays the fee">
         <button type="button" data-e="feeby" data-v="from" class="${f.feeBy !== 'to' ? 'on' : ''}" aria-pressed="${f.feeBy !== 'to'}">Taken from sender (${esc(a.name)})</button>
         <button type="button" data-e="feeby" data-v="to" class="${f.feeBy === 'to' ? 'on' : ''}" aria-pressed="${f.feeBy === 'to'}">Taken from receiver (${esc(b.name)})</button></div></div>`;
+    const fs = el.querySelector('#f-feecat');
+    if (fs) enhanceSelect(fs, { title: 'Fee type', addLabel: 'Add a new fee type', onAdd: async () => { const n = (await promptDialog('New fee type', '', { okLabel: 'Add', hint: 'For example: Withdrawal fee, Gas fee' }))?.trim(); if (!n) return; fs.add(new Option(n, '__new:' + n)); fs.value = '__new:' + n; fs.dispatchEvent(new Event('change', { bubbles: true })); } });
   }
   function topCats(kind, n) {
     const m = modelFor(kind);
     return [...m.classes.entries()].sort((x, y) => y[1].n - x[1].n).slice(0, n).map(([id]) => ({ id, p: 0 }));
   }
   function candidates() { return f.name.trim() ? catCandidates(modelFor(f.kind), get().categories, f.name, f.kind, 6) : []; }
+  // no category yet: offer the existing groups (the larger headings), most used first; tapping one lists its categories
+  function groupSuggest(cm) {
+    const m = modelFor(f.kind), use = new Map();
+    for (const [id, v] of m.classes.entries()) { const c = cm.get(id); if (c) use.set(c.group, (use.get(c.group) || 0) + v.n); }
+    for (const c of get().categories) if (!c.deleted && c.group !== 'Adjustments' && (c.kind === f.kind || c.kind === 'both') && !use.has(c.group)) use.set(c.group, 0);
+    const gs = [...use.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8).map(([g]) => g);
+    if (!gs.length) return '';
+    return `<small class="muted">Not sure which category? Choose a group first:</small><div class="chips grp">${gs.map((g) => `<button type="button" class="chip" data-e="catgroup" data-v="${esc(g)}"><i style="background:${groupColor(g)}">${groupLetter(g)}</i>${esc(g)}</button>`).join('')}</div>`;
+  }
   function renderCats() {
     const el = $f('catrow');
     if (f.kind === 'transfer') { el.innerHTML = ''; return; }
@@ -309,6 +321,7 @@ export function openEntry(opts = {}) {
       <div class="chips">${list.map((x) => { const c = cm.get(x.id); return ` <button type="button" class="chip cat ${f.cat === x.id ? 'on' : ''} ${guess && f.cat === x.id ? 'guess' : ''}" data-e="cat" data-v="${x.id}"><i style="background:${groupColor(c.group)}">${groupLetter(c.group)}</i>${esc(c.name)}</button>`; }).join('')}
       <button type="button" class="chip more" data-e="allcats">All</button>
       <button type="button" class="chip more" data-e="newcat">+ New</button></div>
+      ${!f.cat || nofit ? groupSuggest(cm) : ''}
       ${nofit ? `<button type="button" class="linkbtn nofit" data-e="newcat">No category fits “${esc(typed.slice(0, 24))}”. Add it as a new category</button>` : ''}</div>`;
   }
   function itemSum() { return f.items.reduce((s2, i) => s2 + (num(i.amt) || 0), 0); }
@@ -323,6 +336,7 @@ export function openEntry(opts = {}) {
         <select class="in-c" aria-label="Item category"><option value="">Same as above</option>${catOptions(it.cat, 'expense')}</select>
         <button type="button" class="iconbtn" data-e="item-del" data-v="${i}" aria-label="Remove item">${ic('x')}</button></div>`).join('')}</div>
       <div class="itemfoot"><button type="button" class="linkbtn" data-e="item-add">+ Add item</button><span id="itemleft"></span></div></div>`;
+    el.querySelectorAll('select.in-c').forEach((sel) => enhanceSelect(sel, { title: 'Category', addLabel: 'Add a new category', onAdd: () => openCategoryForm({ kind: 'expense', onDone: (c) => { sel.add(new Option(c.name, c.id)); sel.value = c.id; sel.dispatchEvent(new Event('change', { bubbles: true })); } }) }));
     updateItemLeft();
   }
   function updateItemLeft() {
@@ -595,6 +609,8 @@ export function openEntry(opts = {}) {
       case 'trip': { const x = (f._trips || [])[+v]; if (x) pickTrip(x); break; }
       case 'eye': priv.set(!priv.on); applyHide(); b.textContent = (priv.on ? 'Show' : 'Hide') + ' amounts'; updateFxVal(); updateItemLeft(); window.dispatchEvent(new Event('sukli-render')); break;
       case 'newcat': openCategoryForm({ kind: f.kind, name: f.name.trim().replace(/\b\w/g, (m) => m.toUpperCase()).slice(0, 40), keywords: f.name.trim().toLowerCase(), onDone: (c) => { pickCat(c.id); refreshPred(); renderCats(); } }); break;
+      case 'catgroup': { const g = v, list = get().categories.filter((c) => !c.deleted && c.group === g && (c.kind === f.kind || c.kind === 'both')).sort((a, b) => a.name.localeCompare(b.name));
+        pickerList(list.map((c) => ({ value: c.id, label: c.name, group: '' })), { title: g, addLabel: `Add a new category in ${g}`, onAdd: () => openCategoryForm({ kind: f.kind, group: g, name: f.name.trim().replace(/\b\w/g, (x) => x.toUpperCase()).slice(0, 40), keywords: f.name.trim().toLowerCase(), onDone: (c) => { pickCat(c.id); refreshPred(); renderCats(); } }), onPick: (id) => { pickCat(id); renderCats(); renderTrip(); renderSafety(); } }); break; }
       case 'allcats': openCategoryPicker(f.kind, (id) => { pickCat(id); renderCats(); }); break;
       case 'items-on': f.showItems = true; if (!f.items.length) f.items.push({ n: '', amt: '', cat: '' }); renderItems(); break;
       case 'item-add': f.items.push({ n: '', amt: '', cat: '' }); renderItems(); form.querySelectorAll('.item .in-n')[f.items.length - 1].focus(); break;

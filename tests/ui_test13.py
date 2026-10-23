@@ -25,7 +25,9 @@ with sync_playwright() as p:
     pg.reload(); pg.wait_for_timeout(800)
     pg.goto('http://localhost:8123/index.html#/accounts'); pg.wait_for_timeout(500)
     pg.select_option('[data-aview=group]','exchange'); pg.wait_for_timeout(300)
-    ok('exchange group shown', 'Bybit' in pg.inner_text('main, #app'))
+    ok('accounts page keeps investments in their own block', pg.locator('.invblock').count()==1)
+    pg.goto('http://localhost:8123/index.html#/invest'); pg.wait_for_timeout(600)
+    ok('exchange group shown (Investments tab)', 'Bybit' in pg.inner_text('main, #app'))
     # custom account type (receivable) from Settings
     pg.goto('http://localhost:8123/index.html#/settings'); pg.wait_for_selector('#atype-new')
     pg.fill('#atype-new','Money owed to me'); pg.click('[data-act=atype-add]'); pg.wait_for_timeout(400)

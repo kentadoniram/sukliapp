@@ -63,7 +63,9 @@ export function reminderBanner(db) {
 // ---------- the page ----------
 export function accounts(db) {
   const bal = balances(db), nw = netWorth(db);
-  const shown = live(db.accounts).filter((a) => !a.archived);
+  const allShown = live(db.accounts).filter((a) => !a.archived);
+  const invAccts = allShown.filter(inInvestAcct);          // investments live in their own tab; here they are one separate block
+  const shown = allShown.filter((a) => !inInvestAcct(a));
   const hidden = live(db.accounts).length - shown.length;
   const val = (a) => baseOf(db, a, bal.get(a.id) || 0);
   const cmp = view.sort === 'name' ? (a, b) => a.name.localeCompare(b.name)
@@ -119,7 +121,8 @@ export function accounts(db) {
     ${nw.missing ? `<p class="hint">Some accounts have no exchange rate yet, so they are left out of these totals. Set rates in Settings.</p>` : ''}
     <div class="aview compact"><label>Group <select data-aview="group" aria-label="Group accounts by">${[['class', 'Assets / debts'], ['cur', 'Currency'], ['type', 'Category'], ['exchange', 'Exchange'], ['none', 'None']].map(([v, l]) => `<option value="${v}" ${view.group === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <label>Sort <select data-aview="sort" aria-label="Sort accounts">${[['high', 'High → low'], ['low', 'Low → high'], ['name', 'A–Z']].map(([v, l]) => `<option value="${v}" ${view.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
-    ${sections || '<p class="empty">No accounts yet. Add one, or import your Bluecoins export in Settings.</p>'}
+    ${sections || (invAccts.length ? '' : '<p class="empty">No accounts yet. Tap “Add account” and start with the money you have today, for example your wallet or a bank account.</p>')}
+    ${invAccts.length ? `<section class="topgrp assets invblock"><div class="tophead"><h2>Investments</h2><b>${money(sum(invAccts.map(val)))}</b></div><p class="hint">Crypto, stocks, funds and similar are kept in their own tab, with prices, gains and trades. They are already counted in your net worth above.</p><a class="btn wide ghost" href="#/invest">Open the Investments tab (${invAccts.length} ${invAccts.length === 1 ? 'account' : 'accounts'})</a></section>` : ''}
     ${hidden ? `<p class="muted center">${hidden} hidden ${hidden === 1 ? 'account' : 'accounts'} (archived).</p>` : ''}`;
 }
 document.addEventListener('change', (e) => { const el = e.target.closest && e.target.closest('select[data-aview]'); if (el) { view[el.dataset.aview] = el.value; saveView(); render(); } });

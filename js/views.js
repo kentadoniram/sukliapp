@@ -21,6 +21,7 @@ const monthStat = (db, ym) => { const i = totals(db, ym, 'income').total, o = to
 // Menu drawer (burger)
 // =====================================================================
 let drawerOpen = null;
+const catOpen = () => { try { return localStorage.getItem('sukli-menu-cats') === '1'; } catch { return false; } };
 ACT.menu = () => {
   if (drawerOpen) { drawerOpen(); return; }
   const n = reviewCount(get());
@@ -30,8 +31,8 @@ ACT.menu = () => {
   wrap.className = 'drawer-scrim';
   wrap.innerHTML = `<nav class="drawer" aria-label="Menu"><div class="drawer-head"><b>Sukli</b><button type="button" class="iconbtn" data-x aria-label="Close menu">${ic('x')}</button></div>
     <ul>${item('home', 'Home', 'home')}${item('ledger', 'Entries', 'list')}${item('calendar', 'Calendar', 'calendar')}${item('budget', 'Budget', 'pie')}${item('invest', 'Investments', 'spark')}${item('cashflow', 'Cash flow', 'flow')}${item('outlook', 'Outlook', 'spark')}${item('analytics', 'Analytics', 'chart')}${item('accounts', 'Accounts', 'wallet')}${item('review', 'Review', 'check', n)}</ul>
-    <h3>Categories</h3>
-    <ul>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
+    <button type="button" class="dhead" data-dtoggle aria-expanded="${catOpen()}"><span>Categories</span>${ic('down', 'chev')}</button>
+    <ul class="dsub" ${catOpen() ? '' : 'hidden'}>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
     <ul>${'<li><a href="#" data-act="scan">'}${ic('camera')}<span>Scan a receipt</span></a></li><li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan planner</span></a></li></ul>
     <ul class="last">${item('bin', 'Recycle bin', 'trash')}${item('settings', 'Settings', 'gear')}</ul></nav>`;
   document.body.appendChild(wrap);
@@ -41,7 +42,10 @@ ACT.menu = () => {
   const close = () => ov.close();
   drawerOpen = close;
   document.addEventListener('keydown', onKey);
-  wrap.addEventListener('click', (e) => { if (e.target === wrap || e.target.closest('[data-x]') || e.target.closest('a, [data-act]')) close(); });
+  wrap.addEventListener('click', (e) => {
+    const tg = e.target.closest('[data-dtoggle]');
+    if (tg) { const ul = tg.nextElementSibling, open = ul.hidden; ul.hidden = !open; tg.setAttribute('aria-expanded', open); try { localStorage.setItem('sukli-menu-cats', open ? '1' : '0'); } catch { /* blocked */ } return; }
+    if (e.target === wrap || e.target.closest('[data-x]') || e.target.closest('a, [data-act]')) close(); });
   const first = wrap.querySelector('a'); if (first && matchMedia('(pointer:fine)').matches) first.focus();
 };
 
@@ -199,7 +203,18 @@ function openDay(date) {
 // =====================================================================
 // Budget: interactive donut, percentages, expandable rows, warnings
 // =====================================================================
-ACT.slice = (el) => { ui.pie = ui.pie === el.dataset.k ? '' : el.dataset.k; render(); };
+// tapping a slice or a warning only changes the highlight, the centre text and the open row: nothing is redrawn, so nothing can flicker
+ACT.slice = (el) => {
+  ui.pie = ui.pie === el.dataset.k ? '' : el.dataset.k;
+  const svg = document.querySelector('svg.donut:not(.sm)');
+  if (!svg) { render(); return; }
+  const sl = [...svg.querySelectorAll('.slice[data-k]')], sel = sl.find((c) => c.dataset.k === ui.pie);
+  sl.forEach((c) => { c.classList.toggle('sel', c === sel); c.classList.toggle('dim', !!sel && c !== sel); c.setAttribute('stroke-width', c === sel ? 34 : 28); });
+  const tx = svg.querySelectorAll('text.dl, text.dv');
+  if (tx.length === 3) { tx[0].textContent = sel ? sel.dataset.label : svg.dataset.l0; tx[1].textContent = sel ? sel.dataset.val : svg.dataset.v0; tx[2].textContent = sel ? sel.dataset.pct + '% of outflow' : svg.dataset.m0; }
+  document.querySelectorAll('details.pierow').forEach((d) => { d.open = !!sel && d.dataset.k === ui.pie; });
+  if (sel) { const d = document.querySelector(`details.pierow[data-k="${CSS.escape(ui.pie)}"]`); if (d) { const r = d.getBoundingClientRect(); if (r.top < 60 || r.bottom > innerHeight) d.scrollIntoView({ block: 'nearest' }); } }
+};
 ACT.pieby = (el) => { ui.pieBy = el.dataset.v; ui.pie = ''; render(); };
 
 export function budget(db) {
@@ -242,12 +257,12 @@ export function budget(db) {
   let acc = 0;
   const arcs = slices.map((x) => {
     const len = total ? x.v / total * C : 0, d = Math.max(0, len - 1.6);
-    const el = `<circle data-tip="${esc(`${x.label}: ${money(x.v)} (${total ? Math.round(x.v / total * 100) : 0}%)`)}" class="slice ${sel ? (sel === x ? 'sel' : 'dim') : ''}" cx="90" cy="90" r="64" fill="none" stroke="${groupColor(x.color)}" stroke-width="${sel === x ? 34 : 28}" stroke-dasharray="${d} ${C - d}" stroke-dashoffset="${-acc}" transform="rotate(-90 90 90)" data-act="slice" data-k="${esc(x.key)}" role="button" tabindex="0" aria-label="${esc(x.label)} ${total ? Math.round(x.v / total * 100) : 0}%"><title>${esc(x.label)}: ${money(x.v)}</title></circle>`;
+    const el = `<circle data-tip="${esc(`${x.label}: ${money(x.v)} (${total ? Math.round(x.v / total * 100) : 0}%)`)}" class="slice ${sel ? (sel === x ? 'sel' : 'dim') : ''}" cx="90" cy="90" r="64" fill="none" stroke="${groupColor(x.color)}" stroke-width="${sel === x ? 34 : 28}" stroke-dasharray="${d} ${C - d}" stroke-dashoffset="${-acc}" transform="rotate(-90 90 90)" data-act="slice" data-k="${esc(x.key)}" data-label="${esc(x.label)}" data-val="${esc(money(x.v))}" data-pct="${total ? Math.round(x.v / total * 100) : 0}" role="button" tabindex="0" aria-label="${esc(x.label)} ${total ? Math.round(x.v / total * 100) : 0}%"><title>${esc(x.label)}: ${money(x.v)}</title></circle>`;
     acc += len; return el;
   }).join('');
   let la = 0; const pcts = total ? slices.map((x) => { const len = x.v / total * C, t = sliceLabel(la, len, C, x.v / total, 90, 90, 64); la += len; return t; }).join('') : '';
   const donut = total
-    ? `<svg class="donut" viewBox="0 0 180 180" role="img" aria-label="Spending split">${arcs}${pcts}
+    ? `<svg class="donut" viewBox="0 0 180 180" role="img" aria-label="Spending split" data-l0="Cash outflow" data-v0="${esc(money(total))}" data-m0="${esc(monthLabel(ym).split(' ')[0])}">${arcs}${pcts}
         <text x="90" y="84" text-anchor="middle" class="dl">${esc(sel ? sel.label : 'Cash outflow')}</text>
         <text x="90" y="104" text-anchor="middle" class="dv">${sel ? money(sel.v) : money(total)}</text>
         <text x="90" y="121" text-anchor="middle" class="dl">${sel ? Math.round(sel.v / total * 100) + '% of outflow' : monthLabel(ym).split(' ')[0]}</text></svg>`
@@ -269,7 +284,7 @@ export function budget(db) {
     } else {
       inner = `<p class="hint">${pct}% of everything spent this month.</p>`;
     }
-    return `<details class="pierow" ${open}><summary><i class="dot2" style="background:${groupColor(x.color)}"></i><span class="pl">${esc(x.label)}</span>${chip}<span class="pp">${pct}%</span><b>${money(x.v)}</b>${ic('down', 'chev')}</summary><div class="pbody">${inner}</div></details>`;
+    return `<details class="pierow" data-k="${esc(x.key)}" ${open}><summary><i class="dot2" style="background:${groupColor(x.color)}"></i><span class="pl">${esc(x.label)}</span>${chip}<span class="pp">${pct}%</span><b>${money(x.v)}</b>${ic('down', 'chev')}</summary><div class="pbody">${inner}</div></details>`;
   };
   const sumBlock = (budgets.length || catB.length)
     ? `<div class="facts three"><div><span>Budgeted</span><b>${R(budgeted)}</b></div><div><span>Spent in them</span><b>${R(spentIn)}</b></div><div><span>${left >= 0 ? 'Left' : 'Over by'}</span><b class="${left < 0 ? 'neg' : 'in'}">${R(Math.abs(left))}</b></div></div>
