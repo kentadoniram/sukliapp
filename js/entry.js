@@ -788,6 +788,19 @@ export function openCategoryForm({ id = null, kind = 'expense', group = '', name
     const fd = new FormData(e.target);
     const g = fd.get('g').trim(), n = fd.get('n').trim(), k = fd.get('k').trim();
     let out;
+    // naming it like another category in the same group merges the two: entries, items and budgets move over
+    const twin = c && get().categories.find((q) => !q.deleted && q.id !== c.id && q.group === g && q.name.toLowerCase() === n.toLowerCase() && (q.kind === c.kind || q.kind === 'both' || c.kind === 'both'));
+    if (twin) {
+      const used = get().txs.filter((t) => !t.deleted && (t.cat === c.id || (t.items || []).some((i) => i.cat === c.id))).length;
+      confirmDialog(`“${twin.name}” already exists in ${g}. Move ${used} ${used === 1 ? 'entry' : 'entries'} from “${c.name}” into it and remove “${c.name}”?`, 'Merge').then((yes) => {
+        if (!yes) return;
+        commit((d) => { for (const t of d.txs) { let ch = false; if (t.cat === c.id) { t.cat = twin.id; ch = true; } for (const i of t.items || []) if (i.cat === c.id) { i.cat = twin.id; ch = true; } if (ch) stamp(t); }
+          for (const b of d.budgets) if (!b.deleted && b.cat === c.id) { b.cat = twin.id; stamp(b); }
+          const t2 = d.categories.find((q) => q.id === twin.id), x = d.categories.find((q) => q.id === c.id); if (k) { t2.keywords = [t2.keywords, k].filter(Boolean).join(', '); stamp(t2); } softDelete(x); });
+        s.close(); toast(`Merged into “${twin.name}”.`); if (onDone) onDone(twin);
+      });
+      return;
+    }
     commit((d) => {
       if (c) {
         const x = d.categories.find((q) => q.id === c.id);

@@ -194,11 +194,25 @@ function homeSection(id, c) {
     default: return '';
   }
 }
-// the share written on the slice itself (readable without telling colours apart); tiny slices are left to the legend
-export const sliceLabel = (acc, len, C, share, cx = 70, cy = 70, r = 52) => { if (share < 0.06) return ''; const ang = ((acc + len / 2) / C) * 2 * Math.PI - Math.PI / 2; return `<text class="slice-pct" x="${(cx + r * Math.cos(ang)).toFixed(1)}" y="${(cy + r * Math.sin(ang) + 3.5).toFixed(1)}" text-anchor="middle">${Math.round(share * 100)}%</text>`; };
+// the share written outside the pie with a short leader line to its slice (readable without telling colours apart);
+// labels on the same side are pushed apart so they never overlap; tiny slices are left to the legend
+export function pieLabels(shares, { cx = 70, cy = 70, r = 52, hw = 13, min = 0.03 } = {}) {
+  let acc = 0; const L = [];
+  shares.forEach((sh) => { const mid = acc + sh / 2; acc += sh; if (!(sh >= min)) return; const a = mid * 2 * Math.PI - Math.PI / 2, c = Math.cos(a), sn = Math.sin(a), R1 = r + hw + 1, R2 = R1 + 7;
+    L.push({ sh, side: c >= 0 ? 1 : -1, p1: [cx + R1 * c, cy + R1 * sn], p2: [cx + R2 * c, cy + R2 * sn], y: cy + R2 * sn }); });
+  for (const side of [1, -1]) { const g = L.filter((l) => l.side === side).sort((a, b) => a.y - b.y); for (let k = 1; k < g.length; k++) if (g[k].y - g[k - 1].y < 14) g[k].y = g[k - 1].y + 14; }
+  return L.map((l) => { const tx = l.p2[0] + l.side * 4;
+    return `<polyline class="pie-lead" points="${l.p1[0].toFixed(1)},${l.p1[1].toFixed(1)} ${l.p2[0].toFixed(1)},${l.p2[1].toFixed(1)} ${tx.toFixed(1)},${l.y.toFixed(1)}" fill="none"/><text class="slice-pct" x="${(tx + l.side * 2).toFixed(1)}" y="${(l.y + 3.8).toFixed(1)}" text-anchor="${l.side > 0 ? 'start' : 'end'}">${Math.round(l.sh * 100)}%</text>`; }).join('');
+}
 // Where it went: bars or a pie with the share on its right (a device choice)
 const wentMode = () => { try { return localStorage.getItem('sukli-went') === 'pie' ? 'pie' : 'bars'; } catch { return 'bars'; } };
-ACT['went-mode'] = (el) => { try { localStorage.setItem('sukli-went', el.dataset.v); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
+// switching Bars/Pie replaces only this card, not the whole screen, so nothing else on Home flashes
+ACT['went-mode'] = (el) => {
+  try { localStorage.setItem('sukli-went', el.dataset.v); } catch { /* blocked */ }
+  const sec = el.closest('.coll');
+  if (sec && sec.querySelector('.collhead[data-id="h-out"]')) { const y = window.scrollY; sec.outerHTML = homeSection('went', { db: get() }); window.scrollTo(0, y); return; }
+  window.dispatchEvent(new Event('sukli-render'));
+};
 const wentToggle = () => `<div class="seg two small" role="group" aria-label="Show as">${[['bars', 'Bars'], ['pie', 'Pie']].map(([v, l]) => `<button type="button" data-act="went-mode" data-v="${v}" class="${wentMode() === v ? 'on' : ''}" aria-pressed="${wentMode() === v}">${l}</button>`).join('')}</div>`;
 function wentPie(all, total) {
   const top = all.slice(0, 7), rest = all.slice(7).reduce((a, [, v]) => a + v, 0), slices = top.map(([g, v]) => ({ g, v })); if (rest > 0) slices.push({ g: 'Everything else', v: rest, other: true });
@@ -206,8 +220,8 @@ function wentPie(all, total) {
   const arcs = slices.map((x) => { const len = total ? (x.v / total) * C : 0, d = Math.max(0, len - 1.5);
     const el = `<circle class="slice" data-act="${x.other ? 'went-mode' : 'grp'}" ${x.other ? 'data-v="bars"' : `data-g="${esc(x.g)}" data-k="expense"`} data-tip="${esc(`${x.g}: ${money(x.v)} (${total ? Math.round((x.v / total) * 100) : 0}%)`)}" cx="70" cy="70" r="52" fill="none" stroke="${groupColor(x.other ? 'Others' : x.g)}" stroke-width="26" stroke-dasharray="${d.toFixed(2)} ${(C - d).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 70 70)"></circle>`;
     acc += len; return el; }).join('');
-  let la = 0; const labels = slices.map((x) => { const len = total ? (x.v / total) * C : 0, t = sliceLabel(la, len, C, total ? x.v / total : 0); la += len; return t; }).join('');
-  return `<div class="wentpie"><svg class="donut sm" viewBox="0 0 140 140" role="img" aria-label="Where the money went">${arcs}${labels}<text x="70" y="68" text-anchor="middle" class="dl">Spent</text><text x="70" y="86" text-anchor="middle" class="dv">${esc(compact(total, ''))}</text></svg>
+  const labels = pieLabels(slices.map((x) => (total ? x.v / total : 0)));
+  return `<div class="wentpie"><svg class="donut sm" viewBox="-30 -12 200 164" role="img" aria-label="Where the money went">${arcs}${labels}<text x="70" y="68" text-anchor="middle" class="dl">Spent</text><text x="70" y="86" text-anchor="middle" class="dv">${esc(compact(total, ''))}</text></svg>
     <ul class="pielegend">${slices.map((x) => `<li><button type="button" data-act="${x.other ? 'went-mode' : 'grp'}" ${x.other ? 'data-v="bars"' : `data-g="${esc(x.g)}" data-k="expense"`}><i class="dot2" style="background:${groupColor(x.other ? 'Others' : x.g)}"></i><span class="pl">${esc(x.g)}</span><b class="pp">${total ? Math.round((x.v / total) * 100) : 0}%</b><small>${money(x.v)}</small></button></li>`).join('')}</ul></div><p class="hint tap">Tap a slice or a name for the detail.</p>`;
 }
 
@@ -919,10 +933,10 @@ function projPie(db) {
   const left = inc - spent, over = left < 0, den = Math.max(inc, spent), C = 2 * Math.PI * 52; let acc = 0;
   const arcs = slices.map((x) => { const len = (x.v / den) * C, d = Math.max(0, len - 1.2);
     const el = `<circle class="slice" ${x.other ? '' : `data-act="grp" data-g="${esc(x.g)}" data-k="expense"`} data-tip="${esc(`${x.g}: ${money(x.v)} (${Math.round((x.v / inc) * 100)}% of expected income)`)}" cx="70" cy="70" r="52" fill="none" stroke="${groupColor(x.other ? 'Others' : x.g)}" stroke-width="26" stroke-dasharray="${d.toFixed(2)} ${(C - d).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 70 70)"></circle>`; acc += len; return el; }).join('');
-  let la2 = 0; const labels = slices.map((x) => { const len = (x.v / den) * C, t = sliceLabel(la2, len, C, x.v / den); la2 += len; return t; }).join('');
+  const labels = pieLabels(slices.map((x) => x.v / den));
   const track = over ? '' : `<circle cx="70" cy="70" r="52" fill="none" stroke="var(--rule)" stroke-width="26" stroke-dasharray="${Math.max(0, (left / den) * C - 1.2).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 70 70)"></circle>`;
   const pct = Math.round((spent / inc) * 100);
-  return coll('h-proj', 'Spending vs expected income', `<div class="wentpie"><svg class="donut sm" viewBox="0 0 140 140" role="img" aria-label="${pct}% of expected income spent">${track}${arcs}${labels}<text x="70" y="68" text-anchor="middle" class="dv">${pct}%</text><text x="70" y="85" text-anchor="middle" class="dl">${over ? 'over income' : 'spent'}</text></svg>
+  return coll('h-proj', 'Spending vs expected income', `<div class="wentpie"><svg class="donut sm" viewBox="-30 -12 200 164" role="img" aria-label="${pct}% of expected income spent">${track}${arcs}${labels}<text x="70" y="68" text-anchor="middle" class="dv">${pct}%</text><text x="70" y="85" text-anchor="middle" class="dl">${over ? 'over income' : 'spent'}</text></svg>
     <ul class="pielegend"><li><div class="pj"><span>Expected income</span><b>${money(inc)}</b></div></li><li><div class="pj"><span>Came in so far</span><b>${money(pi.got)}</b></div></li><li><div class="pj"><span>Spent</span><b>${money(spent)}</b></div></li><li><div class="pj ${over ? 'bad' : ''}"><span>${over ? 'Over by' : 'Left'}</span><b>${money(Math.abs(left))}</b></div></li></ul></div>
     <p class="hint">${pi.own ? 'Using the income you set.' : pi.typ ? `Expected income is your usual month (middle of your last ${Math.min(3, [1, 2, 3, 4, 5, 6].filter((i) => totals(db, shiftMonth(ym, -i), 'income').total > 0).length)} months with income)${pi.got > pi.typ ? ', raised to what already came in' : ''}.` : 'No earlier months to go on, so this is what came in so far.'} Tap a slice for what is in it. <button type="button" class="linkbtn" data-act="proj-set">Set my own</button></p>`);
 }

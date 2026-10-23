@@ -17,6 +17,20 @@ import { loanBox } from './loans.js';
 import { favCurs, openCurrencyPicker, flagOf } from './curpicker.js';
 import { openDatePicker } from './datepicker.js';
 
+// where each kind of account shows up, in plain words (used by the Change type shortcut)
+export const typeWhere = { cash: 'Cash and bank. Counted in Spendable now.', bank: 'Cash and bank. Counted in Spendable now.', ewallet: 'Cash and bank. Counted in Spendable now.', card: 'Credit cards, under what you owe. Not spendable.', crypto: 'Investments tab, with prices and gains.', invest: 'Investments tab, with prices and gains.', asset: 'Property and other assets.', loan: 'Loans and money owed, under what you owe.', other: 'Other. Not counted in Spendable now.' };
+const SPEND = ['cash', 'bank', 'ewallet'], INVT = ['crypto', 'invest'];
+// quick way to say what an account is, without opening the whole edit form (for example a bank account that is really a crypto exchange)
+export function openReclass(id) {
+  const a0 = get().accounts.find((x) => x.id === id); if (!a0) return;
+  const s = sheet(`<p class="hint">What is <b>${esc(a0.name)}</b>? Its balance and entries stay exactly as they are. Only where it shows up changes.</p>
+    <div class="invopts">${Object.entries(typeNames).map(([k, l]) => `<button type="button" class="invopt ${a0.type === k ? 'main' : ''}" data-t="${k}"><b>${esc(l)}${a0.type === k ? ' (now)' : ''}</b><small>${esc(typeWhere[k] || '')}</small></button>`).join('')}</div>`, { title: 'Change account type' });
+  s.el.querySelectorAll('[data-t]').forEach((b) => { b.onclick = () => { const t = b.dataset.t; s.close(); if (t === a0.type) return;
+    const before = { type: a0.type, include: a0.include, invtab: a0.invtab, guessed: a0.guessed, apy: a0.apy };
+    commit((d) => { const x = d.accounts.find((q) => q.id === id); if (!x) return; const was = x.type; x.type = t; x.guessed = false; x.include = SPEND.includes(t);
+      x.invtab = INVT.includes(t) ? true : (INVT.includes(was) ? false : !!x.invtab); if (isLiability({ type: t })) x.apy = 0; stamp(x); });
+    toast(`${a0.name} is now ${typeNames[t]}. ${typeWhere[t]}`, { undo: () => commit((d) => { const x = d.accounts.find((q) => q.id === id); if (x) { Object.assign(x, before); stamp(x); } }) }); }; });
+}
 export const typeNames = { cash: 'Cash', bank: 'Bank', ewallet: 'E-wallet / card balance', card: 'Credit card', crypto: 'Crypto', invest: 'Investment', asset: 'Asset (property, vehicle…)', loan: 'Loan or money owed', other: 'Other' };
 const DEFAULT_TYPES = { ...typeNames };
 // account types you can rename and add to (Settings, Account types). Custom ones count as an asset or a liability.
@@ -238,7 +252,7 @@ export function openAccountDetail(id) {
     const openLine = hist.opening ? `<p class="hint openline">Opening balance ${money(hist.opening.amount, a.cur)} on ${dayLabel(hist.opening.date + ' 00:00:00')} <button type="button" class="linkbtn" data-ad="edit">change</button></p>` : '';
     root.innerHTML = `
       <div class="gdhead"><span class="muted">${esc(typeNames[a.type] || a.type)} · ${a.cur}</span><b class="big ${bal < 0 ? 'neg' : ''}">${money(bal, a.cur)}</b>
-        ${a.cur !== HOME && r ? `<span class="muted">≈ ${money(bal * r)} at ${fmt(r, HOME)} per ${a.cur}</span>` : ''}<strong class="adname">${esc(a.name)}</strong></div>
+        ${a.cur !== HOME && r ? `<span class="muted">≈ ${money(bal * r)} at ${fmt(r, HOME)} per ${a.cur}</span>` : ''}<strong class="adname">${esc(a.name)}</strong> <button type="button" class="linkbtn sm" data-ad="reclass">Change type</button></div>
       ${openLine}
       <div class="btnrow tight"><button class="btn sm" data-ad="add">Add entry</button>${isLiability(a) ? `<button class="btn sm ghost" data-act="loan-charge" data-id="${a.id}">Add charge</button>` : ''}
         ${['asset', 'invest', 'other'].includes(a.type) ? '<button class="btn sm ghost" data-ad="reval">Update value</button>' : ''}
@@ -282,6 +296,7 @@ export function openAccountDetail(id) {
         if (k === 'trade') { import('./trades.js').then((m) => m.openTrade({ asset: id })); break; }
         if (k === 'income' && inInvestAcct(db.accounts.find((x) => x.id === id))) { import('./invest.js').then((m) => m.openIncome({ asset: id })); break; } openEntry({ preset: k === 'transfer' ? transferPreset(db, id) : { kind: k, acct: id } }); break; }
       case 'edit': openAccount(id); break;
+      case 'reclass': openReclass(id); break;
       case 'range': st.range = +b.dataset.v; draw(); break;
       case 'more': st.more += 25; draw(); break;
       case 'type': st.type = b.dataset.v; st.more = 25; draw(); break;

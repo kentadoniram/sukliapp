@@ -75,7 +75,7 @@ export function investments(db) {
   const exHtml = [...byEx.entries()].sort((x, y) => mode === 'risk' ? (((RISK_GROUPS.indexOf(x[0]) + 1) || 99) - ((RISK_GROUPS.indexOf(y[0]) + 1) || 99)) || x[0].localeCompare(y[0]) : exSum(y[1]) - exSum(x[1])).map(([ex, list]) => {
     const t = exSum(list); return coll('ix-' + ex, `<span class="exname">${esc(ex)}</span> <small class="muted gsum">${money(t)}</small>`,
       `<div class="rows plain">${list.slice().sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0)).map((a) => holding(a, t)).join('')}</div>
-       ${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="btnrow left"><button type="button" class="btn sm" data-act="inv-add" data-ex="${esc(ex)}">Record activity on ${esc(ex)}</button><button type="button" class="btn sm ghost" data-act="inv-coin" data-ex="${esc(ex)}">+ Add an asset to ${esc(ex)}</button></div>` : ''}`, ''); }).join('');
+       ${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="btnrow left"><button type="button" class="btn sm" data-act="inv-add" data-ex="${esc(ex)}">Record activity on ${esc(ex)}</button><button type="button" class="btn sm ghost" data-act="inv-coin" data-ex="${esc(ex)}">+ Add an asset to ${esc(ex)}</button><button type="button" class="btn sm ghost" data-act="inv-rename" data-ex="${esc(ex)}">Rename platform</button></div>` : ''}`, ''); }).join('');
   const otherHtml = other.length ? coll('i-other', `Investments and other products <small class="muted gsum">${money(exSum(other))}</small>`, `<div class="rows plain">${other.sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0)).map((a) => { const b = bal.get(a.id) || 0;
     return `<button class="row acct" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:var(--line)">${esc((a.name || '?').slice(0, 1))}</i><span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(a.exchange || (a.type === 'invest' ? 'Investment' : 'Other product'))} · ${fmt(b, a.cur)}</small></span><span class="ramt"><b>${priced(db, a) ? money(val(db, a, b)) : '<small class="muted">no rate</small>'}</b></span></button>`; }).join('')}</div>`, '') : '';
   return `${hdr('Investments', '<button class="btn sm" data-act="inv-add">Record activity</button> <button class="btn sm ghost" data-act="inv-new">Add asset</button>')}
@@ -136,6 +136,19 @@ export function addAsset(pre = {}) {
       d.accounts.push(stamp({ id: nid, name: `${exn} ${raw}`, cur: sym, type: type === 'crypto' ? 'crypto' : 'invest', assetType: type, market, exchange: exn, open: amt, include: false, archived: false, invtab: true })); });
     s.close(); toast(`${raw} added to ${exn}.`); if (pre.onDone) pre.onDone(nid); if (navigator.onLine) import('./rates.js').then((m) => m.fetchRates({ quiet: true })).catch(() => {}); };
 }
+// rename a platform on every account that uses it (also in the account names that start with it); naming it like another platform merges the two
+ACT['inv-rename'] = async (el) => {
+  const old = el.dataset.ex, db0 = get(); if (!old) return;
+  const v = (await promptDialog('Rename platform', old, { okLabel: 'Rename', hint: 'Every account on this platform is renamed with it. If you type the name of another platform you have, the two become one.' }))?.trim();
+  if (!v || v === old) return;
+  const same = v.toLowerCase() === old.toLowerCase(), merge = !same && platformNames().used.some((u) => u.toLowerCase() === v.toLowerCase()), target = merge ? canonPlatform(v) : v, name = target;
+  if (merge && !(await confirmDialog(`${target} already exists. Move everything from ${old} into ${target}?`, 'Move them'))) return;
+  let n = 0; const low = old.toLowerCase();
+  commit((d) => { for (const a of d.accounts) { if (a.deleted || (exchangeOf(a) || '').toLowerCase() !== low) continue; const pre = a.name.toLowerCase().startsWith(low) ? a.name.slice(old.length) : null;
+    a.exchange = name; if (pre !== null) a.name = name + pre; stamp(a); n++; }
+    if (d.settings.lastPlat && d.settings.lastPlat.toLowerCase() === low) d.settings.lastPlat = name; });
+  toast(`${n} ${n === 1 ? 'account' : 'accounts'} moved to ${name}.`);
+};
 ACT['inv-coin'] = (el) => addAsset({ platform: el.dataset.ex || '' });
 ACT['inv-new'] = () => {
   const s = sheet(`<div class="btnrow col"><button class="btn wide" data-k="coin">Add an asset: crypto, stock, ETF, bond…</button><button class="btn wide ghost" data-k="acct">Add MP2 or another product (an account)</button></div>
