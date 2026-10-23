@@ -5,7 +5,8 @@ import { importBluecoins, parseCSV, exportCSV } from '../js/importer.js';
 const text = fs.readFileSync(process.argv[2], 'utf8'), db = emptyDb(); importBluecoins(db, text);
 const out = parseCSV(exportCSV(db)), src = parseCSV(text);
 const cols = ['Type', 'Date', 'Name', 'Amount', 'Currency', 'Category Group', 'Category', 'Account', 'Notes', 'Labels'];
-const key = (h, r, extra) => cols.map((c) => (r[h.indexOf(c)] || '').trim().replace(/^-0\.00$/, '0.00')).concat(extra ? [] : []).join('|');
+const ix = (h, c) => (h.indexOf(c) >= 0 ? h.indexOf(c) : c === 'Category Group' ? h.indexOf('Category Type') : -1);
+const key = (h, r, extra) => cols.map((c) => (r[ix(h, c)] || '').trim().replace(/^-0\.00$/, '0.00')).concat(extra ? [] : []).join('|');
 const hs = src.shift(), ho = out.shift();
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
 const bag = new Map(); for (const r of src) { const k = key(hs, r); bag.set(k, (bag.get(k) || 0) + 1); }

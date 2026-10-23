@@ -1,7 +1,7 @@
 // Money logic added in v5: account history, net worth, automatic interest, credit cards,
 // transfer-fee prediction, next-month forecast and behaviour notes. Pure maths, nothing leaves the device.
 import {
-  BASE, HOME, homeFx, CUR, accountMap, balances, openDateOf, catMap, deltaFor, feeOf, findOrAddCategory, live, monthParts, partsBetween,
+  BASE, HOME, homeFx, CUR, accountMap, balances, openDates, catMap, deltaFor, feeOf, findOrAddCategory, live, monthParts, partsBetween,
   nowStamp, rateFor, shiftMonth, stamp, thisMonth, daysInMonth, fmt,
 } from './core.js';
 import { totals, baselineMonths } from './insights.js';
@@ -25,7 +25,7 @@ export function accountHistory(db, id) {
   const a = db.accounts.find((x) => x.id === id);
   const rows = live(db.txs).filter((t) => t.acct === id || t.toAcct === id && t.kind === 'transfer')
     .sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : (x.updatedAt || 0) - (y.updatedAt || 0)));
-  const od = a ? openDateOf(a) : '', open = a ? a.open || 0 : 0;
+  const od = a ? openDates(db).get(a.id) || '' : '', open = a ? a.open || 0 : 0;
   let bal = od ? 0 : open, opened = !od;
   const out = rows.map((t) => { if (!opened && t.date.slice(0, 10) >= od) { bal += open; opened = true; } const d = deltaFor(t, id); bal += d; return { t, d, bal }; });
   out.reverse(); out.opening = od && open ? { date: od, amount: open } : null;   // shown as its own line in the account's history

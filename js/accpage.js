@@ -1,6 +1,6 @@
 // Accounts page (grouped and sorted), account detail with history, net worth, interest and credit-card details.
 import { pickAll } from './picker.js';
-import { openDateOf } from './core.js';
+import { openDateOf, openDates } from './core.js';
 import { exchangeOf, canonPlatform, nearPlatform, platformNames } from './invest.js';
 import { softDelete, subscribe } from './core.js';
 import {
@@ -201,7 +201,7 @@ export function openAccountDetail(id) {
     const t0 = today(), days = st.range === 0 ? Math.min(730, Math.max(30, hist.length ? Math.round((new Date(t0) - new Date(hist[hist.length - 1].t.date.slice(0, 10))) / 864e5) + 1 : 30)) : st.range;
     const series = [];
     const asc = hist.slice().reverse();
-    const od = openDateOf(a), openV = a.open || 0; let k = 0, cum = 0;
+    const od = openDates(db).get(a.id) || '', openV = a.open || 0; let k = 0, cum = 0;
     const startDay = new Date(new Date(t0).getTime() - (days - 1) * 864e5);
     const val = (dstr) => (od && dstr < od ? 0 : openV) + cum;                 // the opening balance counts from its own date
     for (; k < asc.length && asc[k].t.date.slice(0, 10) < startDay.toISOString().slice(0, 10); k++) cum += asc[k].d;

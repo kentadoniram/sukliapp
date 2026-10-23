@@ -43,7 +43,7 @@ const ALIASES = {
   Amount: ['amount', 'transactionamount', 'value'],
   Currency: ['currency', 'currencycode', 'cur'],
   'Exchange Rate': ['exchangerate', 'rate', 'fxrate'],
-  'Category Group': ['categorygroup', 'parentcategory', 'group', 'categorygroupname', 'parent', 'maincategory', 'categoryparent'],
+  'Category Group': ['categorygroup', 'categorytype', 'parentcategory', 'group', 'categorygroupname', 'parent', 'maincategory', 'categoryparent'],
   Category: ['category', 'childcategory', 'categoryname', 'subcategory'],
   Account: ['account', 'accountname', 'wallet'],
   Notes: ['notes', 'note', 'memo', 'remarks'],
@@ -90,6 +90,7 @@ export function importBluecoins(db, text, opts = {}) {
     const i = exact >= 0 ? exact : rawHead.findIndex((h, j) => !used.has(j) && names.includes(squash(h)));
     if (i >= 0) { ix[canon] = i; used.add(i); }
   }
+  if (ix['Category Group'] != null) db.settings.csvGroupTitle = rawHead[ix['Category Group']];   // the export reuses the column title your file used, so Bluecoins accepts it back
   const need = ['Type', 'Date', 'Amount', 'Account'];
   const missing = need.filter((n) => ix[n] == null);
   if (missing.length) throw new Error(`This file is missing: ${missing.join(', ')}. Columns found: ${rawHead.join(', ') || '(none)'}. Export transactions as CSV from Bluecoins and try again.`);
@@ -115,7 +116,7 @@ export function importBluecoins(db, text, opts = {}) {
   }
   const label = (nm, cu) => (curs.get(nm).size > 1 ? `${nm} (${cu})` : nm);
 
-  const stats = { added: 0, skipped: 0, accounts: 0, categories: 0 };
+  const stats = { added: 0, skipped: 0, accounts: 0, categories: 0, noOpening: 0, openingFilled: 0 };
   const catsBefore = db.categories.length;
   const newAcct = new Set();
   const accts = new Map(db.accounts.filter((a) => !a.deleted).map((a) => [a.name + '|' + a.cur, a]));
@@ -150,14 +151,18 @@ export function importBluecoins(db, text, opts = {}) {
     return rate > 0 ? 1 / rate : (cu === BASE ? 1 : 0);
   };
 
-  const transfers = new Map();
+  const transfers = new Map(), seenAcct = new Set(), hasOpen = new Set();
   for (const r of rows) {
     const type = col(r, 'Type'), cu = col(r, 'Currency'), nm = col(r, 'Account');
     const amt = num(col(r, 'Amount'));
     if (!type || !nm || !isFinite(amt)) continue;
-    const a = ensureAcct(nm, cu);
+    const a = ensureAcct(nm, cu); seenAcct.add(a.id);
     if (type === 'Starting Balance') {
-      if (!newAcct.has(a.id) && !a.openDate && !a.openRow && Math.abs((a.open || 0) - amt) < 0.005) { a.openDate = col(r, 'Date').slice(0, 10); stamp(a); }   // only the date of an opening balance already here is filled in; nothing is overwritten
+      hasOpen.add(a.id);
+      if (!newAcct.has(a.id) && !a.openDate && !a.openRow) {   // an account already here: only blanks are filled, a value you have is never replaced
+        if (Math.abs((a.open || 0) - amt) < 0.005) { a.openDate = col(r, 'Date').slice(0, 10); stamp(a); }
+        else if (!(a.open || 0)) { a.open = amt; a.openDate = col(r, 'Date').slice(0, 10); stamp(a); stats.openingFilled++; }
+      }   // only the date of an opening balance already here is filled in; nothing is overwritten
       if (newAcct.has(a.id)) { a.open = (a.open || 0) + amt; a.openDate = col(r, 'Date').slice(0, 10); a.openRow = { date: col(r, 'Date'), name: col(r, 'Name'), group: col(r, 'Category Group'), cat: col(r, 'Category'), notes: col(r, 'Notes'), fx: fxOf(r, cu) }; }   // kept so the export can write the row back as it came
       continue;
     }
@@ -212,6 +217,7 @@ export function importBluecoins(db, text, opts = {}) {
     if (newAcct.has(a.id) && ['bank', 'cash', 'ewallet'].includes(a.type) && (bal.get(a.id) || 0) < -500) { a.type = 'loan'; a.include = false; }
   }
   stats.categories = db.categories.length - catsBefore;
+  stats.noOpening = [...seenAcct].filter((id) => !hasOpen.has(id) && !((db.accounts.find((x) => x.id === id) || {}).open)).length;   // accounts in this file with no opening balance anywhere
   return stats;
 }
 
@@ -221,7 +227,7 @@ export function exportCSV(db) {
   const accts = accountMap(db), cats = catMap(db);
   // an account Bluecoins had in two currencies was split into "Name (CUR)" on import; give it its original name back
   const an = (x) => (x ? (x.baseName && x.name === `${x.baseName} (${x.cur})` ? x.baseName : x.name) : '');
-  const head = ['Type', 'Date', 'Set Time', 'Name', 'Amount', 'Currency', 'Exchange Rate', 'Category Group', 'Category', 'Account', 'Notes', 'Grouping', 'Labels', 'Status'];
+  const head = ['Type', 'Date', 'Set Time', 'Name', 'Amount', 'Currency', 'Exchange Rate', db.settings.csvGroupTitle || 'Category Group', 'Category', 'Account', 'Notes', 'Grouping', 'Labels', 'Status'];
   const out = [head.map(q).join(',')];
   const amtStr = (n) => { const s = String(+n.toFixed(10)), d = (s.split('.')[1] || '').length; return d <= 2 ? n.toFixed(2) : s; };   // keep coin precision
   const line = (type, t, amt, cur, fx, group, cat, acct, notes) =>

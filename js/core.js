@@ -235,9 +235,18 @@ export function deltaFor(t, id) {
 }
 // the day an account's opening balance counts from: set by the user, or read from the Starting Balance row of an imported file
 export const openDateOf = (a) => a.openDate || (a.openRow && a.openRow.date ? a.openRow.date.slice(0, 10) : '');
+// the date an opening balance really counts from: if the account already has an entry before its stated opening date (a conflict), it moves back to the first entry's day
+export function openDates(db) {
+  const first = new Map();
+  for (const t of db.txs) { if (t.deleted) continue; const d = (t.date || '').slice(0, 10); if (!d) continue; if (t.acct && (!first.has(t.acct) || d < first.get(t.acct))) first.set(t.acct, d); if (t.kind === 'transfer' && t.toAcct && (!first.has(t.toAcct) || d < first.get(t.toAcct))) first.set(t.toAcct, d); }
+  const out = new Map();
+  for (const a of db.accounts) { const od = openDateOf(a), f = first.get(a.id); out.set(a.id, od && f && f < od ? f : od); }
+  return out;
+}
 export function balances(db, asOf) {
   const b = new Map();
-  for (const a of db.accounts) if (!a.deleted) { const od = openDateOf(a); b.set(a.id, !asOf || !od || od + ' 00:00:00' <= asOf ? a.open || 0 : 0); }
+  const ods = openDates(db);
+  for (const a of db.accounts) if (!a.deleted) { const od = ods.get(a.id) || ''; b.set(a.id, !asOf || !od || od + ' 00:00:00' <= asOf ? a.open || 0 : 0); }
   const add = (id, v) => { if (b.has(id)) b.set(id, b.get(id) + v); };
   for (const t of db.txs) {
     if (t.deleted || (asOf && t.date > asOf)) continue;
