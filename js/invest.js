@@ -137,8 +137,8 @@ export function addAsset(pre = {}) {
     s.close(); toast(`${raw} added to ${exn}.`); if (pre.onDone) pre.onDone(nid); if (navigator.onLine) import('./rates.js').then((m) => m.fetchRates({ quiet: true })).catch(() => {}); };
 }
 // rename a platform on every account that uses it (also in the account names that start with it); naming it like another platform merges the two
-ACT['inv-rename'] = async (el) => {
-  const old = el.dataset.ex, db0 = get(); if (!old) return;
+export async function renamePlatform(old) {
+  if (!old) return;
   const v = (await promptDialog('Rename platform', old, { okLabel: 'Rename', hint: 'Every account on this platform is renamed with it. If you type the name of another platform you have, the two become one.' }))?.trim();
   if (!v || v === old) return;
   const same = v.toLowerCase() === old.toLowerCase(), merge = !same && platformNames().used.some((u) => u.toLowerCase() === v.toLowerCase()), target = merge ? canonPlatform(v) : v, name = target;
@@ -148,7 +148,8 @@ ACT['inv-rename'] = async (el) => {
     a.exchange = name; if (pre !== null) a.name = name + pre; stamp(a); n++; }
     if (d.settings.lastPlat && d.settings.lastPlat.toLowerCase() === low) d.settings.lastPlat = name; });
   toast(`${n} ${n === 1 ? 'account' : 'accounts'} moved to ${name}.`);
-};
+}
+ACT['inv-rename'] = (el) => renamePlatform(el.dataset.ex);
 ACT['inv-coin'] = (el) => addAsset({ platform: el.dataset.ex || '' });
 ACT['inv-new'] = () => {
   const s = sheet(`<div class="btnrow col"><button class="btn wide" data-k="coin">Add an asset: crypto, stock, ETF, bond…</button><button class="btn wide ghost" data-k="acct">Add MP2 or another product (an account)</button></div>
@@ -293,6 +294,19 @@ function openPredict(pre = {}) {
 }
 ACT['inv-predict'] = (el) => openPredict({ sym: el && el.dataset ? el.dataset.sym : undefined });
 ACT['inv-pdel'] = (el) => commit((d) => { const t = (d.settings.tickers || {})[el.dataset.sym]; if (t) t.predictions = (t.predictions || []).filter((p) => p.id !== el.dataset.id); });
+// change how a ticker is shown (its label and its full name) everywhere; the coin or share itself and every entry stay the same
+export function renameTicker(sym) {
+  const tk = (get().settings.tickers || {})[sym]; if (!tk) return;
+  const s = sheet(`<form id="tkrn"><label class="field"><span>Shown as (short label)</span><input name="t" value="${esc(tk.ticker || sym)}" maxlength="12" required autocomplete="off" autocapitalize="characters"></label>
+    <label class="field"><span>Full name (optional)</span><input name="n" value="${esc(tk.name || '')}" maxlength="40" placeholder="NVIDIA, Toyota, Bitget Token…" autocomplete="off"></label>
+    <p class="hint">Only the way it is written changes. Balances, trades and prices stay as they are. Account names that use the old label are updated.</p>
+    <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Save</button></div></form>`, { title: `Rename ${tk.ticker || sym}` });
+  s.el.querySelector('[data-x]').onclick = () => s.close();
+  s.el.querySelector('#tkrn').onsubmit = (e) => { e.preventDefault(); const f = e.target, t = f.t.value.trim().toUpperCase(), n = f.n.value.trim(), old = tk.ticker || sym; if (!t) return; let k = 0;
+    commit((d) => { const x = d.settings.tickers[sym]; if (!x) return; x.ticker = t; x.name = n;
+      for (const a of d.accounts) { if (a.deleted || a.cur !== sym) continue; const pre = a.exchange ? `${a.exchange} ${old}` : old; if (t !== old && a.name === pre) { a.name = a.exchange ? `${a.exchange} ${t}` : t; stamp(a); k++; } } });
+    s.close(); toast(`Renamed to ${t}${k ? `, ${k} ${k === 1 ? 'account name' : 'account names'} updated` : ''}.`); };
+}
 // a ticker's price history: how it moved from one update to the next
 ACT['inv-ticker'] = (el) => {
   const db = get(), sym = el.dataset.sym, tk = (db.settings.tickers || {})[sym]; if (!tk) return;
@@ -304,11 +318,12 @@ ACT['inv-ticker'] = (el) => {
     ${spark}<small class="muted">Blue dots: live prices. Purple dots: prices you set or traded at.</small>
     <ul class="calfacts">${h.length ? h.slice().reverse().slice(0, 30).map((p, i, arr) => { const prev = arr[i + 1], ch = prev ? (p.price - prev.price) / prev.price * 100 : null; return `<li><span>${esc(p.date)}${p.ts && p.src !== 'live' ? ' ' + esc(new Date(p.ts).toTimeString().slice(0, 5)) : ''} <small class="muted">${p.src === 'live' ? 'daily close' : p.src === 'trade' ? 'trade' : 'you set'}</small></span><b>${fmt(p.price, p.quote || tk.quote)}${ch != null ? ` <small class="${ch >= 0 ? 'cg' : 'cr'}">${ch >= 0 ? '+' : '−'}${Math.abs(ch).toFixed(1)}%</small>` : ''}</b></li>`; }).join('') : '<li><span>No history yet</span><b></b></li>'}</ul>
     <label class="field"><span>Group</span><select name="rg">${[...new Set([...RISK_GROUPS, ...Object.values(db.settings.tickers || {}).map((t) => t.riskGroup).filter(Boolean)])].map((g) => `<option ${g === (a ? riskOf(db, a) : tk.riskGroup) ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></label>
-    <div class="btnrow"><button type="button" class="btn ghost" data-pr>Set price</button><button type="button" class="btn ghost" data-pd>Add prediction</button><button type="button" class="btn" data-x>Close</button></div>`, { title: 'Price history' });
+    <div class="btnrow"><button type="button" class="btn ghost" data-pr>Set price</button><button type="button" class="btn ghost" data-rn>Rename</button><button type="button" class="btn ghost" data-pd>Add prediction</button><button type="button" class="btn" data-x>Close</button></div>`, { title: 'Price history' });
   const setGroup = (g) => commit((d) => { const t = (d.settings.tickers || {})[sym]; if (t) t.riskGroup = g; });
   pickAll(s.el, { rg: { title: 'Group', addLabel: 'Add a new group', onAdd: async () => { const g = (await promptDialog('New group', '', { okLabel: 'Add', hint: 'For example: Long-term, Speculative, Retirement' }))?.trim(); if (!g) return; const sel = s.el.querySelector('select[name=rg]'); if (![...sel.options].some((o) => o.value === g)) sel.add(new Option(g, g)); sel.value = g; setGroup(g); } } });
   s.el.querySelector('select[name=rg]').addEventListener('change', (e) => setGroup(e.target.value));
   s.el.querySelector('[data-x]').onclick = () => s.close();
+  s.el.querySelector('[data-rn]').onclick = () => { s.close(); renameTicker(sym); };
   s.el.querySelector('[data-pr]').onclick = () => { s.close(); if (!tk.price && !tk.cgId) { /* ensure the ticker exists for hand pricing */ } ACT['inv-price']({ dataset: { sym } }); };
   s.el.querySelector('[data-pd]').onclick = () => { s.close(); openPredict({ sym }); };
 };

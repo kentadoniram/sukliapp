@@ -119,11 +119,13 @@ export function accounts(db) {
       <span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(meta.join(' · '))}</small>${bar}</span>
       <span class="ramt"><b class="${v < 0 ? 'neg' : ''}">${money(v, a.cur)}</b>${eq(v, a.cur, rateFor(db, a.cur)) ? `<small>${eq(v, a.cur, rateFor(db, a.cur))}</small>` : ''}</span></button>`;
   };
+  // when grouped by exchange, each group can be renamed on all its accounts at once
+  const exBtn = (g) => (view.group === 'exchange' && g.key.startsWith('ex-') && g.title !== 'No exchange' ? `<button type="button" class="linkbtn sm" data-act="inv-rename" data-ex="${esc(g.title)}">Rename</button>` : '');
   const secOf = (g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.top === 'Liabilities' ? Math.abs(g.total) : g.total)}</small>`,
-    `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, '');
+    `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, exBtn(g));
   const sections = view.group === 'class' ? ['Assets', 'Liabilities'].map((top) => { const gs = groups.filter((g) => g.top === top); if (!gs.length) return ''; const tot = sum(gs.map((g) => g.total));
     return `<section class="topgrp ${top === 'Assets' ? 'assets' : 'liabs'}"><div class="tophead"><h2>${top}</h2><b>${money(Math.abs(tot))}</b></div><p class="hint">${top === 'Assets' ? 'What you own: cash, bank, investments, property.' : 'What you owe: credit cards, loans, money owed.'}</p>${gs.map(secOf).join('')}</section>`; }).join('') : groups.map((g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.total)}</small>`,
-    `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, '')).join('');
+    `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, exBtn(g))).join('');
   const segs = (name, opts, cur) => `<div class="seg sm" role="group" aria-label="${name}">${opts.map(([v, l]) => `<button type="button" data-act="aview" data-k="${name}" data-v="${v}" class="${cur === v ? 'on' : ''}" aria-pressed="${cur === v}">${l}</button>`).join('')}</div>`;
   return `${hdr('Accounts', '<button class="btn sm ghost" data-act="loan-plan">Loan planner</button> <button class="btn sm" data-act="acct-new">Add account</button>')}
     ${reminderBanner(db)}
