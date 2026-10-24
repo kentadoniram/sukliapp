@@ -1,5 +1,5 @@
 // The extra windows: menu drawer, Calendar, Budget (donut), Cash flow, Categories, and the detail sheets.
-import { softDelete } from './core.js';
+import { softDelete, scopeIds, scopeOptionsHtml, withScope } from './core.js';
 import {
   get, commit, stamp, fmt, compact, BASE, HOME, monthParts, dayTotals, daysInMonth, shiftMonth, thisMonth, monthLabel, dayLabel, nowStamp,
   reviewCount, catMap, accountMap, groupColor, groupLetter, sortedTxs,
@@ -215,9 +215,15 @@ ACT.slice = (el) => {
   document.querySelectorAll('details.pierow').forEach((d) => { d.open = !!sel && d.dataset.k === ui.pie; });
   if (sel) { const d = document.querySelector(`details.pierow[data-k="${CSS.escape(ui.pie)}"]`); if (d) { const r = d.getBoundingClientRect(); if (r.top < 60 || r.bottom > innerHeight) d.scrollIntoView({ block: 'nearest' }); } }
 };
+document.addEventListener('change', (e) => { const el = e.target.closest && e.target.closest('select[data-bscope]'); if (el) { ui.bscope = el.value; render(); } });
 ACT.pieby = (el) => { ui.pieBy = el.dataset.v; ui.pie = ''; render(); };
 
+// Budget can be limited to one platform, wallet or account (platform › wallet › asset)
 export function budget(db) {
+  const ids = scopeIds(db, ui.bscope || '');
+  return withScope(ids, () => budgetInner(db)).replace('<!--scope-->', `<label class="field bscope"><span>Spending from</span><select data-bscope aria-label="Platform, wallet or account">${scopeOptionsHtml(db, ui.bscope || '', esc)}</select></label>`);
+}
+function budgetInner(db) {
   const ym = ui.month, cats = catMap(db);
   const by = ui.pieBy || 'group';
   const out = totals(db, ym), total = out.total;
@@ -291,7 +297,7 @@ export function budget(db) {
        <div class="track tall"><div class="fill ${spentIn > budgeted ? 'over' : spentIn / budgeted >= 0.8 ? 'warn' : ''}" style="width:${Math.min(100, spentIn / budgeted * 100)}%"></div></div>
        <p class="hint">${Math.round(spentIn / budgeted * 100)}% of the total budget used${p.live && p.dim - p.day > 0 && left > 0 ? `, about ${R(left / (p.dim - p.day))} a day for the ${p.dim - p.day} days left` : ''}.</p>`
     : '<p class="hint">No budgets yet. Open a group below and press “Set a monthly budget”.</p>';
-  return `${monthNav()}
+  return `${monthNav()}<!--scope-->
     ${warns.length ? `<section class="bwarn">${warns.map((w) => `<button class="warnrow ${w.tone}" data-act="slice" data-k="${esc(w.g)}">${ic('check')}<span>${esc(w.text)}</span></button>`).join('')}</section>` : ''}
     ${coll('b-sum', 'Budget summary', sumBlock, '<button type="button" class="btn sm ghost" data-act="budget-setup">Budget setup</button>')}
     ${coll('b-class', 'Needs, wants and luxury', classCard(db, ym) || '<p class="hint">Nothing spent in this month yet.</p>')}

@@ -1,5 +1,5 @@
 // Analytics dashboard: interactive replacement for Reports. Every number can be tapped to see the entries behind it.
-import { get, fmt, HOME, partsBetween, balances, homeFx, live, catMap, accountMap, shiftMonth, groupColor, monthLabel, CUR } from './core.js';
+import { scopeIds, scopeOptionsHtml, get, fmt, HOME, partsBetween, balances, homeFx, live, catMap, accountMap, shiftMonth, groupColor, monthLabel, CUR } from './core.js';
 import { today, cardBilling, isLiability, safetyCfg } from './finance.js';
 import { esc, ic, ACT, sheet } from './ui.js';
 import { hdr, coll, ui } from './screens.js';
@@ -37,7 +37,7 @@ function filt(parts) {
   const db = get(), am = accountMap(db);
   return parts.filter((p) => {
     const a = am.get(p.t.acct);
-    if (A.acct && p.t.acct !== A.acct && !(p.t.kind === 'transfer' && p.t.toAcct === A.acct)) return false;
+    if (A.acct) { const sc = scopeIds(db, A.acct); if (!sc.has(p.t.acct) && !(p.t.kind === 'transfer' && sc.has(p.t.toAcct))) return false; }
     if (A.cur && (!a || a.cur !== A.cur)) return false;
     if (A.group && p.group !== A.group) return false;
     if (A.cat && p.cat !== A.cat) return false;
@@ -86,7 +86,7 @@ export function analytics(db) {
   const presets = [['7d', '7 days'], ['30d', '30 days'], ['m', 'This month'], ['pm', 'Last month'], ['3m', '3 months'], ['6m', '6 months'], ['y', 'This year'], ['custom', 'Custom']];
   const filters = `<div class="afilters"><div class="seg sm scrollx" role="group" aria-label="Period">${presets.map(([v, l]) => `<button type="button" data-act="an-range" data-v="${v}" class="${A.range === v ? 'on' : ''}" aria-pressed="${A.range === v}">${l}</button>`).join('')}</div>
     ${A.range === 'custom' ? `<div class="two"><button type="button" class="whenbtn" data-act="an-from"><span>${esc(P.from)}</span>${ic('calendar')}</button><button type="button" class="whenbtn" data-act="an-to"><span>${esc(P.to)}</span>${ic('calendar')}</button></div>` : ''}
-    <div class="three"><select data-an="acct" aria-label="Account"><option value="">All accounts</option>${accts.map((a) => `<option value="${a.id}" ${A.acct === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
+    <div class="three"><select data-an="acct" aria-label="Platform, wallet or account">${scopeOptionsHtml(db, A.acct, esc)}</select>
       <select data-an="cur" aria-label="Currency"><option value="">All currencies</option>${curs.map((c) => `<option ${A.cur === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
       <select data-an="group" aria-label="Category group"><option value="">All categories</option>${groups.map((g) => `<option ${A.group === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></div>
     <select data-an="cat" aria-label="Category"><option value="">Any category</option>${groups.map((g) => `<optgroup label="${esc(g)}">${db.categories.filter((c) => !c.deleted && c.group === g).map((c) => `<option value="${c.id}" ${A.cat === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`).join('')}</select>
@@ -109,7 +109,7 @@ export function analytics(db) {
     <p class="hint"><i class="dot" style="background:var(--in)"></i> Income <i class="dot" style="background:var(--bad)"></i> Spending · tap a bar for its entries</p>`;
 
   // cash-flow and net worth lines
-  const bal0 = (asOf) => { const b = balances(db, asOf + ' 23:59:59'); let nw = 0; for (const a of live(db.accounts)) { if (a.archived && !(b.get(a.id) || 0)) continue; if (A.acct && a.id !== A.acct) continue; if (A.cur && a.cur !== A.cur) continue; nw += (b.get(a.id) || 0) * (homeFx(db, a.cur) || 0); } return nw; };
+  const bal0 = (asOf) => { const b = balances(db, asOf + ' 23:59:59'); let nw = 0; for (const a of live(db.accounts)) { if (a.archived && !(b.get(a.id) || 0)) continue; if (A.acct && !scopeIds(db, A.acct).has(a.id)) continue; if (A.cur && a.cur !== A.cur) continue; nw += (b.get(a.id) || 0) * (homeFx(db, a.cur) || 0); } return nw; };
   let cum = 0;
   const cf = bd.map((x) => { cum += x.i - x.e; return { l: x.l, v: cum }; });
   const nwS = bd.map((x) => ({ l: x.l, v: bal0(x.b > today() ? today() : x.b) }));

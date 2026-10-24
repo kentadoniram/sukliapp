@@ -20,7 +20,7 @@ with sync_playwright() as p:
         ok(f'[{vw}] row shows what arrived', pg.locator('.arrived').count()>=1 and '29,356' in pg.inner_text('.arrived'))
         pg.select_option('#lf-cat', index=1); pg.wait_for_timeout(300)
         ok(f'[{vw}] category filter shows a summary', pg.locator('#lsum').count()==1)
-        pg.fill('#lf-from','2026-09-08'); pg.fill('#lf-to','2026-09-08'); pg.dispatch_event('#lf-to','change'); pg.wait_for_timeout(300)
+        pg.evaluate("(async()=>{const m=await import('/js/screens.js');m.ui.from='2026-09-08';m.ui.to='2026-09-08';window.dispatchEvent(new Event('sukli-render'))})()"); pg.wait_for_timeout(500)
         days=pg.evaluate("[...document.querySelectorAll('.dayhead .dlabel')].length")
         ok(f'[{vw}] date range limits days', days<=1)
         pg.click('[data-act=f-clear]'); pg.wait_for_timeout(500)

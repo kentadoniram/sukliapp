@@ -191,6 +191,29 @@ export async function load() {
 export const get = () => state;
 export function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
 
+// ---- platform > wallet > asset scope (used by the Budget and Analytics filters) ----
+// keys: '' = everything, 'p:Binance' = a platform, 'w:Binance|Earn' = one wallet, 'a:<id>' (or a bare id) = one asset/account
+export function scopeIds(db, key) {
+  if (!key) return null;
+  const live = db.accounts.filter((a) => !a.deleted), [k, v] = key.includes(':') ? [key[0], key.slice(2)] : ['a', key];
+  if (k === 'p') return new Set(live.filter((a) => (a.exchange || '') === v).map((a) => a.id));
+  if (k === 'w') { const [ex, w] = v.split('|'); return new Set(live.filter((a) => (a.exchange || '') === ex && walletOf(a) === w).map((a) => a.id)); }
+  return new Set([v]);
+}
+// the choices as <optgroup>s: each platform with its wallets and assets, then the other accounts
+export function scopeOptionsHtml(db, cur, esc) {
+  const live = db.accounts.filter((a) => !a.deleted && !a.archived), on = (k) => (cur === k || cur === k.replace(/^a:/, '') ? 'selected' : '');
+  const byEx = new Map(); for (const a of live) if (a.exchange) { if (!byEx.has(a.exchange)) byEx.set(a.exchange, []); byEx.get(a.exchange).push(a); }
+  const nb = '\u00a0\u00a0';
+  let h = `<option value="">All accounts</option>`;
+  for (const [ex, list] of [...byEx.entries()].sort((x, y) => x[0].localeCompare(y[0]))) {
+    const ws = [...new Set(list.map(walletOf))];
+    h += `<optgroup label="${esc(ex)}"><option value="p:${esc(ex)}" ${on('p:' + ex)}>All of ${esc(ex)}</option>` + ws.map((w) => `<option value="w:${esc(ex)}|${esc(w)}" ${on('w:' + ex + '|' + w)}>${nb}${esc(w)} wallet (all assets)</option>` + list.filter((a) => walletOf(a) === w).map((a) => `<option value="a:${a.id}" ${on('a:' + a.id)}>${nb}${nb}${esc(a.cur)} · ${esc(a.name)}</option>`).join('')).join('') + '</optgroup>';
+  }
+  const rest = live.filter((a) => !a.exchange).sort((x, y) => x.name.localeCompare(y.name));
+  if (rest.length) h += `<optgroup label="Other accounts">${rest.map((a) => `<option value="a:${a.id}" ${on('a:' + a.id)}>${esc(a.name)}</option>`).join('')}</optgroup>`;
+  return h;
+}
 // a transfer labelled "A to B" or "A → B" keeps following the account names: rename "SMBC" and its entries say the new name
 export function fixRouteNames(d) {
   if (!d || !d.accounts || !d.txs) return;
@@ -349,12 +372,16 @@ export const daysInMonth = (ym) => { const [y, m] = ym.split('-').map(Number); r
 export function monthParts(db, ym) { return partsOf(db, (t) => t.date.startsWith(ym)); }
 // the same, for any date range (YYYY-MM-DD, inclusive)
 export function partsBetween(db, from, to) { return partsOf(db, (t) => { const d = t.date.slice(0, 10); return d >= from && d <= to; }); }
+// while a scope is set (Budget filter), every report only counts entries from those accounts
+let SCOPE = null;
+export function withScope(ids, fn) { const prev = SCOPE; SCOPE = ids; try { return fn(); } finally { SCOPE = prev; } }
 export function partsOf(db, inRange) {
   const ex = new Set(db.settings.excludeGroups || []);
   const cats = catMap(db), out = [];
   const amap = accountMap(db);
   for (const t of db.txs) {
     if (t.deleted || t.reval || !inRange(t)) continue;
+    if (SCOPE && !SCOPE.has(t.kind === 'transfer' && t.feeBy === 'to' ? t.toAcct : t.acct)) continue;
     if (t.kind === 'transfer') {          // only its fee counts as spending
       if (feeOf(t) && t.feeCat) {
         const c = cats.get(t.feeCat), g = c ? c.group : 'Uncategorized';

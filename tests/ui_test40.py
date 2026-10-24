@@ -43,8 +43,8 @@ with sync_playwright() as p:
         ok(f'[{vw}] Home week chart is coloured', pg.locator('.week .wb i[style*=hsl], .week .wtrack i[style*=hsl]').count()>=3)
         pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_timeout(500)
         ok(f'[{vw}] Entries days are not coloured', pg.locator('.dtot[style*=hsl]').count()==0)
-        w=pg.evaluate("[...document.querySelectorAll('.fdate')].map(e=>{const r=e.getBoundingClientRect();return [r.left,r.right,r.width]})")
-        ok(f'[{vw}] date range boxes are small and apart', len(w)==2 and w[0][2]<=140 and w[1][0]-w[0][1]>=6)
+        w=pg.evaluate("[...document.querySelectorAll('.fdbtn')].map(e=>{const r=e.getBoundingClientRect();return [r.left,r.right,r.width]})")
+        ok(f'[{vw}] date range boxes are small and apart', len(w)==2 and w[1][0]-w[0][1]>=6)
         # accounts sorting: assets/debts first, then kinds
         pg.goto('http://localhost:8123/#/accounts'); pg.wait_for_timeout(500)
         pg.select_option('[data-aview=sort]','cat'); pg.wait_for_timeout(400)

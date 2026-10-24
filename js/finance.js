@@ -77,6 +77,53 @@ export function netWorth(db) {
 // Ids are fixed per account and day, so two devices never double-post.
 // tax withheld on interest, in %. Local banks take it before crediting (20% is the usual rate in the Philippines and Japan); crypto, e-wallets and the like default to none. Set per account.
 export const interestTaxPct = (a) => (a.taxPct != null && a.taxPct !== '' ? Math.max(0, +a.taxPct || 0) : (a.type === 'bank' ? 20 : 0));
+// one day's interest before tax on balance b: the promo rate on money deposited in a promo window, the normal rate on the rest
+const promoDeposits = (db, a) => new Map((a.promos || []).map((p) => [p, p && p.depFrom && p.depTo
+  ? live(db.txs).filter((t) => !t.auto && t.date.slice(0, 10) >= p.depFrom && t.date.slice(0, 10) <= p.depTo && ((t.kind === 'income' && t.acct === a.id) || (t.kind === 'transfer' && t.toAcct === a.id)))
+    .reduce((m, t) => m + (t.kind === 'transfer' ? (t.toAmount != null ? t.toAmount : t.amount) : t.amount), 0) : 0]));
+const grossFor = (a, d, b, prin) => { if (!(b > 0)) return 0; let rest = b, g = 0; for (const p of activePromos(a, d)) { const x = Math.min(rest, prin.get(p) || 0); if (x > 0) { g += x * p.rate / 100 / 365; rest -= x; } } return g + rest * rateAt(a, d) / 100 / 365; };
+const nextPeriodEnd = (d, comp) => { let x = d; for (let i = 0; i < 400; i++, x = addDays(x, 1)) if (isPeriodEnd(x, comp)) return x; return d; };
+// what the next days will earn if the balance stays as it is today (rate changes and promo ends are applied on their dates)
+export function interestPreview(db, a, days = 7) {
+  const b = balances(db).get(a.id) || 0, prin = promoDeposits(db, a), taxPct = interestTaxPct(a), dec = (CUR[a.cur] || { dec: 2 }).dec, places = a.type === 'crypto' ? Math.max(dec, 6) : dec;
+  const rows = []; let prev = null;
+  for (let i = 0; i < days; i++) {
+    const d = addDays(today(), i), g = grossFor(a, d, b, prin), r = rateAt(a, d), pr = activePromos(a, d).length > 0;
+    const note = prev && r !== prev.r ? `Rate changes to ${r}%` : prev && prev.pr && !pr ? 'Promo ends' : (!prev || prev.pr === pr ? '' : 'Promo starts');
+    rows.push({ date: d, rate: r, promo: pr, gross: +g.toFixed(places + 2), net: +(g * (1 - taxPct / 100)).toFixed(places + 2), note }); prev = { r, pr };
+  }
+  return { rows, balance: b, taxPct, comp: a.compound || 'daily', nextCredit: nextPeriodEnd(today(), a.compound || 'daily') };
+}
+// promo status for the account page: waiting, collecting deposits, earning, or ended
+export function promoStatus(db, a) {
+  const t = today(), dep = promoDeposits(db, a);
+  return (a.promos || []).filter((p) => p && p.depFrom && p.depTo).map((p) => ({ p, deposited: dep.get(p) || 0, status: t < p.depFrom ? 'Starts ' + p.depFrom : t <= p.depTo ? 'Collecting deposits until ' + p.depTo : (!p.until || t <= p.until) ? 'Earning' + (p.until ? ' until ' + p.until : '') : 'Ended ' + p.until }));
+}
+export const rateHistory = (a) => [{ from: a.interestFrom || '', rate: +a.apy || 0, base: true }, ...[...(a.rates || [])].filter((r) => r && r.from).sort((x, y) => (x.from < y.from ? -1 : 1)).map((r) => ({ from: r.from, rate: +r.rate }))];
+// a debt's interest: when it starts, and what the next days add
+export function debtPreview(db, a, days = 7) {
+  const D = a.debtInt || {}, owed = Math.max(0, -(balances(db).get(a.id) || 0)), comp = D.comp || 'monthly', nominal = D.kind === 'addon' ? +D.rate : nominalFromEar(+D.rate, comp);
+  const rows = [];
+  for (let i = 0; i < days; i++) { const d = addDays(today(), i), on = debtActive(db, a, d, owed); rows.push({ date: d, on, charge: on ? +(((D.kind === 'addon' && +D.principal > 0 ? +D.principal : owed) * nominal / 100 / 365)).toFixed(4) : 0 }); }
+  return { rows, owed, comp, nextCharge: nextPeriodEnd(today(), comp), nominal };
+}
+// interest on a debt is running on this day: after the deadline date, or (cards) after a payment due date that passed with money still owed
+const dueCache = new Map();
+function debtActive(db, a, d, owedNow) {
+  const D = a.debtInt || {}; if (!D.on) return false;
+  if (D.fromDue && a.dueDay > 0) {
+    const [y, m, day] = d.split('-').map(Number); const dd = Math.min(a.dueDay, 28 + 3), pad = (n) => String(n).padStart(2, '0');
+    const lastDay = (yy, mm) => new Date(yy, mm, 0).getDate();
+    let yy = y, mm = m; if (day < Math.min(a.dueDay, lastDay(y, m))) { mm--; if (mm < 1) { mm = 12; yy--; } }
+    const due = `${yy}-${pad(mm)}-${pad(Math.min(a.dueDay, lastDay(yy, mm)))}`;
+    if (D.start && due < D.start) return false;
+    if (d <= due) return false;
+    const key = `${a.id}|${due}|${db.txs.length}`; if (!dueCache.has(key)) { if (dueCache.size > 200) dueCache.clear(); dueCache.set(key, Math.max(0, -(balances(db, due + ' 23:59:59').get(a.id) || 0)) > 0); }
+    return dueCache.get(key) && owedNow > 0;
+  }
+  return d >= (D.start || '0000-00-00');
+}
+
 // Interest is posted just before midnight (23:55). Today's entry waits until then; earlier days are filled in when the app opens.
 const postDay = (upTo) => (upTo === today() && nowStamp().slice(11, 16) < '23:55' ? addDays(upTo, -1) : upTo);
 export function postInterest(db, upTo = today()) {
@@ -96,18 +143,11 @@ export function postInterest(db, upTo = today()) {
     if (from < addDays(upTo, -400)) from = addDays(upTo, -400);
     const catName = a.type === 'crypto' ? 'Crypto earned' : 'Interest';
     let cat = cats.find((c) => c.group === 'Earn' && c.name === catName);
-    // money put in during a promo window (income or transfers in), used for the promo rate
-    const deposits = (p) => live(db.txs).filter((t) => !t.auto && t.date.slice(0, 10) >= p.depFrom && t.date.slice(0, 10) <= p.depTo && ((t.kind === 'income' && t.acct === a.id) || (t.kind === 'transfer' && t.toAcct === a.id)))
-      .reduce((m, t) => m + (t.kind === 'transfer' ? (t.toAmount != null ? t.toAmount : t.amount) : t.amount), 0);
-    const promoPrin = new Map((a.promos || []).map((p) => [p, p && p.depFrom && p.depTo ? deposits(p) : 0]));
+    const promoPrin = promoDeposits(db, a);
     let acc = 0;
     for (let d = from; d <= upTo; d = addDays(d, 1)) {
       const b = balances(db, d + ' 23:59:59').get(a.id) || 0;
-      if (b > 0) {
-        let rest = b, g = 0;
-        for (const p of activePromos(a, d)) { const prin = Math.min(rest, promoPrin.get(p) || 0); if (prin > 0) { g += prin * p.rate / 100 / 365; rest -= prin; } }
-        acc += g + rest * rateAt(a, d) / 100 / 365;
-      }
+      acc += grossFor(a, d, b, promoPrin);
       if (!isPeriodEnd(d, comp)) continue;
       const id = `int-${a.id}-${d}`;
       if (db.txs.some((t) => t.id === id)) { acc = 0; continue; }
@@ -131,15 +171,15 @@ export function postDebtInterest(db, upTo = today()) {
     if (!hasDebtInt(a) || a.archived || !isLiability(a)) continue;
     const D = a.debtInt, comp = D.comp || 'monthly', start = D.start || today(), dec = (CUR[a.cur] || { dec: 2 }).dec;
     const lastAuto = live(db.txs).filter((t) => t.autoDebt && t.acct === a.id).reduce((m, t) => (t.date.slice(0, 10) > m ? t.date.slice(0, 10) : m), '');
-    let from = lastAuto ? addDays(lastAuto, 1) : start;
-    if (from < start) from = start;
+    let from = lastAuto ? addDays(lastAuto, 1) : (D.fromDue ? addDays(upTo, -62) : start);
+    if (from < start && !D.fromDue) from = start;
     if (from > upTo) continue;
     if (from < addDays(upTo, -400)) from = addDays(upTo, -400);
     const nominal = D.kind === 'addon' ? +D.rate : nominalFromEar(+D.rate, comp === 'daily' ? 'daily' : comp);
     let cat = null, acc = 0;
     for (let d = from; d <= upTo; d = addDays(d, 1)) {
       const owed = Math.max(0, -(balances(db, d + ' 23:59:59').get(a.id) || 0));
-      if (owed > 0) acc += (D.kind === 'addon' && +D.principal > 0 ? +D.principal : owed) * nominal / 100 / 365;
+      if (owed > 0 && debtActive(db, a, d, owed)) acc += (D.kind === 'addon' && +D.principal > 0 ? +D.principal : owed) * nominal / 100 / 365;
       if (!isPeriodEnd(d, comp)) continue;
       const id = `dint-${a.id}-${d}`;
       if (db.txs.some((t) => t.id === id)) { acc = 0; continue; }

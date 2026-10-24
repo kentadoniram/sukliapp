@@ -92,7 +92,7 @@ function spendable(db) {
 
 // fee entries that belong to a trade (older trades booked the fee as its own expense): child id -> parent trade
 let _kidsKey = null, _kids = new Map(), _kidsOf = new Map();
-function tradeKids(db) {
+export function tradeKids(db) {
   const key = db.txs.length + ':' + db.txs.reduce((m, t) => Math.max(m, t.updatedAt || 0), 0);
   if (key === _kidsKey) return { parentOf: _kids, kidsOf: _kidsOf };
   const by = new Map(db.txs.filter((t) => !t.deleted && t.trade).map((t) => [t.id, t])); _kids = new Map(); _kidsOf = new Map();
@@ -100,7 +100,7 @@ function tradeKids(db) {
   _kidsKey = key; return { parentOf: _kids, kidsOf: _kidsOf };
 }
 // the small line under an entry: what it did to your records
-function effectLine(t, accts) {
+export function effectLine(t, accts) {
   const db = get(), { kidsOf, parentOf } = tradeKids(db);
   let feeTxt = '';
   if (t.kind === 'transfer' && t.fee > 0) feeTxt = ` · fee ${money(t.fee, t.feeCur || t.cur)} recorded as an expense`;
@@ -479,6 +479,11 @@ function catOptions(db) {
 }
 const ledgerRefresh = () => { const l = document.getElementById('ledger-list'); if (l) l.innerHTML = ledgerRows(get()); };
 ACT['day-toggle'] = (el) => { const d = el.dataset.d; if (ui.daysOff.has(d)) ui.daysOff.delete(d); else ui.daysOff.add(d); const box = el.closest('.day'); if (box) { const off = ui.daysOff.has(d); box.classList.toggle('off', off); el.setAttribute('aria-expanded', String(!off)); const r = box.querySelector('.rows'); if (r) r.hidden = off; el.querySelector('.dcaret').textContent = off ? '▸' : '▾'; } };
+const fshort = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+ACT['f-pick'] = async (el) => { const k = el.dataset.k, { openDatePicker } = await import('./datepicker.js'); openDatePicker(ui[k] || todayStr(), (v) => { ui[k] = v.slice(0, 10); if (ui.from && ui.to && ui.from > ui.to) { if (k === 'from') ui.to = ui.from; else ui.from = ui.to; } ui.limit = 120; window.dispatchEvent(new Event('sukli-render')); }, { time: false, title: k === 'from' ? 'From which day?' : 'Up to which day?' }); };
+ACT['f-range'] = (el) => { const v = el.dataset.v, t = todayStr(), d = new Date(); const sub = (n) => { const x = new Date(); x.setDate(x.getDate() - n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+  if (v === '7') { ui.from = sub(6); ui.to = t; } else if (v === '30') { ui.from = sub(29); ui.to = t; } else if (v === 'm') { ui.from = `${t.slice(0, 7)}-01`; ui.to = t; } else { ui.from = `${t.slice(0, 4)}-01-01`; ui.to = t; }
+  ui.limit = 120; window.dispatchEvent(new Event('sukli-render')); };
 ACT['f-clear'] = () => { ui.from = ui.to = ui.cat = ''; ui.filter = 'all'; ui.acct = ''; ui.q = ''; window.dispatchEvent(new Event('sukli-render')); };
 export function ledger(db) {
   const f = [['all', 'All'], ['review', 'Check'], ['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']];
@@ -486,9 +491,11 @@ export function ledger(db) {
     <div class="searchbar">${ic('search')}<input id="q" type="search" placeholder="Search entries, items, notes" value="${esc(ui.q)}" aria-label="Search entries"></div>
     <div class="filters" role="group" aria-label="Filter">${f.map(([v, l]) => `<button class="chip ${ui.filter === v ? 'on' : ''}" data-act="filter" data-v="${v}" ${v === 'review' ? 'title="Entries with a guessed category or label that you have not confirmed yet"' : ''}>${l}</button>`).join('')}
       <select id="acctfilter" aria-label="Account filter"><option value="">All accounts</option>${db.accounts.filter((a) => !a.deleted).sort((a, b) => a.name.localeCompare(b.name)).map((a) => `<option value="${a.id}" ${ui.acct === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></div>
-    <div class="frow"><label class="fdate"><span>From</span><input type="date" id="lf-from" value="${esc(ui.from)}" aria-label="From date"></label><label class="fdate"><span>To</span><input type="date" id="lf-to" value="${esc(ui.to)}" aria-label="To date"></label>
+    <div class="frow2">
+      <div class="frange"><button type="button" class="fdbtn ${ui.from ? 'set' : ''}" data-act="f-pick" data-k="from" aria-label="From date"><small>From</small><b>${ui.from ? esc(fshort(ui.from)) : 'Any date'}</b></button><span class="fdash" aria-hidden="true">–</span><button type="button" class="fdbtn ${ui.to ? 'set' : ''}" data-act="f-pick" data-k="to" aria-label="To date"><small>To</small><b>${ui.to ? esc(fshort(ui.to)) : 'Any date'}</b></button></div>
+      <div class="fquick" role="group" aria-label="Quick ranges">${[['7', 'Last 7 days'], ['30', 'Last 30 days'], ['m', 'This month'], ['y', 'This year']].map(([v, l]) => `<button type="button" class="chip" data-act="f-range" data-v="${v}">${l}</button>`).join('')}</div>
       <label class="fcat"><span>Category</span><select id="lf-cat" aria-label="Category filter">${catOptions(db)}</select></label>
-      <button type="button" class="btn sm ghost" data-act="f-clear">Clear</button></div>
+      <button type="button" class="btn sm ghost" data-act="f-clear">Clear all</button></div>
     <p class="hint filterhint" id="filterhint">${filterHint()}</p>
     <div id="selbar-wrap">${selBar()}</div>
     <div id="ledger-list">${ledgerRows(db)}</div>`;
@@ -527,7 +534,7 @@ export function bindLedger() {
   if (q) q.oninput = () => { ui.q = q.value; ui.limit = 120; document.getElementById('ledger-list').innerHTML = ledgerRows(get()); };
   const a = document.getElementById('acctfilter');
   if (a) a.onchange = () => { ui.acct = a.value; document.getElementById('ledger-list').innerHTML = ledgerRows(get()); };
-  for (const [id, k] of [['lf-from', 'from'], ['lf-to', 'to'], ['lf-cat', 'cat']]) { const e = document.getElementById(id); if (e) e.onchange = () => { ui[k] = e.value; ui.limit = 120; ledgerRefresh(); }; }
+  for (const [id, k] of [['lf-cat', 'cat']]) { const e = document.getElementById(id); if (e) e.onchange = () => { ui[k] = e.value; ui.limit = 120; ledgerRefresh(); }; }
 }
 
 // ---------------- Review ----------------

@@ -66,7 +66,7 @@ with sync_playwright() as p:
         if k=='outflow': pg.screenshot(path=S+'v4-flow-out.png')
         pg.click('[data-close]')
     # 8 months clickable (home 6 months and reports 12)
-    pg.locator('.chart g.hit').nth(3).click(); pg.wait_for_selector('#fd'); ok('home month bar opens month detail', 'Net income' in pg.inner_text('.sheet-head'))
+    pg.wait_for_selector('.chart g.hit', timeout=15000); pg.wait_for_timeout(400); pg.locator('.chart g.hit').nth(3).click(); pg.wait_for_selector('#fd'); ok('home month bar opens month detail', 'Net income' in pg.inner_text('.sheet-head'))
     pg.screenshot(path=S+'v4-month.png'); pg.click('[data-close]')
     pg.goto('http://localhost:8123/index.html#/reports'); pg.wait_for_selector('.chart')
     ok('reports has 12 clickable months', pg.locator('.chart g.hit').count()==12)
@@ -118,6 +118,7 @@ with sync_playwright() as p:
     pg.click('header [data-act=eye]'); pg.wait_for_timeout(200)
     for r in ['calendar','budget','cashflow']:
         pg.goto('http://localhost:8123/index.html#/'+r); pg.wait_for_timeout(300)
+        pg.evaluate("document.querySelectorAll('#view select').forEach(e=>e.remove())")  # account names in filters may contain digits
         txt=re.sub(r'\d+%','',pg.inner_text('#view').replace('2026','').replace('12,000','')); txt=re.sub(r'Entries this month\s+\d+','',txt); digits=re.findall(r'\d[\d,.]*', txt)
         ctx=[txt[max(0,txt.find(d)-40):txt.find(d)+20].replace('\n',' | ') for d in digits if len(d.replace(',','').replace('.',''))>=3][:2]; print(r,ctx)
         ok('hidden mode masks '+r+' (digits left: '+str([d for d in digits if len(d.replace(",","").replace(".",""))>=3][:6])+')', len([d for d in digits if len(d.replace(',','').replace('.',''))>=3])==0)
