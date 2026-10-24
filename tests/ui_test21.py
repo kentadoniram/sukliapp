@@ -30,7 +30,7 @@ with sync_playwright() as p:
     pg.goto(U+'#/home'); pg.wait_for_timeout(800)
     while pg.locator('[data-act=month][data-d="1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="1"]'); pg.wait_for_timeout(300)
     pg.wait_for_timeout(1200)
-    h=pg.inner_text('#view'); ok('financial loss card', 'Money lost to fees and interest' in h and 'Loan fees' in h and 'Late fee' in h)
+    h=pg.inner_text('#view'); ok('financial loss card', 'money lost to fees and interest' in h.lower() and 'Loan fees' in h and 'Late fee' in h)
     # no interest on debts
     pg.goto(U+'#/accounts'); pg.wait_for_timeout(300); pg.locator('.row.acct', has_text='Home loan').first.click(); pg.wait_for_selector('#ad'); pg.click('#ad [data-ad=edit]'); pg.wait_for_selector('#acct-form')
     ok('interest hidden for loans', pg.locator('#intfields').is_hidden())

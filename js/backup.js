@@ -43,6 +43,6 @@ export function initBackup() {
 export const backupSection = (db) => {
   const c = backupCfg(db), last = db.settings.lastLocalBackup;
   return `<section><h2>Backup reminder</h2><p class="hint">${last ? 'Last download: ' + esc(new Date(last).toLocaleString()) + '. ' : 'No backup downloaded yet. '}A reminder appears when the app is open after the time you choose.</p>
-    <label class="field inline"><span>Remind me</span><select data-bk="mode">${[['daily', 'Every day'], ['weekly', 'Every week'], ['off', 'Never']].map(([v, l]) => `<option value="${v}" ${c.mode === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-    <label class="field inline"><span>At</span><input type="time" data-bk="time" value="${esc(c.time)}" data-noclear="1"></label></section>`;
+    <div class="bkrow"><label class="field inline"><span>Remind me</span><select data-bk="mode">${[['daily', 'Every day'], ['weekly', 'Every week'], ['off', 'Never']].map(([v, l]) => `<option value="${v}" ${c.mode === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label class="field inline"><span>At</span><input type="time" data-bk="time" value="${esc(c.time)}" data-noclear="1"></label></div></section>`;
 };

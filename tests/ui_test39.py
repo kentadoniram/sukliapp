@@ -1,0 +1,71 @@
+# v12ab batches B, C, D: margins, accounts sort, Home, date picker, inputs, keypad, feedback, interest help
+from playwright.sync_api import sync_playwright
+CSV='/home/claude/Transactions.csv'; res=[]
+def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch()
+    for vw,vh in ((390,844),(1100,800)):
+        pg=b.new_page(viewport={'width':vw,'height':vh},service_workers='block'); errs=[]
+        pg.on('pageerror',lambda e:errs.append(str(e)))
+        pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
+        pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(600)
+        pg.evaluate("""(async()=>{const m=await import('/js/core.js');const t=new Date();const s=t.toISOString().slice(0,10);m.commit(d=>{const a=d.accounts.find(x=>!x.deleted&&x.type!=='card'&&x.type!=='loan');d.txs.push(m.stamp({id:'ex1',kind:'expense',acct:a.id,amount:100,cur:a.cur,fx:1,date:s+' 09:00:00',name:'test lunch',cat:(d.categories.find(c=>c.kind==='expense')||{}).id}))})})()""")
+        # settings margins, week toggle, backup row, tap feedback setting
+        pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(500)
+        pg.evaluate("document.querySelectorAll('details.sgroup').forEach(d=>d.open=true)"); pg.wait_for_timeout(200)
+        pad=pg.evaluate("parseFloat(getComputedStyle(document.querySelector('.sgroup > section')).paddingLeft)")
+        ok(f'[{vw}] settings text keeps a side margin', pad>=12)
+        ok(f'[{vw}] week chart switch lives in Settings', pg.locator('[data-act=week-mode]').count()==2)
+        ok(f'[{vw}] tap feedback options', pg.locator('[data-fb]').count()==3)
+        ok(f'[{vw}] remind me and at on one row', pg.evaluate("(()=>{const a=document.querySelector('[data-bk=mode]'),c=document.querySelector('[data-bk=time]');if(!a||!c)return false;return Math.abs(a.getBoundingClientRect().top-c.getBoundingClientRect().top)<8})()"))
+        # home
+        pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(700)
+        ok(f'[{vw}] no chart switch on Home', pg.locator('.week [data-act=week-mode]').count()==0)
+        ok(f'[{vw}] vertical bars by default', pg.locator('.wkv').count()==1)
+        ok(f'[{vw}] pace caption', 'Pace' in pg.inner_text('body') and pg.locator('.pacecap').count()>=1)
+        titles=pg.evaluate("[...document.querySelectorAll('.collhead h2')].map(h=>h.textContent)")
+        ok(f'[{vw}] Home titles capitalised', all(t[0]==t[0].upper() for t in titles if t))
+        # accounts sort
+        pg.goto('http://localhost:8123/#/accounts'); pg.wait_for_timeout(600)
+        pg.select_option('[data-aview=sort]','cat'); pg.wait_for_timeout(400)
+        ok(f'[{vw}] category sort shows a second choice', pg.locator('[data-aview=then]').count()==1 and pg.locator('.topgrp').count()>=1)
+        pg.select_option('[data-aview=then]','name'); pg.wait_for_timeout(300)
+        ok(f'[{vw}] second sort A-Z', pg.locator('[data-aview=then]').input_value()=='name')
+        # entry: amount select + x, keypad size, feedback flash
+        pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_timeout(400)
+        pg.evaluate("(async()=>{const m=await import('/js/entry.js');m.openEntry()})()"); pg.wait_for_selector('#f-amount')
+        pg.fill('#f-amount','123'); pg.click('#f-name'); pg.click('#f-amount'); pg.wait_for_timeout(300)
+        sel=pg.evaluate("(()=>{const e=document.getElementById('f-amount');return e.selectionStart===0&&e.selectionEnd===e.value.length&&e.value.length>0})()")
+        ok(f'[{vw}] amount is selected on tap', sel)
+        ok(f'[{vw}] clear button on the amount', pg.locator('.clearx:visible').count()==1)
+        pg.click('[data-e=calc]'); pg.wait_for_timeout(200)
+        kb=pg.evaluate("(()=>{const k=document.querySelector('.keypad button');const r=k.getBoundingClientRect();return [r.height,parseFloat(getComputedStyle(k).borderTopWidth)]})()")
+        ok(f'[{vw}] big borderless keys', kb[0]>=56 and kb[1]==0)
+        pg.dispatch_event('.keypad button','pointerdown'); pg.wait_for_timeout(30)
+        ok(f'[{vw}] tapped key flashes', pg.evaluate("document.querySelector('.keypad button.fbflash')!==null"))
+        # when: hours ago
+        pg.evaluate("window.__v=null;(async()=>{const m=await import('/js/datepicker.js');m.openDatePicker('2026-01-01 12:00:00',v=>{window.__v=v},{title:'When was it?'})})()"); pg.wait_for_selector('[data-ago]')
+        pg.click('[data-ago="2"]'); pg.click('[data-ok]'); pg.wait_for_timeout(200)
+        v=pg.evaluate("window.__v")
+        import datetime
+        ok(f'[{vw}] 2 hours ago sets a time about two hours back', v and abs((datetime.datetime.now()-datetime.datetime.strptime(v,'%Y-%m-%d %H:%M:%S')).total_seconds()-7200)<400)
+        pg.keyboard.press('Escape')
+        # interest help
+        pg.goto('http://localhost:8123/#/accounts'); pg.wait_for_timeout(500)
+        pg.evaluate("document.querySelector('[data-act=acct-new]').click()"); pg.wait_for_selector('#acct-form')
+        pg.click('#intfields .tipbtn[data-tip=rate]'); pg.wait_for_timeout(100)
+        ok(f'[{vw}] tip opens on click', pg.locator('#intfields .tipbox').count()==1)
+        pg.click('#intfields .tipbtn[data-tip=rate]'); pg.wait_for_timeout(100)
+        ok(f'[{vw}] tip closes on second click', pg.locator('#intfields .tipbox').count()==0)
+        pg.select_option('#acct-form [name=type]','loan'); pg.wait_for_timeout(200)
+        ok(f'[{vw}] debt interest section for a loan', pg.locator('#debtfields').is_visible() and not pg.locator('#intfields').is_visible())
+        pg.check('[name=d-on]'); pg.wait_for_timeout(100)
+        ok(f'[{vw}] debt interest fields appear', pg.locator('[data-debtbox]').is_visible())
+        pg.evaluate("document.querySelector('#debtfields .icalc').open=true")
+        pg.fill('#debtfields [data-ic=P]','100000'); pg.fill('#debtfields [data-ic=term]','12'); pg.fill('#debtfields [data-ic=nom]','12'); pg.wait_for_timeout(100)
+        ok(f'[{vw}] calculator fills effective rate and interest', abs(float(pg.input_value('#debtfields [data-ic=ear]'))-12.6825)<0.01 and abs(float(pg.input_value('#debtfields [data-ic=int]'))-12682.5)<2)
+        pg.fill('#debtfields [data-ic=P]',''); pg.fill('#debtfields [data-ic=int]','5000'); pg.wait_for_timeout(100)
+        ok(f'[{vw}] missing value is named', 'Principal' in pg.inner_text('#debtfields [data-ic-note]'))
+        ok(f'[{vw}] no page errors', not errs)
+    b.close()
+print('SUMMARY', sum(res), 'passed', len(res)-sum(res), 'failed')

@@ -1,0 +1,32 @@
+from playwright.sync_api import sync_playwright
+CSV='/home/claude/Transactions.csv'
+errs=[]; res=[]
+def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch(); ctx=b.new_context(viewport={'width':390,'height':844},locale='en-US',service_workers='block'); pg=ctx.new_page()
+    pg.on('pageerror',lambda e: errs.append(str(e)))
+    pg.on('console',lambda m: errs.append(m.text) if m.type=='error' and 'ERR_TUNNEL' not in m.text else None)
+    pg.goto('http://localhost:8123/index.html'); pg.wait_for_selector('#first-file',state='attached')
+    pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(600)
+    pg.evaluate("location.hash='#/'"); pg.wait_for_timeout(600)
+    body=pg.inner_text('body'); ok('home shows the rolling 7-day card', 'daily average, rolling 7 days' in body.lower())
+    pg.evaluate("document.querySelectorAll('[data-act=coll][data-id=h-roll]').forEach(e=>{ if(!document.querySelector('.mrows')) e.click() })"); pg.wait_for_timeout(300)
+    ok('rolling card has typical day and monthly list', 'Typical day' in pg.inner_text('body') and pg.locator('.mrows .mrow').count()>=6)
+    pg.evaluate("location.hash='#/ledger'"); pg.wait_for_timeout(300)
+    pg.evaluate("document.querySelector('[data-act=add]') && document.querySelector('[data-act=add]').click()"); pg.wait_for_selector('#entry',timeout=5000)
+    ok('no trip row for a plain expense', pg.locator('#f-from').count()==0)
+    pg.fill('#f-name','Bus'); pg.wait_for_timeout(200)
+    # pick Transportation > Bus via the category chips
+    pg.fill('#f-name','San Pedro - Ayala One'); pg.wait_for_timeout(400)
+    ch=pg.locator('#catrow [data-e=cat]:has-text("Bus")')
+    if ch.count(): ch.first.click(); pg.wait_for_timeout(300)
+    ok('trip row appears for Bus', pg.locator('#f-from').count()==1)
+    pg.fill('#f-to',''); pg.dispatch_event('#f-to','input'); pg.fill('#f-from','One Ayala'); pg.dispatch_event('#f-from','input'); pg.wait_for_timeout(300)
+    chips=pg.locator('#tripchips .chip'); ok('destinations suggested after typing From', chips.count()>=1)
+    print(' chips:', [chips.nth(i).inner_text() for i in range(chips.count())])
+    chips.first.click(); pg.wait_for_timeout(300)
+    ok('chip fills From, To and the name', pg.input_value('#f-to')!='' and ' - ' in pg.input_value('#f-name'))
+    print(' name:', pg.input_value('#f-name'), '| from/to:', pg.input_value('#f-from'), pg.input_value('#f-to'))
+    print('ERRS',errs); ok('no script errors', not errs)
+    b.close()
+print(sum(res),'/',len(res))

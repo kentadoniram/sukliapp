@@ -12,6 +12,7 @@ import { predict } from './predict.js';
 import { modelFor, openEntry, openBulk, openCategoryForm } from './entry.js';
 import { syncNow, status as syncStatus } from './drive.js';
 import { REMOVED_UI } from './features.js';
+import { feedbackCfg } from './feedback.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
 import { lossCard } from './loans.js';
@@ -31,7 +32,7 @@ import { versionText } from './version.js';
 import { rollingSummary, rollingAvg, dailySpend, today as todayStr } from './rolling.js';
 import { buildGraph, clusters, neighbourhood, matches, explain, edgeText } from './simgraph.js';
 
-export const ui = { month: thisMonth(), q: '', filter: 'all', acct: '', limit: 120, selecting: false, sel: new Set(), by: 'group', collapsed: (() => { try { return JSON.parse(localStorage.getItem('sukli-coll') || '{}'); } catch { return {}; } })() };
+export const ui = { month: thisMonth(), q: '', filter: 'all', acct: '', from: '', to: '', cat: '', daysOff: new Set(), limit: 120, selecting: false, sel: new Set(), by: 'group', collapsed: (() => { try { return JSON.parse(localStorage.getItem('sukli-coll') || '{}'); } catch { return {}; } })() };
 
 // collapsible section: tap the heading to fold it away (remembered on this device)
 export function coll(id, title, body, extra = '') {
@@ -110,6 +111,7 @@ function effectLine(t, accts) {
   if (t.trade) return `Trade, not counted as spending${feeTxt}`;
   if (t.kind === 'transfer') return `Moved between accounts, not counted as spending${feeTxt}`;
   if (t.invIncome) return 'Investment income recorded';
+  if (t.autoDebt) return 'Interest on a debt, added automatically';
   if (t.auto && t.kind === 'income') return 'Interest posted automatically';
   return t.kind === 'income' ? 'Income recorded' : 'Expense recorded';
 }
@@ -126,6 +128,7 @@ export function row(t, accts, cats, sel, trail) {
   const title = t.name || (c ? c.name : 'Untitled');
   const sub = tr ? `${t.trade ? 'Trade · ' : 'Transfer · '}${esc(a ? a.name : '?')} → ${esc((accts.get(t.toAcct) || {}).name || '?')}`
     : `${esc(c ? c.name : 'No category')} · ${esc(a ? a.name : '')}${t.items && t.items.length ? ` · ${t.items.length} items` : ''}`;
+  const bb = tr ? accts.get(t.toAcct) : null, arr = tr && t.toAmount != null && bb && Math.abs(t.toAmount - t.amount) > 1e-9 && !t.trade ? `<small class="arrived">arrived ${money(t.toAmount, bb.cur)}</small>` : '';
   const signed = tr ? money(t.amount, t.cur) : money(t.kind === 'income' ? t.amount : -t.amount, t.cur);
   const base = !tr && eq(t.amount, t.cur, t.fx, t.date) ? `<small>${eq(t.amount, t.cur, t.fx, t.date)}</small>` : '';
   const on = sel && ui.sel.has(t.id);
@@ -133,7 +136,7 @@ export function row(t, accts, cats, sel, trail) {
     ${sel ? `<i class="selbox ${on ? 'on' : ''}">${on ? ic('check') : ''}</i>` : ''}
     <i class="badge" style="background:${tr ? 'var(--xfer)' : groupColor(group)}">${groupLetter(group)}</i>
     <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub}</small><small class="eff">${effectLine(t, accts)}</small>${balLines(t, accts, trail)}</span>
-    <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}</span></button>`;
+    <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}${arr}</span></button>`;
 }
 ACT.edit = (el) => { const t = get().txs.find((x) => x.id === el.dataset.id); if (t && t.auto && t.kind === 'income' && openInterestDetail(t)) return; openEntry({ id: el.dataset.id }); };
 ACT.add = async () => {
@@ -147,20 +150,22 @@ ACT.bulk = () => openBulk();
 const sum = (a) => a.reduce((x, y) => x + y, 0);
 const R = (n) => fmt(n, HOME, { round: true });
 
+const homeTitles = (h) => h.replace(/(<button class="collhead"[^>]*><h2>)([^<]*)(<\/h2>)/g, (m, a, t, c) => a + titleCase(t) + c).replace(/(<h3 class="subh">)([^<]*)/g, (m, a, t) => a + titleCase(t));
 export function home(db) {
   const st = monthStats(db, ui.month);
   const lay = homeLayout(db);
   const body = lay.order.filter((id) => !lay.hidden.includes(id)).map((id) => { const sec = HOME_SECTIONS.find((x) => x[0] === id); if (!sec) return ''; return sec[2] ? `<div class="defer" data-defer="${id}" aria-busy="true"></div>` : homeSection(id, { db }); }).join('');
   const firstEntry = !db.txs.some((t) => !t.deleted) ? `<section class="nextstep"><b>Next step: write down your first spending.</b><br>Tap the round <b>+</b> button below. Type what it was (for example “lunch”), how much, and pick the account you paid from. Sukli learns your usual choices as you go.</section>` : '';
   return `${monthNav()}
-    ${firstEntry}${strip(st)}${weekBars(db)}${body}`;
+    ${firstEntry}${strip(st)}${homeTitles(weekBars(db) + body)}`;
 }
 // what was spent on each of the last 7 days: plain HTML (not SVG) so the day, the bar and the amount never overlap and the text stays readable.
 // Horizontal or vertical is a device choice; the data and the numbers are the same in both.
-const weekMode = () => { try { return localStorage.getItem('sukli-week') === 'v' ? 'v' : 'h'; } catch { return 'h'; } };
+const weekMode = () => { try { return localStorage.getItem('sukli-week') === 'h' ? 'h' : 'v'; } catch { return 'v'; } };
 ACT['week-mode'] = (el) => {
   try { localStorage.setItem('sukli-week', el.dataset.v); } catch { /* blocked */ }
-  const sec = el.closest('.week'); if (sec) sec.outerHTML = weekBars(get()); else window.dispatchEvent(new Event('sukli-render'));
+  const sec = document.querySelector('.week'); if (sec) sec.outerHTML = weekBars(get());
+  if (el.closest('.seg')) { el.closest('.seg').querySelectorAll('button').forEach((b) => { const on = b.dataset.v === el.dataset.v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); }
 };
 function weekBars(db) {
   const { dates, vals } = dailySpend(db, todayStr(), 7), top = Math.max(...vals), total = vals.reduce((a, b) => a + b, 0), mode = weekMode();
@@ -168,12 +173,11 @@ function weekBars(db) {
   const full = (d, i) => (i === 6 ? 'Today' : i === 5 ? 'Yesterday' : new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }));
   // a long amount is shortened (12.3k) so neighbouring labels never touch
   const amt = (v) => (v < 10 ? money(v) : compact(v));
-  const seg = `<div class="seg two small wkseg" role="group" aria-label="Chart direction">${[['h', 'Horizontal'], ['v', 'Vertical']].map(([v, l]) => `<button type="button" data-act="week-mode" data-v="${v}" class="${mode === v ? 'on' : ''}" aria-pressed="${mode === v}">${l}</button>`).join('')}</div>`;
   let body;
   if (!total) body = '<p class="empty">Nothing spent in the last 7 days.</p>';
   else if (mode === 'v') body = `<div class="wkv" role="img" aria-label="Spending for each of the last 7 days">${dates.map((d, i) => `<div class="wc ${i === 6 ? 'now' : ''}" data-tip="${esc(full(d, i) + ': ' + (vals[i] ? money(vals[i]) : 'nothing spent'))}"><span class="wa ${vals[i] ? '' : 'muted'}">${vals[i] ? esc(amt(vals[i])) : ''}</span><span class="wb"><i style="height:${vals[i] > 0 ? Math.max(3, Math.round(vals[i] / top * 100)) : 0}%"></i></span><span class="wl">${esc(day(d, i))}</span></div>`).join('')}</div>`;
   else body = dates.map((d, i) => `<div class="wk ${i === 6 ? 'now' : ''}"><span class="wd">${esc(full(d, i))}</span><span class="wtrack"><i style="width:${vals[i] > 0 ? Math.max(2, Math.round(vals[i] / top * 100)) : 0}%"></i></span><b class="wv ${vals[i] ? '' : 'muted'}">${vals[i] ? esc(money(vals[i])) : '–'}</b></div>`).join('');
-  return `<section class="week" aria-label="Spending in the last 7 days"><div class="weekhead"><h3 class="subh">Spent each day, last 7 days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3>${total ? seg : ''}</div>${body}</section>`;
+  return `<section class="week" aria-label="Spending in the last 7 days"><div class="weekhead"><h3 class="subh">Spent each day, last 7 days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3></div>${body}</section>`;
 }
 // the cards on Home, in the order you chose in Settings. [id, name, heavy: drawn a moment later so the numbers above appear at once]
 export const HOME_SECTIONS = [
@@ -189,7 +193,7 @@ export function homeLayout(db) {
 export function fillDeferred(db, done) {
   const ctxOf = () => { const st = monthStats(db, ui.month); return { db, st, accts: accountMap(db), cats: catMap(db) }; };
   const els = [...document.querySelectorAll('[data-defer]')];
-  els.forEach((el, i) => setTimeout(() => { try { if (!el.isConnected) return; el.outerHTML = homeSection(el.dataset.defer, ctxOf()); } catch (e) { el.remove(); } }, 16 * (i + 1)));
+  els.forEach((el, i) => setTimeout(() => { try { if (!el.isConnected) return; el.outerHTML = homeTitles(homeSection(el.dataset.defer, ctxOf())); } catch (e) { el.remove(); } }, 16 * (i + 1)));
   if (done) setTimeout(done, 16 * (els.length + 1) + 30);
 }
 function homeSection(id, c) {
@@ -304,6 +308,7 @@ function paceCard(db) {
       ${proj}
       <path d="${line(p.cur, p.day)}" stroke="var(--line)" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
       <circle cx="${X(last).toFixed(1)}" cy="${Y(p.cur[last]).toFixed(1)}" r="3.5" fill="var(--line)"/></svg>
+    <p class="hint pacecap"><b>Pace</b> is how fast you are spending. The line shows what you have spent so far this month, day by day, next to last month. If your line is above last month’s, you are spending faster than last month.</p>
     <p class="legend"><i class="k lineb"></i>${esc(monthLabel(ui.month).split(' ')[0])} <i class="k bar"></i>${esc(monthLabel(p.prevYm).split(' ')[0])}${p.live ? ' <i class="k dash"></i>at this pace' : ''}</p>
     <div class="facts">
       <div><span>Daily average, last 7 days</span><b>${R(rollEnd(p).now)}</b></div>
@@ -398,11 +403,14 @@ function ledgerRows(db) {
   const accts = accountMap(db), cats = catMap(db);
   const q = ui.q.trim().toLowerCase();
   let list = sortedTxs(db);
-  if (!q) list = list.filter((t) => t.date.startsWith(ui.month));
+  const ranged = !!(ui.from || ui.to);
+  if (ranged) list = list.filter((t) => (!ui.from || t.date.slice(0, 10) >= ui.from) && (!ui.to || t.date.slice(0, 10) <= ui.to));
+  else if (!q) list = list.filter((t) => t.date.startsWith(ui.month));
   const feeSource = ui.filter === 'expense' ? list.filter((t) => t.kind === 'transfer' && t.fee > 0) : [];   // fees saved on transfers, trades and loans are expenses too
   if (ui.filter === 'review') list = list.filter((t) => t.flag === 'review');
   else if (ui.filter !== 'all') list = list.filter((t) => t.kind === ui.filter);
   if (ui.acct) list = list.filter((t) => t.acct === ui.acct || t.toAcct === ui.acct);
+  if (ui.cat) { const isG = ui.cat.startsWith('g:'), key = ui.cat.slice(2); list = list.filter((t) => { const c = cats.get(t.cat); return c && (isG ? c.group === key : c.id === key); }); }
   if (feeSource.length) {
     const fa = (t) => (t.feeBy === 'to' ? t.toAcct : t.acct);
     const fees = feeSource.filter((t) => !ui.acct || fa(t) === ui.acct).map((t) => ({ ...t, _feeOf: t.name || 'transfer', kind: 'expense', amount: t.fee, cur: t.feeCur || t.cur, fx: t.feeFx, name: `Fee · ${t.name || (t.trade ? 'trade' : 'transfer')}`, cat: t.feeCat, acct: fa(t), toAcct: undefined, fee: 0, items: [], trade: false, loanNet: undefined, flag: undefined }));
@@ -417,29 +425,70 @@ function ledgerRows(db) {
   const hiddenFees = hideKids ? list.filter((t) => kidMap.has(t.id) && list.some((p) => p.id === kidMap.get(t.id).id)) : [];
   if (hiddenFees.length) { const hs = new Set(hiddenFees.map((t) => t.id)); list = list.filter((t) => !hs.has(t.id)); }
   const total = list.length, trail = balanceTrail(db);
+  const base = dayBaseline(db);
+  const sumHtml = filterSummary(db, list, hiddenFees, kidMap);
   list = list.slice(0, ui.limit);
-  let html = '', day = '', dayTotal = 0, buf = ''; const shown = []; ui.shown = shown;
-  const flush = () => { if (buf) html += `<div class="day"><div class="dayhead"><span>${dayLabel(day)}</span><span>${dayTotal ? money(-dayTotal) : ''}</span></div><div class="rows">${buf}</div></div>`; buf = ''; dayTotal = 0; };
+  let html = '', day = '', dayTotal = 0, buf = '', byCur = new Map(), n = 0; const shown = []; ui.shown = shown;
+  const flush = () => { if (buf) { const off = ui.daysOff.has(day), col = dayColor(dayTotal, base), cur = [...byCur.entries()].filter(([c]) => c !== HOME).map(([c, v]) => money(-v, c)).join(' · ');
+    html += `<div class="day ${off ? 'off' : ''}"><button type="button" class="dayhead" data-act="day-toggle" data-d="${day}" aria-expanded="${!off}"><span class="dcaret">${off ? '▸' : '▾'}</span><span class="dlabel">${dayLabel(day)}${off ? ` <small class="muted">${n} ${n === 1 ? 'entry' : 'entries'}</small>` : ''}</span><span class="dtot" ${col ? `style="color:${col}"` : ''}>${dayTotal ? money(-dayTotal) : ''}${cur ? `<small class="dcur">${cur}</small>` : ''}</span></button><div class="rows" ${off ? 'hidden' : ''}>${buf}</div></div>`; } buf = ''; dayTotal = 0; byCur = new Map(); n = 0; };
   for (const t of list) {
     const d = t.date.slice(0, 10);
     if (d !== day) { flush(); day = d; }
-    buf += row(t, accts, cats, ui.selecting, trail); shown.push(t.id);
-    if (t.kind === 'expense') dayTotal += t.amount * factorFor(db, t);
-    for (const k of hiddenFees) if (kidMap.get(k.id).id === t.id) dayTotal += k.amount * factorFor(db, k);
+    buf += row(t, accts, cats, ui.selecting, trail); shown.push(t.id); n++;
+    if (t.kind === 'expense') { dayTotal += t.amount * factorFor(db, t); byCur.set(t.cur, (byCur.get(t.cur) || 0) + t.amount); }
+    for (const k of hiddenFees) if (kidMap.get(k.id).id === t.id) { dayTotal += k.amount * factorFor(db, k); byCur.set(k.cur, (byCur.get(k.cur) || 0) + k.amount); }
   }
   flush();
   if (!html) html = `<p class="empty">${q ? 'No entries match your search.' : ui.filter === 'review' ? 'Nothing to check. Every entry this month is confirmed.' : 'No entries here.'}</p>`;
   if (total > list.length) html += `<button class="btn ghost wide" data-act="more">Show more (${total - list.length} left)</button>`;
-  return html;
+  return sumHtml + html;
+}
+// what a normal day costs: the median of your last 60 days that had spending (home currency)
+function dayBaseline(db) {
+  try { const v = dailySpend(db, todayStr(), 60).vals.filter((x) => x > 0).sort((a, b) => a - b); return v.length >= 5 ? v[v.length >> 1] : 0; } catch { return 0; }
+}
+// green when the day was cheaper than a normal day, through amber, to dark red when it was much dearer
+function dayColor(v, base) {
+  if (!v || !base) return '';
+  const r = Math.min(2.2, Math.max(0.3, v / base)), x = r <= 1 ? (r - 0.3) / 0.7 * 0.5 : 0.5 + (r - 1) / 1.2 * 0.5;
+  const hue = 135 - x * 135, light = 36 - Math.max(0, x - 0.5) * 12;
+  return `hsl(${hue.toFixed(0)} 70% ${light.toFixed(0)}%)`;
+}
+// when a filter, a category or a date range is on, show what the selection adds up to
+function filterSummary(db, list, hiddenFees, kidMap) {
+  const on = ui.filter !== 'all' || ui.cat || ui.from || ui.to || ui.acct || ui.q.trim();
+  if (!on) return '';
+  const acc = { expense: new Map(), income: new Map(), transfer: new Map() }, hm = { expense: 0, income: 0, transfer: 0 }, cnt = { expense: 0, income: 0, transfer: 0 };
+  const add = (t) => { const k = acc[t.kind] ? t.kind : null; if (!k) return; cnt[k]++; acc[k].set(t.cur, (acc[k].get(t.cur) || 0) + t.amount); hm[k] += t.amount * factorFor(db, t); };
+  const seen = new Set(list.map((t) => t.id));
+  for (const t of list) add(t);
+  for (const k of hiddenFees || []) if (!seen.has(k.id)) add(k);
+  const cats = catMap(db);
+  const catName = ui.cat ? (ui.cat.startsWith('g:') ? ui.cat.slice(2) : ((cats.get(ui.cat) || {}).name || '')) : '';
+  const range = ui.from || ui.to ? `${ui.from || 'start'} to ${ui.to || 'today'}` : '';
+  const title = [catName, range, ui.filter !== 'all' ? (ui.filter === 'review' ? 'Check' : ui.filter[0].toUpperCase() + ui.filter.slice(1)) : ''].filter(Boolean).join(' · ') || 'This selection';
+  const line = (label, k) => { if (!cnt[k]) return ''; const cur = [...acc[k].entries()].map(([c, v]) => money(v, c)).join(' · '); return `<div class="sumrow"><span>${label} <small class="muted">(${cnt[k]})</small></span><b>${money(hm[k])}</b>${acc[k].size > 1 || ![...acc[k].keys()].every((c) => c === HOME) ? `<small class="muted">${cur}</small>` : ''}</div>`; };
+  const inner = line('Spent', 'expense') + line('Income', 'income') + line('Moved between accounts', 'transfer');
+  return `<div class="fsum" id="lsum"><b class="fsumtitle">${esc(title)}</b>${inner || '<span class="muted">Nothing matches.</span>'}</div>`;
 }
 ACT.more = () => { ui.limit += 150; const el = document.getElementById('ledger-list'); if (el) el.innerHTML = ledgerRows(get()); };
 
+function catOptions(db) {
+  const live = db.categories.filter((c) => !c.deleted), groups = [...new Set(live.map((c) => c.group))].sort();
+  return `<option value="">All categories</option>` + groups.map((g) => `<optgroup label="${esc(g)}"><option value="g:${esc(g)}" ${ui.cat === 'g:' + g ? 'selected' : ''}>All of ${esc(g)}</option>${live.filter((c) => c.group === g).sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<option value="${c.id}" ${ui.cat === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`).join('');
+}
+const ledgerRefresh = () => { const l = document.getElementById('ledger-list'); if (l) l.innerHTML = ledgerRows(get()); };
+ACT['day-toggle'] = (el) => { const d = el.dataset.d; if (ui.daysOff.has(d)) ui.daysOff.delete(d); else ui.daysOff.add(d); const box = el.closest('.day'); if (box) { const off = ui.daysOff.has(d); box.classList.toggle('off', off); el.setAttribute('aria-expanded', String(!off)); const r = box.querySelector('.rows'); if (r) r.hidden = off; el.querySelector('.dcaret').textContent = off ? '▸' : '▾'; } };
+ACT['f-clear'] = () => { ui.from = ui.to = ui.cat = ''; ui.filter = 'all'; ui.acct = ''; ui.q = ''; window.dispatchEvent(new Event('sukli-render')); };
 export function ledger(db) {
   const f = [['all', 'All'], ['review', 'Check'], ['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']];
   return `${monthNav()}
     <div class="searchbar">${ic('search')}<input id="q" type="search" placeholder="Search entries, items, notes" value="${esc(ui.q)}" aria-label="Search entries"></div>
     <div class="filters" role="group" aria-label="Filter">${f.map(([v, l]) => `<button class="chip ${ui.filter === v ? 'on' : ''}" data-act="filter" data-v="${v}" ${v === 'review' ? 'title="Entries with a guessed category or label that you have not confirmed yet"' : ''}>${l}</button>`).join('')}
       <select id="acctfilter" aria-label="Account filter"><option value="">All accounts</option>${db.accounts.filter((a) => !a.deleted).sort((a, b) => a.name.localeCompare(b.name)).map((a) => `<option value="${a.id}" ${ui.acct === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></div>
+    <div class="frow"><label class="fdate"><span>From</span><input type="date" id="lf-from" value="${esc(ui.from)}" aria-label="From date"></label><label class="fdate"><span>To</span><input type="date" id="lf-to" value="${esc(ui.to)}" aria-label="To date"></label>
+      <label class="fcat"><span>Category</span><select id="lf-cat" aria-label="Category filter">${catOptions(db)}</select></label>
+      <button type="button" class="btn sm ghost" data-act="f-clear">Clear</button></div>
     <p class="hint filterhint" id="filterhint">${filterHint()}</p>
     <div id="selbar-wrap">${selBar()}</div>
     <div id="ledger-list">${ledgerRows(db)}</div>`;
@@ -478,6 +527,7 @@ export function bindLedger() {
   if (q) q.oninput = () => { ui.q = q.value; ui.limit = 120; document.getElementById('ledger-list').innerHTML = ledgerRows(get()); };
   const a = document.getElementById('acctfilter');
   if (a) a.onchange = () => { ui.acct = a.value; document.getElementById('ledger-list').innerHTML = ledgerRows(get()); };
+  for (const [id, k] of [['lf-from', 'from'], ['lf-to', 'to'], ['lf-cat', 'cat']]) { const e = document.getElementById(id); if (e) e.onchange = () => { ui[k] = e.value; ui.limit = 120; ledgerRefresh(); }; }
 }
 
 // ---------------- Review ----------------
@@ -636,6 +686,9 @@ export function settings(db) {
       <p class="hint">These are kept on this device only.</p>
       <div class="field"><span>Theme</span>${segBtns('look', 'theme', [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']], lk.theme)}</div>
       <div class="field"><span>Colour</span><div class="swatches" role="group" aria-label="Accent colour">${Object.entries(ACCENTS).map(([k, v]) => `<button type="button" class="swatch ${lk.accent === k ? 'on' : ''}" data-act="look" data-k="accent" data-v="${k}" style="background:${v.l[0]}" aria-label="${v.n}" aria-pressed="${lk.accent === k}"></button>`).join('')}</div></div>
+      <div class="field"><span>“Spent each day” chart on Home</span><div class="seg two small" role="group" aria-label="Chart direction">${[['v', 'Vertical bars'], ['h', 'Horizontal bars']].map(([v, l]) => `<button type="button" data-act="week-mode" data-v="${v}" class="${weekMode() === v ? 'on' : ''}" aria-pressed="${weekMode() === v}">${l}</button>`).join('')}</div></div>
+      <div class="field"><span>Tap feedback</span>${(() => { const c = feedbackCfg(); return `<label class="check"><input type="checkbox" data-fb="haptic" ${c.haptic ? 'checked' : ''}> Vibrate a little when I tap</label><label class="check"><input type="checkbox" data-fb="visual" ${c.visual ? 'checked' : ''}> Flash the button I tapped</label><label class="check"><input type="checkbox" data-fb="sound" ${c.sound ? 'checked' : ''}> Soft click sound</label>`; })()}
+        <small class="hint">Some iPhones and browsers cannot vibrate, so the flash (and the click, if you turn it on) tells you the tap worked.</small></div>
       <div class="field"><span>Text size</span>${segBtns('look', 'size', SIZES.map((x) => [x[0], x[1]]), lk.size)}
         <small class="hint">Smaller text leaves more room above the on-screen keyboard.</small></div>
       <div class="field"><span>When amounts are hidden (the eye button)</span>${segBtns('hidestyle', 'style', [['dot', 'Dots  ₱•••••'], ['blur', 'Blur']], priv.style)}</div>

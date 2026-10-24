@@ -211,10 +211,19 @@ export function openEntry(opts = {}) {
     renderFee();
     renderSafety();
   }
+  const diffNote = (f, a) => { const d = num(f.amount) - num(f.toAmount); return d > 0 ? `${fmt(d, a.cur, { force: false })} less arrived than was sent (a fee or a loss on the way).` : d < 0 ? `${fmt(-d, a.cur, { force: false })} more arrived than was sent.` : ''; };
   // converting between currencies is optional: off means the same number arrives
   function renderConv() {
     const el = $f('convrow');
     const a = acctOf(f.acct), b = acctOf(f.toAcct);
+    if (f.kind === 'transfer' && a && b && a.cur === b.cur) {
+      // the received amount differs from the sent amount in the same currency (a fee or loss in the transfer): keep it visible and keep it on save
+      if (f.diffInit === undefined) f.diffInit = num(f.toAmount) > 0 && Math.abs(num(f.toAmount) - num(f.amount)) > 1e-9;
+      f.sameDiff = f.diffInit;
+      el.innerHTML = f.sameDiff ? `<div class="convbox"><label class="fxpeso"><span>Received in ${esc(b.name)} (${b.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label><small class="hint" id="diffnote">${diffNote(f, a)}</small><button type="button" class="linkbtn" data-e="samediff">Make the received amount the same</button></div>` : '';
+      f.convert = false; return;
+    }
+    f.sameDiff = false;
     if (f.kind !== 'transfer' || !a || !b || a.cur === b.cur) { el.innerHTML = ''; f.convert = false; return; }
     if (a.type === 'crypto' && b.type === 'crypto' && !f.convTouched) f.convert = true;   // two coins are never exactly 1:1
     el.innerHTML = `<label class="check"><input type="checkbox" id="f-conv" ${f.convert ? 'checked' : ''}> ${a.type === 'crypto' && b.type === 'crypto' ? `Trade ${a.cur} for ${b.cur} (not 1:1)` : `Convert ${a.cur} to ${b.cur} (use an exchange rate)`}</label>
@@ -529,7 +538,7 @@ export function openEntry(opts = {}) {
     else if (id === 'f-fx') { f.fx = e.target.value; f.fxMode = 'rate'; updateFxVal(); }
     else if (id === 'f-peso') { f.peso = e.target.value; f.fxMode = 'peso'; updateFxVal(); }
     else if (id === 'f-crate') { f.cRate = e.target.value; syncCross('rate'); }
-    else if (id === 'f-toamt') { f.toAmount = e.target.value; syncCross('to'); }
+    else if (id === 'f-toamt') { f.toAmount = e.target.value; syncCross('to'); const dn = $f('diffnote'); if (dn && f.sameDiff) dn.textContent = diffNote(f, acctOf(f.acct)); }
     else if (id === 'f-notes') f.notes = e.target.value;
     else if (e.target.closest('.item')) {
       const row = e.target.closest('.item'), i = +row.dataset.i, it = f.items[i];
@@ -603,6 +612,7 @@ export function openEntry(opts = {}) {
       case 'calc': f.calc = !f.calc; renderKeypad(); break;
       case 'k': keyPress(v); break;
       case 'when': openDatePicker(f.date, (val) => { f.date = val; renderWhen(); refreshPred(); renderSafety(); }, { title: 'When was it?' }); break;
+      case 'samediff': f.toAmount = f.amount; f.diffInit = false; renderConv(); break;
       case 'livecross': { const r = crossRate(); if (r) { f.cRate = prec(r); const cr = $f('f-crate'); if (cr) cr.value = f.cRate; syncCross('rate'); } else toast('No live rate for this pair yet. Type one.'); break; }
       case 'feeby': f.feeBy = v; f.feeTouched = true; f.feeSuggested = false; renderFee(); break;
       case 'cat': pickCat(v); renderCats(); renderTrip(); renderSafety(); break;
@@ -679,7 +689,7 @@ export function openEntry(opts = {}) {
     if (f.kind === 'transfer') {
       const b = acctOf(f.toAcct);
       if (!b || b.id === a.id) return fail('Choose two different accounts.');
-      toAmount = a.cur === b.cur || !f.convert ? amount : +num(f.toAmount).toFixed(6);
+      toAmount = a.cur === b.cur ? (f.sameDiff && num(f.toAmount) > 0 ? +num(f.toAmount).toFixed(6) : amount) : !f.convert ? amount : +num(f.toAmount).toFixed(6);
       if (!(toAmount > 0)) return fail(`Enter how much arrived in ${b.name} (${b.cur}).`);
     }
     let fee = 0, feeCat = '', feeFx = null, feeCur = '';

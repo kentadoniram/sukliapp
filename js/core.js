@@ -182,6 +182,7 @@ async function writeRaw(obj) {
 export async function load() {
   const raw = await readRaw();
   state = raw && raw.v ? raw : emptyDb();
+  try { fixRouteNames(state); } catch { /* old data without accounts */ }
   state.settings = { ...emptyDb().settings, ...state.settings };
   applyCurDec(state.settings);
   syncHome();
@@ -190,8 +191,23 @@ export async function load() {
 export const get = () => state;
 export function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
 
+// a transfer labelled "A to B" or "A → B" keeps following the account names: rename "SMBC" and its entries say the new name
+export function fixRouteNames(d) {
+  if (!d || !d.accounts || !d.txs) return;
+  const nm = new Map(d.accounts.filter((a) => !a.deleted).map((a) => [a.id, a.name.trim()])), live = new Set([...nm.values()].map((x) => x.toLowerCase()));
+  for (const t of d.txs) {
+    if (t.deleted || t.kind !== 'transfer' || t.trade || !t.name) continue;
+    const m = /^(.+?)\s*(→|->|\sto\s)\s*(.+)$/i.exec(t.name.trim()); if (!m) continue;
+    const fn = nm.get(t.acct), tn = nm.get(t.toAcct); if (!fn || !tn) continue;
+    const l = m[1].trim().toLowerCase(), r = m[3].trim().toLowerCase(), lOk = l === fn.toLowerCase(), rOk = r === tn.toLowerCase();
+    if (lOk && rOk) continue;
+    const lStale = !live.has(l), rStale = !live.has(r);
+    if (t.autoRoute ? (lStale || rStale || !lOk || !rOk) : ((lOk && rStale) || (rOk && lStale))) {
+      const sep = m[2].trim() === 'to' ? ' to ' : ` ${m[2].trim()} `; t.name = `${fn}${sep}${tn}`; t.autoRoute = true; stamp(t); }
+  }
+}
 export function commit(mutator) {
-  mutator(state);
+  mutator(state); fixRouteNames(state);
   syncHome();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => writeRaw(state), 150);
@@ -199,7 +215,7 @@ export function commit(mutator) {
 }
 // saves without redrawing: for text boxes, where a redraw would steal focus from the next box
 export function commitQuiet(mutator) {
-  mutator(state);
+  mutator(state); fixRouteNames(state);
   syncHome();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => writeRaw(state), 150);

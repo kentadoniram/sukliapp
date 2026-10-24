@@ -194,7 +194,7 @@ export function importBluecoins(db, text, opts = {}) {
       db.txs.push(stamp({
         id: uid(), kind: 'transfer', date: col(o.r, 'Date'), name: col(o.r, 'Name'),
         amount: Math.abs(o.amt), cur: o.cu, fx: fxOf(o.r, o.cu), acct: o.a.id,
-        toAcct: i.a.id, toAmount: i.amt, toFx: fxOf(i.r, i.cu), notes: col(o.r, 'Notes'), labels: col(o.r, 'Labels'), src,
+        autoRoute: /^(.+?)\s*(→|->|\sto\s)\s*(.+)$/i.test(col(o.r, 'Name')) && col(o.r, 'Name').toLowerCase().includes(o.a.name.toLowerCase()) && col(o.r, 'Name').toLowerCase().includes(i.a.name.toLowerCase()) || undefined, toAcct: i.a.id, toAmount: i.amt, toFx: fxOf(i.r, i.cu), notes: col(o.r, 'Notes'), labels: col(o.r, 'Labels'), src,
       }));
       stats.added++;
     }

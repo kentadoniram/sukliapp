@@ -227,13 +227,13 @@ window.__hd = () => [hdepth, stack.length, ignorePop];
   const btn = document.createElement('button');
   btn.type = 'button'; btn.className = 'clearx'; btn.setAttribute('aria-label', 'Clear'); btn.hidden = true; btn.textContent = '×';
   let cur = null;
-  const ok = (el) => el && el.tagName === 'INPUT' && /^(text|search|email|tel|url|number)$/.test(el.type) && !el.readOnly && !el.dataset.noclear && !el.closest('.amtwrap, .keypad');
+  const ok = (el) => el && el.tagName === 'INPUT' && /^(text|search|email|tel|url|number)$/.test(el.type) && !el.readOnly && !el.dataset.noclear && !el.closest('.keypad');
   const place = () => {
     if (!cur || !document.body.contains(cur) || !cur.value) { btn.hidden = true; return; }
     const r = cur.getBoundingClientRect();
-    btn.style.left = (r.right - 30) + 'px'; btn.style.top = (r.top + r.height / 2 - 13) + 'px'; btn.hidden = false;
+    btn.style.left = (r.right - 30 - (cur.closest('.amtwrap') ? 44 : 0)) + 'px'; btn.style.top = (r.top + r.height / 2 - 13) + 'px'; btn.hidden = false;
   };
-  document.addEventListener('focusin', (e) => { if (ok(e.target)) { cur = e.target; if (!btn.parentNode) document.body.appendChild(btn); place(); setTimeout(place, 420); } else { cur = null; btn.hidden = true; } });
+  document.addEventListener('focusin', (e) => { if (ok(e.target)) { cur = e.target; if (/^(decimal|numeric)$/.test(cur.getAttribute('inputmode') || '') && cur.value) { const x = cur; setTimeout(() => { try { x.select(); x.setSelectionRange(0, 99999); } catch { /* not selectable */ } }, 30); } if (!btn.parentNode) document.body.appendChild(btn); place(); setTimeout(place, 420); } else { cur = null; btn.hidden = true; } });
   document.addEventListener('input', (e) => { if (e.target === cur) place(); });
   document.addEventListener('focusout', () => setTimeout(() => { if (document.activeElement !== btn && !ok(document.activeElement)) { cur = null; btn.hidden = true; } }, 150));
   window.addEventListener('scroll', place, true); window.addEventListener('resize', place);

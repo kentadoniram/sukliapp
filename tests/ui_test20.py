@@ -31,7 +31,7 @@ with sync_playwright() as p:
     ok('label kept after tapping suggested category', pg.input_value('#f-name')=='bus')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.goto(U+'#/home'); pg.wait_for_timeout(1200)
-    ok('projected card', 'Spending vs expected income' in pg.inner_text('#view') and pg.locator('svg[aria-label*="expected income"]').count()==1)
+    ok('projected card', 'spending vs expected income' in pg.inner_text('#view').lower() and pg.locator('svg[aria-label*="expected income"]').count()==1)
     box=pg.locator('.wentpie svg').first.bounding_box(); print(box); ok('pie big enough', box['width']>=170)
     pg.screenshot(path='/tmp/proj.png', full_page=False)
     ok('no errors', not errs); print(errs[:5])

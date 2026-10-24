@@ -762,7 +762,7 @@ html.kb .sheet.pickfix{height:calc(var(--vvh,100dvh) - 6px)}
 /* v12ab: compact Home cards and Settings, one-line rates, one-row account type */
 section { margin: 14px 0; }
 section h2 { margin: 0 0 6px; }
-.sgroup section { margin: 8px 0; padding: 0; }
+.sgroup section { margin: 0; padding: 8px 14px 10px; }
 .sgroup .field { margin: 8px 0; gap: 4px; }
 .sgroup .field.inline { gap: 8px; margin: 4px 0; }
 .sgroup .hint { margin: 4px 0; }
@@ -780,3 +780,48 @@ section h2 { margin: 0 0 6px; }
 .ratebox .rtag { margin-left: auto; padding-left: 4px; }
 .arow { padding: 4px 0; }
 .home > section, .card { margin-top: 10px; margin-bottom: 10px; }
+
+.frow { display: flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; margin: 6px 0; }
+.frow label { display: grid; gap: 2px; font-size: calc(12px * var(--fs, 1)); color: var(--ink2); }
+.frow .fdate { flex: 1 1 120px; } .frow .fcat { flex: 2 1 160px; }
+.frow input, .frow select { width: 100%; min-width: 0; }
+.fsum { background: var(--tint); border: 1px solid var(--rule); border-radius: 12px; padding: 8px 12px; margin: 8px 0; display: grid; gap: 3px; }
+.fsum .sumrow { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: space-between; align-items: baseline; }
+.fsum .sumrow small { flex-basis: 100%; text-align: right; }
+button.dayhead { width: 100%; background: none; border: 0; border-bottom: 1px solid var(--rule); cursor: pointer; font: inherit; font-weight: 600; color: var(--ink2); text-align: left; align-items: baseline; gap: 6px; padding: 4px 0; }
+.dayhead .dlabel { flex: 1; } .dayhead .dtot { text-align: right; font-weight: 700; } .dayhead .dcur { display: block; font-weight: 500; color: var(--ink2); }
+.day.off .dayhead { border-bottom-color: transparent; }
+.ramt .arrived { color: var(--ink2); font-size: calc(12px * var(--fs, 1)); display: block; }
+
+/* v12ab: the typing caret sits level with the text (explicit line height, no stray vertical padding) */
+input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=color]) { height: 46px; line-height: 1.25; padding-top: 0; padding-bottom: 0; caret-color: var(--line); }
+textarea { line-height: 1.35; }
+.amtwrap input, #f-name { line-height: 1.25; }
+.bkrow { display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; }
+.bkrow .field { margin: 4px 0; flex: 1 1 0; min-width: 0; }
+.bkrow .field.inline { white-space: nowrap; }
+.bkrow select, .bkrow input { max-width: none; min-width: 0; flex: 1 1 auto; }
+.dpago { align-items: center; flex-wrap: wrap; } .dpago input { width: 64px; min-height: 36px; height: 36px; padding: 0 8px; }
+
+/* v12ab: bigger, borderless calculator keys; tap flash */
+.keypad { gap: 8px; margin-top: 10px; }
+.keypad button { min-height: 60px; border: 0; border-radius: 14px; background: var(--tint); font-size: calc(24px * var(--fs, 1)); font-weight: 600; color: var(--ink); }
+.keypad button.op { background: color-mix(in srgb, var(--line) 16%, var(--sheet)); color: var(--line); }
+.keypad button.eq { background: var(--line); color: var(--line-ink); }
+.keypad button:active { transform: scale(.95); filter: brightness(.94); }
+@keyframes fbflash { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--line) 55%, transparent); filter: brightness(.9); } 100% { box-shadow: 0 0 0 9px transparent; filter: none; } }
+.fbflash { animation: fbflash .22s ease-out; }
+@media (prefers-reduced-motion: reduce) { .fbflash { animation: none; filter: brightness(.9); } }
+
+/* v12ab: interest help */
+.tipbtn { width: 22px; height: 22px; min-height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--line); font-size: 13px; font-weight: 700; line-height: 20px; margin-left: 4px; vertical-align: middle; cursor: pointer; }
+.tipbtn[aria-expanded=true] { background: var(--line); color: var(--line-ink); }
+.tipbox { display: block; margin: 6px 0 2px; padding: 8px 10px; border-radius: 10px; background: var(--tint); border: 1px solid var(--rule); font-size: calc(13px * var(--fs, 1)); color: var(--ink); font-weight: 400; }
+.tiprow { display: flex; gap: 4px; align-items: center; }
+.icalc { border: 1px dashed var(--rule); border-radius: 12px; padding: 6px 10px; margin: 10px 0; }
+.icalc > summary { cursor: pointer; font-weight: 600; color: var(--line); }
+.icnote { color: var(--ink2); min-height: 1.2em; }
+.rowline { display: flex; gap: 6px; align-items: center; margin: 4px 0; flex-wrap: wrap; }
+.rowline .two { flex: 1 1 200px; }
+.promoline { border: 1px solid var(--rule); border-radius: 10px; padding: 6px 8px; align-items: stretch; flex-direction: column; }
+.debtbox { margin-top: 8px; }

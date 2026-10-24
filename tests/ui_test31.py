@@ -13,7 +13,7 @@ with sync_playwright() as p:
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
     pg.evaluate("""(async()=>{const m=await import('/js/core.js');m.commit(d=>{const a=d.accounts.find(x=>!x.deleted&&x.cur===m.HOME),c=d.categories.find(x=>!x.deleted&&x.kind==='expense');d.txs.push(m.stamp({id:'wk1',kind:'expense',acct:a.id,cat:c.id,amount:123,cur:m.HOME,date:m.nowStamp(),name:'week test'}))})})()""")
     pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(900)
-    ok('home shows last 7 days bars', pg.locator('.week .wk').count()==7)
+    ok('home shows last 7 days bars', (pg.locator('.week .wk').count()==7 or pg.locator('.week .wc').count()==7))
     ok('week rows do not overlap', pg.evaluate("""()=>[...document.querySelectorAll('.week .wk')].every(r=>{const d=r.querySelector('.wd').getBoundingClientRect(),t=r.querySelector('.wtrack').getBoundingClientRect(),v=r.querySelector('.wv').getBoundingClientRect();return d.right<=t.left+1&&t.right<=v.left+1})"""))
     # burger categories fold
     pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer')

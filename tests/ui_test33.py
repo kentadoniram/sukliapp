@@ -12,17 +12,19 @@ with sync_playwright() as p:
         pg.evaluate("""(async()=>{const m=await import('/js/core.js');m.commit(d=>{const a=d.accounts.find(x=>!x.deleted&&x.cur===m.HOME),c=d.categories.find(x=>!x.deleted&&x.kind==='expense');const day=n=>{const t=new Date(Date.now()-n*864e5);return t.toISOString().slice(0,10)+' 12:00:00'};[[0,1234567],[1,45],[2,12500],[3,0.5],[5,980]].forEach(([n,v],i)=>d.txs.push(m.stamp({id:'wk'+i,kind:'expense',acct:a.id,cat:c.id,amount:v,cur:m.HOME,date:day(n),name:'wk'+i})))})})()""")
         pg.evaluate("localStorage.removeItem('sukli-week')")
         pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(900)
-        ok(f'[{vw}] horizontal by default with 7 rows', pg.locator('.week .wk').count()==7)
-        pg.click('.week [data-act=week-mode][data-v=v]'); pg.wait_for_timeout(300)
+        ok(f'[{vw}] vertical by default with 7 columns', pg.locator('.week .wc').count()==7)
+        def mode(m):
+            pg.evaluate(f"localStorage.setItem('sukli-week','{m}');window.dispatchEvent(new Event('sukli-render'))"); pg.wait_for_timeout(400)
+        mode('v')
         ok(f'[{vw}] vertical shows 7 columns', pg.locator('.week .wc').count()==7 and pg.locator('.week .wk').count()==0)
         ok(f'[{vw}] vertical amounts sit above bars and do not overlap', pg.evaluate("""()=>{const r=[...document.querySelectorAll('.week .wa')].filter(e=>e.textContent.trim()).map(e=>{const s=document.createRange();s.selectNodeContents(e);return s.getBoundingClientRect()});for(let i=0;i<r.length;i++)for(let j=i+1;j<r.length;j++){if(r[i].left<r[j].right-0.5&&r[j].left<r[i].right-0.5)return false}const w=document.querySelector('.week').getBoundingClientRect();return r.every(x=>x.left>=w.left&&x.right<=w.right)}"""))
         ok(f'[{vw}] amounts keep their values', pg.evaluate("document.querySelectorAll('.week .wc').length")==7 and pg.evaluate("[...document.querySelectorAll('.week .wc')].filter(c=>c.querySelector('.wa').textContent.trim()).length")==5)
         ok(f'[{vw}] no horizontal page scroll', pg.evaluate("document.documentElement.scrollWidth<=innerWidth+1"))
-        pg.click('.week [data-act=week-mode][data-v=h]'); pg.wait_for_timeout(300)
+        mode('h')
         ok(f'[{vw}] back to horizontal, same data', pg.locator('.week .wk').count()==7 and pg.evaluate("[...document.querySelectorAll('.week .wv')].filter(e=>e.textContent.trim()!=='–').length")==5)
         ok(f'[{vw}] bars not bold', pg.evaluate("parseInt(getComputedStyle(document.querySelector('.week .wv')).fontWeight)<=500"))
         if vw==390:
-            pg.click('.week [data-act=week-mode][data-v=v]'); pg.wait_for_timeout(200)
+            mode('v')
             pg.evaluate("window.scrollTo(0,0)"); pg.locator('.week').screenshot(path='/tmp/week_v.png')
             # balance after in Entries
             pg.evaluate("""(async()=>{const m=await import('/js/core.js');m.commit(d=>{const a=d.accounts.filter(x=>!x.deleted&&x.cur===m.HOME);a[0].name='Bal Test A';a[1].name='Bal Test B';d.txs.push(m.stamp({id:'bt1',kind:'transfer',acct:a[0].id,toAcct:a[1].id,amount:700,cur:m.HOME,date:m.nowStamp(),name:'BalTest move'}))})})()""")

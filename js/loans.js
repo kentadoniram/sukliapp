@@ -13,24 +13,27 @@ export const LOAN_KINDS = { home: 'Home loan', car: 'Car loan', personal: 'Perso
 const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
 const m2 = (n) => (Math.round(n * 100) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+import { tipBtn, calcHtml, bindCalc } from './interest.js';
 export function openLoanPlanner(pre = {}) {
   const db = get(), live = db.accounts.filter((a) => !a.deleted && !a.archived);
   const recv = live.filter((a) => !isLiability(a)), debts = live.filter((a) => a.type === 'loan');
   const s = sheet(`<form id="lp" novalidate>
     <p class="hint">See what a loan really costs before you take it. Nothing is saved until you press Record.</p>
     <label class="field"><span>What kind</span><select name="kind">${Object.entries(LOAN_KINDS).map(([k, l]) => `<option value="${k}" ${pre.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-    <div class="two"><label class="field"><span>Amount borrowed</span><input name="principal" inputmode="decimal" value="${pre.principal || ''}" placeholder="e.g. 500000"></label>
-      <label class="field"><span>Interest % a year</span><input name="rate" inputmode="decimal" value="${pre.rate || ''}" placeholder="e.g. 8.5"></label></div>
-    <div class="two"><label class="field"><span>Length (months)</span><input name="months" inputmode="numeric" value="${pre.months || ''}" placeholder="e.g. 60"></label>
+    <div class="two"><label class="field"><span>Amount borrowed ${tipBtn('principal')}</span><input name="principal" inputmode="decimal" value="${pre.principal || ''}" placeholder="e.g. 500000"></label>
+      <label class="field"><span>Interest % a year ${tipBtn('rate')}${tipBtn('effective')}${tipBtn('addon')}</span><input name="rate" inputmode="decimal" value="${pre.rate || ''}" placeholder="e.g. 8.5"></label></div>
+    <div class="two"><label class="field"><span>Length (months) ${tipBtn('term')}</span><input name="months" inputmode="numeric" value="${pre.months || ''}" placeholder="e.g. 60"></label>
       <label class="field"><span>Due day of month</span><input name="dueDay" inputmode="numeric" value="${pre.dueDay || ''}" placeholder="1–31"></label></div>
     <div class="two"><label class="field"><span>Taken upfront (processing and other fees)</span><input name="fees" inputmode="decimal" value="${pre.fees || ''}" placeholder="0"></label>
       <label class="field"><span>Late fee % of the payment</span><input name="lateFee" inputmode="decimal" value="${pre.lateFee || ''}" placeholder="e.g. 3"></label></div>
+    ${calcHtml('monthly')}
     <div id="lp-out" class="lpout" aria-live="polite"></div>
     ${recv.length ? `<label class="field"><span>Money arrives in</span><select name="recv">${recv.map((a) => `<option value="${a.id}">${esc(a.name)} · ${a.cur}</option>`).join('')}</select></label>
     <label class="field"><span>Record the debt in</span><select name="debt"><option value="">A new loan account</option>${debts.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select></label>` : '<p class="hint">Add an account first to record a loan.</p>'}
     <div class="btnrow"><button type="button" class="btn ghost" data-close2>Close</button>${recv.length ? '<button type="button" class="btn" data-rec>Record this loan</button>' : ''}</div></form>`, { title: 'Loan planner', wide: true });
   pickAll(s.el);
   const form = s.el.querySelector('#lp'), out = s.el.querySelector('#lp-out');
+  bindCalc(s.el, { onUse: (nm) => { form.rate.value = String(+nm.toFixed(4)); form.rate.dispatchEvent(new Event('input', { bubbles: true })); } });
   const vals = () => ({ kind: form.kind.value, principal: num(form.principal.value), rate: num(form.rate.value), months: num(form.months.value), fees: num(form.fees.value), lateFee: num(form.lateFee.value), dueDay: Math.round(num(form.dueDay.value)) });
   const draw = () => {
     const v = vals(); if (!(v.principal > 0 && v.months > 0)) { out.innerHTML = '<p class="muted">Fill in the amount and the length to see the cost.</p>'; return; }

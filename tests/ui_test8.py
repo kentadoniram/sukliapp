@@ -48,7 +48,7 @@ with sync_playwright() as p:
     pg.screenshot(path=S+'v5-acctdetail.png')
     # edit -> interest + card
     pg.click('[data-ad=edit]'); pg.wait_for_selector('#acct-form')
-    pg.fill('#acct-form [name=apy]','4'); pg.fill('#acct-form [name=interestFrom]','2026-10-10'); pg.click('#acct-form .btn:not([data-del])'); pg.wait_for_timeout(300)
+    pg.fill('#acct-form [name=apy]','4'); pg.fill('#acct-form [name=interestFrom]','2026-10-10'); pg.click('#acct-form button[type=submit], #acct-form .btnrow .btn:not(.ghost):not([data-del])'); pg.wait_for_timeout(300)
     n=pg.evaluate("window.sukli.get().txs.filter(t=>t.auto).length"); print('  auto rows',n)
     ok('interest rows posted from start date', n>=8)
     ok('interest category created/used', pg.evaluate("(()=>{const d=window.sukli.get();const t=d.txs.find(t=>t.auto);const c=d.categories.find(c=>c.id===t.cat);return c && c.group==='Earn'})()"))
@@ -60,7 +60,7 @@ with sync_playwright() as p:
     print('  a card account:', card and card['name'])
     if card:
         pg.click(f'[data-act=acct][data-id="{card["id"]}"]'); pg.wait_for_selector('#ad'); pg.click('[data-ad=edit]'); pg.wait_for_selector('#cardfields:not([hidden])')
-        pg.fill('#acct-form [name=limit]','50000'); pg.fill('#acct-form [name=dueDay]','25'); pg.click('#acct-form .btn:not([data-del])'); pg.wait_for_timeout(300)
+        pg.fill('#acct-form [name=limit]','50000'); pg.fill('#acct-form [name=dueDay]','25'); pg.click('#acct-form button[type=submit], #acct-form .btnrow .btn:not(.ghost):not([data-del])'); pg.wait_for_timeout(300)
         ok('detail stays open and refreshes after save', pg.locator('#ad .cardbox').count()==1)
         while pg.locator('.scrim').count(): pg.locator('.scrim [data-close]').last.click(); pg.wait_for_timeout(100)
         pg.click(f'[data-act=acct][data-id="{card["id"]}"]'); pg.wait_for_selector('#ad .cardbox')

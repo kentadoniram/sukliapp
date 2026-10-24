@@ -5,13 +5,15 @@ import { initBackup } from './backup.js';
 import { load, get, subscribe, commit, seedCategories, balances, reviewCount, latestMonth, thisMonth, monthOf, priv } from './core.js';
 import { importBluecoins } from './importer.js';
 import { scheduleSync, onStatus } from './drive.js';
+import './feedback.js';
 import { cloudSchedule, cloudInit, onCloudStatus, handleOAuthReturn } from './cloud.js';
 import { home, ledger, review, accounts, reports, settings, bindLedger, bindSettings, openAccountSetup, ui, fillDeferred, tabIds, TAB_DEFS } from './screens.js';
 import { openEntry } from './entry.js';
 import { calendar, budget, cashflow, categories, outlook } from './views.js';
 import { ACT, ic, toast, $ } from './ui.js';
 import { initAppearance, applyHide, applyLook } from './appearance.js';
-import { postInterest } from './finance.js';
+import { postInterest, postDebtInterest, hasDebtInt } from './finance.js';
+import { hasRate } from './interest.js';
 import { ratesInit } from './rates.js';
 import { initGestures } from './gestures.js';
 import { bin, autoPurge } from './bin.js';
@@ -100,9 +102,9 @@ export function showLatest() {
 }
 // post any interest days that have passed (no-op unless an account has a rate)
 function runInterest() {
-  if (!get().accounts.some((a) => !a.deleted && a.apy > 0)) return;
+  if (!get().accounts.some((a) => !a.deleted && (hasRate(a) || hasDebtInt(a)))) return;
   let n = 0;
-  commitQuiet((d) => { n = postInterest(d).length; });
+  commitQuiet((d) => { n = postInterest(d).length + postDebtInterest(d).length; });
   return n;
 }
 const queue = () => { if (!pending) { pending = true; requestAnimationFrame(render); } };
@@ -138,6 +140,7 @@ const queue = () => { if (!pending) { pending = true; requestAnimationFrame(rend
   cloudInit();
   ratesInit(); initGestures(); autoPurge();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && runInterest()) queue(); });
+  setInterval(() => { try { if (document.visibilityState === 'visible' && new Date().getHours() === 23 && new Date().getMinutes() >= 55 && runInterest()) queue(); } catch { /* try again next minute */ } }, 60000);
   window.sukli = { get, commit, openEntry, ui, balancesNow: () => balances(get()) };
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
