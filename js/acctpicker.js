@@ -1,12 +1,12 @@
 // Searchable account list: type to find an account, or filter by currency. Works across all currencies,
 // so picking an account also settles the currency if you had not chosen it yet.
-import { get, groupColor, groupLetter } from './core.js';
+import { get, groupColor, groupLetter, accLabel, walletOf } from './core.js';
 import { typeNames } from './accpage.js';
 import { sheet, esc } from './ui.js';
 
 export function openAccountPicker({ selected = '', skip = '', cur = '', title = 'Account' }, onPick) {
   const db = get();
-  const list = db.accounts.filter((a) => !a.deleted && a.id !== skip && (!a.archived || a.id === selected));
+  const list = db.accounts.filter((a) => !a.deleted && (!a.archived || a.id === selected));   // the account on the other side stays in the list (greyed), so it never looks missing
   const curs = [...new Set(list.map((a) => a.cur))];
   let chip = cur && curs.includes(cur) ? cur : '';
   const s = sheet(`<input type="search" id="acq" class="search" data-noclear="1" placeholder="Search account, type or currency" autocomplete="off" autofocus>
@@ -15,12 +15,13 @@ export function openAccountPicker({ selected = '', skip = '', cur = '', title = 
   const draw = () => {
     const q = s.el.querySelector('#acq').value.trim().toLowerCase();
     s.el.querySelectorAll('[data-chip]').forEach((b) => { const on = b.dataset.chip === (q ? '' : chip); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
-    const hit = list.filter((a) => (q ? `${a.name} ${typeNames[a.type] || a.type} ${a.cur} ${a.exchange || ''}`.toLowerCase().includes(q) : !chip || a.cur === chip));
+    const hit = list.filter((a) => (q ? `${a.name} ${accLabel(a)} ${typeNames[a.type] || a.type} ${a.cur} ${a.exchange || ''} ${a.wallet || ''}`.toLowerCase().includes(q) : !chip || a.cur === chip));
     const order = Object.keys(typeNames), groups = new Map();
-    for (const a of hit) { if (!groups.has(a.type)) groups.set(a.type, []); groups.get(a.type).push(a); }
-    const html = [...groups.entries()].sort((x, y) => order.indexOf(x[0]) - order.indexOf(y[0])).map(([t, as]) =>
-      `<h3>${esc(typeNames[t] || t)}</h3><div class="rows plain">${as.sort((x, y) => (y.id === selected) - (x.id === selected) || x.name.localeCompare(y.name)).map((a) =>
-        `<button type="button" class="row cur" data-id="${a.id}"><i class="badge sm" style="background:${groupColor(a.type)}">${esc(groupLetter(typeNames[a.type] || a.type))}</i><span class="rmain"><strong>${esc(a.name)}${a.id === selected ? ' ✓' : ''}</strong><small>${esc(typeNames[a.type] || a.type)} · ${a.cur}${a.exchange ? ' · ' + esc(a.exchange) : ''}</small></span></button>`).join('')}</div>`).join('');
+    const gk = (a) => (a.exchange ? `\u0001${a.exchange} · ${walletOf(a)}` : a.type);   // platform > wallet for investments, the account type for the rest
+    for (const a of hit) { const k = gk(a); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(a); }
+    const html = [...groups.entries()].sort((x, y) => { const ix = (k) => (k.startsWith('\u0001') ? 99 : order.indexOf(k)); return ix(x[0]) - ix(y[0]) || x[0].localeCompare(y[0]); }).map(([t, as]) =>
+      `<h3>${esc(t.startsWith('\u0001') ? t.slice(1) : (typeNames[t] || t))}</h3><div class="rows plain">${as.sort((x, y) => (y.id === selected) - (x.id === selected) || x.name.localeCompare(y.name)).map((a) =>
+        `<button type="button" class="row cur" data-id="${a.id}" ${a.id === skip ? 'disabled aria-disabled="true"' : ''}><i class="badge sm" style="background:${groupColor(a.type)}">${esc(groupLetter(typeNames[a.type] || a.type))}</i><span class="rmain"><strong>${esc(a.name)}${a.id === selected ? ' ✓' : ''}</strong><small>${a.id === skip ? 'Already chosen on the other side' : esc(typeNames[a.type] || a.type) + ' · ' + a.cur + (a.exchange ? ' · ' + esc(accLabel({ exchange: a.exchange, wallet: a.wallet, name: '' }).replace(/^ · /, '')) : '')}</small></span></button>`).join('')}</div>`).join('');
     s.el.querySelector('#aclist').innerHTML = html || '<p class="empty">No account matches. Try another name or currency.</p>';
   };
   s.el.querySelector('#acq').addEventListener('input', draw);

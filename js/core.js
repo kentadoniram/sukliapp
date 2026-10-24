@@ -218,6 +218,17 @@ export function replaceAll(next) {
 
 export const stamp = (rec) => { rec.updatedAt = Date.now(); return rec; };
 export const live = (arr) => arr.filter((x) => !x.deleted);
+// Investments are Platform (Binance, Bybit, KuCoin…) > wallet inside it (Spot, Funding, Futures, Margin, Earn) > asset (BTC, USDT, SOL).
+// One account is one asset in one wallet of one platform. accLabel always says where it is, whatever the account was named.
+export const WALLETS = ['Spot', 'Funding', 'Futures', 'Margin', 'Earn', 'Other'];
+export const walletOf = (a) => (a && a.exchange ? a.wallet || 'Spot' : '');
+export function accLabel(a) {
+  if (!a) return '';
+  let n = a.name || '';
+  if (a.exchange && !n.toLowerCase().includes(String(a.exchange).toLowerCase())) n = `${a.exchange} · ${n}`;
+  if (a.exchange && a.wallet && a.wallet !== 'Spot' && !n.toLowerCase().includes(a.wallet.toLowerCase())) n += ` (${a.wallet})`;
+  return n;
+}
 export const accountMap = (db) => new Map(db.accounts.map((a) => [a.id, a]));
 export const catMap = (db) => new Map(db.categories.map((c) => [c.id, c]));
 

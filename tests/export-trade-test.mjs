@@ -60,4 +60,12 @@ ok(diff === 0, `re-import gives every account the same balance (${n} accounts)`)
 ok(back.txs.filter((t) => !t.deleted && t.kind === 'transfer').length === 5, 'the five transfers come back as transfers (fees become their own expenses)');
 // the exported file survives a second export unchanged
 ok(exportCSV(back).split('\r\n').length === csv.split('\r\n').length, 'second export has the same number of rows');
+// two wallets of one platform holding the same coin under the same name must not merge on the way out
+{ const w = emptyDb();
+  w.accounts.push(stamp({ id: 'w1', name: 'USDT', cur: 'USDT', type: 'crypto', open: 500, exchange: 'KuCoin', wallet: 'Spot', openDate: '2026-01-01' }), stamp({ id: 'w2', name: 'USDT', cur: 'USDT', type: 'crypto', open: 200, exchange: 'KuCoin', wallet: 'Earn', openDate: '2026-01-01' }));
+  w.txs.push(stamp({ id: 'wt', kind: 'transfer', date: '2026-03-01 10:00:00', name: 'Spot to Earn', acct: 'w1', toAcct: 'w2', amount: 100, toAmount: 100, cur: 'USDT', fx: 56 }));
+  const o = parseCSV(exportCSV(w)), h = o.shift(), names = new Set(o.map((r) => r[h.indexOf('Account')]));
+  ok(names.size === 2, 'same-named accounts in two wallets leave with different account names (' + [...names].join(' | ') + ')');
+  const w2 = emptyDb(); importBluecoins(w2, exportCSV(w)); const bb = balances(w2);
+  ok(w2.accounts.filter((a) => !a.deleted).length === 2 && [...bb.values()].sort((a, b) => a - b).join() === '100,300' || [...bb.values()].sort((a, b) => a - b).join() === '300,400', 'both wallets come back with their own balance (' + [...bb.values()].join(', ') + ')'); }
 process.exit(bad ? 1 : 0);

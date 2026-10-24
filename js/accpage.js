@@ -1,6 +1,6 @@
 // Accounts page (grouped and sorted), account detail with history, net worth, interest and credit-card details.
 import { pickAll } from './picker.js';
-import { openDateOf, openDates } from './core.js';
+import { openDateOf, openDates, WALLETS } from './core.js';
 import { exchangeOf, canonPlatform, nearPlatform, platformNames } from './invest.js';
 import { softDelete, subscribe } from './core.js';
 import {
@@ -354,6 +354,7 @@ export function openAccount(id, preset = {}) {
   const s = sheet(`<form id="acct-form">
     <label class="field"><span>Name</span><input name="name" value="${esc(a.name)}" required ${id ? '' : 'autofocus'}></label>
     <label class="field"><span>Exchange or platform (optional)</span><select name="exchange" data-keep="${esc(exchangeOf(a))}">${(() => { const cur = exchangeOf(a), pn = platformNames(), all = [...new Set([...(cur ? [cur] : []), ...pn.used])]; return `<option value="">None</option><optgroup label="Yours">${all.map((x) => `<option value="${esc(x)}" ${x === cur ? 'selected' : ''}>${esc(x)}</option>`).join('')}</optgroup><optgroup label="Popular">${pn.popular.map((x) => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}</optgroup>`; })()}</select></label>
+    <label class="field" id="walletf" ${exchangeOf(a) ? '' : 'hidden'}><span>Wallet inside the platform</span><select name="wallet">${[...new Set([...WALLETS, ...db.accounts.map((x) => x.wallet).filter(Boolean)])].map((w) => `<option value="${esc(w)}" ${(a.wallet || 'Spot') === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select><small class="muted">Spot, Funding, Futures, Margin, Earn… One asset can sit in several wallets, for example USDT in Spot and USDT in Earn.</small></label>
     <div class="two"><label class="field"><span>Currency</span><input type="hidden" name="cur" value="${esc(a.cur)}"><button type="button" class="curbtn wide" data-act="acct-cur" ${used ? 'disabled' : ''}>${flagOf(a.cur)} ${esc(a.cur)} ▾</button></label>
     <label class="field"><span>Type</span><select name="type" data-prev="${esc(a.type)}">${Object.entries(typeNames).map(([v, l]) => `<option value="${v}" ${v === a.type ? 'selected' : ''}>${esc(l)}</option>`).join('')}<option value="__new">＋ New account type…</option></select></label></div>
     <div class="two"><label class="field"><span>Opening balance</span><input name="open" inputmode="decimal" value="${a.open || 0}"></label>
@@ -379,7 +380,9 @@ export function openAccount(id, preset = {}) {
       <p class="hint">App says ${money(bal, a.cur)}. Type what your bank or wallet really shows and the app adds one correcting entry.</p>
       <div class="two"><input name="real" inputmode="decimal" placeholder="Real balance" aria-label="Real balance"><button class="btn ghost">Correct it</button></div></form>` : ''}`,
   { title: id ? 'Edit account' : 'New account' });
-  pickAll(s.el, { exchange: { title: 'Exchange or platform', addLabel: 'Add a new platform', onAdd: async () => { const sel = s.el.querySelector('select[name=exchange]'); const nm = (await promptDialog('New platform', '', { okLabel: 'Add', hint: 'For example: Binance, Moomoo, SBI Securities' }))?.trim(); if (!nm) return; let v = canonPlatform(nm); const nr = nearPlatform(v); if (nr && await confirmDialog(`Did you mean ${nr}? You typed ${v}.`, `Yes, ${nr}`)) v = nr; if (![...sel.options].some((o) => o.value === v)) sel.add(new Option(v, v)); sel.value = v; } }, type: { title: 'Account type', addLabel: 'Add a new account type', onAdd: () => { const t = s.el.querySelector('select[name=type]'); t.value = '__new'; t.dispatchEvent(new Event('change', { bubbles: true })); } } });
+  const walletAdd = { title: 'Wallet', addLabel: 'Add a new wallet', onAdd: async () => { const nm = (await promptDialog('New wallet', '', { okLabel: 'Add', hint: 'For example: Launchpool, Savings, Copy trading' }))?.trim(); if (!nm) return; const sel = s.el.querySelector('select[name=wallet]'); if (![...sel.options].some((o) => o.value.toLowerCase() === nm.toLowerCase())) sel.add(new Option(nm, nm)); sel.value = [...sel.options].find((o) => o.value.toLowerCase() === nm.toLowerCase()).value; sel.dispatchEvent(new Event('change', { bubbles: true })); } };
+  s.el.querySelector('select[name=exchange]').addEventListener('change', (e) => { s.el.querySelector('#walletf').hidden = !e.target.value; });
+  pickAll(s.el, { wallet: walletAdd, exchange: { title: 'Exchange or platform', addLabel: 'Add a new platform', onAdd: async () => { const sel = s.el.querySelector('select[name=exchange]'); const nm = (await promptDialog('New platform', '', { okLabel: 'Add', hint: 'For example: Binance, Moomoo, SBI Securities' }))?.trim(); if (!nm) return; let v = canonPlatform(nm); const nr = nearPlatform(v); if (nr && await confirmDialog(`Did you mean ${nr}? You typed ${v}.`, `Yes, ${nr}`)) v = nr; if (![...sel.options].some((o) => o.value === v)) sel.add(new Option(v, v)); sel.value = v; } }, type: { title: 'Account type', addLabel: 'Add a new account type', onAdd: () => { const t = s.el.querySelector('select[name=type]'); t.value = '__new'; t.dispatchEvent(new Event('change', { bubbles: true })); } } });
   const form = s.el.querySelector('#acct-form');
   form.type.addEventListener('change', () => { s.el.querySelector('#cardfields').hidden = form.type.value !== 'card'; const L = isLiability({ type: form.type.value }); s.el.querySelector('#intfields').hidden = L; s.el.querySelector('#liabnote').hidden = !L; });
   form.onsubmit = (e) => {
@@ -393,7 +396,7 @@ export function openAccount(id, preset = {}) {
       dueDay: Math.min(31, Math.max(0, Math.round(num(fd.get('dueDay')) || 0))),
       apy: num(fd.get('apy')) > 0 ? num(fd.get('apy')) : 0,
       taxPct: Math.min(100, Math.max(0, num(fd.get('taxPct')) || 0)),
-      exchange: canonPlatform(fd.get('exchange') || ''), invtab: fd.has('invtab'),
+      exchange: canonPlatform(fd.get('exchange') || ''), wallet: fd.get('exchange') ? (fd.get('wallet') || 'Spot') : '', invtab: fd.has('invtab'),
       interestFrom: fd.get('interestFrom') || today(),
       openDate: fd.get('openDate') || '',
     };

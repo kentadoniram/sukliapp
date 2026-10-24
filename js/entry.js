@@ -1,7 +1,7 @@
 // The add / edit sheet, the category picker and the "add many at once" sheet.
 import {
   get, commit, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
-  findOrAddCategory, groupColor, groupLetter, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete,
+  findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete,
 } from './core.js';
 import { buildGraph, makeResolver, explain } from './simgraph.js';
 import { nameRules } from './merchants.js';
@@ -77,11 +77,11 @@ function acctOptions(sel, skip, cur) {
   const groups = new Map();
   for (const a of db.accounts) {
     if (a.deleted || a.id === skip || (a.archived && a.id !== sel) || (cur && a.cur !== cur)) continue;
-    const g = a.type === 'crypto' && a.exchange ? 'Crypto · ' + a.exchange : typeGroupName(a.type);
+    const g = a.exchange && (a.type === 'crypto' || a.type === 'invest' || a.invtab) ? `${a.exchange} · ${a.wallet || 'Spot'}` : typeGroupName(a.type);
     if (!groups.has(g)) groups.set(g, { o: typeGroupOrder(a.type), list: [] });
     groups.get(g).list.push(a);
   }
-  const opt = (a) => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)} · ${a.cur}</option>`;
+  const opt = (a) => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(accLabel(a))} · ${a.cur}</option>`;
   return [...groups.entries()].sort((x, y) => x[1].o - y[1].o || x[0].localeCompare(y[0])).map(([g, v]) =>
     `<optgroup label="${esc(g)}">${v.list.sort((a, b) => (lastUsed.get(b.id) || '').localeCompare(lastUsed.get(a.id) || '') || a.name.localeCompare(b.name)).map(opt).join('')}</optgroup>`).join('');
 }
@@ -200,12 +200,12 @@ export function openEntry(opts = {}) {
     renderCur();
     if (f.kind !== 'transfer') {
       const sug = f.acctSuggested && !f.acctTouched;
-      el.innerHTML = `<div class="field ${sug ? 'suggested' : ''}"><span>Account ${sug ? '<small class="sugnote">suggested from your history  tap to change</small>' : ''}</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc((acctOf(f.acct) || { name: 'Choose account' }).name)}${acctOf(f.acct) ? ' · ' + acctOf(f.acct).cur : ''} ▾</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, '', '')}</select></div>`;
+      el.innerHTML = `<div class="field ${sug ? 'suggested' : ''}"><span>Account ${sug ? '<small class="sugnote">suggested from your history  tap to change</small>' : ''}</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc(accLabel(acctOf(f.acct)) || 'Choose account')}${acctOf(f.acct) ? ' · ' + acctOf(f.acct).cur : ''} ▾</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, '', '')}</select></div>`;
     } else {
       if (!f.toAcct) { const o = get().accounts.find((x) => !x.deleted && !x.archived && x.id !== f.acct); f.toAcct = o ? o.id : ''; }
-      el.innerHTML = `<div class="two sw"><div class="field"><span>From</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc((acctOf(f.acct) || { name: 'Choose' }).name)} ▾</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, f.toAcct, '')}</select></div>
+      el.innerHTML = `<div class="two sw"><div class="field"><span>From</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc(accLabel(acctOf(f.acct)) || 'Choose')} ▾</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, f.toAcct, '')}</select></div>
         <div class="swapcol field"><span aria-hidden="true">&nbsp;</span><button type="button" class="swapbtn" data-e="swapacct" aria-label="Swap From and To" title="Swap From and To">${ic('swap')}</button></div>
-        <div class="field"><span>To</span><button type="button" class="acctbtn" data-e="acctpick" data-which="to">${esc((acctOf(f.toAcct) || { name: 'Choose' }).name)} ▾</button><select id="f-to" hidden aria-hidden="true">${acctOptions(f.toAcct, f.acct)}</select></div></div>`;
+        <div class="field"><span>To</span><button type="button" class="acctbtn" data-e="acctpick" data-which="to">${esc(accLabel(acctOf(f.toAcct)) || 'Choose')} ▾</button><select id="f-to" hidden aria-hidden="true">${acctOptions(f.toAcct, f.acct)}</select></div></div>`;
     }
     renderConv();
     renderFee();

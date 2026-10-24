@@ -1,6 +1,6 @@
 // Buy / sell / convert for crypto, stocks and other investments. Recorded as a movement between your cash account and the holding,
 // marked as a trade (not ordinary spending), with fees saved as a financial loss and gains or losses worked out by average cost.
-import { get, commit, uid, stamp, nowStamp, rateFor, homeFx, fmt, HOME, balances, findOrAddCategory, softDelete } from './core.js';
+import { accLabel, get, commit, uid, stamp, nowStamp, rateFor, homeFx, fmt, HOME, balances, findOrAddCategory, softDelete } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
 import { inInvest, pushHistory, exchangeOf, addAsset } from './invest.js';
@@ -15,7 +15,7 @@ export function openTrade(pre = {}) {
   const db = get(), hold = live(db.accounts).filter((a) => inInvest(a) && !isLiability(a)), cash = live(db.accounts).filter((a) => !isLiability(a));
   if (!hold.length) { toast('Add a coin or an investment first (Investments, Add).'); return; }
   const lastCash = cash.find((a) => a.id === db.settings.lastAcct && !inInvest(a)) || cash.find((a) => !inInvest(a)) || cash[0];
-  const opt = (l, sel) => l.map((a) => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)} · ${esc(a.cur)}</option>`).join('');
+  const opt = (l, sel) => l.map((a) => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(accLabel(a))} · ${esc(a.cur)}</option>`).join('');
   // platform first: the holding and the money side are listed for that platform, other platforms stay one tap away
   const plats = [...new Set(hold.map((a) => exchangeOf(a)).filter(Boolean))].sort((x, y) => x.localeCompare(y));
   const preA = hold.find((a) => a.id === pre.asset), plat0 = pre.platform != null ? pre.platform : preA ? exchangeOf(preA) : (db.settings.lastPlat && plats.includes(db.settings.lastPlat) ? db.settings.lastPlat : plats[0] || '');

@@ -748,3 +748,5 @@ html.kb .scrim { inset: auto; left: 0; right: 0; top: var(--vvt, 0px); height: v
 
 .bssum{margin:6px 0 8px;padding:8px 10px;border-radius:10px;background:var(--sheet);border:1px solid var(--rule);font-size:calc(13.5px * var(--fs,1));position:sticky;top:0;z-index:2}
 .bsrow .usual{white-space:nowrap}
+
+.wlt{margin:10px 0 2px;font-size:calc(12px * var(--fs,1));text-transform:uppercase;letter-spacing:.05em;color:var(--ink2);font-weight:600}.wlt small{text-transform:none;letter-spacing:0;font-weight:400}

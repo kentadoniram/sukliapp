@@ -1,5 +1,5 @@
 // Reading and writing CSV in the same column layout as a Bluecoins export.
-import { ensureCurrency, uid, stamp, findOrAddCategory, accountMap, catMap, balances, BASE } from './core.js';
+import { ensureCurrency, uid, stamp, findOrAddCategory, accountMap, catMap, balances, BASE, accLabel } from './core.js';
 
 export function parseCSV(text) {
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
@@ -226,7 +226,9 @@ const q = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
 export function exportCSV(db) {
   const accts = accountMap(db), cats = catMap(db);
   // an account Bluecoins had in two currencies was split into "Name (CUR)" on import; give it its original name back
-  const an = (x) => (x ? (x.baseName && x.name === `${x.baseName} (${x.cur})` ? x.baseName : x.name) : '');
+  // two accounts with the same name and currency (USDT in Spot and USDT in Earn) would merge in Bluecoins, so those leave with their platform and wallet in the name
+  const seen = new Map(); for (const x of db.accounts) if (!x.deleted) seen.set(`${x.name}|${x.cur}`, (seen.get(`${x.name}|${x.cur}`) || 0) + 1);
+  const an = (x) => (x ? (seen.get(`${x.name}|${x.cur}`) > 1 ? accLabel({ ...x, wallet: x.wallet || (x.exchange ? 'Spot' : '') }).replace(/ \((Spot)\)$/, '') : x.baseName && x.name === `${x.baseName} (${x.cur})` ? x.baseName : x.name) : '');
   const head = ['Type', 'Date', 'Set Time', 'Name', 'Amount', 'Currency', 'Exchange Rate', db.settings.csvGroupTitle || 'Category Group', 'Category', 'Account', 'Notes', 'Grouping', 'Labels', 'Status'];
   const out = [head.map(q).join(',')];
   const amtStr = (n) => { const s = String(+n.toFixed(10)), d = (s.split('.')[1] || '').length; return d <= 2 ? n.toFixed(2) : s; };   // keep coin precision
