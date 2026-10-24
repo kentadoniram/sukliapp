@@ -842,3 +842,5 @@ textarea { line-height: 1.35; }
 .frow .fdate input { min-height: 38px; height: 38px; font-size: 14px; padding: 0 6px; }
 .frow .fcat { flex: 1 1 140px; }
 .frow .fcat select { min-height: 38px; }
+.dayhead .dline { display: block; }
+.dayhead .dcur::before { content: '≈ '; }

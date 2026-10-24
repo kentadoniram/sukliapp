@@ -428,8 +428,9 @@ function ledgerRows(db) {
   const sumHtml = filterSummary(db, list, hiddenFees, kidMap);
   list = list.slice(0, ui.limit);
   let html = '', day = '', dayTotal = 0, buf = '', byCur = new Map(), n = 0; const shown = []; ui.shown = shown;
-  const flush = () => { if (buf) { const off = ui.daysOff.has(day), col = '', cur = [...byCur.entries()].filter(([c]) => c !== HOME).map(([c, v]) => money(-v, c)).join(' · ');
-    html += `<div class="day ${off ? 'off' : ''}"><button type="button" class="dayhead" data-act="day-toggle" data-d="${day}" aria-expanded="${!off}"><span class="dcaret">${off ? '▸' : '▾'}</span><span class="dlabel">${dayLabel(day)}${off ? ` <small class="muted">${n} ${n === 1 ? 'entry' : 'entries'}</small>` : ''}</span><span class="dtot" ${col ? `style="color:${col}"` : ''}>${dayTotal ? money(-dayTotal) : ''}${cur ? `<small class="dcur">${cur}</small>` : ''}</span></button><div class="rows" ${off ? 'hidden' : ''}>${buf}</div></div>`; } buf = ''; dayTotal = 0; byCur = new Map(); n = 0; };
+  const flush = () => { if (buf) { const off = ui.daysOff.has(day), col = '', curs = [...byCur.entries()].sort((a, b) => (a[0] === HOME ? 1 : b[0] === HOME ? -1 : 0)), foreign = curs.some(([c]) => c !== HOME);
+    const lines = curs.map(([c, v]) => `<span class="dline">${money(-v, c)}</span>`).join('');
+    html += `<div class="day ${off ? 'off' : ''}"><button type="button" class="dayhead" data-act="day-toggle" data-d="${day}" aria-expanded="${!off}"><span class="dcaret">${off ? '▸' : '▾'}</span><span class="dlabel">${dayLabel(day)}${off ? ` <small class="muted">${n} ${n === 1 ? 'entry' : 'entries'}</small>` : ''}</span><span class="dtot" ${col ? `style="color:${col}"` : ''}>${dayTotal ? (foreign ? `${lines}<small class="dcur">${money(-dayTotal)}</small>` : `<span class="dline">${money(-dayTotal)}</span>`) : ''}</span></button><div class="rows" ${off ? 'hidden' : ''}>${buf}</div></div>`; } buf = ''; dayTotal = 0; byCur = new Map(); n = 0; };
   for (const t of list) {
     const d = t.date.slice(0, 10);
     if (d !== day) { flush(); day = d; }
