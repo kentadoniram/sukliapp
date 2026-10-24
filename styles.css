@@ -750,3 +750,11 @@ html.kb .scrim { inset: auto; left: 0; right: 0; top: var(--vvt, 0px); height: v
 .bsrow .usual{white-space:nowrap}
 
 .wlt{margin:10px 0 2px;font-size:calc(12px * var(--fs,1));text-transform:uppercase;letter-spacing:.05em;color:var(--ink2);font-weight:600}.wlt small{text-transform:none;letter-spacing:0;font-weight:400}
+
+/* pick lists keep a fixed height: the search box and the currency chips stay where they are however many rows match */
+.sheet.pickfix{height:min(88vh,680px);height:min(88dvh,680px)}
+.sheet.pickfix .sheet-body{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.pickfix .search,.pickfix .acchips,.pickfix .pk-add{flex:none}
+.pickfix .acchips{min-height:44px}
+.pickfix #aclist,.pickfix .pk-list{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+html.kb .sheet.pickfix{height:calc(var(--vvh,100dvh) - 6px)}

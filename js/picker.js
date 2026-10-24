@@ -16,7 +16,7 @@ export function pickerList(options, { value = '', title = 'Choose', onAdd = null
   const many = options.length > SEARCH_AFTER;
   const s = sheet(`${many ? '<input type="search" class="search pk-q" data-noclear="1" placeholder="Search" autocomplete="off" aria-label="Search">' : ''}
     ${onAdd ? `<button type="button" class="btn sm ghost wide pk-add">+ ${esc(addLabel)}</button>` : ''}
-    <div class="pk-list"></div>`, { title });
+    <div class="pk-list"></div>`, { title, cls: many ? 'pickfix' : '' });
   const draw = () => {
     const q = many ? s.el.querySelector('.pk-q').value.trim().toLowerCase() : '';
     const hit = options.filter((o) => !q || (o.label + ' ' + o.group).toLowerCase().includes(q));

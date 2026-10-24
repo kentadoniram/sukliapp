@@ -85,10 +85,10 @@ window.addEventListener('popstate', () => {
   const top = [...stack].reverse().find((x) => !x.pend);
   if (top) top.dispose(true);
 });
-export function sheet(html, { title = '', onClose, wide = false } = {}) {
+export function sheet(html, { title = '', onClose, wide = false, cls = '' } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'scrim';
-  wrap.innerHTML = `<div class="sheet ${wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+  wrap.innerHTML = `<div class="sheet ${wide ? 'wide' : ''} ${cls}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
     <div class="sheet-head"><h2>${esc(title)}</h2><button type="button" class="iconbtn" data-close aria-label="Close">${ic('x')}</button></div>
     <div class="sheet-body">${html}</div></div>`;
   document.body.appendChild(wrap);
