@@ -65,11 +65,14 @@ export function homeKey(db, stats) {
   const top = [...sc.entries()].sort((a, b) => b[1] - a[1])[0];
   return top && top[1] >= 4 ? top[0] : '';
 }
+// the workplace you set in Settings; on weekdays you go there in the morning and leave it in the evening
+export const workKey = (db) => placeKey((db.settings && db.settings.workPlace) || '');
+const isWeekday = (d = new Date()) => { const w = d.getDay(); return w >= 1 && w <= 5; };
 const hourWeight = (hist, h) => { const tot = hist.reduce((a, b) => a + b, 0) || 1; return (0.5 * hist[(h + 23) % 24] + hist[h] + 0.5 * hist[(h + 1) % 24]) / tot; };
 
 // Where are you going? Ranked trips for this hour. Optional: the stop you are leaving (typed), the stop you are going to, the previous trip today.
-export function suggestTrips(db, isTransport, { hour = 12, from = '', to = '', prevTo = '', limit = 4, stats = routeStats(db, isTransport) } = {}) {
-  const home = homeKey(db, stats), fk = placeKey(from), tk = placeKey(to), pk = placeKey(prevTo);
+export function suggestTrips(db, isTransport, { hour = 12, from = '', to = '', prevTo = '', limit = 4, weekday = isWeekday(), stats = routeStats(db, isTransport) } = {}) {
+  const home = homeKey(db, stats), work = weekday ? workKey(db) : '', fk = placeKey(from), tk = placeKey(to), pk = placeKey(prevTo);
   const match = (key, q) => !q || key === q || key.includes(q) || q.includes(key);
   const rows = [];
   for (const e of stats.dir.values()) {
@@ -79,6 +82,10 @@ export function suggestTrips(db, isTransport, { hour = 12, from = '', to = '', p
       if (hour >= 4 && hour <= 11) { if (e.fk === home) s *= 2.5; if (e.tk === home) s *= 0.08; }      // you do not travel towards home at 6 am
       else if (hour >= 17) { if (e.tk === home) s *= 2.5; if (e.fk === home) s *= 0.3; }
     }
+    if (work && home && !pk) {
+      if (hour >= 4 && hour <= 11) { if (e.fk === home && e.tk === work) s *= 3; if (e.fk === work && e.tk === home) s *= 0.05; }
+      else if (hour >= 16) { if (e.fk === work && e.tk === home) s *= 3; if (e.fk === home && e.tk === work) s *= 0.15; }
+    }
     if (pk && !fk) { if (e.fk === pk) s *= 3; else s *= 0.5; }                                           // you left the previous trip where you are now
     rows.push({ ...e, s });
   }
@@ -86,10 +93,12 @@ export function suggestTrips(db, isTransport, { hour = 12, from = '', to = '', p
   return rows.sort((a, b) => b.s - a.s || b.n - a.n).slice(0, limit).map((r) => ({ from: r.from, to: r.to, cat: r.cat, amount: r.amount, n: r.n, p: r.s / sum, name: routeName(r.from, r.to) }));
 }
 // put the likely direction first and drop the impossible one when its other way round is known ("Usual" quick picks)
-export function rankRouteNames(db, isTransport, names, hour, stats = routeStats(db, isTransport)) {
+export function rankRouteNames(db, isTransport, names, hour, stats = routeStats(db, isTransport), weekday = isWeekday()) {
   const home = homeKey(db, stats); if (!home) return names;
+  const work = weekday ? workKey(db) : '';
   const score = (n) => { const r = parseRoute(n); if (!r) return 1; const e = stats.dir.get(r.fk + '>' + r.tk); let s = 1;
     if (hour >= 4 && hour <= 11) { if (r.tk === home) s = 0.05; if (r.fk === home) s = 2; } else if (hour >= 17) { if (r.tk === home) s = 2; if (r.fk === home) s = 0.3; }
+    if (work) { if (hour >= 4 && hour <= 11) { if (r.fk === home && r.tk === work) s *= 3; if (r.fk === work && r.tk === home) s *= 0.3; } else if (hour >= 16) { if (r.fk === work && r.tk === home) s *= 3; if (r.fk === home && r.tk === work) s *= 0.3; } }
     return e ? s * (0.3 + hourWeight(e.hours, hour) * 3) : s; };
   return names.map((n, i) => ({ n, s: score(n), i })).filter((x) => x.s > 0.1).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.n);
 }

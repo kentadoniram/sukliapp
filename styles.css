@@ -758,3 +758,25 @@ html.kb .scrim { inset: auto; left: 0; right: 0; top: var(--vvt, 0px); height: v
 .pickfix .acchips{min-height:44px}
 .pickfix #aclist,.pickfix .pk-list{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 html.kb .sheet.pickfix{height:calc(var(--vvh,100dvh) - 6px)}
+
+/* v12ab: compact Home cards and Settings, one-line rates, one-row account type */
+section { margin: 14px 0; }
+section h2 { margin: 0 0 6px; }
+.sgroup section { margin: 8px 0; padding: 0; }
+.sgroup .field { margin: 8px 0; gap: 4px; }
+.sgroup .field.inline { gap: 8px; margin: 4px 0; }
+.sgroup .hint { margin: 4px 0; }
+.sgroup .btnrow, .sgroup .check { margin: 4px 0; }
+.sgroup > summary { padding: 10px 12px; }
+.field > span::first-letter, .check::first-letter { text-transform: uppercase; }
+.atyperow { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; }
+.atyperow input { flex: 1 1 0; min-width: 0; }
+.atyperow select { flex: 0 1 auto; max-width: 42%; min-width: 0; }
+.atyperow .btn { flex: 0 0 auto; }
+.ratebox { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; padding: 4px 0; font-size: calc(13px * var(--fs, 1)); white-space: nowrap; overflow-x: auto; }
+.ratebox input { width: 0; flex: 1 1 0; min-width: 52px; max-width: 96px; padding: 4px 6px; }
+.ratebox .rl { color: var(--ink2); }
+.ratebox .rsep { color: var(--ink2); padding: 0 2px; }
+.ratebox .rtag { margin-left: auto; padding-left: 4px; }
+.arow { padding: 4px 0; }
+.home > section, .card { margin-top: 10px; margin-bottom: 10px; }

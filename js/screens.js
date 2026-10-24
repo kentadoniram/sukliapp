@@ -11,6 +11,7 @@ import { importBluecoins, previewImport, exportCSV, SPENDABLE_TYPES } from './im
 import { predict } from './predict.js';
 import { modelFor, openEntry, openBulk, openCategoryForm } from './entry.js';
 import { syncNow, status as syncStatus } from './drive.js';
+import { REMOVED_UI } from './features.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
 import { lossCard } from './loans.js';
@@ -618,7 +619,8 @@ export function settings(db) {
       <div class="btnrow left"><a class="btn" href="#/categories?k=expense">Expense categories</a><a class="btn ghost" href="#/categories?k=income">Income categories</a></div></section>
     ${(() => { const own = [...new Set([...Object.keys(db.settings.curDec || {}), ...db.accounts.filter((a) => !a.deleted && a.type === 'crypto').map((a) => a.cur)])]; return own.length ? `<section><h2>Coins and tokens: decimals</h2><p class="hint">How many decimals to show for coins and tokens (for example MNT as Mantle, or BBSOL).</p>${own.map((c) => `<label class="field inline"><span>${esc(c)}</span><select data-curdec="${esc(c)}">${[2, 4, 6, 8].map((n) => `<option ${CUR[c].dec === n ? 'selected' : ''}>${n}</option>`).join('')}</select><span>decimals</span></label>`).join('')}</section>` : ''; })()}
     ${(() => { const r = nameRules(), groups = new Map(); for (const [a, k] of Object.entries(r.same)) { if (!groups.has(k)) groups.set(k, []); groups.get(k).push(a); }
-      return `<section id="nmatch"><h2>Name matching</h2><label class="field"><span>Home stop (optional)</span><input id="homeplace" value="${esc(s.homePlace || '')}" placeholder="e.g. San Pedro" autocomplete="off"><small class="muted">Used to guess the direction of a trip: in the morning you leave it, in the evening you come back. Left empty, Sukli works it out from your trips.</small></label><p class="hint">Teach Sukli which names mean the same thing (“starbucks antipolo” and “starbucks tagaytay”) and which do not (“tennis” the sport and “tennis socks”). It also asks when you type a new name that looks like an old one.</p>
+      return `<section id="nmatch"><h2>Name matching</h2><label class="field"><span>Home stop (optional)</span><input id="homeplace" value="${esc(s.homePlace || '')}" placeholder="e.g. San Pedro" autocomplete="off"><small class="muted">The stop you leave in the morning and come back to in the evening. Left empty, Sukli works it out from your trips.</small></label>
+      <label class="field"><span>Workplace stop (optional)</span><input id="workplace" value="${esc(s.workPlace || '')}" placeholder="e.g. Shinagawa" autocomplete="off"><small class="muted">Sukli remembers it: on weekday mornings it suggests home to work, and in the evening work to home.</small></label><p class="hint">Teach Sukli which names mean the same thing (“starbucks antipolo” and “starbucks tagaytay”) and which do not (“tennis” the sport and “tennis socks”). It also asks when you type a new name that looks like an old one.</p>
       <button type="button" class="btn ghost wide" data-act="nm-review">Review similar names</button>
       <button type="button" class="btn ghost wide" data-act="nm-map">Name map (how names connect)</button>
       ${[...groups.entries()].map(([k, as]) => `<div class="nmgroup"><b>${esc(k)}</b><div>${as.filter((a) => a !== k).map((a) => `<span class="chip">${esc(a)} <button type="button" class="x" data-act="nm-forget" data-kind="same" data-v="${esc(a)}" aria-label="Unlink ${esc(a)}">×</button></span>`).join('') || '<small class="muted">only itself</small>'}</div></div>`).join('')}
@@ -627,9 +629,7 @@ export function settings(db) {
     ${(() => { const st = db.settings, custom = st.customTypes || {}, n = (k) => db.accounts.filter((a) => !a.deleted && a.type === k).length;
       return `<section id="atypes"><h2>Account types</h2><p class="hint">Rename any type, or add your own, for example "Money owed to me" or "Savings pot". Choose whether a new type is something you have or something you owe.</p>
       ${Object.entries(typeNames).map(([k, l]) => `<div class="field inline"><input data-atype-label="${esc(k)}" value="${esc(l)}" aria-label="Name of ${esc(l)}"><small class="muted">${n(k)} account${n(k) === 1 ? '' : 's'}${custom[k] ? (custom[k].liab ? ' · liability' : ' · asset') : ''}</small>${custom[k] ? `<button type="button" class="btn sm ghost" data-act="atype-del" data-k="${esc(k)}">Delete</button>` : ''}</div>`).join('')}
-      <div class="field"><span>New account type</span><input id="atype-new" placeholder="e.g. Money owed to me" data-noclear="1"></div>
-      <label class="field inline"><span>It is</span><select id="atype-kind"><option value="asset">An asset (money I have or am owed)</option><option value="liab">A liability (money I owe)</option></select></label>
-      <button type="button" class="btn" data-act="atype-add">Add account type</button></section>`; })()}
+      <div class="field"><span>New account type</span><div class="atyperow"><input id="atype-new" placeholder="e.g. Savings pot" data-noclear="1" aria-label="New account type name"><select id="atype-kind" aria-label="Asset or liability"><option value="asset">Asset (I have)</option><option value="liab">Liability (I owe)</option></select><button type="button" class="btn sm" data-act="atype-add">Add</button></div></div></section>`; })()}
     ${arrangeSection(db)}
     <section><h2>Appearance</h2>
       <label class="check"><input type="checkbox" data-act="commas" ${localStorage.getItem('sukli.commas') === '0' ? '' : 'checked'}> Show thousands separators when typing (119,000)</label>
@@ -648,7 +648,7 @@ export function settings(db) {
     <section><h2>Display</h2>
       <label class="check"><input type="checkbox" id="showhome" ${s.showHome === false ? '' : 'checked'}> Show the ${HOME} equivalent next to other currencies</label>
       <p class="hint">For example a ¥1,200 lunch shows a small “≈ ₱…” under it. The eye button at the top hides every amount on screen, handy in public. It is remembered on this device only.</p></section>
-    <section><h2>Cloud sync</h2>
+    ${REMOVED_UI ? `<section><h2>Cloud sync</h2>
       <p class="hint">Keeps your phone and your Mac in step through your own free Supabase project. Only you can read your rows. <a href="#" data-act="cloud-setup" class="linkbtn">Set up Supabase (5 minutes)</a></p>
       ${configured() ? '<p class="hint">Project connected (from config.js).</p>' : `<label class="field"><span>Project URL</span><input id="c-url" value="${esc(cl.url || '')}" placeholder="https://abcdxyz.supabase.co" autocomplete="off" spellcheck="false" inputmode="url"></label>
       <label class="field"><span>Public (anon) key</span><input id="c-key" value="${esc(cl.key || '')}" placeholder="eyJ…" autocomplete="off" spellcheck="false"></label>`}
@@ -661,13 +661,14 @@ export function settings(db) {
         <label class="field"><span>Password</span><input id="c-pass" type="password" autocomplete="current-password"></label>
         <div class="btnrow left"><button class="btn" data-act="cloud-signin">Sign in</button><button class="btn ghost" data-act="cloud-signup">Create account</button></div>`}
       <p class="status" id="cloudstatus" role="status">${esc(cloudStatus.text || (me && lastOk() ? 'Last synced ' + new Date(lastOk()).toLocaleString() : ''))}</p></section>
+` : ''}
     ${backupSection(db)}
-    <section><h2>Google backup (optional)</h2>
+    ${REMOVED_UI ? `<section><h2>Google backup (optional)</h2>
       <p class="hint">Backs up to a private, hidden folder in your own Google Drive and keeps both your phones in step. Nothing else in your Drive is touched. <a href="#" data-act="gsetup" class="linkbtn">How to get a client ID</a></p>
       <label class="field"><span>Google client ID</span><input id="clientid" value="${esc(s.driveClientId)}" placeholder="1234-abc.apps.googleusercontent.com" autocomplete="off" spellcheck="false"></label>
       <label class="check"><input type="checkbox" id="autosync" ${s.autoSync ? 'checked' : ''}> Back up automatically after changes</label>
       <div class="btnrow left"><button class="btn" data-act="sync">Back up now</button></div>
-      <p class="status" id="syncstatus" role="status">${esc(syncStatus.text || (s.lastSync ? 'Last backup ' + new Date(s.lastSync).toLocaleString() : 'Not backed up yet.'))}</p></section>
+      <p class="status" id="syncstatus" role="status">${esc(syncStatus.text || (s.lastSync ? 'Last backup ' + new Date(s.lastSync).toLocaleString() : 'Not backed up yet.'))}</p></section>` : ''}
     <section><h2>Your data</h2>
       <div class="btnstack">
         <label class="btn ghost filebtn">Import Bluecoins CSV<input type="file" id="file-bc" accept=".csv,text/csv" hidden></label>
@@ -692,9 +693,7 @@ export function settings(db) {
       <div class="btnrow left"><button class="btn ghost sm" data-act="rates-now">Update now</button></div>
       <p class="status" id="ratesstatus" role="status">${esc(ratesStatus.text || (s.live ? 'Last updated ' + new Date(s.live.ts).toLocaleString() : 'Not updated yet.'))}</p>
       <p class="hint">Rates are used for new entries and for today’s balances. An entry you saved keeps the rate it was saved with, so old reports do not change. Type a rate below to override the live one; tap ✕ to go back to live. ${esc(RATE_CREDIT)}.</p>
-      ${curs.map((c) => { const ov = !!(s.rates && s.rates[c] > 0); const r = homeFx(db, c); return `<div class="ratebox"><label class="field inline"><span>1 ${c} =</span><input data-rate="${c}" inputmode="decimal" value="${r ? Number(r.toPrecision(6)) : ''}"><span>${HOME}</span></label>
-      <label class="field inline"><span>1 ${HOME} =</span><input data-rate-inv="${c}" inputmode="decimal" value="${r ? Number((1 / r).toPrecision(6)) : ''}"><span>${c}</span></label>
-      <small class="muted">${ov ? 'Manual rate' : (hasLive(c) ? 'Live rate' : 'From your latest entry')}</small>${ov ? `<button type="button" class="linkbtn" data-act="rate-live" data-c="${c}">✕ Use live</button>` : ''}</div>`; }).join('')}
+      ${curs.map((c) => { const ov = !!(s.rates && s.rates[c] > 0); const r = homeFx(db, c); const src = ov ? 'Manual rate' : (hasLive(c) ? 'Live rate' : 'From your latest entry'); return `<div class="ratebox" title="${src}"><span class="rl">1 ${c} =</span><input data-rate="${c}" inputmode="decimal" aria-label="${HOME} per 1 ${c}" value="${r ? Number(r.toPrecision(6)) : ''}"><span class="rl">${HOME}</span><span class="rsep">⇄</span><span class="rl">1 ${HOME} =</span><input data-rate-inv="${c}" inputmode="decimal" aria-label="${c} per 1 ${HOME}" value="${r ? Number((1 / r).toPrecision(6)) : ''}"><span class="rl">${c}</span>${ov ? `<button type="button" class="linkbtn" data-act="rate-live" data-c="${c}" title="Use the live rate">✕</button>` : `<small class="muted rtag">${hasLive(c) ? 'Live' : 'Entry'}</small>`}</div>`; }).join('')}
       <p class="hint">Edit either side: the other follows. Each entry also lets you type the ${HOME} value from your bill.</p></section>
     <section><h2>Put it on your phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
     <section><h2>Erase</h2><button class="btn danger ghost" data-act="erase">Erase everything on this device</button>
@@ -719,6 +718,8 @@ export function bindSettings() {
   const ca = document.getElementById('c-auto');
   if (ca) ca.onchange = () => commit((d) => { d.settings.cloud = { ...(d.settings.cloud || {}), auto: ca.checked }; });
   const hp = document.getElementById('homeplace');
+  const wp = document.getElementById('workplace');
+  if (wp) wp.onchange = () => commitQuiet((d) => { d.settings.workPlace = wp.value.trim(); });
   if (hp) hp.onchange = () => commitQuiet((d) => { d.settings.homePlace = hp.value.trim(); });
   const cid = document.getElementById('clientid');
   if (cid) cid.onchange = () => commitQuiet((d) => { d.settings.driveClientId = cid.value.trim(); });
@@ -883,21 +884,22 @@ ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
 
 // Settings, grouped by what they are for. Advanced items sit in their own folded group.
 const SET_GROUPS = [
-  ['look', 'Look and feel', 'Tabs, Home cards, colours, text size', ['Tabs and Home cards', 'Appearance', 'Display']],
-  ['money', 'Money and alerts', 'Home currency, spending warnings', ['Currency', 'Spending safety', 'Left out of cash outflow']],
-  ['organise', 'Accounts, categories and names', 'How things are sorted and matched', ['Categories', 'Account types', 'Name matching']],
-  ['data', 'Backup and data', 'Reminders, backups, export', ['Backup reminder', 'Your data', 'Google backup (optional)']],
+  ['look', 'Look and Feel', 'Tabs, Home cards, colours, text size', ['Tabs and Home cards', 'Appearance', 'Display']],
+  ['money', 'Money and Alerts', 'Home currency, spending warnings', ['Currency', 'Spending safety', 'Left out of cash outflow']],
+  ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Account types', 'Name matching']],
+  ['data', 'Backup and Data', 'Reminders, backups, export', ['Backup reminder', 'Your data', 'Google backup (optional)']],
   ['adv', 'Advanced', 'Most people never need these', ['Exchange rates', 'Live exchange rates', 'Coins and tokens: decimals', 'Cloud sync', 'Erase']],
   ['help', 'Help', 'Install on your phone', ['Put it on your phone']],
 ];
 const SET_OPEN = new Set(['look']);
 document.addEventListener('toggle', (e) => { const g = e.target.dataset && e.target.dataset.sgroup; if (g) { if (e.target.open) SET_OPEN.add(g); else SET_OPEN.delete(g); } }, true);
+const titleCase = (t) => t.split(' ').map((w, i) => (i && ['and', 'or', 'of', 'the', 'to', 'on', 'in'].includes(w)) ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 function settingsGrouped(html) {
   const i = html.indexOf('<section'); if (i < 0) return html;
   const head = html.slice(0, i), secs = [...html.slice(i).matchAll(/<section[\s\S]*?<\/section>/g)].map((m) => m[0]);
   const title = (x) => ((x.match(/<h2>([^<]*)<\/h2>/) || [])[1] || '').trim();
   const by = new Map(SET_GROUPS.map((g) => [g[0], []]));
-  for (const sec of secs) { const t = title(sec), g = SET_GROUPS.find((x) => x[3].includes(t)) || SET_GROUPS.find((x) => x[0] === 'adv'); by.get(g[0]).push(sec); }
+  for (const sec of secs) { const t = title(sec), g = SET_GROUPS.find((x) => x[3].includes(t)) || SET_GROUPS.find((x) => x[0] === 'adv'); by.get(g[0]).push(sec.replace(/<h2>([^<]*)<\/h2>/, (m, h) => '<h2>' + titleCase(h) + '</h2>')); }
   const ver = `<p class="hint verline" id="appver">Sukli version ${versionText()}</p>`;
   return head + SET_GROUPS.filter((g) => by.get(g[0]).length).map(([k, name, desc]) => `<details class="sgroup" data-sgroup="${k}" ${SET_OPEN.has(k) ? 'open' : ''}><summary><b>${name}</b><small>${desc}</small></summary>${by.get(k).join('')}</details>`).join('') + ver;
 }
