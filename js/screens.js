@@ -168,15 +168,15 @@ ACT['week-mode'] = (el) => {
   if (el.closest('.seg')) { el.closest('.seg').querySelectorAll('button').forEach((b) => { const on = b.dataset.v === el.dataset.v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); }
 };
 function weekBars(db) {
-  const { dates, vals } = dailySpend(db, todayStr(), 7), top = Math.max(...vals), total = vals.reduce((a, b) => a + b, 0), mode = weekMode();
+  const { dates, vals } = dailySpend(db, todayStr(), 7), base = dayBaseline(db), cl = (i) => dayColor(vals[i], base), top = Math.max(...vals), total = vals.reduce((a, b) => a + b, 0), mode = weekMode();
   const day = (d, i) => (i === 6 ? 'Today' : new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' }));
   const full = (d, i) => (i === 6 ? 'Today' : i === 5 ? 'Yesterday' : new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }));
   // a long amount is shortened (12.3k) so neighbouring labels never touch
   const amt = (v) => (v < 10 ? money(v) : compact(v));
   let body;
   if (!total) body = '<p class="empty">Nothing spent in the last 7 days.</p>';
-  else if (mode === 'v') body = `<div class="wkv" role="img" aria-label="Spending for each of the last 7 days">${dates.map((d, i) => `<div class="wc ${i === 6 ? 'now' : ''}" data-tip="${esc(full(d, i) + ': ' + (vals[i] ? money(vals[i]) : 'nothing spent'))}"><span class="wa ${vals[i] ? '' : 'muted'}">${vals[i] ? esc(amt(vals[i])) : ''}</span><span class="wb"><i style="height:${vals[i] > 0 ? Math.max(3, Math.round(vals[i] / top * 100)) : 0}%"></i></span><span class="wl">${esc(day(d, i))}</span></div>`).join('')}</div>`;
-  else body = dates.map((d, i) => `<div class="wk ${i === 6 ? 'now' : ''}"><span class="wd">${esc(full(d, i))}</span><span class="wtrack"><i style="width:${vals[i] > 0 ? Math.max(2, Math.round(vals[i] / top * 100)) : 0}%"></i></span><b class="wv ${vals[i] ? '' : 'muted'}">${vals[i] ? esc(money(vals[i])) : '–'}</b></div>`).join('');
+  else if (mode === 'v') body = `<div class="wkv" role="img" aria-label="Spending for each of the last 7 days">${dates.map((d, i) => `<div class="wc ${i === 6 ? 'now' : ''}" data-tip="${esc(full(d, i) + ': ' + (vals[i] ? money(vals[i]) : 'nothing spent'))}"><span class="wa ${vals[i] ? '' : 'muted'}" ${cl(i) ? `style="color:${cl(i)}"` : ''}>${vals[i] ? esc(amt(vals[i])) : ''}</span><span class="wb"><i style="height:${vals[i] > 0 ? Math.max(3, Math.round(vals[i] / top * 100)) : 0}%${cl(i) ? `;background:${cl(i)}` : ''}"></i></span><span class="wl">${esc(day(d, i))}</span></div>`).join('')}</div>`;
+  else body = dates.map((d, i) => `<div class="wk ${i === 6 ? 'now' : ''}"><span class="wd">${esc(full(d, i))}</span><span class="wtrack"><i style="width:${vals[i] > 0 ? Math.max(2, Math.round(vals[i] / top * 100)) : 0}%${cl(i) ? `;background:${cl(i)}` : ''}"></i></span><b class="wv ${vals[i] ? '' : 'muted'}" ${cl(i) ? `style="color:${cl(i)}"` : ''}>${vals[i] ? esc(money(vals[i])) : '–'}</b></div>`).join('');
   return `<section class="week" aria-label="Spending in the last 7 days"><div class="weekhead"><h3 class="subh">Spent each day, last 7 days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3></div>${body}</section>`;
 }
 // the cards on Home, in the order you chose in Settings. [id, name, heavy: drawn a moment later so the numbers above appear at once]
@@ -425,11 +425,10 @@ function ledgerRows(db) {
   const hiddenFees = hideKids ? list.filter((t) => kidMap.has(t.id) && list.some((p) => p.id === kidMap.get(t.id).id)) : [];
   if (hiddenFees.length) { const hs = new Set(hiddenFees.map((t) => t.id)); list = list.filter((t) => !hs.has(t.id)); }
   const total = list.length, trail = balanceTrail(db);
-  const base = dayBaseline(db);
   const sumHtml = filterSummary(db, list, hiddenFees, kidMap);
   list = list.slice(0, ui.limit);
   let html = '', day = '', dayTotal = 0, buf = '', byCur = new Map(), n = 0; const shown = []; ui.shown = shown;
-  const flush = () => { if (buf) { const off = ui.daysOff.has(day), col = dayColor(dayTotal, base), cur = [...byCur.entries()].filter(([c]) => c !== HOME).map(([c, v]) => money(-v, c)).join(' · ');
+  const flush = () => { if (buf) { const off = ui.daysOff.has(day), col = '', cur = [...byCur.entries()].filter(([c]) => c !== HOME).map(([c, v]) => money(-v, c)).join(' · ');
     html += `<div class="day ${off ? 'off' : ''}"><button type="button" class="dayhead" data-act="day-toggle" data-d="${day}" aria-expanded="${!off}"><span class="dcaret">${off ? '▸' : '▾'}</span><span class="dlabel">${dayLabel(day)}${off ? ` <small class="muted">${n} ${n === 1 ? 'entry' : 'entries'}</small>` : ''}</span><span class="dtot" ${col ? `style="color:${col}"` : ''}>${dayTotal ? money(-dayTotal) : ''}${cur ? `<small class="dcur">${cur}</small>` : ''}</span></button><div class="rows" ${off ? 'hidden' : ''}>${buf}</div></div>`; } buf = ''; dayTotal = 0; byCur = new Map(); n = 0; };
   for (const t of list) {
     const d = t.date.slice(0, 10);

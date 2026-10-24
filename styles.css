@@ -825,3 +825,20 @@ textarea { line-height: 1.35; }
 .rowline .two { flex: 1 1 200px; }
 .promoline { border: 1px solid var(--rule); border-radius: 10px; padding: 6px 8px; align-items: stretch; flex-direction: column; }
 .debtbox { margin-top: 8px; }
+
+/* v12ad: nothing above or inside the calculator moves while you type */
+#namefield { position: relative; }
+#namefield .sugg { position: absolute; left: 0; right: 0; top: 100%; z-index: 8; margin-top: 2px; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+.qp { min-height: 98px; align-content: start; }
+.qp .chips { display: flex; flex-wrap: nowrap; overflow-x: auto; min-height: 36px; scrollbar-width: none; }
+.qp .chips::-webkit-scrollbar { display: none; }
+.qp .chip { flex: none; }
+.qphint { display: block; min-height: 16px; }
+.calcres { min-height: 1.5em; }
+.amtwrap .amtx { width: 32px; height: 32px; flex: none; border: 0; border-radius: 50%; background: var(--rule); color: var(--ink2); font-size: 20px; line-height: 30px; padding: 0; cursor: pointer; }
+
+.frow { gap: 8px 12px; }
+.frow .fdate { flex: 0 1 128px; min-width: 0; }
+.frow .fdate input { min-height: 38px; height: 38px; font-size: 14px; padding: 0 6px; }
+.frow .fcat { flex: 1 1 140px; }
+.frow .fcat select { min-height: 38px; }

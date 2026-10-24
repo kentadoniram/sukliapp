@@ -37,7 +37,7 @@ with sync_playwright() as p:
         pg.fill('#f-amount','123'); pg.click('#f-name'); pg.click('#f-amount'); pg.wait_for_timeout(300)
         sel=pg.evaluate("(()=>{const e=document.getElementById('f-amount');return e.selectionStart===0&&e.selectionEnd===e.value.length&&e.value.length>0})()")
         ok(f'[{vw}] amount is selected on tap', sel)
-        ok(f'[{vw}] clear button on the amount', pg.locator('.clearx:visible').count()==1)
+        ok(f'[{vw}] clear button on the amount', pg.locator('.amtx:visible').count()==1)
         pg.click('[data-e=calc]'); pg.wait_for_timeout(200)
         kb=pg.evaluate("(()=>{const k=document.querySelector('.keypad button');const r=k.getBoundingClientRect();return [r.height,parseFloat(getComputedStyle(k).borderTopWidth)]})()")
         ok(f'[{vw}] big borderless keys', kb[0]>=56 and kb[1]==0)

@@ -116,7 +116,7 @@ export function openEntry(opts = {}) {
       <input id="f-name" autocomplete="off" value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary" ${existing ? '' : 'autofocus'}>
       <div id="sugg" class="sugg" hidden></div></div>
     <div class="field amount" id="amountbox"><span class="amtlabel">Amount <button type="button" class="linkbtn eye" data-e="eye" aria-label="Hide or show amounts">${priv.on ? 'Show' : 'Hide'} amounts</button></span>
-      <div class="amtrow"><div class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"><button type="button" class="calcbtn" data-e="calc" aria-label="Calculator" aria-pressed="false" title="Calculator">${ic('calc')}</button></div><span id="curwrap" class="curwrap"></span></div>
+      <div class="amtrow"><div class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"><button type="button" class="amtx" data-e="amtclear" aria-label="Clear amount" ${f.amount ? '' : 'style="visibility:hidden"'}>×</button><button type="button" class="calcbtn" data-e="calc" aria-label="Calculator" aria-pressed="false" title="Calculator">${ic('calc')}</button></div><span id="curwrap" class="curwrap"></span></div>
       <div id="calcres" class="calcres" hidden></div><div id="keypad" class="keypad" hidden></div></div>
     <div id="fxline"></div>
     <div id="acctrow"></div>
@@ -133,12 +133,13 @@ export function openEntry(opts = {}) {
   const $f = (id) => form.querySelector('#' + id);
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
-    flow: ['seg', 'freq', 'namefield', 'amountbox', 'fxline', 'acctrow', 'catrow', 'triprow', 'itemsrow', 'whenrow', 'notesrow', 'safety', 'err', 'btns'],
+    flow: ['seg', 'freq', 'namefield', 'amountbox', 'fxline', 'acctrow', 'whenrow', 'catrow', 'triprow', 'itemsrow', 'notesrow', 'safety', 'err', 'btns'],
     transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'notesrow', 'err', 'btns'],
   };
   function arrange() {
     const ids = f.kind === 'transfer' ? ORDER.transfer : ORDER.flow;
     for (const id of ids) form.appendChild($f(id));
+    const nh = form.querySelector('#namehelp'), nr = $f('notesrow'); if (nh && nr) nr.after(nh);
   }
 
   // ---------- renderers ----------
@@ -165,18 +166,17 @@ export function openEntry(opts = {}) {
       hint = chips ? '' : 'Routes you use often will show here.';
     } else {
       const amt = num(f.amount), a = acctOf(f.acct);
-      tabs = [['usual', 'Usual'], ['recent', 'Recent'], ['fit', amt > 0 ? `Fits ${fmt(amt, a ? a.cur : HOME, { force: !priv.on })}` : 'Fits amount']];
-      if (!f.qtabManual) f.qtab = (!f.name.trim() && amt > 0) ? 'fit' : (f.qtab === 'fit' ? 'usual' : (f.qtab || 'usual'));
+      tabs = [['usual', 'Usual'], ['recent', 'Recent']];
+      if (f.qtab !== 'usual' && f.qtab !== 'recent') f.qtab = 'usual';
       const m = modelFor(f.kind);
       let names = [];
       if (f.qtab === 'usual') { const isT = isTransportCat(db2.categories); names = rankRouteNames(db2, isT, freqNames(db2, 90, 14, f.kind), hourOf(f.date)).slice(0, 6).map((n) => ({ name: n })); }
       else if (f.qtab === 'recent') names = recentNames(m, 6);
-      else names = byAmount(m, amt, a && a.cur, 6);
       chips = names.map((x) => `<button type="button" class="chip" data-e="pick" data-v="${esc(x.name)}">${esc(x.name)}${x.amount ? ` <small>${esc(fmt(x.amount, a ? a.cur : HOME, { force: !priv.on }).replace(/\.00$/, ''))}</small>` : ''}</button>`).join('');
-      hint = f.qtab === 'fit' ? (amt > 0 ? (chips ? 'Names you usually pay about this amount. Tap one to fill the rest.' : 'Nothing matches this amount yet.') : 'Type an amount and your likely entries appear here.') : 'Tap one to fill in the name, amount, account and category.';
+      hint = 'Tap one to fill in the name, amount, account and category.';
     }
     el.innerHTML = `<div class="qptabs" role="tablist" aria-label="Quick picks">${tabs.map(([v, l]) => `<button type="button" role="tab" class="qtab ${f.qtab === v ? 'on' : ''}" aria-selected="${f.qtab === v}" data-e="qtab" data-v="${v}">${l}</button>`).join('')}</div>
-      <div class="chips ${f.kind === 'transfer' ? 'qpone' : ''}">${chips || ''}</div>${hint ? `<span class="qphint">${hint}</span>` : ''}`;
+      <div class="chips ${f.kind === 'transfer' ? 'qpone' : ''}">${chips || ''}</div><span class="qphint">${hint || '&nbsp;'}</span>`;
   }
   function currencies() {
     const cnt = new Set(favCurs());
@@ -488,7 +488,7 @@ export function openEntry(opts = {}) {
   }
   function renderNameHelp() {
     let el = form.querySelector('#namehelp');
-    if (!el) { const nf = $f('namefield'); if (!nf) return; el = document.createElement('div'); el.id = 'namehelp'; el.className = 'namehelp'; nf.after(el); }
+    if (!el) { const nf = $f('notesrow'); if (!nf) return; el = document.createElement('div'); el.id = 'namehelp'; el.className = 'namehelp'; nf.after(el); }
     const c = f.kind === 'transfer' ? [] : similarNames(get(), f.name, 1);
     const rel = f.kind === 'transfer' || !f.name.trim() ? [] : relatedNames(get(), f.name).slice(0, 2);
     el.innerHTML = c.map((x) => compareCard(get(), f.name.trim(), x.name)).join('') + (c.length ? '' : rel.map((x) => `<p class="relhint muted">Related to <b>${esc(x.name)}</b>${x.cat ? ` (${esc(x.cat)})` : ''}, ${Math.round(x.w * 100)}% close. It keeps its own category.</p>`).join(''));
@@ -528,9 +528,7 @@ export function openEntry(opts = {}) {
   form.addEventListener('input', (e) => {
     const id = e.target.id;
     if (id === 'f-amount') {
-      formatAmountInput(e.target); f.amount = e.target.value; updateFxVal(); updateItemLeft(); showCalcRes(); if (f.name.trim()) refreshPred(); else renderSafety();
-      if (f.kind === 'transfer') { if (!f.feeTouched) { suggestFee(); const fe = $f('f-fee'); if (fe) fe.value = f.fee; } if (f.convert) syncCross('rate'); }
-      else if (!f.qtabManual || f.qtab === 'fit') renderFreq();
+      formatAmountInput(e.target); f.amount = e.target.value; showCalcRes(); syncX(); updateFxVal(); heavy();
     }
     else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
     else if (id === 'f-from' || id === 'f-to') { if (id === 'f-from') f.from = e.target.value; else f.to = e.target.value; tripName(); tripChips(); }
@@ -612,6 +610,7 @@ export function openEntry(opts = {}) {
       case 'calc': f.calc = !f.calc; renderKeypad(); break;
       case 'k': keyPress(v); break;
       case 'when': openDatePicker(f.date, (val) => { f.date = val; renderWhen(); refreshPred(); renderSafety(); }, { title: 'When was it?' }); break;
+      case 'amtclear': { f.amount = ''; const am = $f('f-amount'); am.value = ''; showCalcRes(); syncX(); heavy(); if (!f.calc) am.focus(); break; }
       case 'samediff': f.toAmount = f.amount; f.diffInit = false; renderConv(); break;
       case 'livecross': { const r = crossRate(); if (r) { f.cRate = prec(r); const cr = $f('f-crate'); if (cr) cr.value = f.cRate; syncCross('rate'); } else toast('No live rate for this pair yet. Type one.'); break; }
       case 'feeby': f.feeBy = v; f.feeTouched = true; f.feeSuggested = false; renderFee(); break;
@@ -641,13 +640,14 @@ export function openEntry(opts = {}) {
   function showCalcRes() {
     const el = $f('calcres'), v = num(f.amount);
     const show = isExpr(f.amount) && v > 0;
-    el.hidden = !show;
+    el.hidden = !(show || f.calc);
+    el.textContent = '\u00a0';
     if (show) { const a = acctOf(f.acct); el.textContent = '= ' + fmt(v, a ? a.cur : HOME, { force: !priv.on }); }
   }
   function renderKeypad() {
     const kp = $f('keypad'), amt = $f('f-amount');
     form.querySelector('.calcbtn').setAttribute('aria-pressed', String(f.calc));
-    kp.hidden = !f.calc;
+    kp.hidden = !f.calc; showCalcRes();
     amt.setAttribute('inputmode', f.calc ? 'none' : 'decimal');
     if (!f.calc) { amt.focus(); return; }
     kp.innerHTML = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', '.', '⌫', '='].map((k) =>
@@ -660,11 +660,19 @@ export function openEntry(opts = {}) {
     else if (k === '⌫') f.amount = f.amount.slice(0, -1);
     else if (k === '=') { const v = num(f.amount); if (v > 0) f.amount = tidy(v); }
     else f.amount += k;
-    amt.value = f.amount; showCalcRes(); updateFxVal(); updateItemLeft();
-    if (f.name.trim()) refreshPred(); else renderSafety();
-    if (f.kind === 'transfer') { if (!f.feeTouched) { suggestFee(); const fe = $f('f-fee'); if (fe) fe.value = f.fee; } if (f.convert) syncCross('rate'); }
-    else if (!f.qtabManual || f.qtab === 'fit') renderFreq();
+    amt.value = f.amount; showCalcRes(); syncX(); updateFxVal(); heavy();
   }
+  // the slow work (guesses, home value, fee, warnings) waits until you pause, so keys react at once and nothing moves while you tap
+  let heavyT;
+  function heavy() {
+    clearTimeout(heavyT);
+    heavyT = setTimeout(() => {
+      updateItemLeft();
+      if (f.name.trim()) refreshPred(); else renderSafety();
+      if (f.kind === 'transfer') { if (!f.feeTouched) { suggestFee(); const fe = $f('f-fee'); if (fe) fe.value = f.fee; } if (f.convert) syncCross('rate'); }
+    }, 350);
+  }
+  function syncX() { const x = form.querySelector('.amtx'); if (x) x.style.visibility = f.amount ? 'visible' : 'hidden'; }
 
   function fail(msg) { const el = $f('err'); el.textContent = msg; el.hidden = false; el.scrollIntoView({ block: 'nearest' }); }
 

@@ -29,7 +29,7 @@ with sync_playwright() as p:
         ok(f'[{vw}] day collapses', pg.locator('.day.off .rows[hidden]').count()==1)
         h.click(); pg.wait_for_timeout(150)
         ok(f'[{vw}] day expands again', pg.locator('.day.off').count()==0)
-        ok(f'[{vw}] day total coloured', pg.locator('.dtot[style*=hsl]').count()>=1)
+        ok(f'[{vw}] Entries days are not coloured', pg.locator('.dtot[style*=hsl]').count()==0)
         ok(f'[{vw}] no page errors', not errs)
     b.close()
 print('SUMMARY', sum(res), 'passed', len(res)-sum(res), 'failed')

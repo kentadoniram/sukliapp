@@ -97,6 +97,14 @@ export function accounts(db) {
     const m = new Map(); for (const a of shown) { const k = a.exchange || 'No exchange'; if (!m.has(k)) m.set(k, []); m.get(k).push(a); }
     groups = [...m.entries()].map(([k, list]) => ({ key: 'ex-' + k, title: k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)) }))
       .sort((a, b) => (a.title === 'No exchange') - (b.title === 'No exchange') || b.base - a.base);
+  } else if (grp === 'class' && view.sort === 'cat') {
+    // assets and debts first, then each kind of account inside (Cash, Bank, E-wallet…)
+    groups = [];
+    for (const top of ['Assets', 'Liabilities']) {
+      const inTop = shown.filter((a) => (top === 'Liabilities') === isLiability(a));
+      const kinds = [...new Set(inTop.map((a) => a.type))].sort((x, y) => (typeOrder.indexOf(x) < 0 ? 99 : typeOrder.indexOf(x)) - (typeOrder.indexOf(y) < 0 ? 99 : typeOrder.indexOf(y)));
+      for (const k of kinds) { const list = inTop.filter((a) => a.type === k); groups.push({ key: 'cls-' + top + '-' + k, title: typeNames[k] || k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)), top }); }
+    }
   } else if (grp === 'class') {
     const cls = (a) => {
       if (isLiability(a)) return a.type === 'card' ? 'Credit cards' : (a.type === 'loan' || a.loan) ? 'Loans and money owed' : 'Other debts';
