@@ -216,7 +216,14 @@ ACT.slice = (el) => {
   if (sel) { const d = document.querySelector(`details.pierow[data-k="${CSS.escape(ui.pie)}"]`); if (d) { const r = d.getBoundingClientRect(); if (r.top < 60 || r.bottom > innerHeight) d.scrollIntoView({ block: 'nearest' }); } }
 };
 document.addEventListener('change', (e) => { const el = e.target.closest && e.target.closest('select[data-bscope]'); if (el) { ui.bscope = el.value; render(); } });
-ACT.pieby = (el) => { ui.pieBy = el.dataset.v; ui.pie = ''; render(); };
+// switching By group / By category redraws only the pie block, not the whole screen (no flicker, the scroll position and open cards stay)
+ACT.pieby = (el) => {
+  ui.pieBy = el.dataset.v; ui.pie = '';
+  const cur = document.getElementById('bpie'); if (!cur) { render(); return; }
+  const next = new DOMParser().parseFromString(`<body>${budget(get())}</body>`, 'text/html').getElementById('bpie');
+  if (!next) { render(); return; }
+  cur.innerHTML = next.innerHTML;
+};
 
 // Budget can be limited to one platform, wallet or account (platform › wallet › asset)
 export function budget(db) {
@@ -301,9 +308,9 @@ function budgetInner(db) {
     ${warns.length ? `<section class="bwarn">${warns.map((w) => `<button class="warnrow ${w.tone}" data-act="slice" data-k="${esc(w.g)}">${ic('check')}<span>${esc(w.text)}</span></button>`).join('')}</section>` : ''}
     ${coll('b-sum', 'Budget summary', sumBlock, '<button type="button" class="btn sm ghost" data-act="budget-setup">Budget setup</button>')}
     ${coll('b-class', 'Needs, wants and luxury', classCard(db, ym) || '<p class="hint">Nothing spent in this month yet.</p>')}
-    <section class="seg-wrap"><div class="seg two" role="group" aria-label="Split by">${[['group', 'By group'], ['category', 'By category']].map(([v, l]) => `<button type="button" data-act="pieby" data-v="${v}" class="${by === v ? 'on' : ''}" aria-pressed="${by === v}">${l}</button>`).join('')}</div>
+    <div id="bpie"><section class="seg-wrap"><div class="seg two" role="group" aria-label="Split by">${[['group', 'By group'], ['category', 'By category']].map(([v, l]) => `<button type="button" data-act="pieby" data-v="${v}" class="${by === v ? 'on' : ''}" aria-pressed="${by === v}">${l}</button>`).join('')}</div>
       ${donut}${total ? '<p class="hint center">Tap a slice or a row for the detail.</p>' : ''}</section>
-    <section>${slices.map(rowFor).join('')}</section>`;
+    <section>${slices.map(rowFor).join('')}</section></div>`;
 }
 
 // =====================================================================

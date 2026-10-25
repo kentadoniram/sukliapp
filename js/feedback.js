@@ -12,7 +12,7 @@ function buzz(strong) {
   if (!cfg.haptic) return;
   try { if (navigator.vibrate && navigator.vibrate(strong ? 14 : 8)) return; } catch { /* not supported */ }
   try {                                                         // iOS 17.4+: switching a "switch" checkbox gives a light tap
-    if (!sw) { const l = document.createElement('label'); l.setAttribute('aria-hidden', 'true'); l.style.cssText = 'position:fixed;left:-99px;top:-99px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none';
+    if (!sw) { const l = document.createElement('label'); l.setAttribute('aria-hidden', 'true'); l.className = 'fbswitch'; l.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;overflow:hidden;opacity:0.01;pointer-events:none';
       const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); i.tabIndex = -1; l.appendChild(i); document.body.appendChild(l); sw = l; }
     sw.click();
   } catch { /* no haptics on this device */ }
@@ -25,12 +25,19 @@ function click() {
     o.connect(g); g.connect(ac.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.05); o.stop(ac.currentTime + 0.06);
   } catch { /* no audio */ }
 }
+const HAPTIC_ON_CLICK = true;   // iPhone Safari only allows the haptic inside a click (user activation), not on pointerdown
 const TARGET = 'button, .chip, .row, a.btn, summary, [data-act], [data-e], label.check, .swatch';
 document.addEventListener('pointerdown', (e) => {
   const t = e.target.closest && e.target.closest(TARGET);
   if (!t || t.disabled || t.getAttribute('aria-disabled') === 'true' || t.classList.contains('clearx')) return;
   const strong = !!t.closest('.keypad') || t.classList.contains('btn');
-  buzz(strong); click();
+  click(); if (!HAPTIC_ON_CLICK) buzz(strong);
   if (cfg.visual) { t.classList.remove('fbflash'); void t.offsetWidth; t.classList.add('fbflash'); t.addEventListener('animationend', () => t.classList.remove('fbflash'), { once: true }); }
+}, { passive: true, capture: true });
+document.addEventListener('click', (e) => {
+  if (!HAPTIC_ON_CLICK || !e.isTrusted) return;
+  const t = e.target.closest && e.target.closest(TARGET);
+  if (!t || t.disabled || t.getAttribute('aria-disabled') === 'true' || t.classList.contains('clearx') || t.closest('.fbswitch')) return;
+  buzz(!!t.closest('.keypad') || t.classList.contains('btn'));
 }, { passive: true, capture: true });
 document.addEventListener('change', (e) => { const k = e.target && e.target.dataset && e.target.dataset.fb; if (k) { setFeedback(k, e.target.checked); if (e.target.checked) { buzz(true); click(); } } });

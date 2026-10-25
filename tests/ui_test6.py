@@ -17,7 +17,7 @@ with sync_playwright() as p:
         else: seen['post']+=1; r.fulfill(status=201, body='')
     ctx.route('https://proj.supabase.co/rest/v1/records**', recs)
     pg.goto(BASE); pg.wait_for_selector('#first-file',state='attached')
-    pg.click('[data-act=start-empty]'); pg.wait_for_selector('#acct-form'); pg.fill('[name=name]','Wallet'); pg.click('#acct-form .btn'); pg.wait_for_timeout(300)
+    pg.click('[data-act=wz-old]'); pg.click('[data-act=start-empty]'); pg.wait_for_selector('#acct-form'); pg.fill('[name=name]','Wallet'); pg.click('#acct-form .btn'); pg.wait_for_timeout(300)
     pg.goto(BASE+'#/settings'); pg.wait_for_selector('#c-url')
     pg.fill('#c-url','https://proj.supabase.co'); pg.dispatch_event('#c-url','change'); pg.fill('#c-key','anonkey'); pg.dispatch_event('#c-key','change')
     ok('google button shown when signed out', pg.locator('[data-act=cloud-google]').count()==1)

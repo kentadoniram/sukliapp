@@ -13,6 +13,7 @@ import { modelFor, openEntry, openBulk, openCategoryForm } from './entry.js';
 import { syncNow, status as syncStatus } from './drive.js';
 import { REMOVED_UI } from './features.js';
 import { fxBlockHtml, openConverter } from './fxview.js';
+import { tipBtn } from './interest.js';
 import { feedbackCfg } from './feedback.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
@@ -156,7 +157,7 @@ export function home(db) {
   const st = monthStats(db, ui.month);
   const lay = homeLayout(db);
   const body = lay.order.filter((id) => !lay.hidden.includes(id)).map((id) => { const sec = HOME_SECTIONS.find((x) => x[0] === id); if (!sec) return ''; return sec[2] ? `<div class="defer" data-defer="${id}" aria-busy="true"></div>` : homeSection(id, { db }); }).join('');
-  const firstEntry = !db.txs.some((t) => !t.deleted) ? `<section class="nextstep"><b>Next step: write down your first spending.</b><br>Tap the round <b>+</b> button below. Type what it was (for example “lunch”), how much, and pick the account you paid from. Sukli learns your usual choices as you go.</section>` : '';
+  const firstEntry = !db.txs.some((t) => !t.deleted) ? `<section class="nextstep"><b>Next step: write down your first spending.</b> ${tipBtn('firstentry')}</section>` : '';
   return `${monthNav()}
     ${firstEntry}${strip(st)}${homeTitles(weekBars(db) + body)}`;
 }
@@ -175,7 +176,7 @@ function weekBars(db) {
   // a long amount is shortened (12.3k) so neighbouring labels never touch
   const amt = (v) => (v < 10 ? money(v) : compact(v));
   let body;
-  if (!total) body = '<p class="empty">Nothing spent in the last 7 days.</p>';
+  if (!total) body = '<p class="empty">Nothing yet.</p>';
   else if (mode === 'v') body = `<div class="wkv" role="img" aria-label="Spending for each of the last 7 days">${dates.map((d, i) => `<div class="wc ${i === 6 ? 'now' : ''}" data-tip="${esc(full(d, i) + ': ' + (vals[i] ? money(vals[i]) : 'nothing spent'))}"><span class="wa ${vals[i] ? '' : 'muted'}" ${cl(i) ? `style="color:${cl(i)}"` : ''}>${vals[i] ? esc(amt(vals[i])) : ''}</span><span class="wb"><i style="height:${vals[i] > 0 ? Math.max(3, Math.round(vals[i] / top * 100)) : 0}%${cl(i) ? `;background:${cl(i)}` : ''}"></i></span><span class="wl">${esc(day(d, i))}</span></div>`).join('')}</div>`;
   else body = dates.map((d, i) => `<div class="wk ${i === 6 ? 'now' : ''}"><span class="wd">${esc(full(d, i))}</span><span class="wtrack"><i style="width:${vals[i] > 0 ? Math.max(2, Math.round(vals[i] / top * 100)) : 0}%${cl(i) ? `;background:${cl(i)}` : ''}"></i></span><b class="wv ${vals[i] ? '' : 'muted'}" ${cl(i) ? `style="color:${cl(i)}"` : ''}>${vals[i] ? esc(money(vals[i])) : '–'}</b></div>`).join('');
   return `<section class="week" aria-label="Spending in the last 7 days"><div class="weekhead"><h3 class="subh">Spent each day, last 7 days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3></div>${body}</section>`;
@@ -211,12 +212,12 @@ function homeSection(id, c) {
     case 'rolling': return rollingCard(db);
     case 'outlook': return outlookCard(db);
     case 'went': { const out = totals(db, ui.month), groups = [...out.by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8), max = groups.length ? Math.max(groups[0][1], ...groups.map(([g]) => budgetOf(db, g))) : 1;
-      return coll('h-out', 'Where it went', groups.length ? wentToggle() + (wentMode() === 'pie' ? wentPie([...out.by.entries()].sort((a, b) => b[1] - a[1]), out.total) : groups.map(([g, v]) => gbar(db, g, v, max, 'expense', out.total)).join('') + '<p class="hint tap">Tap a group to see what is in it.</p>') : `<p class="empty">Nothing spent in ${esc(monthLabel(ui.month))} yet.</p>`); }
+      return coll('h-out', 'Where it went', groups.length ? wentToggle() + (wentMode() === 'pie' ? wentPie([...out.by.entries()].sort((a, b) => b[1] - a[1]), out.total) : groups.map(([g, v]) => gbar(db, g, v, max, 'expense', out.total)).join('') + '<p class="hint tap">Tap a group to see what is in it.</p>') : `<p class="empty">Nothing yet.</p>`); }
     case 'came': { const inc = totals(db, ui.month, 'income'), g = [...inc.by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
-      return coll('h-in', 'Where it came from', g.length ? g.map(([k, v]) => gbar(db, k, v, g[0][1], 'income', inc.total)).join('') : `<p class="empty">Nothing came in during ${esc(monthLabel(ui.month))} yet.</p>`); }
+      return coll('h-in', 'Where it came from', g.length ? g.map(([k, v]) => gbar(db, k, v, g[0][1], 'income', inc.total)).join('') : '<p class="empty">Nothing yet.</p>'); }
     case 'six': return coll('h-6', 'Last 6 months', `${trendChart(trend(db, ui.month, 6), ui.month, 6)}<p class="legend"><i class="k bar"></i>Cash outflow <i class="k inc"></i>Cash inflow · tap a month</p>`);
     case 'latest': { const recent = sortedTxs(db).filter((t) => t.date.startsWith(ui.month)).slice(0, 6), accts = accountMap(db), cats = catMap(db);
-      return coll('h-latest', 'Latest', `<div class="rows">${recent.length ? recent.map((t) => row(t, accts, cats)).join('') : '<p class="empty">No entries this month. Tap + to add one.</p>'}</div>`, '<a href="#/ledger" class="linkbtn">All entries</a>'); }
+      return coll('h-latest', 'Latest', `<div class="rows">${recent.length ? recent.map((t) => row(t, accts, cats)).join('') : '<p class="empty">No entries yet.</p>'}</div>`, '<a href="#/ledger" class="linkbtn">All entries</a>'); }
     default: return '';
   }
 }
@@ -440,7 +441,7 @@ function ledgerRows(db) {
     for (const k of hiddenFees) if (kidMap.get(k.id).id === t.id) { dayTotal += k.amount * factorFor(db, k); byCur.set(k.cur, (byCur.get(k.cur) || 0) + k.amount); }
   }
   flush();
-  if (!html) html = `<p class="empty">${q ? 'No entries match your search.' : ui.filter === 'review' ? 'Nothing to check. Every entry this month is confirmed.' : 'No entries here.'}</p>`;
+  if (!html) html = `<p class="empty">${q ? 'No entries match your search.' : ui.filter === 'review' ? 'Nothing to check.' : `No entries yet. ${tipBtn('emptyledger')}`}</p>`;
   if (total > list.length) html += `<button class="btn ghost wide" data-act="more">Show more (${total - list.length} left)</button>`;
   return sumHtml + html;
 }
@@ -1012,7 +1013,7 @@ export function projIncome(db, ym) {
 }
 function projPie(db) {
   const ym = ui.month, out = totals(db, ym), pi = projIncome(db, ym), inc = pi.v, spent = out.total;
-  if (!(inc > 0)) return coll('h-proj', 'Spending vs expected income', `<p class="empty">No income found yet to compare with.</p><button type="button" class="btn ghost" data-act="proj-set">Set my expected monthly income</button>`);
+  if (!(inc > 0)) return coll('h-proj', 'Spending vs expected income', `<p class="empty">No income yet.</p><button type="button" class="btn ghost" data-act="proj-set">Set my expected monthly income</button>`);
   const all = [...out.by.entries()].sort((a, b) => b[1] - a[1]), top = all.slice(0, 6), rest = all.slice(6).reduce((a, [, v]) => a + v, 0);
   const slices = top.map(([g, v]) => ({ g, v })); if (rest > 0) slices.push({ g: 'Everything else', v: rest, other: true });
   const left = inc - spent, over = left < 0, den = Math.max(inc, spent), C = 2 * Math.PI * 52; let acc = 0;

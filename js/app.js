@@ -16,6 +16,7 @@ import { postInterest, postDebtInterest, hasDebtInt } from './finance.js';
 import { hasRate } from './interest.js';
 import { ratesInit } from './rates.js';
 import { initGestures } from './gestures.js';
+import { welcomeHtml } from './welcome.js';
 import { bin, autoPurge } from './bin.js';
 import { analytics } from './analytics.js';
 import { investments } from './invest.js';
@@ -32,7 +33,7 @@ const seen = new Map(), stack = []; let curKey = '', backTo = null;
 window.addEventListener('scroll', () => { if (curKey) seen.set(curKey, window.scrollY); }, { passive: true });
 window.addEventListener('hashchange', () => { const k = location.hash || '#/home'; if (k === stack[stack.length - 2]) { stack.pop(); backTo = seen.get(k) ?? 0; } else { if (stack[stack.length - 1] !== k) stack.push(k); backTo = null; } });
 
-function firstRun() {
+function firstRunOld() {
   return `<section class="welcome">
     <h1>Welcome to Sukli</h1>
     <p class="lede">Sukli helps you see where your money goes, so there are fewer surprises at the end of the month. You do not need to know anything about finance. Your data stays on this phone.</p>
@@ -46,6 +47,7 @@ function firstRun() {
     <label class="btn ghost wide filebtn">I use Bluecoins: import my CSV file<input type="file" id="first-file" accept=".csv,text/csv" hidden></label>
     <p class="hint">Importing keeps your accounts, balances, categories and every entry, including transfers between currencies.</p></section>`;
 }
+function firstRun() { return welcomeHtml(firstRunOld()); }
 ACT['start-empty'] = () => { commit((d) => seedCategories(d)); ACT['acct-new'](); };
 
 function tabs(route) {

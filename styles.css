@@ -902,3 +902,18 @@ html.kb #btns, html.kb .sheet-body > form > .btnrow:last-child { padding: 2px 0 
 html.kb #btns .btn, html.kb .sheet-body > form > .btnrow:last-child .btn { min-height: 34px; padding: 0 14px; font-size: calc(13px * var(--fs, 1)); box-shadow: 0 2px 8px rgba(0,0,0,.25); }
 .sheet-body > form { padding-bottom: 8px; }
 .sugg button { min-height: 44px; }
+
+/* 12.61: first-run questions, one at a time */
+.wz { padding-top: 6vh; }
+.wz h1 { font-size: calc(30px * var(--fs, 1)); margin: 6px 0 4px; }
+.wzstep { margin: 0 0 6px; color: var(--ink2); font-size: calc(13px * var(--fs, 1)); }
+.wzbar { height: 5px; border-radius: 3px; background: var(--rule); overflow: hidden; margin-bottom: 18px; }
+.wzbar i { display: block; height: 100%; background: var(--line); }
+.wzin { width: 100%; min-height: 52px; font-size: 20px; margin: 10px 0; }
+.wzamt { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+.wzamt .wzin { margin: 0; }
+.wzchips { margin: 8px 0 18px; display: flex; flex-wrap: wrap; gap: 8px; }
+.wzchips .chip { min-height: 44px; padding: 0 16px; }
+.wznav { display: flex; gap: 10px; justify-content: space-between; margin-top: 20px; }
+.wznav .btn { flex: 1; min-height: 48px; }
+.wz .linkbtn { min-height: 40px; }
