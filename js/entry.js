@@ -114,7 +114,7 @@ export function openEntry(opts = {}) {
     <div class="seg" id="seg" role="group" aria-label="Entry type"></div>
     <div id="freq" class="qp"></div>
     <div class="field" id="namefield"><span id="namelabel">What was it?</span>
-      <input id="f-name" autocomplete="off" value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary" ${existing ? '' : 'autofocus'}>
+      <input id="f-name" name="memo" type="text" autocomplete="off" data-form-type="other" data-lpignore="true" value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary" ${existing ? '' : 'autofocus'}>
       <div id="sugg" class="sugg" hidden></div></div>
     <div class="field amount" id="amountbox"><span class="amtlabel">Amount <button type="button" class="linkbtn eye" data-e="eye" aria-label="Hide or show amounts">${priv.on ? 'Show' : 'Hide'} amounts</button></span>
       <div class="amtrow"><div class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"><button type="button" class="amtx" data-e="amtclear" aria-label="Clear amount" ${f.amount ? '' : 'style="visibility:hidden"'}>×</button><button type="button" class="calcbtn" data-e="calc" aria-label="Calculator" aria-pressed="false" title="Calculator">${ic('calc')}</button></div><span id="curwrap" class="curwrap"></span></div>
@@ -132,6 +132,8 @@ export function openEntry(opts = {}) {
     <p class="err" id="err" role="alert" hidden></p>
     <div class="btnrow" id="btns"></div>`;
   const $f = (id) => form.querySelector('#' + id);
+  // iPhone (installed web app): giving a "name"-like field focus again after a tap makes Safari offer contact autofill. Do not re-focus a field that already has focus.
+  const focusKeep = (el) => { if (el && document.activeElement !== el) el.focus(); };
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
     flow: ['seg', 'freq', 'namefield', 'amountbox', 'fxline', 'acctrow', 'whenrow', 'catrow', 'triprow', 'itemsrow', 'notesrow', 'safety', 'err', 'btns'],
@@ -519,14 +521,14 @@ export function openEntry(opts = {}) {
       if (!num(f.amount) && lk.amount) { f.amount = String(lk.amount); $f('f-amount').value = f.amount; }
     }
     refreshPred(); renderSugg(); updateFxVal(); updateItemLeft(); renderFreq();
-    $f(num(f.amount) ? 'f-name' : 'f-amount').focus();
+    focusKeep($f(num(f.amount) ? 'f-name' : 'f-amount'));
   }
   function pickRoute(from, to) {
     const h = transferHints(get()).routes.find((r) => r.from === from && r.to === to);
     f.acct = from; f.toAcct = to; f.acctTouched = true; f.feeTouched = false;
     if (h) { if (!f.name.trim() && h.name) { f.name = h.name; $f('f-name').value = h.name; } if (!num(f.amount) && h.amount) { f.amount = String(h.amount); $f('f-amount').value = f.amount; } }
     renderAccts(); renderFx(); syncCross(); renderSugg();
-    $f(num(f.amount) ? 'f-name' : 'f-amount').focus();
+    focusKeep($f(num(f.amount) ? 'f-name' : 'f-amount'));
   }
 
   // ---------- events ----------
@@ -592,7 +594,9 @@ export function openEntry(opts = {}) {
   form.addEventListener('focusout', (e) => {
     if (e.target.id === 'f-amount' && isExpr(f.amount) && !f.calc) { const v = num(f.amount); if (v > 0) { f.amount = tidy(v); e.target.value = f.amount; showCalcRes(); updateFxVal(); } }
   });
-  form.addEventListener('focusout', () => setTimeout(() => { const el = $f('sugg'); if (el && !el.contains(document.activeElement)) el.hidden = true; }, 150));
+  // tapping a suggestion must not take focus from the text box (no blur, no re-focus, so Safari never shows the contact bar)
+  form.addEventListener('mousedown', (e) => { if (e.target.closest('#sugg')) e.preventDefault(); });
+  form.addEventListener('focusout', () => setTimeout(() => { const el = $f('sugg'); if (el && !el.contains(document.activeElement) && document.activeElement !== $f('f-name')) el.hidden = true; }, 150));
   form.addEventListener('submit', (e) => { e.preventDefault(); save(false); });
   form.addEventListener('click', (e) => {
     const b = e.target.closest('[data-e]');
