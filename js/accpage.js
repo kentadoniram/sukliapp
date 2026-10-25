@@ -9,7 +9,7 @@ import {
   adjustmentCategory, shiftMonth, thisMonth, monthLabel, monthParts, deltaFor, dayLabel,
 } from './core.js';
 import { transferHints } from './finance.js';
-import { interestPreview, promoStatus, rateHistory, debtPreview, hasDebtInt, accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, setLiab, today, postInterest, postDebtInterest, interestTaxPct, retaxInterest } from './finance.js';
+import { lockInfo, interestPreview, promoStatus, rateHistory, debtPreview, hasDebtInt, accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, setLiab, today, postInterest, postDebtInterest, interestTaxPct, retaxInterest } from './finance.js';
 import { esc, ic, ACT, sheet, toast, download, confirmDialog, promptDialog } from './ui.js';
 import { applyHide } from './appearance.js';
 import { money, eq, hdr, coll, ui, tradeKids, effectLine } from './screens.js';
@@ -312,8 +312,9 @@ export function openAccountDetail(id) {
       ${hasRate(a) ? (() => { const pv = interestPreview(db, a, 7), rh = rateHistory(a), ps = promoStatus(db, a), t0 = today();
         const cur = [...rh].reverse().find((r) => !r.from || r.from <= t0) || rh[0];
         return `<div class="cardbox"><h3>Interest details</h3>
+        ${(() => { const li = lockInfo(db, a); return li.locked > 0 ? `<p class="lockline"><strong>Locked: ${money(li.locked, a.cur)}</strong> · free to take out: ${money(li.available, a.cur)} · next part unlocks ${esc(li.nextUnlock)}<br><small class="muted">Taking out more than the free amount before then may cost you the promo rate (Sukli stops counting it as promo money).</small></p>` : ''; })()}
         <h4 class="subh">Rate history</h4><ul class="calfacts">${rh.map((r) => `<li><span>${r.from ? 'From ' + esc(r.from) : 'Starting rate'}${r === cur ? ' · now' : ''}</span><b>${r.rate}% a year</b></li>`).join('')}</ul>
-        ${ps.length ? `<h4 class="subh">Promotional rates</h4><ul class="calfacts">${ps.map((x) => `<li><span>${x.p.rate}% on money deposited ${esc(x.p.depFrom)} to ${esc(x.p.depTo)}<br><small class="muted">${esc(x.status)} · ${money(x.deposited, a.cur)} deposited in that window</small></span><b class="promo ${/^Earning/.test(x.status) ? 'on' : ''}">${/^Earning/.test(x.status) ? 'Active' : /^Ended/.test(x.status) ? 'Ended' : /^Starts/.test(x.status) ? 'Upcoming' : 'Open'}</b></li>`).join('')}</ul>` : ''}
+        ${ps.length ? `<h4 class="subh">Promotional rates</h4><ul class="calfacts">${ps.map((x) => `<li><span>${x.p.rate}% on money deposited ${esc(x.p.depFrom)} to ${esc(x.p.depTo)}<br><small class="muted">${esc(x.status)} · ${money(x.deposited, a.cur)} deposited in that window${x.lock ? ` · ${esc(x.lock)}` : ''}</small></span><b class="promo ${/^Earning/.test(x.status) ? 'on' : ''}">${/^Earning/.test(x.status) ? 'Active' : /^Ended/.test(x.status) ? 'Ended' : /^Starts/.test(x.status) ? 'Upcoming' : 'Open'}</b></li>`).join('')}</ul>` : ''}
         <h4 class="subh">Next 7 days <small class="muted">(if the balance stays at ${money(pv.balance, a.cur)})</small></h4>
         <ul class="calfacts ipreview">${pv.rows.map((r) => `<li><span>${esc(dayLabel(r.date + ' 12:00:00'))}${r.promo ? ' · promo' : ''}${r.note ? ` <small class="muted">· ${esc(r.note)}</small>` : ''}</span><b>${money(pv.taxPct > 0 ? r.net : r.gross, a.cur, { force: false })}</b></li>`).join('')}</ul>
         <p class="hint">${pv.taxPct > 0 ? `After ${pv.taxPct}% tax. ` : ''}Interest is added ${pv.comp === 'daily' ? 'every day' : pv.comp} at 23:55${pv.comp === 'daily' ? '' : ` (next: ${esc(pv.nextCredit)})`}.</p></div>`; })() : ''}
@@ -457,10 +458,10 @@ export function openAccount(id, preset = {}) {
       interestFrom: fd.get('interestFrom') || today(),
       openDate: fd.get('openDate') || '',
     };
-    const rcF = fd.getAll('rc-from'), rcR = fd.getAll('rc-rate'), pF = fd.getAll('pr-from'), pT = fd.getAll('pr-to'), pR = fd.getAll('pr-rate'), pU = fd.getAll('pr-until');
+    const rcF = fd.getAll('rc-from'), rcR = fd.getAll('rc-rate'), pF = fd.getAll('pr-from'), pT = fd.getAll('pr-to'), pR = fd.getAll('pr-rate'), pU = fd.getAll('pr-until'), pL = fd.getAll('pr-lock'), pLE = fd.getAll('pr-lockend');
     extra.compound = fd.get('compound') || 'daily';
     extra.rates = rcF.map((f, i) => ({ from: f, rate: num(rcR[i]) })).filter((r, i) => r.from && String(rcR[i]).trim() !== '');
-    extra.promos = pF.map((f, i) => ({ depFrom: f, depTo: pT[i], rate: num(pR[i]), until: pU[i] || '' })).filter((p) => p.depFrom && p.depTo && p.rate > 0);
+    extra.promos = pF.map((f, i) => ({ depFrom: f, depTo: pT[i], rate: num(pR[i]), until: pU[i] || '', lockDays: Math.max(0, Math.round(num(pL[i]))) || 0, lockEnd: pLE[i] || '' })).filter((p) => p.depFrom && p.depTo && p.rate > 0);
     extra.debtInt = fd.has('d-on') ? { on: true, rate: num(fd.get('d-rate')), kind: fd.get('d-kind') || 'effective', comp: fd.get('d-comp') || 'monthly', fromDue: fd.has('d-due'), start: fd.get('d-start') || today(), principal: num(fd.get('d-principal')) } : { on: false };
     if (isLiability({ type: fd.get('type') })) { extra.apy = 0; extra.rates = []; extra.promos = []; } else extra.debtInt = { on: false };
     if (fd.get('type') !== 'card') { extra.limit = 0; extra.stmtDay = 0; extra.dueDay = 0; }
@@ -522,7 +523,7 @@ document.addEventListener('change', async (e) => {
 
 // ---- interest fields in the account form ----
 const rateRow = (r = {}) => `<div class="two rowline" data-row><input type="date" name="rc-from" value="${esc(r.from || '')}" aria-label="Rate changes on"><label class="amtwrap sm"><input name="rc-rate" inputmode="decimal" value="${r.rate ?? ''}" placeholder="new rate" aria-label="New yearly rate"><b>%</b></label><button type="button" class="linkbtn" data-rm-row aria-label="Remove">✕</button></div>`;
-const promoRow = (p = {}) => `<div class="promoline rowline" data-row><div class="two"><label class="field"><span>Deposited from</span><input type="date" name="pr-from" value="${esc(p.depFrom || '')}"></label><label class="field"><span>to</span><input type="date" name="pr-to" value="${esc(p.depTo || '')}"></label></div><div class="two"><label class="field"><span>Earns</span><span class="amtwrap sm"><input name="pr-rate" inputmode="decimal" value="${p.rate ?? ''}" placeholder="%"><b>% a year</b></span></label><label class="field"><span>until</span><input type="date" name="pr-until" value="${esc(p.until || '')}"></label></div><button type="button" class="linkbtn" data-rm-row>Remove</button></div>`;
+const promoRow = (p = {}) => `<div class="promoline rowline" data-row><div class="two"><label class="field"><span>Deposited from</span><input type="date" name="pr-from" value="${esc(p.depFrom || '')}"></label><label class="field"><span>to</span><input type="date" name="pr-to" value="${esc(p.depTo || '')}"></label></div><div class="two"><label class="field"><span>Earns</span><span class="amtwrap sm"><input name="pr-rate" inputmode="decimal" value="${p.rate ?? ''}" placeholder="%"><b>% a year</b></span></label><label class="field"><span>until</span><input type="date" name="pr-until" value="${esc(p.until || '')}"></label></div><div class="two"><label class="field"><span>Locked for (days after each deposit)</span><input name="pr-lock" inputmode="numeric" value="${p.lockDays || ''}" placeholder="0 = no lock"></label><label class="field"><span>or locked until</span><input type="date" name="pr-lockend" value="${esc(p.lockEnd || '')}"></label></div><button type="button" class="linkbtn" data-rm-row>Remove</button></div>`;
 function debtInt(a) {
   const D = a.debtInt || {};
   return `<div class="field tiphost"><label class="check"><input type="checkbox" name="d-on" ${D.on ? 'checked' : ''}> This debt charges interest when the deadline passes ${tipBtn('debt')}</label>

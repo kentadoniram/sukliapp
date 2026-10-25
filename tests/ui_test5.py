@@ -30,9 +30,9 @@ with sync_playwright() as p:
     pg.click('.fab'); pg.wait_for_selector('#entry')
     opts=pg.eval_on_selector_all('#f-acct option','os=>os.map(o=>[o.value,o.textContent])'); yen=[o for o in opts if 'JPY' in o[1]][0]
     pg.select_option('#f-acct', yen[0]); pg.fill('#f-amount','10000'); pg.dispatch_event('#f-amount','input'); pg.wait_for_timeout(100)
-    pg.fill('#f-fx','0.4'); pg.dispatch_event('#f-fx','input'); pg.wait_for_timeout(50)
+    pg.click('[data-e=fxopen]'); pg.wait_for_selector('#cv-r'); pg.fill('#cv-r','0.4'); pg.dispatch_event('#cv-r','input'); pg.click('#cv-apply'); pg.wait_for_timeout(100)
     ok('rate -> peso: '+pg.input_value('#f-peso'), abs(float(pg.input_value('#f-peso'))-4000)<0.01)
-    pg.fill('#f-peso','3850'); pg.dispatch_event('#f-peso','input'); pg.wait_for_timeout(50)
+    pg.click('[data-e=fxopen]'); pg.wait_for_selector('#cv-b'); pg.fill('#cv-b','3850'); pg.dispatch_event('#cv-b','input'); pg.click('#cv-fromamts'); pg.click('#cv-apply'); pg.wait_for_timeout(100)
     ok('peso -> rate: '+pg.input_value('#f-fx'), abs(float(pg.input_value('#f-fx'))-0.385)<1e-6)
     pg.fill('#f-amount','20000'); pg.dispatch_event('#f-amount','input'); pg.wait_for_timeout(50)
     ok('peso kept, rate follows amount: '+pg.input_value('#f-fx'), abs(float(pg.input_value('#f-fx'))-0.1925)<1e-6)
@@ -40,9 +40,11 @@ with sync_playwright() as p:
     tx=pg.evaluate("window.sukli.get().txs.find(t=>t.name==='Test yen bill')")
     ok('saved entry has exact rate from peso value: '+str(tx['fx']), abs(tx['fx']*tx['amount']-3850)<0.001)
     # settings inverse rates
-    pg.goto('http://localhost:8123/index.html#/settings'); pg.wait_for_selector('[data-rate]')
-    pg.fill('[data-rate-inv=JPY]','2.5'); pg.dispatch_event('[data-rate-inv=JPY]','change'); pg.wait_for_timeout(100)
-    ok('settings: 1 PHP = 2.5 JPY gives 1 JPY = 0.4 PHP', abs(float(pg.input_value('[data-rate=JPY]'))-0.4)<1e-6)
+    pg.goto('http://localhost:8123/index.html#/settings'); pg.wait_for_selector('[data-act=rate-open][data-c=JPY]')
+    pg.click('[data-act=rate-open][data-c=JPY]'); pg.wait_for_selector('#cv-r'); pg.fill('#cv-r','0.4'); pg.dispatch_event('#cv-r','input'); pg.click('#cv-apply'); pg.wait_for_timeout(200)
+    pg.click('[data-act=rate-open][data-c=JPY]'); pg.wait_for_selector('#cv-r')
+    ok('settings: saved 1 JPY = 0.4 PHP shows as manual; 1 PHP = 2.5 JPY', abs(float(pg.input_value('#cv-r'))-0.4)<1e-6 and 'Manual' in pg.inner_text('#cv-src') and '2.5 JPY' in pg.inner_text('#cv-sum'))
+    pg.click('#cv-reset'); pg.wait_for_timeout(200)
     # 7 burger drawer
     pg.goto('http://localhost:8123/index.html#/home'); pg.wait_for_selector('.strip')
     ok('no gear in header, burger present', pg.locator('header [aria-label=Settings]').count()==0 and pg.locator('header [data-act=menu]').count()==1)

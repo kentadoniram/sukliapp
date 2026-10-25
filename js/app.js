@@ -132,6 +132,13 @@ const queue = () => { if (!pending) { pending = true; requestAnimationFrame(rend
   if (window.visualViewport) {
     const vv = window.visualViewport, root = document.documentElement;
     const fit = () => { const kb = window.innerHeight - vv.height > 120; root.classList.toggle('kb', kb); root.style.setProperty('--vvh', vv.height + 'px'); root.style.setProperty('--vvt', vv.offsetTop + 'px'); };
+    // iPhone: while a field on the page (Settings, filters) has the keyboard open, the bottom tabs would ride up the screen. Hide them until the keyboard is gone, then put the page back at its true position.
+    const editable = (el) => !!(el && el.matches && el.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),textarea,select'));
+    let typingTimer = 0;
+    const settle = () => { clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (editable(document.activeElement)) return; root.classList.remove('typing'); try { window.scrollTo(window.scrollX, window.scrollY); } catch { /* old browser */ } fit(); const t = document.querySelector('.tabs'); if (t) { t.style.transform = 'translateZ(0)'; requestAnimationFrame(() => { t.style.transform = ''; }); } }, 200); };
+    document.addEventListener('focusin', (e) => { if (editable(e.target) && !e.target.closest('.sheet')) { clearTimeout(typingTimer); root.classList.add('typing'); } });
+    document.addEventListener('focusout', settle);
+    vv.addEventListener('resize', () => { if (!root.classList.contains('typing') || !editable(document.activeElement)) settle(); });
     vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); fit();
     document.addEventListener('focusin', (e) => { if (e.target && e.target.closest && e.target.closest('.sheet')) setTimeout(() => { try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { /* old browser */ } }, 250); });
   }

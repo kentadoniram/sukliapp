@@ -50,7 +50,7 @@ export const TIPS = {
   tax: ['Tax on interest', 'Some banks keep a part of the interest for tax before they credit it. Only the rest reaches your balance.'],
   start: ['Interest starts on', 'The date interest begins. For a debt this is the deadline: if the amount is still owed on that day, interest starts to be charged from then.'],
   ratechange: ['Rate changes', 'When your bank changes the rate (for example 5% today and 2% from next week), add the date and the new rate here. Interest before that date keeps the old rate.'],
-  promo: ['Promotional rate', 'A special rate for money deposited during a set period. Money put in between the two deposit dates earns the promo rate until the promo ends. Other money earns the normal rate.'],
+  promo: ['Promotional rate', 'A special rate for money deposited during a set period. Money put in between the two deposit dates earns the promo rate until the promo ends. Other money earns the normal rate. If the bank locks the money (a term deposit), say for how many days after each deposit, or until which date: the promo rate then runs for that time, and Sukli warns when you take out locked money.'],
   debt: ['Interest on a debt', 'When this is on, Sukli adds an interest charge to what you owe once the deadline is reached and the amount is still unpaid. Each charge also counts as a financial loss.'],
 };
 export const tipBtn = (k) => (TIPS[k] ? `<button type="button" class="tipbtn" data-tip="${k}" aria-label="What is ${TIPS[k][0]}?" aria-expanded="false">?</button>` : '');

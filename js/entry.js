@@ -7,7 +7,8 @@ import { buildGraph, makeResolver, explain } from './simgraph.js';
 import { nameRules } from './merchants.js';
 import { compareCard, relatedNames } from './compare.js';
 import { smartKind, openLoanPlanner } from './loans.js';
-import { isLiability } from './finance.js';
+import { fxBlockHtml, fxBlockUpdate, openConverter } from './fxview.js';
+import { isLiability, lockInfo } from './finance.js';
 import { budgetAlerts, newAlertsSince } from './budgetsetup.js';
 import { guessLabel, transferLabel } from './label.js';
 import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat, transportWord, modeOf, tripLabel, bareMode } from './route.js';
@@ -134,7 +135,7 @@ export function openEntry(opts = {}) {
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
     flow: ['seg', 'freq', 'namefield', 'amountbox', 'fxline', 'acctrow', 'whenrow', 'catrow', 'triprow', 'itemsrow', 'notesrow', 'safety', 'err', 'btns'],
-    transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'notesrow', 'err', 'btns'],
+    transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'notesrow', 'safety', 'err', 'btns'],
   };
   function arrange() {
     const ids = f.kind === 'transfer' ? ORDER.transfer : ORDER.flow;
@@ -229,9 +230,9 @@ export function openEntry(opts = {}) {
     if (f.kind !== 'transfer' || !a || !b || a.cur === b.cur) { el.innerHTML = ''; f.convert = false; return; }
     if (a.type === 'crypto' && b.type === 'crypto' && !f.convTouched) f.convert = true;   // two coins are never exactly 1:1
     el.innerHTML = `<label class="check"><input type="checkbox" id="f-conv" ${f.convert ? 'checked' : ''}> ${a.type === 'crypto' && b.type === 'crypto' ? `Trade ${a.cur} for ${b.cur} (not 1:1)` : `Convert ${a.cur} to ${b.cur} (use an exchange rate)`}</label>
-      ${f.convert ? `<div class="convbox"><div class="fxline one"><label class="fxrate"><span>1 ${a.cur} =</span><input id="f-crate" inputmode="decimal" aria-label="Exchange rate" value="${esc(f.cRate)}"><span>${b.cur}</span></label>
-        <label class="fxpeso"><span>Received (${b.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label></div>
-        <button type="button" class="linkbtn" data-e="livecross">Use today’s rate</button> <small class="muted" id="crossnote"></small><small class="hint" id="invrate"></small>${a.type === 'crypto' || b.type === 'crypto' ? '<small class="hint">Add the exchange’s buy or sell fee below (Fee, type “Trading fee”).</small>' : ''}</div>`
+      ${f.convert ? `<div class="convbox">${fxBlockHtml({ from: a.cur, to: b.cur, amount: num(f.amount), rate: num(f.cRate), always: true, open: 'data-e="fxopen2"' })}<input id="f-crate" type="hidden" value="${esc(f.cRate)}">
+        <label class="fxpeso"><span>Received (${b.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label>
+        ${a.type === 'crypto' || b.type === 'crypto' ? '<small class="hint">Add the exchange’s buy or sell fee below (Fee, type “Trading fee”).</small>' : ''}</div>`
         : `<small class="hint">Off: the same number arrives in ${esc(b.name)}. Turn on when the amounts differ, like USDT to PHP.</small>`}`;
   }
   function crossRate() {
@@ -242,7 +243,7 @@ export function openEntry(opts = {}) {
   function syncCross(from) {
     const amt = num(f.amount), cr = $f('f-crate'), ta = $f('f-toamt');
     if (!cr || !ta) return;
-    const inv = $f('invrate'); const showInv = () => { const r = num(f.cRate), a2 = acctOf(f.acct), b2 = acctOf(f.toAcct); if (inv) inv.textContent = r > 0 && a2 && b2 ? `1 ${b2.cur} = ${prec(1 / r)} ${a2.cur}` : ''; };
+    const showInv = () => { const a2 = acctOf(f.acct), b2 = acctOf(f.toAcct), box = $f('convrow'); if (a2 && b2 && box) fxBlockUpdate(box, { from: a2.cur, to: b2.cur, amount: num(f.amount), rate: num(f.cRate) }); };
     if (from === 'rate') { const r = num(f.cRate); if (amt > 0 && r > 0) { f.toAmount = String(Math.round(amt * r * 1e6) / 1e6); ta.value = f.toAmount; } }
     else if (from === 'to') { const t = num(f.toAmount); if (amt > 0 && t > 0) { f.cRate = prec(t / amt); cr.value = f.cRate; } }
     else { const r = num(f.cRate); if (amt > 0 && r > 0) { f.toAmount = String(Math.round(amt * r * 1e6) / 1e6); ta.value = f.toAmount; } }
@@ -253,10 +254,11 @@ export function openEntry(opts = {}) {
     const el = $f('fxline');
     if (!a || a.cur === HOME || a.cur === BASE) { el.innerHTML = ''; return; }
     if (!f.fx && f.fxMode !== 'peso') { const r = homeFx(get(), a.cur); f.fx = r ? prec(r) : ''; }
-    el.innerHTML = `<div class="fxline one"><label class="fxrate"><span>1 ${a.cur} =</span><input id="f-fx" inputmode="decimal" aria-label="Exchange rate" value="${esc(f.fx)}"><span>${HOME}</span></label><span class="fxeq">=</span><span class="amtwrap sm"><b>${(CUR[HOME] || { sym: HOME }).sym}</b><input id="f-peso" inputmode="decimal" autocomplete="off" aria-label="Value in ${HOME}" placeholder="0" value="${esc(f.peso)}"></span></div>
-      <small class="fxhint">Type the rate, or the ${HOME} value from your bill: the other follows.</small>`;
+    // the rate and the home value are kept in two hidden fields; the person sees "Exchange Rate" and a three-line summary
+    el.innerHTML = `${fxBlockHtml({ from: a.cur, to: HOME, amount: num(f.amount), rate: num(f.fx), always: true, open: 'data-e="fxopen"' })}<input id="f-fx" type="hidden" value="${esc(f.fx)}"><input id="f-peso" type="hidden" value="${esc(f.peso)}">`;
     updateFxVal();
   }
+  function refreshFxView() { const a = acctOf(f.acct), el = $f('fxline'); if (a && el && a.cur !== HOME) fxBlockUpdate(el, { from: a.cur, to: HOME, amount: num(f.amount), rate: num(f.fx) }); }
   // two-way: whichever of the rate and the home value you typed last is kept, the other follows the amount
   function updateFxVal() {
     const pe = $f('f-peso'), fe = $f('f-fx');
@@ -268,8 +270,9 @@ export function openEntry(opts = {}) {
     } else {
       const x = amt * num(f.fx);
       f.peso = x > 0 ? String(Math.round(x * 100) / 100) : '';
-      if (document.activeElement !== pe) pe.value = f.peso;
+      pe.value = f.peso;
     }
+    fe.value = f.fx; refreshFxView();
   }
   // ---- transfer fee (bank service fee, network fee, transfer fee): predicted from earlier transfers ----
   function feeCatOptions(sel) {
@@ -369,9 +372,10 @@ export function openEntry(opts = {}) {
     clearTimeout(safeTimer);
     safeTimer = setTimeout(() => {
       const el = $f('safety'); if (!el) return;
-      if (f.kind !== 'expense') { el.innerHTML = ''; return; }
+      if (f.kind !== 'expense' && f.kind !== 'transfer') { el.innerHTML = ''; return; }
       const cm = catMap(get()), c = cm.get(f.cat);
-      const list = safetyCheck(get(), { amount: num(f.amount), acctId: f.acct, kind: f.kind, date: f.date, group: c ? c.group : '' });
+      const list = f.kind === 'expense' ? safetyCheck(get(), { amount: num(f.amount), acctId: f.acct, kind: f.kind, date: f.date, group: c ? c.group : '' }) : [];
+      const fa = acctOf(f.acct); if (fa && (fa.promos || []).length) { const li = lockInfo(get(), fa, (f.date || '').slice(0, 10) || undefined); if (li.locked > 0 && num(f.amount) > li.available) list.push({ level: 'warn', text: `${fmt(li.locked, fa.cur)} in ${fa.name} is locked until ${li.nextUnlock}. Taking out more than ${fmt(li.available, fa.cur)} may cost you the promo rate.` }); }
       el.innerHTML = list.map((x) => `<div class="sf ${x.level}" role="${x.level === 'danger' ? 'alert' : 'note'}"><strong>${x.level === 'danger' ? 'Careful: ' : x.level === 'warn' ? 'Heads up: ' : ''}</strong>${esc(x.text)}</div>`).join('');
     }, 120);
   }
@@ -614,6 +618,10 @@ export function openEntry(opts = {}) {
       case 'when': openDatePicker(f.date, (val) => { f.date = val; renderWhen(); refreshPred(); renderSafety(); }, { title: 'When was it?' }); break;
       case 'amtclear': { f.amount = ''; const am = $f('f-amount'); am.value = ''; showCalcRes(); syncX(); heavy(); if (!f.calc) am.focus(); break; }
       case 'samediff': f.toAmount = f.amount; f.diffInit = false; renderConv(); break;
+      case 'fxopen': { const a = acctOf(f.acct); if (!a) break; openConverter({ from: a.cur, to: HOME, amount: num(f.amount), rate: num(f.fx), applyLabel: 'Use this rate',
+        onApply: ({ rate, a: fa, b: tb, billed }) => { if (billed && num(f.amount) > 0 && Math.abs(fa - num(f.amount)) < 1e-9) { f.fxMode = 'peso'; f.peso = String(Math.round(tb * 100) / 100); } else { f.fxMode = 'rate'; f.fx = prec(rate); } renderFx(); } }); break; }
+      case 'fxopen2': { const a = acctOf(f.acct), b = acctOf(f.toAcct); if (!a || !b) break; openConverter({ from: a.cur, to: b.cur, amount: num(f.amount), rate: num(f.cRate) || crossRate(), applyLabel: 'Use this rate',
+        onApply: ({ rate, a: fa, b: tb, billed }) => { f.cRate = prec(rate); const cr = $f('f-crate'); if (cr) cr.value = f.cRate; if (billed && num(f.amount) > 0 && Math.abs(fa - num(f.amount)) < 1e-9) { f.toAmount = String(Math.round(tb * 1e6) / 1e6); const ta = $f('f-toamt'); if (ta) ta.value = f.toAmount; syncCross('to'); } else syncCross('rate'); } }); break; }
       case 'livecross': { const r = crossRate(); if (r) { f.cRate = prec(r); const cr = $f('f-crate'); if (cr) cr.value = f.cRate; syncCross('rate'); } else toast('No live rate for this pair yet. Type one.'); break; }
       case 'feeby': f.feeBy = v; f.feeTouched = true; f.feeSuggested = false; renderFee(); break;
       case 'cat': pickCat(v); renderCats(); renderTrip(); renderSafety(); break;

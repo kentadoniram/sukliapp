@@ -1,6 +1,6 @@
 import * as I from '../js/interest.js';
 import { emptyDb, stamp, HOME } from '../js/core.js';
-import { postInterest, postDebtInterest } from '../js/finance.js';
+import { postInterest, postDebtInterest, lockInfo } from '../js/finance.js';
 let f=0; const ok=(n,c)=>{console.log((c?'PASS ':'FAIL ')+n); if(!c) f++;};
 const near=(a,b,e=1e-3)=>Math.abs(a-b)<e;
 ok('12% monthly -> 12.6825% effective', near(I.earFromNominal(12,'monthly'),12.6825,1e-3));
@@ -32,6 +32,14 @@ const okc = (c, m) => ok(m, c);
   d.txs.push(stamp({ id: 'dep', kind: 'income', acct: 'sv', amount: 1000, cur: HOME, fx: 1, date: '2026-01-01 09:00:00' }));
   const made = postInterest(d, '2026-01-31');
   okc(made.length === 1 && near(made[0].amount, 1000 * 0.365 / 365 * 30, 0.05), 'promo rate earns on the deposited money'); }
+// promo with a lock: the promo rate runs for the lock days only, and locked money is reported until it unlocks
+{ const d = emptyDb(); d.accounts.push({ id: 'sv', name: 'Savings', cur: HOME, type: 'bank', open: 500, openDate: '2025-12-01', apy: 0, taxPct: 0, interestFrom: '2026-01-02', compound: 'monthly', promos: [{ depFrom: '2026-01-01', depTo: '2026-01-01', rate: 36.5, until: '', lockDays: 10, lockEnd: '' }] });
+  d.txs.push(stamp({ id: 'dep', kind: 'income', acct: 'sv', amount: 1000, cur: HOME, fx: 1, date: '2026-01-01 09:00:00' }));
+  const li = lockInfo(d, d.accounts[0], '2026-01-05'), li2 = lockInfo(d, d.accounts[0], '2026-01-20');
+  okc(li.locked === 1000 && li.available === 500 && li.nextUnlock === '2026-01-11', 'locked money, free amount and unlock date');
+  okc(li2.locked === 0 && li2.available === 1500, 'nothing locked after the lock ends');
+  const made = postInterest(d, '2026-01-31');
+  okc(made.length === 1 && near(made[0].amount, 10, 0.05), 'promo rate runs only for the 10 lock days'); }
 // debt: nothing before the deadline, then charged on what is owed
 { const d = emptyDb(); d.accounts.push({ id: 'ln', name: 'Loan', cur: HOME, type: 'loan', open: -36500, openDate: '2026-01-01', debtInt: { on: true, rate: 10, kind: 'addon', comp: 'monthly', start: '2026-01-21', principal: 0 } });
   const made = postDebtInterest(d, '2026-01-31');

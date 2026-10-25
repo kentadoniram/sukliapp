@@ -37,7 +37,7 @@ body {
 }
 body.noscroll { overflow: visible; }   /* the sheet's own dim layer blocks the page behind it; toggling overflow made phones relayout (flicker) */
 .scrim, .drawer-scrim { overscroll-behavior: contain; } .sheet-body, .drawer { overscroll-behavior: contain; }
-main { max-width: 560px; margin: 0 auto; padding: calc(8px + env(safe-area-inset-top)) 16px calc(112px + env(safe-area-inset-bottom)); min-height: 100vh; }
+main { max-width: 560px; margin: 0 auto; padding: calc(8px + env(safe-area-inset-top)) 16px calc(112px + env(safe-area-inset-bottom)); min-height: 100vh; min-height: 100dvh; }
 h1 { font-size: calc(26px * var(--fs, 1)); line-height: 1.15; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 h2 { font-size: calc(17px * var(--fs, 1)); font-weight: 650; margin: 0 0 8px; letter-spacing: -.005em; }
 h3 { font-size: calc(15px * var(--fs, 1)); font-weight: 650; margin: 0 0 6px; }
@@ -870,3 +870,18 @@ h4.subh { margin: 10px 0 4px; font-size: calc(13px * var(--fs, 1)); color: var(-
 .wmove { display: grid; gap: 4px; margin: 6px 0; }
 .wmove .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .wtots li { padding: 3px 0; }
+/* Exchange Rate viewer and converter (12.57) */
+.fxblock { margin: -4px 0 8px; display: grid; gap: 2px; } #fxline .fxsum, .convbox .fxsum { min-height: calc(3 * 1.45em + 4px); } .fxsum li { line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fxtop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fxlink { background: none; border: 0; padding: 6px 0; min-height: 36px; color: var(--xfer); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; touch-action: manipulation; }
+.fxsrc { font-size: calc(12px * var(--fs, 1)); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--ink2); }
+.fxsrc.live { color: #1a7f4b; border-color: #1a7f4b; }
+.fxsrc.manual { color: #9a5b00; border-color: #9a5b00; }
+.fxsum { list-style: none; margin: 0; padding: 0; font-size: calc(14px * var(--fs, 1)); color: var(--ink2); }
+.fxsum li { padding: 1px 0; }
+.fxconv .fxstat { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0 0 4px; }
+.ratebox .fxblock { margin: 0; }
+
+/* iPhone: no tabs floating mid-screen while the keyboard is open for a field on the page */
+@media (pointer: coarse) { html.typing .tabs, html.kb:not(:has(.scrim)) .tabs { display: none; } html.typing main, html.kb:not(:has(.scrim)) main { padding-bottom: 24px; } }
+.tabs { transform: translateZ(0); }

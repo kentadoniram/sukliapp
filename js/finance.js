@@ -80,8 +80,21 @@ export const interestTaxPct = (a) => (a.taxPct != null && a.taxPct !== '' ? Math
 // one day's interest before tax on balance b: the promo rate on money deposited in a promo window, the normal rate on the rest
 const promoDeposits = (db, a) => new Map((a.promos || []).map((p) => [p, p && p.depFrom && p.depTo
   ? live(db.txs).filter((t) => !t.auto && t.date.slice(0, 10) >= p.depFrom && t.date.slice(0, 10) <= p.depTo && ((t.kind === 'income' && t.acct === a.id) || (t.kind === 'transfer' && t.toAcct === a.id)))
-    .reduce((m, t) => m + (t.kind === 'transfer' ? (t.toAmount != null ? t.toAmount : t.amount) : t.amount), 0) : 0]));
-const grossFor = (a, d, b, prin) => { if (!(b > 0)) return 0; let rest = b, g = 0; for (const p of activePromos(a, d)) { const x = Math.min(rest, prin.get(p) || 0); if (x > 0) { g += x * p.rate / 100 / 365; rest -= x; } } return g + rest * rateAt(a, d) / 100 / 365; };
+    .map((t) => ({ date: t.date.slice(0, 10), amt: t.kind === 'transfer' ? (t.toAmount != null ? t.toAmount : t.amount) : t.amount })) : []]));
+// lock terms of a promo: each deposit is locked for lockDays after it arrives, or until one fixed date (lockEnd). '' = no lock.
+export const lockEndOf = (p, date) => (p.lockEnd ? p.lockEnd : (+p.lockDays > 0 ? addDays(date, +p.lockDays) : ''));
+// the part of a promo's deposits that is earning the promo rate on day d: arrived by d, and (with a lock) not yet past its lock end
+const promoPrinAt = (p, list, d) => (list || []).reduce((m, x) => (x.date <= d && (!lockEndOf(p, x.date) || d <= lockEndOf(p, x.date)) ? m + x.amt : m), 0);
+const grossFor = (a, d, b, prin) => { if (!(b > 0)) return 0; let rest = b, g = 0; for (const p of activePromos(a, d)) { const x = Math.min(rest, promoPrinAt(p, prin.get(p), d)); if (x > 0) { g += x * p.rate / 100 / 365; rest -= x; } } return g + rest * rateAt(a, d) / 100 / 365; };
+// money still under a promo lock on a day (never more than the balance), when the next part unlocks, and what is free to take out
+export function lockInfo(db, a, day = today()) {
+  const prin = promoDeposits(db, a), bal = balances(db, day + ' 23:59:59').get(a.id) || 0; let locked = 0, next = '';
+  const items = [];
+  for (const p of a.promos || []) { if (!p || !(+p.lockDays > 0 || p.lockEnd)) continue;
+    for (const x of prin.get(p) || []) { const e = lockEndOf(p, x.date); if (x.date <= day && e && e >= day) { locked += x.amt; items.push({ amt: x.amt, until: e }); if (!next || e < next) next = e; } } }
+  locked = Math.min(locked, Math.max(0, bal));
+  return { locked, nextUnlock: next, available: Math.max(0, bal - locked), balance: bal, items };
+}
 const nextPeriodEnd = (d, comp) => { let x = d; for (let i = 0; i < 400; i++, x = addDays(x, 1)) if (isPeriodEnd(x, comp)) return x; return d; };
 // what the next days will earn if the balance stays as it is today (rate changes and promo ends are applied on their dates)
 export function interestPreview(db, a, days = 7) {
@@ -97,7 +110,7 @@ export function interestPreview(db, a, days = 7) {
 // promo status for the account page: waiting, collecting deposits, earning, or ended
 export function promoStatus(db, a) {
   const t = today(), dep = promoDeposits(db, a);
-  return (a.promos || []).filter((p) => p && p.depFrom && p.depTo).map((p) => ({ p, deposited: dep.get(p) || 0, status: t < p.depFrom ? 'Starts ' + p.depFrom : t <= p.depTo ? 'Collecting deposits until ' + p.depTo : (!p.until || t <= p.until) ? 'Earning' + (p.until ? ' until ' + p.until : '') : 'Ended ' + p.until }));
+  return (a.promos || []).filter((p) => p && p.depFrom && p.depTo).map((p) => ({ p, deposited: (dep.get(p) || []).reduce((m, x) => m + x.amt, 0), lock: +p.lockDays > 0 ? `Locked ${p.lockDays} days after each deposit` : (p.lockEnd ? `Locked until ${p.lockEnd}` : ''), status: t < p.depFrom ? 'Starts ' + p.depFrom : t <= p.depTo ? 'Collecting deposits until ' + p.depTo : (!p.until || t <= p.until) ? 'Earning' + (p.until ? ' until ' + p.until : '') : 'Ended ' + p.until }));
 }
 export const rateHistory = (a) => [{ from: a.interestFrom || '', rate: +a.apy || 0, base: true }, ...[...(a.rates || [])].filter((r) => r && r.from).sort((x, y) => (x.from < y.from ? -1 : 1)).map((r) => ({ from: r.from, rate: +r.rate }))];
 // a debt's interest: when it starts, and what the next days add

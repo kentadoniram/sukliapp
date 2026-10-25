@@ -1,0 +1,30 @@
+# v12ag: Exchange Rate viewer and converter
+from playwright.sync_api import sync_playwright
+CSV='/home/claude/Transactions.csv'; res=[]
+def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':402,'height':874},service_workers='block'); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
+    pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
+    pg.click('.fab'); pg.wait_for_selector('#entry')
+    opts=pg.eval_on_selector_all('#f-acct option','os=>os.map(o=>[o.value,o.textContent])'); yen=[o for o in opts if 'JPY' in o[1]][0]
+    pg.select_option('#f-acct', yen[0]); pg.fill('#f-amount','500'); pg.dispatch_event('#f-amount','input'); pg.wait_for_timeout(200)
+    ok('Exchange Rate text is clickable', pg.locator('button.fxlink').count()==1)
+    ok('no rate input on the form', pg.locator('#fxline input:not([type=hidden])').count()==0)
+    lines=pg.locator('#fxline .fxsum li').all_inner_texts()
+    ok(f'three lines: {lines}', len(lines)==3 and 'JPY' in lines[0] and lines[0].count('=')==1 and lines[1].startswith('1 JPY =') and lines[2].startswith('1 PHP ='))
+    pg.click('button.fxlink'); pg.wait_for_selector('#cv-a')
+    pg.fill('#cv-a','1000'); pg.dispatch_event('#cv-a','input')
+    r=float(pg.input_value('#cv-r')); bv=float(pg.input_value('#cv-b'))
+    ok('JPY amount converts to PHP', abs(bv-1000*r)<0.01)
+    pg.fill('#cv-b','200'); pg.dispatch_event('#cv-b','input')
+    ok('PHP amount converts to JPY', abs(float(pg.input_value('#cv-a'))-200/r)<0.01)
+    ok('source label shown', len(pg.inner_text('#cv-src'))>3)
+    pg.fill('#cv-r','0.5'); pg.dispatch_event('#cv-r','input')
+    ok('typed rate is marked manual', 'Manual' in pg.inner_text('#cv-src'))
+    pg.click('#cv-latest'); pg.wait_for_timeout(2500)
+    ok('latest rate says what happened (offline here)', len(pg.inner_text('#cv-msg'))>5)
+    pg.click('#cv-apply'); pg.wait_for_timeout(200)
+    ok('form summary follows the applied rate', '1 JPY = 0.5 PHP' in pg.inner_text('#fxline') and 'Manual' in pg.inner_text('#fxline'))
+    ok('no script errors', not errs)
+print('SUMMARY',sum(res),'/',len(res))

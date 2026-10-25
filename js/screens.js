@@ -12,6 +12,7 @@ import { predict } from './predict.js';
 import { modelFor, openEntry, openBulk, openCategoryForm } from './entry.js';
 import { syncNow, status as syncStatus } from './drive.js';
 import { REMOVED_UI } from './features.js';
+import { fxBlockHtml, openConverter } from './fxview.js';
 import { feedbackCfg } from './feedback.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
@@ -649,6 +650,11 @@ ACT['budget-clear'] = (el) => commit((d) => { const b = d.budgets.find((x) => !x
 const segBtns = (act, k, opts, cur) => `<div class="seg sm" role="group">${opts.map(([v, l]) => `<button type="button" data-act="${act}" data-k="${k}" data-v="${v}" class="${String(cur) === String(v) ? 'on' : ''}" aria-pressed="${String(cur) === String(v)}">${l}</button>`).join('')}</div>`;
 ACT['rates-now'] = async () => { try { await fetchRates(); } catch (e) { /* status already shown */ } };
 ACT['rate-live'] = (el) => commit((d) => { delete d.settings.rates[el.dataset.c]; });
+// Settings: open the converter for one currency; saving makes it a manual rate, "Back to live" removes the override
+ACT['rate-open'] = (el) => { const c = el.dataset.c, db = get();
+  openConverter({ from: c, to: HOME, amount: 1, rate: homeFx(db, c), applyLabel: 'Save as my rate',
+    onApply: ({ rate }) => commit((d) => { const hr = (d.settings.rates && d.settings.rates[HOME] > 0 ? d.settings.rates[HOME] : rateFor(d, HOME)) || 1; d.settings.rates = d.settings.rates || {}; d.settings.rates[c] = rate * (HOME === BASE ? 1 : hr); }),
+    onReset: () => commit((d) => { if (d.settings.rates) delete d.settings.rates[c]; }) }); };
 ACT['home-cur'] = () => openCurrencyPicker(async (c) => {
   const db = get(); if (c === HOME) return;
   if (!(await confirmDialog(`Show totals in ${c} (${curName(c)}) from now on? Budgets and limits you set will be converted at today’s rate. Nothing else is rewritten.`, 'Change'))) return;
@@ -753,8 +759,8 @@ export function settings(db) {
       <div class="btnrow left"><button class="btn ghost sm" data-act="rates-now">Update now</button></div>
       <p class="status" id="ratesstatus" role="status">${esc(ratesStatus.text || (s.live ? 'Last updated ' + new Date(s.live.ts).toLocaleString() : 'Not updated yet.'))}</p>
       <p class="hint">Rates are used for new entries and for today’s balances. An entry you saved keeps the rate it was saved with, so old reports do not change. Type a rate below to override the live one; tap ✕ to go back to live. ${esc(RATE_CREDIT)}.</p>
-      ${curs.map((c) => { const ov = !!(s.rates && s.rates[c] > 0); const r = homeFx(db, c); const src = ov ? 'Manual rate' : (hasLive(c) ? 'Live rate' : 'From your latest entry'); return `<div class="ratebox" title="${src}"><span class="rl">1 ${c} =</span><input data-rate="${c}" inputmode="decimal" aria-label="${HOME} per 1 ${c}" value="${r ? Number(r.toPrecision(6)) : ''}"><span class="rl">${HOME}</span><span class="rsep">⇄</span><span class="rl">1 ${HOME} =</span><input data-rate-inv="${c}" inputmode="decimal" aria-label="${c} per 1 ${HOME}" value="${r ? Number((1 / r).toPrecision(6)) : ''}"><span class="rl">${c}</span>${ov ? `<button type="button" class="linkbtn" data-act="rate-live" data-c="${c}" title="Use the live rate">✕</button>` : `<small class="muted rtag">${hasLive(c) ? 'Live' : 'Entry'}</small>`}</div>`; }).join('')}
-      <p class="hint">Edit either side: the other follows. Each entry also lets you type the ${HOME} value from your bill.</p></section>
+      ${curs.map((c) => `<div class="ratebox">${fxBlockHtml({ from: c, to: HOME, amount: 0, rate: homeFx(db, c), open: `data-act="rate-open" data-c="${c}"`, db })}</div>`).join('')}
+      <p class="hint">Tap “Exchange Rate” to convert an amount, type your own rate, or get the latest one. Each entry also lets you set the ${HOME} value from your bill.</p></section>
     <section><h2>Put it on your phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
     <section><h2>Erase</h2><button class="btn danger ghost" data-act="erase">Erase everything on this device</button>
       <p class="hint">Backups in your Google Drive are not touched.</p></section>`);
@@ -785,13 +791,6 @@ export function bindSettings() {
   if (cid) cid.onchange = () => commitQuiet((d) => { d.settings.driveClientId = cid.value.trim(); });
   const as = document.getElementById('autosync');
   if (as) as.onchange = () => commit((d) => { d.settings.autoSync = as.checked; });
-  const setRate = (cur, v, from) => {          // v is HOME per unit as typed; stored as ledger per unit
-    commitQuiet((d) => { const hr = (d.settings.rates && d.settings.rates[HOME] > 0 ? d.settings.rates[HOME] : rateFor(d, HOME)) || 1; if (v > 0) d.settings.rates[cur] = v * (HOME === BASE ? 1 : hr); else delete d.settings.rates[cur]; });
-    const other = document.querySelector(from === 'rate' ? `[data-rate-inv="${cur}"]` : `[data-rate="${cur}"]`);
-    if (other) other.value = v > 0 ? Number((from === 'rate' ? 1 / v : v).toPrecision(6)) : '';
-  };
-  document.querySelectorAll('[data-rate]').forEach((i) => { i.onchange = () => setRate(i.dataset.rate, parseFloat(i.value), 'rate'); });
-  document.querySelectorAll('[data-rate-inv]').forEach((i) => { i.onchange = () => { const x = parseFloat(i.value); setRate(i.dataset.rateInv, x > 0 ? 1 / x : 0, 'inv'); }; });
   const bc = document.getElementById('file-bc');
   if (bc) bc.onchange = async () => {
     const file = bc.files[0]; if (!file) return;
