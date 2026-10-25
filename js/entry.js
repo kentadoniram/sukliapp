@@ -114,7 +114,7 @@ export function openEntry(opts = {}) {
     <div class="seg" id="seg" role="group" aria-label="Entry type"></div>
     <div id="freq" class="qp"></div>
     <div class="field" id="namefield"><span id="namelabel">What was it?</span>
-      <input id="f-name" name="memo" type="text" autocomplete="off" data-form-type="other" data-lpignore="true" value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary" ${existing ? '' : 'autofocus'}>
+      <input id="f-what" name="memo" type="text" role="combobox" aria-autocomplete="list" aria-controls="sugg" aria-expanded="false" autocomplete="off" data-form-type="other" data-lpignore="true" value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary" ${existing ? '' : 'autofocus'}>
       <div id="sugg" class="sugg" hidden></div></div>
     <div class="field amount" id="amountbox"><span class="amtlabel">Amount <button type="button" class="linkbtn eye" data-e="eye" aria-label="Hide or show amounts">${priv.on ? 'Show' : 'Hide'} amounts</button></span>
       <div class="amtrow"><div class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"><button type="button" class="amtx" data-e="amtclear" aria-label="Clear amount" ${f.amount ? '' : 'style="visibility:hidden"'}>×</button><button type="button" class="calcbtn" data-e="calc" aria-label="Calculator" aria-pressed="false" title="Calculator">${ic('calc')}</button></div><span id="curwrap" class="curwrap"></span></div>
@@ -150,7 +150,7 @@ export function openEntry(opts = {}) {
     const k = [['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']];
     $f('seg').innerHTML = k.map(([v, l]) => `<button type="button" data-e="kind" data-v="${v}" aria-pressed="${f.kind === v}" class="${f.kind === v ? 'on' : ''}">${l}</button>`).join('');
     $f('namelabel').textContent = f.kind === 'transfer' ? 'Label (optional, remembers the route)' : f.kind === 'income' ? 'Where from?' : 'What was it?';
-    $f('f-name').placeholder = f.kind === 'transfer' ? 'e.g. Card payment, Top up Maya' : 'e.g. Life Tsukagoshi, bus, salary';
+    $f('f-what').placeholder = f.kind === 'transfer' ? 'e.g. Card payment, Top up Maya' : 'e.g. Life Tsukagoshi, bus, salary';
   }
   // quick picks: tap one and the name, amount, account and category are filled in
   function renderFreq() {
@@ -193,7 +193,7 @@ export function openEntry(opts = {}) {
     $f('curwrap').innerHTML = `<button type="button" class="curbtn sm" data-e="curpick" aria-label="Choose currency" title="Currency">${flagOf(cur)} ${cur} ▾</button><select id="f-cur" hidden aria-hidden="true">${list.map((c) => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join('')}</select>`;
   }
   function updateNamePh() {                                             // a transfer left unnamed will be called "from - to"
-    const el = form.querySelector('#f-name'); if (!el) return;
+    const el = form.querySelector('#f-what'); if (!el) return;
     el.placeholder = f.kind === 'transfer' ? (acctOf(f.acct) && acctOf(f.toAcct) ? `Leave blank: ${acctOf(f.acct).name} - ${acctOf(f.toAcct).name}` : 'Leave blank to use the two account names') : 'e.g. Life Tsukagoshi, bus, salary (blank is filled in for you)';
   }
   // what the account holds right now, shown under its name in a transfer
@@ -408,7 +408,7 @@ export function openEntry(opts = {}) {
       list = q ? transferHints(get()).names.filter((x) => x.name.toLowerCase().includes(q) && x.name.toLowerCase() !== q).sort((a, b) => b.n - a.n).slice(0, 5)
         .map((x) => ({ name: x.name, n: x.n, route: `${(am.get(x.from) || {}).name || '?'} → ${(am.get(x.to) || {}).name || '?'}` })) : [];
     } else list = suggest(modelFor(f.kind), f.name, 5).filter((x) => x.name.toLowerCase() !== f.name.trim().toLowerCase());
-    el.hidden = !list.length;
+    el.hidden = !list.length; const wf = $f('f-what'); if (wf) wf.setAttribute('aria-expanded', String(!!list.length));
     const an = (id) => (acctOf(id) || {}).name || '';
     el.innerHTML = list.map((x) => `<button type="button" data-e="pick" data-v="${esc(x.name)}">${esc(x.name)} <small>${x.route ? esc(x.route) + ' · ' : (an(x.acct) ? esc(an(x.acct)) + ' · ' : '')}${x.n}×</small></button>`).join('');
   }
@@ -447,11 +447,11 @@ export function openEntry(opts = {}) {
   }
   const modeNow = () => modeOf(f.name, (catMap(get()).get(f.cat) || {}).name);
   function tripName() {
-    if (f.from.trim() && f.to.trim() && (!f.name.trim() || f.name === f.autoName || parseRoute(f.name) || bareMode(f.name))) { f.name = tripLabel(modeNow(), f.from, f.to); f.autoName = f.name; $f('f-name').value = f.name; refreshPred(); renderSugg(); renderNameHelp(); }
+    if (f.from.trim() && f.to.trim() && (!f.name.trim() || f.name === f.autoName || parseRoute(f.name) || bareMode(f.name))) { f.name = tripLabel(modeNow(), f.from, f.to); f.autoName = f.name; $f('f-what').value = f.name; refreshPred(); renderSugg(); renderNameHelp(); }
     if (f.from.trim() && f.to.trim() && !f.catTouched) { const x = suggestTrips(get(), isTransportCat(get().categories), { hour: hourOf(f.date), from: f.from, to: f.to, limit: 1 })[0]; if (x && x.cat && x.cat !== f.cat) { f.cat = x.cat; f.guessWhy = 'your usual for this trip'; renderCats(); } }
   }
   function pickTrip(x) {
-    f.from = x.from; f.to = x.to; if (!f.name.trim() || f.name === f.autoName || parseRoute(f.name) || bareMode(f.name)) { f.name = tripLabel(modeNow(), x.from, x.to); f.autoName = f.name; $f('f-name').value = f.name; }
+    f.from = x.from; f.to = x.to; if (!f.name.trim() || f.name === f.autoName || parseRoute(f.name) || bareMode(f.name)) { f.name = tripLabel(modeNow(), x.from, x.to); f.autoName = f.name; $f('f-what').value = f.name; }
     if (x.cat && (!f.catTouched || !tripCat())) { f.cat = x.cat; f.catTouched = false; f.guessWhy = 'your usual for this trip'; }
     if (!num(f.amount) && x.amount) { f.amount = String(x.amount); $f('f-amount').value = f.amount; updateFxVal && updateFxVal(); }
     refreshPred(); renderCats(); renderTrip(); renderSugg();
@@ -474,7 +474,7 @@ export function openEntry(opts = {}) {
       <datalist id="placelist">${places.map((p) => `<option value="${esc(p.name)}">`).join('')}</datalist><div id="tripchips"></div></div>`;
     tripChips();
   }
-  function pickCat(id) { const nm = $f('f-name'); if (nm && nm.value !== f.name) f.name = nm.value; if (!f.catTouched && f.cat && f.cat !== id) f.guessed = f.cat; f.cat = id; f.catTouched = true; }
+  function pickCat(id) { const nm = $f('f-what'); if (nm && nm.value !== f.name) f.name = nm.value; if (!f.catTouched && f.cat && f.cat !== id) f.guessed = f.cat; f.cat = id; f.catTouched = true; }
 
   // a new name that looks like one you already use: ask, remember the answer
   // labels like "Loan Payment", "Credit Card Payment", "Credit to Cash" point to a different kind of entry: offer it (never switches by itself)
@@ -502,7 +502,7 @@ export function openEntry(opts = {}) {
     el.innerHTML = c.map((x) => compareCard(get(), f.name.trim(), x.name)).join('') + (c.length ? '' : rel.map((x) => `<p class="relhint muted">Related to <b>${esc(x.name)}</b>${x.cat ? ` (${esc(x.cat)})` : ''}, ${Math.round(x.w * 100)}% close. It keeps its own category.</p>`).join(''));
   }
   function applyPick(name) {
-    f.name = name; $f('f-name').value = name;
+    f.name = name; $f('f-what').value = name;
     if (f.kind === 'transfer') {
       const h = transferHints(get()).names.find((x) => x.name.toLowerCase() === name.toLowerCase());
       if (h) {
@@ -521,14 +521,14 @@ export function openEntry(opts = {}) {
       if (!num(f.amount) && lk.amount) { f.amount = String(lk.amount); $f('f-amount').value = f.amount; }
     }
     refreshPred(); renderSugg(); updateFxVal(); updateItemLeft(); renderFreq();
-    focusKeep($f(num(f.amount) ? 'f-name' : 'f-amount'));
+    focusKeep($f(num(f.amount) ? 'f-what' : 'f-amount'));
   }
   function pickRoute(from, to) {
     const h = transferHints(get()).routes.find((r) => r.from === from && r.to === to);
     f.acct = from; f.toAcct = to; f.acctTouched = true; f.feeTouched = false;
-    if (h) { if (!f.name.trim() && h.name) { f.name = h.name; $f('f-name').value = h.name; } if (!num(f.amount) && h.amount) { f.amount = String(h.amount); $f('f-amount').value = f.amount; } }
+    if (h) { if (!f.name.trim() && h.name) { f.name = h.name; $f('f-what').value = h.name; } if (!num(f.amount) && h.amount) { f.amount = String(h.amount); $f('f-amount').value = f.amount; } }
     renderAccts(); renderFx(); syncCross(); renderSugg();
-    focusKeep($f(num(f.amount) ? 'f-name' : 'f-amount'));
+    focusKeep($f(num(f.amount) ? 'f-what' : 'f-amount'));
   }
 
   // ---------- events ----------
@@ -540,7 +540,7 @@ export function openEntry(opts = {}) {
     }
     else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
     else if (id === 'f-from' || id === 'f-to') { if (id === 'f-from') f.from = e.target.value; else f.to = e.target.value; tripName(); tripChips(); }
-    else if (id === 'f-name') { f.name = e.target.value; renderNameHelp(); suggestAcct(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
+    else if (id === 'f-what') { f.name = e.target.value; renderNameHelp(); suggestAcct(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
     else if (id === 'f-fx') { f.fx = e.target.value; f.fxMode = 'rate'; updateFxVal(); }
     else if (id === 'f-peso') { f.peso = e.target.value; f.fxMode = 'peso'; updateFxVal(); }
     else if (id === 'f-crate') { f.cRate = e.target.value; syncCross('rate'); }
@@ -596,7 +596,13 @@ export function openEntry(opts = {}) {
   });
   // tapping a suggestion must not take focus from the text box (no blur, no re-focus, so Safari never shows the contact bar)
   form.addEventListener('mousedown', (e) => { if (e.target.closest('#sugg')) e.preventDefault(); });
-  form.addEventListener('focusout', () => setTimeout(() => { const el = $f('sugg'); if (el && !el.contains(document.activeElement) && document.activeElement !== $f('f-name')) el.hidden = true; }, 150));
+  // Touch: choose on lift-off instead of waiting for the synthesized click, which the installed iPhone app can swallow or deliver to the wrong row
+  let sgDown = null, sgDone = 0;
+  form.addEventListener('pointerdown', (e) => { const b = e.pointerType !== 'mouse' && e.target.closest('#sugg [data-e=pick]'); sgDown = b ? { b, x: e.clientX, y: e.clientY } : null; });
+  form.addEventListener('pointercancel', () => { sgDown = null; });
+  form.addEventListener('pointerup', (e) => { const d = sgDown; sgDown = null; if (!d) return; const b = e.target.closest('#sugg [data-e=pick]');
+    if (b !== d.b || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return; sgDone = Date.now(); applyPick(b.dataset.v); });
+  form.addEventListener('focusout', () => setTimeout(() => { const el = $f('sugg'); if (el && !el.contains(document.activeElement) && document.activeElement !== $f('f-what')) el.hidden = true; }, 150));
   form.addEventListener('submit', (e) => { e.preventDefault(); save(false); });
   form.addEventListener('click', (e) => {
     const b = e.target.closest('[data-e]');
@@ -612,7 +618,7 @@ export function openEntry(opts = {}) {
       case 'swapacct': { const t = f.acct; f.acct = f.toAcct; f.toAcct = t; f.acctTouched = true; f.acctSuggested = false; f.feeTouched = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; f.cRate = ''; renderAccts(); renderFx(); syncCross(); renderSugg(); break; }
       case 'smart': smartAct(v); break;
       case 'qtab': f.qtab = v; f.qtabManual = true; renderFreq(); break;
-      case 'pick': applyPick(v); break;
+      case 'pick': if (Date.now() - sgDone > 700) applyPick(v); break;
       case 'acctpick': { const to = b.dataset.which === 'to', sel = $f(to ? 'f-to' : 'f-acct'), a = acctOf(f.acct);
         openAccountPicker({ selected: sel.value, skip: to ? f.acct : (f.kind === 'transfer' ? f.toAcct : ''), cur: to ? '' : (a && a.cur) || '', title: to ? 'To account' : f.kind === 'transfer' ? 'From account' : 'Account' }, (id) => { sel.value = id; sel.dispatchEvent(new Event('change', { bubbles: true })); }); break; }
       case 'curpick': openCurrencyPicker((c) => { const sel = $f('f-cur'); if (![...sel.options].some((o) => o.value === c)) sel.add(new Option(c, c)); sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); }, { title: 'Currency' }); break;

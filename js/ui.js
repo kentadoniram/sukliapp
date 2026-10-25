@@ -230,25 +230,25 @@ window.__hd = () => [hdepth, stack.length, ignorePop];
   btn.type = 'button'; btn.className = 'clearx'; btn.setAttribute('aria-label', 'Clear'); btn.hidden = true; btn.textContent = '×';
   let cur = null;
   const ok = (el) => el && el.tagName === 'INPUT' && /^(text|search|email|tel|url|number)$/.test(el.type) && !el.readOnly && !el.dataset.noclear && !el.closest('.amtwrap, .keypad');
-  // follow the field for as long as it has focus: layout can move without any scroll event (suggestions opening, a note appearing above, keyboard panning), so look every frame and only touch the button when something changed
-  let last = '', raf = 0;
-  const clipOf = (el) => { const sb = el.closest('.sheet-body'); const vv = window.visualViewport; const top = Math.max(sb ? sb.getBoundingClientRect().top : 0, 0), bot = Math.min(sb ? sb.getBoundingClientRect().bottom : innerHeight, vv ? vv.offsetTop + vv.height : innerHeight); return [top, bot]; };
+  // The button lives inside the field's own parent and is placed with the field's offsets, so it moves with the field by itself (a fixed button went astray on the iPhone home-screen app when the keyboard panned the page).
+  let last = '', raf = 0, host = null, hostAdded = false;
+  const release = () => { btn.hidden = true; if (btn.parentNode) btn.remove(); if (host && hostAdded) host.classList.remove('clearhost'); host = null; hostAdded = false; last = ''; };
+  const attach = (el) => { const h = el.parentElement; if (!h) return false; if (h !== host) { release(); host = h; if (getComputedStyle(h).position === 'static') { h.classList.add('clearhost'); hostAdded = true; } } if (btn.parentNode !== h) h.appendChild(btn); return true; };
   const place = () => {
     if (!cur || !document.body.contains(cur) || !cur.value) { btn.hidden = true; last = ''; return; }
-    const r = cur.getBoundingClientRect(), [ct, cb] = clipOf(cur);
-    const vis = r.width > 0 && r.height > 0 && r.top >= ct - 1 && r.bottom <= cb + 1;   // never float over other things when the field is scrolled out of sight
-    const key = [Math.round(r.right), Math.round(r.top), Math.round(r.height), vis].join();
-    if (key === last && !btn.hidden === vis) return; last = key;
-    if (!vis) { btn.hidden = true; return; }
-    btn.style.left = (r.right - 30) + 'px'; btn.style.top = (r.top + r.height / 2 - 13) + 'px'; btn.hidden = false;
+    if (!attach(cur)) { btn.hidden = true; return; }
+    if (cur.offsetParent !== host && cur.offsetParent !== btn.offsetParent) { btn.hidden = true; return; }
+    const l = cur.offsetLeft + cur.offsetWidth - 30, t = cur.offsetTop + cur.offsetHeight / 2 - 13, key = [l, t, cur.offsetHeight].join();
+    if (key === last && !btn.hidden) return; last = key;
+    btn.style.left = l + 'px'; btn.style.top = t + 'px'; btn.hidden = false;
   };
   const loop = () => { raf = 0; if (!cur) return; place(); raf = requestAnimationFrame(loop); };
   const track = () => { if (!raf) raf = requestAnimationFrame(loop); };
   document.addEventListener('focusin', (e) => { const x = e.target; if (x && x.tagName === 'INPUT' && /^(decimal|numeric)$/.test(x.getAttribute('inputmode') || '') && x.value && !x.readOnly) setTimeout(() => { try { x.select(); x.setSelectionRange(0, 99999); } catch { /* not selectable */ } }, 30); });
-  document.addEventListener('focusin', (e) => { if (ok(e.target)) { cur = e.target; last = ''; if (!btn.parentNode) document.body.appendChild(btn); place(); track(); } else { cur = null; btn.hidden = true; } });
+  document.addEventListener('focusin', (e) => { if (ok(e.target)) { cur = e.target; last = ''; place(); track(); } else { cur = null; release(); } });
   document.addEventListener('input', (e) => { if (e.target === cur) place(); });
-  document.addEventListener('focusout', () => setTimeout(() => { if (document.activeElement !== btn && !ok(document.activeElement)) { cur = null; btn.hidden = true; } }, 150));
-  window.addEventListener('scroll', place, true); window.addEventListener('resize', place);
+  document.addEventListener('focusout', () => setTimeout(() => { if (document.activeElement !== btn && !ok(document.activeElement)) { cur = null; release(); } }, 150));
+  window.addEventListener('resize', place);
   btn.addEventListener('pointerdown', (e) => e.preventDefault());
   btn.addEventListener('click', () => { if (!cur) return; cur.value = ''; cur.dispatchEvent(new Event('input', { bubbles: true })); cur.focus(); last = ''; place(); });
 })();

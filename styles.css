@@ -532,7 +532,8 @@ button.gbar { width: 100%; text-align: left; background: none; border: 0; color:
 .nudge span { flex: 1; display: grid; }
 .nudge small { color: var(--ink2); }
 
-.clearx { position: fixed; z-index: 60; width: 26px; height: 26px; border: 0; border-radius: 50%; background: var(--rule); color: var(--ink2); font-size: 18px; line-height: 24px; padding: 0; }
+.clearhost { position: relative; }
+.clearx { position: absolute; z-index: 4; width: 26px; height: 26px; border: 0; border-radius: 50%; background: var(--rule); color: var(--ink2); font-size: 18px; line-height: 24px; padding: 0; }
 
 /* the Save button stays on screen while the form scrolls */
 #btns, .sheet-body > form > .btnrow:last-child { position: sticky; bottom: calc(-24px - env(safe-area-inset-bottom, 0px)); z-index: 5; background: var(--sheet); padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 10px -9px rgba(0,0,0,.35); margin-bottom: 0; }
@@ -892,3 +893,12 @@ h4.subh { margin: 10px 0 4px; font-size: calc(13px * var(--fs, 1)); color: var(-
 .frow3 .fcat select { width: 100%; }
 .frow3 .btn { flex: 0 0 auto; white-space: nowrap; min-height: 44px; }
 .fsumrange { display: block; margin: -2px 0 4px; }
+
+/* 12.60: the Save row floats: no bar, small pill buttons that follow the scroll, smaller still while the keyboard is open */
+#btns, .sheet-body > form > .btnrow:last-child { background: transparent; box-shadow: none; pointer-events: none; justify-content: flex-end; gap: 8px; padding: 6px 0 calc(8px + env(safe-area-inset-bottom, 0px)); bottom: calc(-16px - env(safe-area-inset-bottom, 0px)); }
+#btns .btn, .sheet-body > form > .btnrow:last-child .btn { pointer-events: auto; border-radius: 999px; width: auto; flex: 0 0 auto; min-height: 42px; padding: 0 20px; box-shadow: 0 4px 14px rgba(0,0,0,.28); }
+#btns .btn.ghost, .sheet-body > form > .btnrow:last-child .btn.ghost { background: var(--sheet); }
+html.kb #btns, html.kb .sheet-body > form > .btnrow:last-child { padding: 2px 0 4px; bottom: -8px; gap: 6px; }
+html.kb #btns .btn, html.kb .sheet-body > form > .btnrow:last-child .btn { min-height: 34px; padding: 0 14px; font-size: calc(13px * var(--fs, 1)); box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+.sheet-body > form { padding-bottom: 8px; }
+.sugg button { min-height: 44px; }

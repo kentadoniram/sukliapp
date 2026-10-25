@@ -140,7 +140,10 @@ const queue = () => { if (!pending) { pending = true; requestAnimationFrame(rend
     document.addEventListener('focusout', settle);
     vv.addEventListener('resize', () => { if (!root.classList.contains('typing') || !editable(document.activeElement)) settle(); });
     vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); fit();
-    document.addEventListener('focusin', (e) => { if (e.target && e.target.closest && e.target.closest('.sheet')) setTimeout(() => { try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { /* old browser */ } }, 250); });
+    // bring a field into view only when it is really hidden (by the keyboard or the edge), and without animation: a smooth scroll while the iPhone keyboard opens leaves taps landing one row off
+    document.addEventListener('focusin', (e) => { if (e.target && e.target.closest && e.target.closest('.sheet')) setTimeout(() => { try { const t = e.target, r = t.getBoundingClientRect(), sb = t.closest('.sheet-body'), sr = sb ? sb.getBoundingClientRect() : { top: 0, bottom: innerHeight };
+      const bottom = Math.min(vv.offsetTop + vv.height, sr.bottom) - 64, top = Math.max(sr.top, vv.offsetTop) + 4;
+      if (r.top >= top && r.bottom <= bottom) return; t.scrollIntoView({ block: 'nearest', behavior: 'auto' }); } catch { /* old browser */ } }, 250); });
   }
   render();
   if (oauthMsg) toast(oauthMsg, { ms: 9000 });
