@@ -885,3 +885,10 @@ h4.subh { margin: 10px 0 4px; font-size: calc(13px * var(--fs, 1)); color: var(-
 /* iPhone: no tabs floating mid-screen while the keyboard is open for a field on the page */
 @media (pointer: coarse) { html.typing .tabs, html.kb:not(:has(.scrim)) .tabs { display: none; } html.typing main, html.kb:not(:has(.scrim)) main { padding-bottom: 24px; } }
 .tabs { transform: translateZ(0); }
+/* 12.59: account, category and Clear all share one row */
+.frow3 { display: flex; gap: 6px; align-items: center; margin: 6px 0; }
+.frow3 select { flex: 1 1 0; min-width: 0; max-width: none; margin: 0; min-height: 44px; color: var(--ink); }
+.frow3 .fcat { flex: 1 1 0; min-width: 0; display: block; }
+.frow3 .fcat select { width: 100%; }
+.frow3 .btn { flex: 0 0 auto; white-space: nowrap; min-height: 44px; }
+.fsumrange { display: block; margin: -2px 0 4px; }

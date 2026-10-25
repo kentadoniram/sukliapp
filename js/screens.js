@@ -24,7 +24,7 @@ import { backupSection } from './backup.js';
 import { fetchRates, ratesStatus, RATE_CREDIT, hasLive } from './rates.js';
 import { liveRate, curName, rateFor as rateFor2 } from './core.js';
 export { accounts };
-import { esc, ic, ACT, sheet, toast, confirmDialog, promptDialog, download } from './ui.js';
+import { esc, ic, ACT, sheet, toast, confirmDialog, promptDialog, download, fileStamp } from './ui.js';
 import { nameRules, similarPairs, learnSame, learnApart, learnRelated, forget } from './merchants.js';
 import { compareCard } from './compare.js';
 import './inputlog.js';
@@ -467,10 +467,12 @@ function filterSummary(db, list, hiddenFees, kidMap) {
   const cats = catMap(db);
   const catName = ui.cat ? (ui.cat.startsWith('g:') ? ui.cat.slice(2) : ((cats.get(ui.cat) || {}).name || '')) : '';
   const range = ui.from || ui.to ? `${ui.from || 'start'} to ${ui.to || 'today'}` : '';
+  // which dates the totals cover: the chosen range, otherwise the month shown (a search looks at every date)
+  const period = ui.from || ui.to ? `${ui.from ? fshort(ui.from) : 'the first entry'} to ${ui.to ? fshort(ui.to) : 'today'}` : (ui.q.trim() ? 'all dates' : monthLabel(ui.month));
   const title = [catName, range, ui.filter !== 'all' ? (ui.filter === 'review' ? 'Check' : ui.filter[0].toUpperCase() + ui.filter.slice(1)) : ''].filter(Boolean).join(' · ') || 'This selection';
-  const line = (label, k) => { if (!cnt[k]) return ''; const cur = [...acc[k].entries()].map(([c, v]) => money(v, c)).join(' · '); return `<div class="sumrow"><span>${label} <small class="muted">(${cnt[k]})</small></span><b>${money(hm[k])}</b>${acc[k].size > 1 || ![...acc[k].keys()].every((c) => c === HOME) ? `<small class="muted">${cur}</small>` : ''}</div>`; };
-  const inner = line('Spent', 'expense') + line('Income', 'income') + line('Moved between accounts', 'transfer');
-  return `<div class="fsum" id="lsum"><b class="fsumtitle">${esc(title)}</b>${inner || '<span class="muted">Nothing matches.</span>'}</div>`;
+  const line = (label, k) => { if (!cnt[k]) return ''; const cur = [...acc[k].entries()].map(([c, v]) => money(v, c)).join(' · '); return `<div class="sumrow"><span>${label} <small class="muted">${cnt[k]} ${cnt[k] === 1 ? 'entry' : 'entries'}</small></span><b>${money(hm[k])}</b>${acc[k].size > 1 || ![...acc[k].keys()].every((c) => c === HOME) ? `<small class="muted">${cur}</small>` : ''}</div>`; };
+  const inner = line('Total spent', 'expense') + line('Income received', 'income') + line('Moved between accounts', 'transfer');
+  return `<div class="fsum" id="lsum"><b class="fsumtitle">${esc(title)}</b><small class="muted fsumrange">Dates covered: ${esc(period)}</small>${inner || '<span class="muted">Nothing matches.</span>'}</div>`;
 }
 ACT.more = () => { ui.limit += 150; const el = document.getElementById('ledger-list'); if (el) el.innerHTML = ledgerRows(get()); };
 
@@ -490,12 +492,14 @@ export function ledger(db) {
   const f = [['all', 'All'], ['review', 'Check'], ['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']];
   return `${monthNav()}
     <div class="searchbar">${ic('search')}<input id="q" type="search" placeholder="Search entries, items, notes" value="${esc(ui.q)}" aria-label="Search entries"></div>
-    <div class="filters" role="group" aria-label="Filter">${f.map(([v, l]) => `<button class="chip ${ui.filter === v ? 'on' : ''}" data-act="filter" data-v="${v}" ${v === 'review' ? 'title="Entries with a guessed category or label that you have not confirmed yet"' : ''}>${l}</button>`).join('')}
-      <select id="acctfilter" aria-label="Account filter"><option value="">All accounts</option>${db.accounts.filter((a) => !a.deleted).sort((a, b) => a.name.localeCompare(b.name)).map((a) => `<option value="${a.id}" ${ui.acct === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></div>
+    <div class="filters" role="group" aria-label="Filter">${f.map(([v, l]) => `<button class="chip ${ui.filter === v ? 'on' : ''}" data-act="filter" data-v="${v}" ${v === 'review' ? 'title="Entries with a guessed category or label that you have not confirmed yet"' : ''}>${l}</button>`).join('')}</div>
     <div class="frow2">
       <div class="frange"><button type="button" class="fdbtn ${ui.from ? 'set' : ''}" data-act="f-pick" data-k="from" aria-label="From date"><small>From</small><b>${ui.from ? esc(fshort(ui.from)) : 'Any date'}</b></button><span class="fdash" aria-hidden="true">–</span><button type="button" class="fdbtn ${ui.to ? 'set' : ''}" data-act="f-pick" data-k="to" aria-label="To date"><small>To</small><b>${ui.to ? esc(fshort(ui.to)) : 'Any date'}</b></button></div>
       <div class="fquick" role="group" aria-label="Quick ranges">${[['7', 'Last 7 days'], ['30', 'Last 30 days'], ['m', 'This month'], ['y', 'This year']].map(([v, l]) => `<button type="button" class="chip" data-act="f-range" data-v="${v}">${l}</button>`).join('')}</div>
-      <label class="fcat"><span>Category</span><select id="lf-cat" aria-label="Category filter">${catOptions(db)}</select></label>
+    </div>
+    <div class="frow3">
+      <select id="acctfilter" aria-label="Account filter"><option value="">All accounts</option>${db.accounts.filter((a) => !a.deleted).sort((a, b) => a.name.localeCompare(b.name)).map((a) => `<option value="${a.id}" ${ui.acct === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
+      <label class="fcat"><select id="lf-cat" aria-label="Category filter">${catOptions(db)}</select></label>
       <button type="button" class="btn sm ghost" data-act="f-clear">Clear all</button></div>
     <p class="hint filterhint" id="filterhint">${filterHint()}</p>
     <div id="selbar-wrap">${selBar()}</div>
@@ -852,8 +856,8 @@ ACT.sync = async () => {
   if (cid && cid.value.trim() !== get().settings.driveClientId) commitQuiet((d) => { d.settings.driveClientId = cid.value.trim(); });
   try { await syncNow({ interactive: true }); toast('Backed up to Google Drive.'); } catch (e) { toast(e.message, { ms: 9000 }); }
 };
-ACT['export-csv'] = () => download(`sukli-${nowStamp().slice(0, 10)}.csv`, exportCSV(get()));
-ACT['export-json'] = () => download(`sukli-backup-${nowStamp().slice(0, 10)}.json`, JSON.stringify({ ...get(), settings: { ...get().settings, driveClientId: '' } }), 'application/json');
+ACT['export-csv'] = () => download(`sukli-${fileStamp()}.csv`, exportCSV(get()));
+ACT['export-json'] = () => download(`sukli-backup-${fileStamp()}.json`, JSON.stringify({ ...get(), settings: { ...get().settings, driveClientId: '' } }), 'application/json');
 ACT.exclude = (el) => commit((d) => {
   const set = new Set(d.settings.excludeGroups);
   el.checked ? set.add(el.dataset.g) : set.delete(el.dataset.g);
