@@ -923,3 +923,20 @@ html.kb #btns .btn, html.kb .sheet-body > form > .btnrow:last-child .btn { min-h
 .tagbar { display: flex; gap: 6px; overflow-x: auto; margin: 4px 0 6px; padding-bottom: 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .tagbar .chip { flex: 0 0 auto; min-height: 36px; }
 .rtags { color: var(--xfer); }
+
+/* ---- receipt scan: bigger boxes, one card per item, readings under Japanese names ---- */
+#sc-items .item.sci { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px; margin-bottom: 10px; border: 1px solid var(--rule); border-radius: 14px; background: var(--sheet); }
+#sc-items .item.sci.low { border-left: 4px solid #d49a1a; }
+#sc-items .item.sci .in-n { flex: none; width: 100%; min-height: 46px; font-size: calc(16px * var(--fs, 1)); }
+#sc-items .item.sci .in-a { width: 104px; min-height: 46px; text-align: right; font-size: calc(16px * var(--fs, 1)); flex: 0 0 104px; }
+.sci-mid { display: flex; gap: 6px; align-items: center; }
+.sci-mid .pkbtn { flex: 1 1 auto; min-width: 0; min-height: 46px; }
+.sci-mid .iconbtn { flex: 0 0 44px; }
+.sci-read { font-size: calc(13px * var(--fs, 1)); line-height: 1.35; color: var(--ink2); }
+.sci-read:empty { display: none; }
+.sci-read .rr { font-style: italic; } .sci-read .re { color: var(--ink); font-weight: 600; } .sci-read .re::before { content: '· '; font-weight: 400; } .sci-read .ru { font-size: .85em; color: #8a5f00; }
+.sci-note { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: calc(12px * var(--fs, 1)); } .sci-note:empty { display: none; } .sci-note .conf { margin-left: 0; }
+.sci-add { margin: 4px 0 8px; min-height: 46px; }
+.fixrow { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 2px; } .fixrow .chip { min-height: 42px; }
+img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor: zoom-out; }
+#scanform .field input:not([type=file]) { min-height: 46px; }
