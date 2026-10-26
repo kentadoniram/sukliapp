@@ -8,6 +8,8 @@ import { nameRules } from './merchants.js';
 import { compareCard, relatedNames } from './compare.js';
 import { smartKind, openLoanPlanner } from './loans.js';
 import { fxBlockHtml, fxBlockUpdate, openConverter } from './fxview.js';
+import { parseTags, joinTags, tagCounts } from './tags.js';
+import { tipBtn } from './interest.js';
 import { isLiability, lockInfo } from './finance.js';
 import { budgetAlerts, newAlertsSince } from './budgetsetup.js';
 import { guessLabel, transferLabel } from './label.js';
@@ -56,7 +58,7 @@ function blank() {
   const accts = db.accounts.filter((a) => !a.deleted && !a.archived);
   const last = accts.find((a) => a.id === db.settings.lastAcct) || accts.find((a) => a.include) || accts[0];
   return { kind: 'expense', amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
-    catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), notes: '', items: [], flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
+    catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), notes: '', labels: '', items: [], flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
     fee: '', feeCat: '', feeBy: 'from', feeTouched: false, calc: false, convert: false, cRate: '', qtab: '', qtabManual: false };
 }
 function fromTx(t) {
@@ -66,7 +68,7 @@ function fromTx(t) {
     toAmount: t.toAmount != null ? String(t.toAmount) : '', fx: t.fx ? prec(t.fx / homeRate(db, t.date)) : '', cat: t.cat || '',
     fee: t.fee > 0 ? String(t.fee) : '', feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
     convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
-    catTouched: true, acctTouched: true, date: t.date, notes: t.notes || '', flag: t.flag || null, id: t.id, pred: null,
+    catTouched: true, acctTouched: true, date: t.date, notes: t.notes || '', labels: t.labels || '', flag: t.flag || null, id: t.id, pred: null,
     items: (t.items || []).map((i) => ({ n: i.n, amt: String(i.amt), cat: i.cat || '' })), showItems: !!(t.items && t.items.length), from: t.from || '', to: t.to || '' };
 }
 
@@ -127,6 +129,7 @@ export function openEntry(opts = {}) {
     <div id="triprow"></div>
     <div id="itemsrow"></div>
     <div class="field" id="whenrow"><span>When</span><button type="button" class="whenbtn" id="f-when" data-e="when"></button></div>
+    <div class="field" id="tagsrow"></div>
     <label class="field" id="notesrow"><span>Notes</span><textarea id="f-notes" rows="2" placeholder="Optional">${esc(f.notes)}</textarea></label>
     <div id="safety" class="safety" aria-live="polite"></div>
     <p class="err" id="err" role="alert" hidden></p>
@@ -136,8 +139,8 @@ export function openEntry(opts = {}) {
   const focusKeep = (el) => { if (el && document.activeElement !== el) el.focus(); };
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
-    flow: ['seg', 'freq', 'namefield', 'amountbox', 'fxline', 'acctrow', 'whenrow', 'catrow', 'triprow', 'itemsrow', 'notesrow', 'safety', 'err', 'btns'],
-    transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'notesrow', 'safety', 'err', 'btns'],
+    flow: ['seg', 'freq', 'namefield', 'amountbox', 'fxline', 'acctrow', 'whenrow', 'catrow', 'triprow', 'itemsrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
+    transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
   };
   function arrange() {
     const ids = f.kind === 'transfer' ? ORDER.transfer : ORDER.flow;
@@ -464,6 +467,12 @@ export function openEntry(opts = {}) {
     const guess = list[0] && !f.to.trim() ? list[0].to : '', inp = form.querySelector('#f-to'); if (inp) inp.placeholder = guess ? `${guess}?` : 'To';
     el.innerHTML = list.length ? `<small class="muted">${f.from.trim() ? 'Where to from ' + esc(f.from.trim()) + '?' : 'Likely trips now'}</small><div class="chips">${list.map((x, i) => `<button type="button" class="chip" data-e="trip" data-v="${i}">${esc(x.from)} → ${esc(x.to)} <small>${esc((cm.get(x.cat) || {}).name || '')} · ${Math.round(x.p * 100)}%</small></button>`).join('')}</div>` : '';
   }
+  // tag or event: pick one you used before, or add a new one (several are fine)
+  function renderTags() {
+    const el = $f('tagsrow'); if (!el) return;
+    const on = parseTags(f.labels), onSet = new Set(on.map((x) => x.toLowerCase())), more = tagCounts(get()).filter((x) => !onSet.has(x.tag.toLowerCase())).slice(0, 8);
+    el.innerHTML = `<span>Tag or event (optional) ${tipBtn('tags')}</span><div class="chips tagchips">${on.map((x) => `<button type="button" class="chip on" data-e="tag" data-v="${esc(x)}" aria-pressed="true">#${esc(x)} ×</button>`).join('')}${more.map((x) => `<button type="button" class="chip" data-e="tag" data-v="${esc(x.tag)}" aria-pressed="false">#${esc(x.tag)}</button>`).join('')}<button type="button" class="chip" data-e="newtag">+ New tag</button></div>`;
+  }
   function renderTrip() {
     tripShown = tripCat();
     const el = $f('triprow'); if (!tripCat()) { el.innerHTML = ''; return; }
@@ -635,6 +644,8 @@ export function openEntry(opts = {}) {
       case 'livecross': { const r = crossRate(); if (r) { f.cRate = prec(r); const cr = $f('f-crate'); if (cr) cr.value = f.cRate; syncCross('rate'); } else toast('No live rate for this pair yet. Type one.'); break; }
       case 'feeby': f.feeBy = v; f.feeTouched = true; f.feeSuggested = false; renderFee(); break;
       case 'cat': pickCat(v); renderCats(); renderTrip(); renderSafety(); break;
+      case 'tag': { const cur = parseTags(f.labels), i = cur.findIndex((x) => x.toLowerCase() === v.toLowerCase()); if (i >= 0) cur.splice(i, 1); else cur.push(v); f.labels = joinTags(cur); renderTags(); break; }
+      case 'newtag': { promptDialog('New tag or event', '', { okLabel: 'Add', hint: 'For example: Okinawa trip, Birthday, Moving' }).then((n) => { if (n && n.trim()) { f.labels = joinTags([...parseTags(f.labels), n.trim()]); renderTags(); } }); break; }
       case 'trip': { const x = (f._trips || [])[+v]; if (x) pickTrip(x); break; }
       case 'eye': priv.set(!priv.on); applyHide(); b.textContent = (priv.on ? 'Show' : 'Hide') + ' amounts'; updateFxVal(); updateItemLeft(); window.dispatchEvent(new Event('sukli-render')); break;
       case 'newcat': openCategoryForm({ kind: f.kind, name: f.name.trim().replace(/\b\w/g, (m) => m.toUpperCase()).slice(0, 40), keywords: f.name.trim().toLowerCase(), onDone: (c) => { pickCat(c.id); refreshPred(); renderCats(); } }); break;
@@ -752,7 +763,7 @@ export function openEntry(opts = {}) {
       else { label = guessLabel(db2, { kind: f.kind, cat, amount, acct: a.id, hour: hourOf(f.date) }).name; flag = 'review'; }
     }
     const rec = { kind: f.kind, amount, cur: a.cur, fx, date: f.date, name: label, autoName, cat, acct: a.id,
-      toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), items: items && items.length ? items : [], flag };
+      toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), labels: joinTags(parseTags(f.labels)), items: items && items.length ? items : [], flag };
     if (f.kind !== 'transfer' && cat && ((f.catTouched && f.guessed && f.guessed !== cat) || (existing && existing.cat && existing.cat !== cat) || (existing && existing.corrected))) rec.corrected = true;
     if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) { rec.from = f.from.trim(); rec.to = f.to.trim(); } else if (existing && (existing.from || existing.to)) { rec.from = ''; rec.to = ''; }
     let savedAs; const alertsBefore = budgetAlerts(get(), rec.date.slice(0, 7));
@@ -778,7 +789,7 @@ export function openEntry(opts = {}) {
 
   arrange(); renderSeg(); renderFreq(); renderAccts(); renderFx(); renderItems(); renderWhen(); renderBtns(); renderSafety();
   if (existing) { refreshPred(); f.cat = existing.cat || ''; renderCats(); } else renderCats();
-  renderTrip();
+  renderTrip(); renderTags();
   updateFxVal();
 }
 

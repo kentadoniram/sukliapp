@@ -917,3 +917,9 @@ html.kb #btns .btn, html.kb .sheet-body > form > .btnrow:last-child .btn { min-h
 .wznav { display: flex; gap: 10px; justify-content: space-between; margin-top: 20px; }
 .wznav .btn { flex: 1; min-height: 48px; }
 .wz .linkbtn { min-height: 40px; }
+
+/* 12.62: tags and events */
+.tagchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.tagbar { display: flex; gap: 6px; overflow-x: auto; margin: 4px 0 6px; padding-bottom: 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.tagbar .chip { flex: 0 0 auto; min-height: 36px; }
+.rtags { color: var(--xfer); }

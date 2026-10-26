@@ -73,7 +73,7 @@ with sync_playwright() as p:
     ok('and back to By group', pg.evaluate("document.querySelector('[data-act=pieby][data-v=group]').classList.contains('on')") and pg.evaluate("document.querySelectorAll('[data-mark=kept]').length")==2)
     # haptic hook: a tap flips the hidden switch (iPhone gets a tap from that)
     pg.add_init_script('Object.defineProperty(navigator,"vibrate",{value:undefined,configurable:true})'); pg.goto(URL+'#/home'); pg.reload(); pg.wait_for_timeout(700)
-    sw=lambda: pg.evaluate("(()=>{const i=document.querySelector('.fbswitch input');return i?i.checked:null})()")
+    sw=lambda: pg.evaluate("(()=>{const i=document.getElementById(document.querySelector('label.fbswitch').htmlFor);return i?i.checked:null})()")
     seq=[]
     for _ in range(3): pg.click('header [data-act=eye]'); pg.wait_for_timeout(200); seq.append(sw())
     ok(f'each tap flips the hidden haptic switch (iPhone buzz): {seq}', None not in seq and seq[0]!=seq[1] and seq[1]!=seq[2])

@@ -53,6 +53,7 @@ export const TIPS = {
   promo: ['Promotional rate', 'A special rate for money deposited during a set period. Money put in between the two deposit dates earns the promo rate until the promo ends. Other money earns the normal rate. If the bank locks the money (a term deposit), say for how many days after each deposit, or until which date: the promo rate then runs for that time, and Sukli warns when you take out locked money.'],
   firstentry: ['Your first entry', 'Tap the round + button below. Type what it was (for example “lunch”), how much, and pick the account you paid from. Sukli learns your usual choices as you go.'],
   emptyledger: ['Entries', 'Entries are the things you spend or earn. Tap the round + button to add one. Use the month arrows or Clear all if you expect to see entries from another time.'],
+  tags: ['Tag or event', 'A tag groups entries from any category, for example a trip. Tag your dining out, hotel and train entries #Okinawa trip, then tap that tag in Entries to see the whole trip’s total. Pick one you used before or add a new one.'],
   debt: ['Interest on a debt', 'When this is on, Sukli adds an interest charge to what you owe once the deadline is reached and the amount is still unpaid. Each charge also counts as a financial loss.'],
 };
 export const tipBtn = (k) => (TIPS[k] ? `<button type="button" class="tipbtn" data-tip="${k}" aria-label="What is ${TIPS[k][0]}?" aria-expanded="false">?</button>` : '');

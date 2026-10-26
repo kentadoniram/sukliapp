@@ -11,12 +11,15 @@ let ac = null, sw = null;
 function buzz(strong) {
   if (!cfg.haptic) return;
   try { if (navigator.vibrate && navigator.vibrate(strong ? 14 : 8)) return; } catch { /* not supported */ }
-  try {                                                         // iOS 17.4+: switching a "switch" checkbox gives a light tap
-    if (!sw) { const l = document.createElement('label'); l.setAttribute('aria-hidden', 'true'); l.className = 'fbswitch'; l.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;overflow:hidden;opacity:0.01;pointer-events:none';
-      const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); i.tabIndex = -1; l.appendChild(i); document.body.appendChild(l); sw = l; }
+  try {                                                         // iOS 17.4+: a "switch" checkbox gives a light tap when toggled through its label (same layout the WebHaptics library uses)
+    if (!sw) { const id = 'fbsw' + Math.random().toString(36).slice(2, 7), st = 'position:fixed;left:-200px;top:0;opacity:0;pointer-events:none;';
+      const i = document.createElement('input'); i.type = 'checkbox'; i.id = id; i.setAttribute('switch', ''); i.setAttribute('aria-hidden', 'true'); i.tabIndex = -1; i.style.cssText = st;
+      const l = document.createElement('label'); l.htmlFor = id; l.className = 'fbswitch'; l.setAttribute('aria-hidden', 'true'); l.style.cssText = st; l.textContent = 'haptic';
+      document.body.append(i, l); sw = l; }
     sw.click();
   } catch { /* no haptics on this device */ }
 }
+export const testBuzz = () => { const was = cfg.haptic; cfg = { ...cfg, haptic: true }; buzz(true); cfg = { ...cfg, haptic: was }; };
 function click() {
   if (!cfg.sound) return;
   try {

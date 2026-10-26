@@ -14,7 +14,8 @@ import { syncNow, status as syncStatus } from './drive.js';
 import { REMOVED_UI } from './features.js';
 import { fxBlockHtml, openConverter } from './fxview.js';
 import { tipBtn } from './interest.js';
-import { feedbackCfg } from './feedback.js';
+import { parseTags, hasTag, tagCounts } from './tags.js';
+import { feedbackCfg, testBuzz } from './feedback.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
 import { lossCard } from './loans.js';
@@ -34,7 +35,7 @@ import { versionText } from './version.js';
 import { rollingSummary, rollingAvg, dailySpend, today as todayStr } from './rolling.js';
 import { buildGraph, clusters, neighbourhood, matches, explain, edgeText } from './simgraph.js';
 
-export const ui = { month: thisMonth(), q: '', filter: 'all', acct: '', from: '', to: '', cat: '', daysOff: new Set(), limit: 120, selecting: false, sel: new Set(), by: 'group', collapsed: (() => { try { return JSON.parse(localStorage.getItem('sukli-coll') || '{}'); } catch { return {}; } })() };
+export const ui = { month: thisMonth(), tag: '', q: '', filter: 'all', acct: '', from: '', to: '', cat: '', daysOff: new Set(), limit: 120, selecting: false, sel: new Set(), by: 'group', collapsed: (() => { try { return JSON.parse(localStorage.getItem('sukli-coll') || '{}'); } catch { return {}; } })() };
 
 // collapsible section: tap the heading to fold it away (remembered on this device)
 export function coll(id, title, body, extra = '') {
@@ -130,6 +131,7 @@ export function row(t, accts, cats, sel, trail) {
   const title = t.name || (c ? c.name : 'Untitled');
   const sub = tr ? `${t.trade ? 'Trade · ' : 'Transfer · '}${esc(a ? a.name : '?')} → ${esc((accts.get(t.toAcct) || {}).name || '?')}`
     : `${esc(c ? c.name : 'No category')} · ${esc(a ? a.name : '')}${t.items && t.items.length ? ` · ${t.items.length} items` : ''}`;
+  const tg = parseTags(t.labels).map((x) => `#${esc(x)}`).join(' '), sub2 = tg ? `${sub} · <span class="rtags">${tg}</span>` : sub;
   const bb = tr ? accts.get(t.toAcct) : null, arr = tr && t.toAmount != null && bb && Math.abs(t.toAmount - t.amount) > 1e-9 && !t.trade ? `<small class="arrived">arrived ${money(t.toAmount, bb.cur)}</small>` : '';
   const signed = tr ? money(t.amount, t.cur) : money(t.kind === 'income' ? t.amount : -t.amount, t.cur);
   const base = !tr && eq(t.amount, t.cur, t.fx, t.date) ? `<small>${eq(t.amount, t.cur, t.fx, t.date)}</small>` : '';
@@ -137,7 +139,7 @@ export function row(t, accts, cats, sel, trail) {
   return `<button class="row ${sel ? 'selrow' : ''} ${on ? 'picked' : ''}" data-act="${sel ? 'sel-toggle' : 'edit'}" data-id="${t.id}" ${sel ? `role="checkbox" aria-checked="${!!on}"` : ''}>
     ${sel ? `<i class="selbox ${on ? 'on' : ''}">${on ? ic('check') : ''}</i>` : ''}
     <i class="badge" style="background:${tr ? 'var(--xfer)' : groupColor(group)}">${groupLetter(group)}</i>
-    <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub}</small><small class="eff">${effectLine(t, accts)}</small>${balLines(t, accts, trail)}</span>
+    <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub2}</small><small class="eff">${effectLine(t, accts)}</small>${balLines(t, accts, trail)}</span>
     <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}${arr}</span></button>`;
 }
 ACT.edit = (el) => { const t = get().txs.find((x) => x.id === el.dataset.id); if (t && t.auto && t.kind === 'income' && openInterestDetail(t)) return; openEntry({ id: el.dataset.id }); };
@@ -407,7 +409,8 @@ function ledgerRows(db) {
   let list = sortedTxs(db);
   const ranged = !!(ui.from || ui.to);
   if (ranged) list = list.filter((t) => (!ui.from || t.date.slice(0, 10) >= ui.from) && (!ui.to || t.date.slice(0, 10) <= ui.to));
-  else if (!q) list = list.filter((t) => t.date.startsWith(ui.month));
+  else if (!q && !ui.tag) list = list.filter((t) => t.date.startsWith(ui.month));
+  if (ui.tag) list = list.filter((t) => hasTag(t, ui.tag));
   const feeSource = ui.filter === 'expense' ? list.filter((t) => t.kind === 'transfer' && t.fee > 0) : [];   // fees saved on transfers, trades and loans are expenses too
   if (ui.filter === 'review') list = list.filter((t) => t.flag === 'review');
   else if (ui.filter !== 'all') list = list.filter((t) => t.kind === ui.filter);
@@ -420,7 +423,7 @@ function ledgerRows(db) {
   }
   if (q) list = list.filter((t) => {
     const c = cats.get(t.cat), a = accts.get(t.acct);
-    return [t.name, t.notes, c && c.name, c && c.group, a && a.name, (t.items || []).map((i) => i.n).join(' ')].join(' ').toLowerCase().includes(q);
+    return [t.name, t.notes, t.labels, c && c.name, c && c.group, a && a.name, (t.items || []).map((i) => i.n).join(' ')].join(' ').toLowerCase().includes(q);
   });
   // a fee that belongs to a trade is shown inside the trade's row, not as a separate entry (still searchable, and in the Expense filter)
   const kidMap = tradeKids(db).parentOf, hideKids = !q && ui.filter !== 'expense';
@@ -458,7 +461,7 @@ function dayColor(v, base) {
 }
 // when a filter, a category or a date range is on, show what the selection adds up to
 function filterSummary(db, list, hiddenFees, kidMap) {
-  const on = ui.filter !== 'all' || ui.cat || ui.from || ui.to || ui.acct || ui.q.trim();
+  const on = ui.filter !== 'all' || ui.cat || ui.from || ui.to || ui.acct || ui.q.trim() || ui.tag;
   if (!on) return '';
   const acc = { expense: new Map(), income: new Map(), transfer: new Map() }, hm = { expense: 0, income: 0, transfer: 0 }, cnt = { expense: 0, income: 0, transfer: 0 };
   const add = (t) => { const k = acc[t.kind] ? t.kind : null; if (!k) return; cnt[k]++; acc[k].set(t.cur, (acc[k].get(t.cur) || 0) + t.amount); hm[k] += t.amount * factorFor(db, t); };
@@ -469,8 +472,8 @@ function filterSummary(db, list, hiddenFees, kidMap) {
   const catName = ui.cat ? (ui.cat.startsWith('g:') ? ui.cat.slice(2) : ((cats.get(ui.cat) || {}).name || '')) : '';
   const range = ui.from || ui.to ? `${ui.from || 'start'} to ${ui.to || 'today'}` : '';
   // which dates the totals cover: the chosen range, otherwise the month shown (a search looks at every date)
-  const period = ui.from || ui.to ? `${ui.from ? fshort(ui.from) : 'the first entry'} to ${ui.to ? fshort(ui.to) : 'today'}` : (ui.q.trim() ? 'all dates' : monthLabel(ui.month));
-  const title = [catName, range, ui.filter !== 'all' ? (ui.filter === 'review' ? 'Check' : ui.filter[0].toUpperCase() + ui.filter.slice(1)) : ''].filter(Boolean).join(' · ') || 'This selection';
+  const period = ui.from || ui.to ? `${ui.from ? fshort(ui.from) : 'the first entry'} to ${ui.to ? fshort(ui.to) : 'today'}` : (ui.q.trim() || ui.tag ? 'all dates' : monthLabel(ui.month));
+  const title = [ui.tag ? `#${ui.tag}` : '', catName, range, ui.filter !== 'all' ? (ui.filter === 'review' ? 'Check' : ui.filter[0].toUpperCase() + ui.filter.slice(1)) : ''].filter(Boolean).join(' · ') || 'This selection';
   const line = (label, k) => { if (!cnt[k]) return ''; const cur = [...acc[k].entries()].map(([c, v]) => money(v, c)).join(' · '); return `<div class="sumrow"><span>${label} <small class="muted">${cnt[k]} ${cnt[k] === 1 ? 'entry' : 'entries'}</small></span><b>${money(hm[k])}</b>${acc[k].size > 1 || ![...acc[k].keys()].every((c) => c === HOME) ? `<small class="muted">${cur}</small>` : ''}</div>`; };
   const inner = line('Total spent', 'expense') + line('Income received', 'income') + line('Moved between accounts', 'transfer');
   return `<div class="fsum" id="lsum"><b class="fsumtitle">${esc(title)}</b><small class="muted fsumrange">Dates covered: ${esc(period)}</small>${inner || '<span class="muted">Nothing matches.</span>'}</div>`;
@@ -488,7 +491,14 @@ ACT['f-pick'] = async (el) => { const k = el.dataset.k, { openDatePicker } = awa
 ACT['f-range'] = (el) => { const v = el.dataset.v, t = todayStr(), d = new Date(); const sub = (n) => { const x = new Date(); x.setDate(x.getDate() - n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
   if (v === '7') { ui.from = sub(6); ui.to = t; } else if (v === '30') { ui.from = sub(29); ui.to = t; } else if (v === 'm') { ui.from = `${t.slice(0, 7)}-01`; ui.to = t; } else { ui.from = `${t.slice(0, 4)}-01-01`; ui.to = t; }
   ui.limit = 120; window.dispatchEvent(new Event('sukli-render')); };
-ACT['f-clear'] = () => { ui.from = ui.to = ui.cat = ''; ui.filter = 'all'; ui.acct = ''; ui.q = ''; window.dispatchEvent(new Event('sukli-render')); };
+ACT['tag-filter'] = (el) => { ui.tag = ui.tag === el.dataset.v ? '' : el.dataset.v; ui.limit = 120; window.dispatchEvent(new Event('sukli-render')); };
+ACT['f-clear'] = () => { ui.tag = ''; ui.from = ui.to = ui.cat = ''; ui.filter = 'all'; ui.acct = ''; ui.q = ''; window.dispatchEvent(new Event('sukli-render')); };
+// trips and events: one scrolling line of tags, tap one to see only those entries and their total
+function tagBar(db) {
+  const tags = tagCounts(db).slice(0, 14); if (ui.tag && !tags.some((x) => x.tag.toLowerCase() === ui.tag.toLowerCase())) tags.unshift({ tag: ui.tag });
+  if (!tags.length) return '';
+  return `<div class="tagbar" role="group" aria-label="Tags and events">${tags.map((x) => `<button type="button" class="chip ${ui.tag && x.tag.toLowerCase() === ui.tag.toLowerCase() ? 'on' : ''}" data-act="tag-filter" data-v="${esc(x.tag)}" aria-pressed="${!!ui.tag && x.tag.toLowerCase() === ui.tag.toLowerCase()}">#${esc(x.tag)}</button>`).join('')}</div>`;
+}
 export function ledger(db) {
   const f = [['all', 'All'], ['review', 'Check'], ['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']];
   return `${monthNav()}
@@ -502,6 +512,7 @@ export function ledger(db) {
       <select id="acctfilter" aria-label="Account filter"><option value="">All accounts</option>${db.accounts.filter((a) => !a.deleted).sort((a, b) => a.name.localeCompare(b.name)).map((a) => `<option value="${a.id}" ${ui.acct === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
       <label class="fcat"><select id="lf-cat" aria-label="Category filter">${catOptions(db)}</select></label>
       <button type="button" class="btn sm ghost" data-act="f-clear">Clear all</button></div>
+    ${tagBar(db)}
     <p class="hint filterhint" id="filterhint">${filterHint()}</p>
     <div id="selbar-wrap">${selBar()}</div>
     <div id="ledger-list">${ledgerRows(db)}</div>`;
@@ -705,7 +716,7 @@ export function settings(db) {
       <div class="field"><span>Theme</span>${segBtns('look', 'theme', [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']], lk.theme)}</div>
       <div class="field"><span>Colour</span><div class="swatches" role="group" aria-label="Accent colour">${Object.entries(ACCENTS).map(([k, v]) => `<button type="button" class="swatch ${lk.accent === k ? 'on' : ''}" data-act="look" data-k="accent" data-v="${k}" style="background:${v.l[0]}" aria-label="${v.n}" aria-pressed="${lk.accent === k}"></button>`).join('')}</div></div>
       <div class="field"><span>“Spent each day” chart on Home</span><div class="seg two small" role="group" aria-label="Chart direction">${[['v', 'Vertical bars'], ['h', 'Horizontal bars']].map(([v, l]) => `<button type="button" data-act="week-mode" data-v="${v}" class="${weekMode() === v ? 'on' : ''}" aria-pressed="${weekMode() === v}">${l}</button>`).join('')}</div></div>
-      <div class="field"><span>Tap feedback</span>${(() => { const c = feedbackCfg(); return `<label class="check"><input type="checkbox" data-fb="haptic" ${c.haptic ? 'checked' : ''}> Vibrate a little when I tap</label><label class="check"><input type="checkbox" data-fb="visual" ${c.visual ? 'checked' : ''}> Flash the button I tapped</label><label class="check"><input type="checkbox" data-fb="sound" ${c.sound ? 'checked' : ''}> Soft click sound</label>`; })()}
+      <div class="field"><span>Tap feedback</span>${(() => { const c = feedbackCfg(); return `<label class="check"><input type="checkbox" data-fb="haptic" ${c.haptic ? 'checked' : ''}> Vibrate a little when I tap</label><label class="check"><input type="checkbox" data-fb="visual" ${c.visual ? 'checked' : ''}> Flash the button I tapped</label><label class="check"><input type="checkbox" data-fb="sound" ${c.sound ? 'checked' : ''}> Soft click sound</label><button type="button" class="btn sm ghost" data-act="fb-test">Test the buzz</button>`; })()}
         <small class="hint">Some iPhones and browsers cannot vibrate, so the flash (and the click, if you turn it on) tells you the tap worked.</small></div>
       <div class="field"><span>Text size</span>${segBtns('look', 'size', SIZES.map((x) => [x[0], x[1]]), lk.size)}
         <small class="hint">Smaller text leaves more room above the on-screen keyboard.</small></div>
@@ -745,6 +756,7 @@ export function settings(db) {
         <label class="btn ghost filebtn">Import Bluecoins CSV<input type="file" id="file-bc" accept=".csv,text/csv" hidden></label>
         <button class="btn ghost" data-act="export-csv">Export CSV</button>
         <button class="btn ghost" data-act="export-json">Download full backup (JSON)</button>
+        <button class="btn ghost" data-act="export-share">Share backup (save to Google Drive or Files)</button>
         <label class="btn ghost filebtn">Restore from backup (JSON)<input type="file" id="file-json" accept=".json,application/json" hidden></label></div>
       <p class="hint">Importing the same file twice is safe: entries already here are skipped.</p></section>
     <section><h2>Left out of cash outflow</h2>
@@ -858,6 +870,14 @@ ACT.sync = async () => {
   try { await syncNow({ interactive: true }); toast('Backed up to Google Drive.'); } catch (e) { toast(e.message, { ms: 9000 }); }
 };
 ACT['export-csv'] = () => download(`sukli-${fileStamp()}.csv`, exportCSV(get()));
+ACT['export-share'] = async () => {
+  const name = `sukli-backup-${fileStamp()}.json`, json = JSON.stringify({ ...get(), settings: { ...get().settings, driveClientId: '' } });
+  try { const file = new File([json], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Sukli backup' }); toast('Choose Google Drive or Files to keep it.'); return; } }
+  catch (e) { if (e && e.name === 'AbortError') return; }
+  download(name, json, 'application/json'); toast('Your phone cannot share files from here, so the backup was downloaded instead.', { ms: 6000 });
+};
+ACT['fb-test'] = () => { testBuzz(); toast('If you felt nothing: on iPhone turn on Settings › Sounds & Haptics › System Haptics.', { ms: 7000 }); };
 ACT['export-json'] = () => download(`sukli-backup-${fileStamp()}.json`, JSON.stringify({ ...get(), settings: { ...get().settings, driveClientId: '' } }), 'application/json');
 ACT.exclude = (el) => commit((d) => {
   const set = new Set(d.settings.excludeGroups);
