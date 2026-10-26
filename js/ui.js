@@ -124,10 +124,10 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && stack.length) stack[stack.length - 1].close();
 });
 
-export function confirmDialog(message, okLabel = 'Confirm', danger = false) {
+export function confirmDialog(message, okLabel = 'Confirm', danger = false, noLabel = 'Cancel') {
   return new Promise((res) => {
     const s = sheet(`<p class="confirm-text">${esc(message)}</p>
-      <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button>
+      <div class="btnrow"><button type="button" class="btn ghost" data-no>${esc(noLabel)}</button>
       <button type="button" class="btn ${danger ? 'danger' : ''}" data-yes>${esc(okLabel)}</button></div>`, { title: 'Please confirm', onClose: () => res(false) });
     s.el.querySelector('[data-no]').onclick = () => s.close();
     s.el.querySelector('[data-yes]').onclick = () => { s.silent = true; s.dispose(); res(true); };

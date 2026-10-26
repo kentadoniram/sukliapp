@@ -40,6 +40,7 @@ export const isPeriodEnd = (d, comp) => {
 
 // ---- the "?" buttons: tap to open a short explanation, tap again to close ----
 export const TIPS = {
+  pricecur: ['Price currency', 'The money the price of one unit is quoted in. NVIDIA is quoted in USD, Toyota in JPY, BNB in USDT. Sukli uses that currency’s exchange rate to show the value in your own currency. It is not a new account, just the unit of the price.'],
   principal: ['Principal', 'The starting amount that interest is worked out on: what you put in, or what you borrowed or still owe.'],
   rate: ['Yearly rate', 'The percentage per year printed by your bank or lender, before the effect of compounding. Also called the nominal rate.'],
   compounding: ['Compounding', 'How often interest is added to the balance so that it earns interest too. Daily adds it every day, monthly at each month end, quarterly every 3 months. More often means slightly more over a year.'],

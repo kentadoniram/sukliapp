@@ -16,7 +16,7 @@ with sync_playwright() as p:
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic')
     print(pg.locator('.chip.plat b').count(), repr(pg.inner_text('.platlist')[:80])); ok('platform chips bold with history first', pg.locator('.chip.plat b').count()>5 and 'You used' in pg.inner_text('.platlist'))
     pg.locator('.chip.plat', has_text='Moomoo').click(); ok('chip fills platform', pg.input_value('#ic [name=ex]')=='Moomoo')
-    choose(pg,'#ic [name=type]',value='stock'); pg.fill('#ic [name=coin]','NVDA'); choose(pg,'#ic [name=market]',value='NASDAQ'); pg.fill('#ic [name=quote]','PHP'); pg.fill('#ic [name=price]','7000'); pg.fill('#ic [name=amt]','2')
+    choose(pg,'#ic [name=type]',value='stock'); pg.fill('#ic [name=coin]','NVDA'); choose(pg,'#ic [name=market]',value='NASDAQ'); choose(pg,'#ic [name=quote]',value='PHP'); pg.fill('#ic [name=price]','7000'); pg.fill('#ic [name=amt]','2')
     pg.click('#ic button:text-is("Add asset")'); pg.wait_for_timeout(700)
     # set price twice -> history
     pg.click('[data-act=inv-price][data-sym=NVDA]'); pg.fill('.sheet input[name=v]','7700'); pg.click('.sheet .btn:not(.ghost)'); pg.wait_for_timeout(500)

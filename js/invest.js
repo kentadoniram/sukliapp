@@ -1,13 +1,18 @@
 // Investments tab: crypto grouped by exchange (every coin is its own balance with its own market value), plus investments and
 // other financial products such as MP2. First rough version: valuation and structure; buy/sell comes next.
-import { enhanceSelect, pickAll } from './picker.js';
-import { WALLETS, walletOf, accLabel, get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, findOrAddCategory, factorFor } from './core.js';
+import { enhanceSelect, pickAll, pickerList } from './picker.js';
+import { tipBtn } from './interest.js';
+import { WALLETS, walletOf, accLabel, get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, findOrAddCategory, factorFor, allCurrencies, ensureCurrency } from './core.js';
 import { ACT, sheet, ic, esc, toast, promptDialog, confirmDialog } from './ui.js';
-import { hdr, money, coll } from './screens.js';
+import { hdr, coll } from './screens.js';
 import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
 
 const live = (l) => l.filter((x) => !x.deleted);
+// The Investments tab can show its values in its own currency (Settings: invCur), apart from the home currency used elsewhere.
+let invC = HOME, invK = 1;
+const money = (n) => fmt(n * invK, invC);
+function setInvCur(db) { const c = (db.settings && db.settings.invCur) || HOME, r = c === HOME ? 1 : homeFx(db, c); if (c !== HOME && r > 0) { invC = c; invK = 1 / r; } else { invC = HOME; invK = 1; } }
 export const inInvest = (a) => !a.archived && (a.type === 'crypto' || a.type === 'invest' || a.invtab);
 const val = (db, a, v) => v * (homeFx(db, a.cur) || 0);
 const priced = (db, a) => a.cur === HOME || (homeFx(db, a.cur) || 0) > 0;
@@ -17,12 +22,13 @@ const sqp = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 // One spelling per platform: "binance", "Binance " and "BINANCE" are the same place. The known name wins, then the most used spelling.
 let _canonFor = null, _canon = new Map();
 function canonMap() {
-  const db = get(); if (_canonFor === db.accounts && _canon.size >= 0 && _canonN === db.accounts.length + ':' + db.accounts.map((a) => a.exchange || '').join('|')) return _canon;
+  const db = get(), mine = (db.settings && db.settings.platforms) || [], key = db.accounts.length + ':' + db.accounts.map((a) => a.exchange || '').join('|') + '#' + mine.join('|'); if (_canonFor === db.accounts && _canonN === key) return _canon;
   const m = new Map(), cnt = new Map();
   for (const p of PLATFORMS) m.set(sqp(p), p);
+  for (const p of mine) m.set(sqp(p), p);
   for (const a of db.accounts) { if (a.deleted) continue; const r = rawEx(a).trim(); if (!r) continue; const k = sqp(r); if (!cnt.has(k)) cnt.set(k, new Map()); cnt.get(k).set(r, (cnt.get(k).get(r) || 0) + 1); }
   for (const [k, spell] of cnt) if (!m.has(k)) m.set(k, [...spell.entries()].sort((x, y) => y[1] - x[1] || (x[0] === x[0].toLowerCase()) - (y[0] === y[0].toLowerCase()))[0][0]);
-  _canonFor = db.accounts; _canonN = db.accounts.length + ':' + db.accounts.map((a) => a.exchange || '').join('|'); _canon = m; return m;
+  _canonFor = db.accounts; _canonN = key; _canon = m; return m;
 }
 let _canonN = '';
 export const exchangeOf = (a) => { const r = rawEx(a).trim(); return r ? canonMap().get(sqp(r)) || r : ''; };
@@ -38,6 +44,7 @@ export function nearPlatform(typed) {
 // every platform the user has (used first) plus the popular ones, for pick lists
 export function platformNames() {
   const db = get(), used = new Map(); for (const a of db.accounts) { if (a.deleted) continue; const e = exchangeOf(a); if (e) used.set(e, (used.get(e) || 0) + 1); }
+  for (const p of (db.settings.platforms || [])) { const e = canonPlatform(p); if (e && !used.has(e)) used.set(e, 0); }
   const u = [...used.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).map((x) => x[0]);
   return { used: u, popular: PLATFORMS.filter((p) => !u.includes(p)) };
 }
@@ -56,11 +63,24 @@ export const riskOf = (db, a) => { const tk = (db.settings.tickers || {})[a.cur]
 ACT['inv-group'] = (el) => { try { localStorage.setItem('sukli-invgroup', el.dataset.v); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
 const COINS = ['USDT', 'USDC', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'TON', 'ADA'];
 
+// a second line with the same value in USD (or in the home currency when the tab already shows USD)
+function eqLine(db, total) {
+  const other = invC === 'USD' ? HOME : 'USD', r = other === HOME ? 1 : homeFx(db, other); if (!(r > 0) || other === invC) return '';
+  return `<small class="muted">≈ ${fmt(total / r, other)} ${esc(other)}</small>`;
+}
+ACT['inv-cur'] = () => {
+  const db = get(), cur = (db.settings && db.settings.invCur) || HOME, ok = (c) => c === HOME || homeFx(db, c) > 0, common = [...new Set([HOME, 'USD', 'USDT', 'JPY', 'KRW', 'PHP', 'EUR', 'HKD'])].filter(ok);
+  const opt = (c) => ({ value: c, label: `${c} · ${curName(c)}${c === HOME ? ' (home currency)' : ''}`, group: '' });
+  pickerList([...common.map((c) => ({ ...opt(c), group: 'Common' })), ...allCurrencies().filter((c) => ok(c) && !common.includes(c)).map((c) => ({ ...opt(c), group: 'All with a known rate' }))], { value: cur, title: 'Show Investments in',
+    onPick: (v) => commit((d) => { d.settings.invCur = v === HOME ? '' : v; }) });
+};
 export function investments(db) {
+  setInvCur(db);
   const bal = balances(db), items = live(db.accounts).filter(inInvest), book = tradeBook(db.txs);
   const crypto = items.filter(isAsset), other = items.filter((a) => !isAsset(a)), mode = gmode(), tickers = db.settings.tickers || {};
   const total = items.reduce((s, a) => s + val(db, a, bal.get(a.id) || 0), 0), unpriced = items.filter((a) => !priced(db, a) && (bal.get(a.id) || 0) !== 0);
   const byEx = new Map(); for (const a of crypto) { const k = mode === 'type' ? (ASSET_TYPES[assetTypeOf(a)] || 'Other investments') : mode === 'risk' ? riskOf(db, a) : (exchangeOf(a) || 'Wallets and other'); if (!byEx.has(k)) byEx.set(k, []); byEx.get(k).push(a); }
+  if (mode === 'platform') for (const p of (db.settings.platforms || [])) { const e = canonPlatform(p); if (e && !byEx.has(e)) byEx.set(e, []); }
   const exSum = (l) => l.reduce((s, a) => s + val(db, a, bal.get(a.id) || 0), 0);
   const qty = (n, cur) => `${n.toLocaleString('en-US', { maximumFractionDigits: Math.max(2, Math.min(8, (CUR[cur] || { dec: 2 }).dec)) })} ${cur}`;
   const paidTxt = (a) => { const p = book.pos.get(a.id); if (!p || !(p.qty > 0)) return ''; const e = Object.entries(p.paid || {}).filter(([, v]) => v > 0); return e.length ? ` · paid ${e.map(([c, v]) => qty(v, c)).join(' + ')}` : ''; };
@@ -82,17 +102,17 @@ export function investments(db) {
       <span class="ramt"><b>${ok ? money(v) : '<small class="muted">no price</small>'}</b></span></button>`; };
   const exHtml = [...byEx.entries()].sort((x, y) => mode === 'risk' ? (((RISK_GROUPS.indexOf(x[0]) + 1) || 99) - ((RISK_GROUPS.indexOf(y[0]) + 1) || 99)) || x[0].localeCompare(y[0]) : exSum(y[1]) - exSum(x[1])).map(([ex, list]) => {
     const t = exSum(list); return coll('ix-' + ex, `<span class="exname">${esc(ex)}</span> <small class="muted gsum">${money(t)}</small>`,
-      `${walletBlocks(list, t)}
-       ${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="btnrow left"><button type="button" class="btn sm" data-act="inv-add" data-ex="${esc(ex)}">Record activity on ${esc(ex)}</button><button type="button" class="btn sm ghost" data-act="inv-coin" data-ex="${esc(ex)}">+ Add an asset to ${esc(ex)}</button><button type="button" class="btn sm ghost" data-act="inv-rename" data-ex="${esc(ex)}">Rename platform</button></div>` : ''}`, ''); }).join('');
+      `${list.length ? walletBlocks(list, t) : '<p class="hint">No assets here yet.</p>'}
+       ${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="btnrow left"><button type="button" class="btn sm" data-act="inv-add" data-ex="${esc(ex)}">Record activity on ${esc(ex)}</button><button type="button" class="btn sm ghost" data-act="inv-coin" data-ex="${esc(ex)}">+ Add an asset to ${esc(ex)}</button><button type="button" class="btn sm ghost" data-act="inv-rename" data-ex="${esc(ex)}">Rename platform</button>${list.length ? '' : `<button type="button" class="btn sm ghost" data-act="inv-platdel" data-ex="${esc(ex)}">Remove platform</button>`}</div>` : ''}`, ''); }).join('');
   const otherHtml = other.length ? coll('i-other', `Investments and other products <small class="muted gsum">${money(exSum(other))}</small>`, `<div class="rows plain">${other.sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0)).map((a) => { const b = bal.get(a.id) || 0;
     return `<button class="row acct" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:var(--line)">${esc((a.name || '?').slice(0, 1))}</i><span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(a.exchange || (a.type === 'invest' ? 'Investment' : 'Other product'))} · ${fmt(b, a.cur)}</small></span><span class="ramt"><b>${priced(db, a) ? money(val(db, a, b)) : '<small class="muted">no rate</small>'}</b></span></button>`; }).join('')}</div>`, '') : '';
   return `${hdr('Investments', '<button class="btn sm" data-act="inv-add">Record activity</button> <button class="btn sm ghost" data-act="inv-new">Add asset</button>')}
-    <section class="nwcard one"><div class="nwmain"><span>Market value</span><b>${money(total)}</b><small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${byEx.size} ${mode === 'type' ? 'type' : mode === 'risk' ? 'group' : 'place'}${byEx.size === 1 ? '' : 's'} · ${other.length} other</small><small class="updated">${updatedLine(db)}</small></div></section>
+    <section class="nwcard one"><div class="nwmain"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${byEx.size} ${mode === 'type' ? 'type' : mode === 'risk' ? 'group' : 'place'}${byEx.size === 1 ? '' : 's'} · ${other.length} other</small><small class="updated">${updatedLine(db)}</small><button type="button" class="linkbtn" data-act="inv-cur">Show Investments in ${esc(invC)} ▾</button></div></section>
     ${unpriced.length ? `<p class="hint">No price yet for ${unpriced.map((a) => esc(a.cur)).join(', ')}, so ${unpriced.length === 1 ? 'it is' : 'they are'} left out of the total. Prices load when you are online, or set one in Settings, Exchange rates.</p>` : ''}
     ${crypto.length ? `<div class="seg sm small" role="group" aria-label="Group by">${[['platform', 'By platform'], ['type', 'By asset type'], ['risk', 'By group']].map(([v, l]) => `<button type="button" data-act="inv-group" data-v="${v}" class="${mode === v ? 'on' : ''}" aria-pressed="${mode === v}">${l}</button>`).join('')}</div>${mode === 'risk' ? '<p class="hint">Groups: stablecoins (steady value), major coins, high-volatility coins, stocks, funds. Open a ticker below to move it to another group or make your own.</p>' : ''}` : ''}
     ${performanceCard(db, bal, book, items)}${incomeCard(db)}${feesCard(db, book)}${predictCard(db)}${gains}${exHtml}${otherHtml}${tickerCard(db, tickers)}
     ${items.length ? '' : '<p class="empty">Nothing here yet. Add an exchange coin, an investment, or any account marked “Show in Investments” (for example MP2).</p>'}
-    <p class="hint">Each coin or share is its own balance at its platform (for example USDT, BNB and NVDA). The line under it shows the amount, what you paid, and today’s price; the right side is the value in ${HOME}.</p>`;
+    <p class="hint">Each coin or share is its own balance at its platform (for example USDT, BNB and NVDA). The line under it shows the amount, what you paid, and today’s price; the right side is the value in ${invC}.</p>`;
 }
 
 // manual tickers: any coin, token, stock or fund, on any platform or market (Tokyo, Korea, NASDAQ...), kept apart from real currencies
@@ -109,6 +129,29 @@ ACT['inv-price'] = async (el) => {
   if (v == null) return; const n = parseFloat(v); if (!(n > 0)) return;
   commit((d) => { d.settings.tickers[k].price = n; d.settings.tickers[k].priceDate = new Date().toISOString().slice(0, 10); pushHistory(d.settings.tickers[k], n, d.settings.tickers[k].quote, 'manual'); });
 };
+// every currency and coin for the Price currency list: the usual ones first, then what you already use, then the rest
+function quoteOptions(sel) {
+  const db = get(), used = new Set([...db.accounts.filter((a) => !a.deleted).map((a) => a.cur), ...Object.values(db.settings.tickers || {}).map((t) => t.quote).filter(Boolean)]);
+  const common = [...new Set(['USD', 'USDT', 'JPY', 'KRW', 'PHP', 'EUR', 'HKD', HOME])], mine = [...used].filter((c) => !common.includes(c) && !(db.settings.tickers || {})[c]).sort();
+  const rest = allCurrencies().filter((c) => !common.includes(c) && !mine.includes(c));
+  const o = (c) => `<option value="${esc(c)}" ${c === sel ? 'selected' : ''}>${esc(c)} · ${esc(curName(c))}</option>`;
+  const all = new Set([...common, ...mine, ...rest]); const extra = all.has(sel) ? '' : o(sel);
+  return `${extra}<optgroup label="Common">${common.map(o).join('')}</optgroup>${mine.length ? `<optgroup label="Already in your accounts">${mine.map(o).join('')}</optgroup>` : ''}<optgroup label="All currencies and coins">${rest.map(o).join('')}</optgroup>`;
+}
+// a platform or broker can be added on its own, before any asset exists; returns its name (or '' when cancelled)
+export async function addPlatform() {
+  const raw = (await promptDialog('New platform or broker', '', { okLabel: 'Add', hint: 'For example: Binance, Moomoo, SBI Securities, a bank, or your own wallet name.' }))?.trim();
+  if (!raw) return '';
+  let nm = canonPlatform(raw); const nr = nearPlatform(nm);
+  if (nr && await confirmDialog(`Did you mean ${nr}? You typed ${nm}.`, `Yes, ${nr}`, false, `No, keep ${nm}`)) nm = nr;
+  const have = platformNames().used.some((u) => u.toLowerCase() === nm.toLowerCase()) || (get().settings.platforms || []).some((u) => u.toLowerCase() === nm.toLowerCase());
+  if (!have) commit((d) => { d.settings.platforms = [...(d.settings.platforms || []), nm]; });
+  toast(have ? `${nm} is already in your list.` : `${nm} added. Now add its assets.`);
+  return nm;
+}
+ACT['inv-newplat'] = () => addPlatform();
+ACT['inv-platdel'] = async (el) => { const ex = el.dataset.ex; if (!(await confirmDialog(`Remove ${ex} from your platforms? It has no assets.`, 'Remove', true))) return;
+  commit((d) => { d.settings.platforms = (d.settings.platforms || []).filter((p) => canonPlatform(p).toLowerCase() !== ex.toLowerCase()); }); };
 export function addAsset(pre = {}) {
   const typeOpts = Object.entries(ASSET_TYPES).map(([k, l]) => `<option value="${k}" ${(pre.type || 'crypto') === k ? 'selected' : ''}>${l}</option>`).join('');
   const s = sheet(`<form id="ic">
@@ -119,22 +162,22 @@ export function addAsset(pre = {}) {
     <div class="two"><label class="field"><span>Ticker</span><input name="coin" placeholder="BNB, BGB, NVDA, 7203, 005930" required autocomplete="off" style="text-transform:uppercase"></label>
       <label class="field"><span>Name (optional)</span><input name="name" placeholder="NVIDIA, Toyota, Samsung…" autocomplete="off"></label></div>
     <label class="field" id="mk"><span>Market (for shares and ETFs)</span><select name="market"><option value="">None</option>${MARKETS.map((m) => `<option>${m}</option>`).join('')}</select></label>
-    <div class="two"><label class="field"><span>Price currency</span><input name="quote" value="${esc(pre.quote || 'USDT')}" list="ql" autocomplete="off" style="text-transform:uppercase"><datalist id="ql">${['USD', 'USDT', 'JPY', 'KRW', 'PHP', 'EUR', 'HKD'].map((x) => `<option value="${x}">`).join('')}</datalist></label>
+    <div class="two"><label class="field"><span>Price currency ${tipBtn('pricecur')}</span><select name="quote">${quoteOptions(pre.quote || 'USDT')}</select></label>
       <label class="field"><span>Price per unit (optional)</span><input name="price" inputmode="decimal" placeholder="e.g. 740"></label></div>
     <label class="field" id="cgf"><span>Live price id (CoinGecko, optional)</span><input name="cg" placeholder="e.g. bitget-token" autocomplete="off" autocapitalize="off"><small class="muted">Looks the price up online on its own. Leave empty to set prices yourself.</small></label>
     <div class="two"><label class="field"><span>Amount you hold now</span><input name="amt" inputmode="decimal" placeholder="0"></label>
       <label class="field"><span>Decimals</span><input name="dec" inputmode="numeric" placeholder="auto"></label></div>
     <p class="hint">Creates its own balance, kept separate from PHP, JPY or USDT. Tickers on exchanges that are not listed (Tokyo, Korea, anywhere) can be added the same way. Without a price the value shows once you buy or sell it, or set a price later.</p>
     <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Add asset</button></div></form>`, { title: 'Add an asset' });
-  pickAll(s.el, { wallet: { title: 'Wallet', addLabel: 'Add a new wallet', onAdd: async () => { const nm = (await promptDialog('New wallet', '', { okLabel: 'Add', hint: 'For example: Launchpool, Savings, Copy trading' }))?.trim(); if (!nm) return; const sel = s.el.querySelector('select[name=wallet]'); if (![...sel.options].some((o) => o.value.toLowerCase() === nm.toLowerCase())) sel.add(new Option(nm, nm)); sel.value = [...sel.options].find((o) => o.value.toLowerCase() === nm.toLowerCase()).value; sel.dispatchEvent(new Event('change', { bubbles: true })); } } });
-  const f = s.el.querySelector('#ic'), sync = () => { s.el.querySelector('#mk').hidden = f.type.value === 'crypto'; s.el.querySelector('#cgf').hidden = f.type.value !== 'crypto'; }; s.el.querySelectorAll('[data-plat]').forEach((b) => { b.onclick = () => { f.ex.value = b.dataset.plat; }; }); f.type.onchange = sync; sync();
+  pickAll(s.el, { quote: { title: 'Price currency', addLabel: 'Add a new currency or coin', onAdd: async () => { const raw = (await promptDialog('New currency or coin code', '', { okLabel: 'Add', hint: 'Letters and numbers, for example THB, SGD, or a token such as ARB.' })) || ''; const c = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10); if (c.length < 2) return; const sel = s.el.querySelector('select[name=quote]'); commit((d) => { ensureCurrency(d, c); }); if (![...sel.options].some((o) => o.value === c)) sel.add(new Option(`${c} · ${curName(c)}`, c)); sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); } }, wallet: { title: 'Wallet', addLabel: 'Add a new wallet', onAdd: async () => { const nm = (await promptDialog('New wallet', '', { okLabel: 'Add', hint: 'For example: Launchpool, Savings, Copy trading' }))?.trim(); if (!nm) return; const sel = s.el.querySelector('select[name=wallet]'); if (![...sel.options].some((o) => o.value.toLowerCase() === nm.toLowerCase())) sel.add(new Option(nm, nm)); sel.value = [...sel.options].find((o) => o.value.toLowerCase() === nm.toLowerCase()).value; sel.dispatchEvent(new Event('change', { bubbles: true })); } } });
+  const f = s.el.querySelector('#ic'), sync = () => { s.el.querySelector('#mk').hidden = f.type.value === 'crypto'; s.el.querySelector('#cgf').hidden = f.type.value !== 'crypto'; }; s.el.querySelectorAll('[data-plat]').forEach((b) => { b.onclick = () => { f.ex.value = b.dataset.plat; }; }); const np = s.el.querySelector('[data-newplat]'); if (np) np.onclick = async () => { const nm = await addPlatform(); if (nm) { f.ex.value = nm; const c = document.createElement('button'); c.type = 'button'; c.className = 'chip plat'; c.dataset.plat = nm; c.innerHTML = `<b>${esc(nm)}</b>`; c.onclick = () => { f.ex.value = nm; }; np.parentNode.appendChild(c); } }; f.type.onchange = sync; sync();
   s.el.querySelector('[data-x]').onclick = () => s.close();
   f.onsubmit = async (e) => { e.preventDefault(); const exn0 = f.ex.value.trim(), raw = f.coin.value.trim().toUpperCase(), type = f.type.value, market = type === 'crypto' ? '' : f.market.value;
     let sym = raw.replace(/[^A-Z0-9]/g, ''); if (/^\d/.test(sym)) sym = ((market.match(/^[A-Z]+/) || ['X'])[0].slice(0, 3)) + sym; sym = sym.slice(0, 10);
     const amt = parseFloat(String(f.amt.value).replace(/,/g, '')) || 0, price = parseFloat(f.price.value) || 0, quote = f.quote.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || 'USD', dec = Math.min(12, Math.max(0, parseInt(f.dec.value, 10) || (type === 'crypto' ? 6 : 4)));
     let exn = canonPlatform(exn0);
     if (!exn || sym.length < 2) { toast('Enter the platform and a ticker.'); return; }
-    const nr = nearPlatform(exn); if (nr && !(await confirmDialog(`Did you mean ${nr}? You typed ${exn}.`, `Yes, ${nr}`))) { /* keep what was typed */ } else if (nr) exn = nr;
+    const nr = nearPlatform(exn); if (nr && !(await confirmDialog(`Did you mean ${nr}? You typed ${exn}.`, `Yes, ${nr}`, false, `No, keep ${exn}`))) { /* keep what was typed */ } else if (nr) exn = nr;
     const wal = f.wallet.value || 'Spot';
     if (get().accounts.some((a) => !a.deleted && a.cur === sym && (a.exchange || '').toLowerCase() === exn.toLowerCase() && (a.wallet || 'Spot').toLowerCase() === wal.toLowerCase())) { toast(`${exn} already has a ${sym} balance in ${wal}. Choose another wallet, or use that one.`); return; }
     const nid = uid();
@@ -156,15 +199,17 @@ export async function renamePlatform(old) {
   let n = 0; const low = old.toLowerCase();
   commit((d) => { for (const a of d.accounts) { if (a.deleted || (exchangeOf(a) || '').toLowerCase() !== low) continue; const pre = a.name.toLowerCase().startsWith(low) ? a.name.slice(old.length) : null;
     a.exchange = name; if (pre !== null) a.name = name + pre; stamp(a); n++; }
-    if (d.settings.lastPlat && d.settings.lastPlat.toLowerCase() === low) d.settings.lastPlat = name; });
+    if (d.settings.lastPlat && d.settings.lastPlat.toLowerCase() === low) d.settings.lastPlat = name;
+    if (d.settings.platforms) { const l2 = d.settings.platforms.filter((p) => p.toLowerCase() !== low && p.toLowerCase() !== name.toLowerCase()); d.settings.platforms = d.settings.platforms.some((p) => p.toLowerCase() === low || p.toLowerCase() === name.toLowerCase()) ? [...l2, name] : l2; } });
   toast(`${n} ${n === 1 ? 'account' : 'accounts'} moved to ${name}.`);
 }
 ACT['inv-rename'] = (el) => renamePlatform(el.dataset.ex);
 ACT['inv-coin'] = (el) => addAsset({ platform: el.dataset.ex || '' });
 ACT['inv-new'] = () => {
-  const s = sheet(`<div class="btnrow col"><button class="btn wide" data-k="coin">Add an asset: crypto, stock, ETF, bond…</button><button class="btn wide ghost" data-k="acct">Add MP2 or another product (an account)</button></div>
+  const s = sheet(`<div class="btnrow col"><button class="btn wide" data-k="coin">Add an asset: crypto, stock, ETF, bond…</button><button class="btn wide ghost" data-k="plat">Add a platform or broker (no asset yet)</button><button class="btn wide ghost" data-k="acct">Add MP2 or another product (an account)</button></div>
     <p class="hint">Assets have a ticker and a platform. MP2 and similar are plain accounts shown in Investments.</p>`, { title: 'Add to Investments' });
   s.el.querySelector('[data-k=coin]').onclick = () => { s.close(); addAsset(); };
+  s.el.querySelector('[data-k=plat]').onclick = () => { s.close(); addPlatform(); };
   s.el.querySelector('[data-k=acct]').onclick = () => { s.close(); openAccount(null, { type: 'invest', invtab: true }); };
 };
 
@@ -189,7 +234,7 @@ function platformChips() {
   const db = get(), cnt = new Map(); for (const a of db.accounts) { const ex = exchangeOf(a); if (!a.deleted && ex && (isAsset(a) || a.invtab)) cnt.set(ex, (cnt.get(ex) || 0) + 1); }
   const used = [...cnt.entries()].sort((x, y) => y[1] - x[1]).map((x) => x[0]), pop = PLATFORMS.filter((p) => !used.some((u) => u.toLowerCase() === p.toLowerCase()));
   const chip = (p) => `<button type="button" class="chip plat" data-plat="${esc(p)}"><b>${esc(p)}</b></button>`;
-  return `<div class="platlist">${used.length ? `<small class="muted">You used</small><div class="chips">${used.map(chip).join('')}</div>` : ''}<small class="muted">Popular</small><div class="chips">${pop.map(chip).join('')}</div></div>`;
+  return `<div class="platlist"><div class="chips"><button type="button" class="chip plat newplat" data-newplat="1"><b>+ New platform</b></button></div>${used.length ? `<small class="muted">You used</small><div class="chips">${used.map(chip).join('')}</div>` : ''}<small class="muted">Popular</small><div class="chips">${pop.map(chip).join('')}</div></div>`;
 }
 // what each asset is worth now against what you paid (live where a price is known, otherwise your last price)
 // trading fees and realized losses live here, in Investments only (Entries just shows each fee inside its trade)
