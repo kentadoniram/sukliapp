@@ -1007,3 +1007,13 @@ img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor:
 /* v12aq: card billing period and posted date */
 .postedrow { margin: -4px 0 8px; } .postedrow .whenbtn { min-height: 46px; width: 100%; } .postedrow .field > span .linkbtn { float: right; }
 .bperiod select { width: 100%; min-height: 46px; }
+/* v12as: Investments one-line actions, graph beside the value, pie symbol */
+.btnrow.oneline { display: flex; flex-wrap: nowrap; gap: 6px; } .btnrow.oneline .btn { flex: 1 1 0; min-width: 0; padding: 0 6px; white-space: nowrap; font-size: calc(14px * var(--fs, 1)); }
+.nwcard div.nwmain.nwsplit { grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: start; }
+.nwsplit > .nwl { display: grid; gap: 4px; min-width: 0; } .nwsplit > .updated, .nwsplit > .linkbtn { grid-column: 1 / -1; }
+.invpage .nwcard.one div.nwmain .ivgraph { grid-column: 2; grid-row: 1; flex-direction: column; align-items: flex-end; justify-content: flex-start; gap: 2px; width: auto; padding: 2px 0; }
+.ivgraph .ivmini { min-width: 0; min-height: 34px; } .ivgraph .ivmini svg { display: block; width: 110px; height: auto; }
+.grprow { display: flex; align-items: center; gap: 8px; margin: 8px 0; } .grprow .seg { flex: 1; min-width: 0; margin: 0; }
+.piebtn { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--iv-add); border-radius: 12px; background: var(--sheet); color: var(--iv-add); cursor: pointer; }
+.piebtn .ic { width: 22px; height: 22px; }
+.pielegend button.on { background: var(--tint); border-radius: 8px; } .donut .slice.picked { stroke-opacity: 1; } .donut .slice { cursor: pointer; }

@@ -2,9 +2,9 @@
 // other financial products such as MP2. First rough version: valuation and structure; buy/sell comes next.
 import { enhanceSelect, pickAll, pickerList } from './picker.js';
 import { tipBtn } from './interest.js';
-import { WALLETS, walletOf, accLabel, get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, findOrAddCategory, factorFor, allCurrencies, ensureCurrency } from './core.js';
+import { compact, WALLETS, walletOf, accLabel, get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, findOrAddCategory, factorFor, allCurrencies, ensureCurrency } from './core.js';
 import { ACT, sheet, ic, esc, toast, promptDialog, confirmDialog } from './ui.js';
-import { hdr, coll } from './screens.js';
+import { hdr, coll, pieLabels } from './screens.js';
 import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
 
@@ -145,6 +145,41 @@ ACT['inv-graph'] = () => {
   };
   draw();
 };
+
+// ---------- pie: where your money is (the same donut and legend as the Home pie) ----------
+const PIE_COLORS = ['#2F6FDE', '#1F9D6B', '#C2410C', '#7C3AED', '#0E7490', '#BE185D', '#A16207', '#4D7C0F', '#64748B'];
+function distribution(db, mode) {
+  const bal = balances(db), items = live(db.accounts).filter(inInvest), groups = new Map(); let negSum = 0;
+  for (const a of items) {
+    const v = val(db, a, bal.get(a.id) || 0); if (v < -0.005) negSum += v; if (!(v > 0.005)) continue;
+    const k = !isAsset(a) ? 'Other products' : mode === 'type' ? (ASSET_TYPES[assetTypeOf(a)] || 'Other investments') : mode === 'risk' ? riskOf(db, a) : (exchangeOf(a) || 'Wallets and other');
+    if (!groups.has(k)) groups.set(k, { name: k, v: 0, list: [] }); const g = groups.get(k); g.v += v; g.list.push({ a, v });
+  }
+  const out = [...groups.values()].sort((x, y) => y.v - x.v); out.neg = negSum; return out;
+}
+ACT['inv-pie'] = () => {
+  const db = get(); setInvCur(db); let mode = gmode(), sel = '';
+  const s = sheet('<div id="ivp"></div>', { title: 'Where your money is', wide: true });
+  const draw = () => {
+    const all = distribution(db, mode), total = all.reduce((t, x) => t + x.v, 0), box = s.el.querySelector('#ivp');
+    const top = all.slice(0, 8), rest = all.slice(8), slices = top.map((x, i) => ({ ...x, c: mode === 'platform' ? platColor(x.name) : PIE_COLORS[i % PIE_COLORS.length] }));
+    if (rest.length) slices.push({ name: 'Everything else', v: rest.reduce((t, x) => t + x.v, 0), list: rest.flatMap((x) => x.list), c: PIE_COLORS[8], other: true });
+    const pct = (v) => (total ? Math.round((v / total) * 100) : 0), C = 2 * Math.PI * 52; let acc = 0;
+    const arcs = slices.map((x) => { const len = total ? (x.v / total) * C : 0, d = Math.max(0, len - 1.5);
+      const el = `<circle class="slice ${sel === x.name ? 'picked' : ''}" data-pk="${esc(x.name)}" data-tip="${esc(`${x.name}: ${money(x.v)} (${pct(x.v)}%)`)}" cx="70" cy="70" r="52" fill="none" stroke="${x.c}" stroke-width="${sel === x.name ? 32 : 26}" stroke-dasharray="${d.toFixed(2)} ${(C - d).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 70 70)"></circle>`; acc += len; return el; }).join('');
+    const labels = pieLabels(slices.map((x) => (total ? x.v / total : 0))), cur = slices.find((x) => x.name === sel);
+    box.innerHTML = `<div class="seg sm small" role="group" aria-label="Group by">${[['platform', 'By platform'], ['type', 'By asset type'], ['risk', 'By group']].map(([v, l]) => `<button type="button" data-md="${v}" class="${mode === v ? 'on' : ''}" aria-pressed="${mode === v}">${l}</button>`).join('')}</div>
+      ${slices.length ? `<div class="wentpie"><svg class="donut sm" viewBox="-30 -12 200 164" role="img" aria-label="Where your money is">${arcs}${labels}<text x="70" y="68" text-anchor="middle" class="dl">Total</text><text x="70" y="86" text-anchor="middle" class="dv">${esc(compact(total * invK, invC))}</text></svg>
+      <ul class="pielegend">${slices.map((x) => `<li><button type="button" data-pk="${esc(x.name)}" class="${sel === x.name ? 'on' : ''}"><i class="dot2" style="background:${x.c}"></i><span class="pl">${esc(x.name)}</span><b class="pp">${pct(x.v)}%</b><small>${money(x.v)}</small></button></li>`).join('')}</ul></div>
+      <p class="hint tap">Tap a slice or a name to see what is inside it.${all.neg < -0.005 ? ` Negative balances (${money(-all.neg)} owed) are not in the pie, so its total is higher than Market value.` : ''}</p>` : '<p class="empty">Nothing with a balance and a price to show yet.</p>'}
+      ${cur ? `<h3>${esc(cur.name)} <small class="muted">${money(cur.v)} · ${pct(cur.v)}%</small></h3><ul class="calfacts">${cur.list.sort((a, b) => b.v - a.v).map((x) => `<li><span>${esc(x.a.cur === HOME || x.a.cur === 'USD' ? x.a.name : ((db.settings.tickers || {})[x.a.cur] || {}).ticker || x.a.cur)}</span><b>${money(x.v)} <small class="muted">${pct(x.v)}%</small></b></li>`).join('')}</ul>` : ''}
+      <div class="btnrow"><button type="button" class="btn" data-x>Close</button></div>`;
+    box.querySelectorAll('[data-md]').forEach((b) => { b.onclick = () => { mode = b.dataset.md; sel = ''; draw(); }; });
+    box.querySelectorAll('[data-pk]').forEach((b) => { b.onclick = () => { sel = sel === b.dataset.pk ? '' : b.dataset.pk; draw(); }; });
+    box.querySelector('[data-x]').onclick = () => s.close();
+  };
+  draw();
+};
 export function investments(db) {
   setInvCur(db);
   const bal = balances(db), items = live(db.accounts).filter(inInvest), book = tradeBook(db.txs);
@@ -176,14 +211,14 @@ export function investments(db) {
   const exHtml = [...byEx.entries()].sort((x, y) => mode === 'risk' ? (((RISK_GROUPS.indexOf(x[0]) + 1) || 99) - ((RISK_GROUPS.indexOf(y[0]) + 1) || 99)) || x[0].localeCompare(y[0]) : exSum(y[1]) - exSum(x[1])).map(([ex, list]) => {
     const t = exSum(list); return `<div class="ivplat" style="--pc:${platColor(ex)}">` + coll('ix-' + ex, `<span class="exname">${esc(ex)}</span> <span class="gsum2"><b>${money(t)}</b>${altOf(db, t) ? ` <small class="muted">≈ ${altOf(db, t)}</small>` : ''}</span>`,
       `${list.length ? walletBlocks(list, t) : `<p class="hint">${cryptoAll.some((a) => (exchangeOf(a) || 'Wallets and other') === ex) ? 'Nothing with a balance here. Empty assets are hidden.' : 'No assets here yet.'}</p>`}
-       ${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="btnrow left"><button type="button" class="btn sm iv-rec" data-act="inv-add" data-ex="${esc(ex)}">Record activity on ${esc(ex)}</button><button type="button" class="btn sm ghost iv-add" data-act="inv-coin" data-ex="${esc(ex)}">+ Add an asset to ${esc(ex)}</button><button type="button" class="btn sm ghost" data-act="inv-rename" data-ex="${esc(ex)}">Rename platform</button>${list.length || cryptoAll.some((a) => (exchangeOf(a) || 'Wallets and other') === ex) ? '' : `<button type="button" class="btn sm ghost danger" data-act="inv-platdel" data-ex="${esc(ex)}">Remove platform</button>`}</div>` : ''}`, '') + '</div>'; }).join('');
+       ${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="btnrow left oneline"><button type="button" class="btn sm iv-rec" data-act="inv-add" data-ex="${esc(ex)}" aria-label="Record activity on ${esc(ex)}">Record</button><button type="button" class="btn sm ghost iv-add" data-act="inv-coin" data-ex="${esc(ex)}" aria-label="Add an asset to ${esc(ex)}">+ Asset</button><button type="button" class="btn sm ghost" data-act="inv-rename" data-ex="${esc(ex)}" aria-label="Rename platform ${esc(ex)}">Rename</button>${list.length || cryptoAll.some((a) => (exchangeOf(a) || 'Wallets and other') === ex) ? '' : `<button type="button" class="btn sm ghost danger" data-act="inv-platdel" data-ex="${esc(ex)}" aria-label="Remove platform ${esc(ex)}">Remove</button>`}</div>` : ''}`, '') + '</div>'; }).join('');
   const otherHtml = other.length ? coll('i-other', `Investments and other products <small class="muted gsum">${money(exSum(other))}</small>`, `<div class="rows plain">${other.sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0)).map((a) => { const b = bal.get(a.id) || 0;
     return `<button class="row acct" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:var(--line)">${esc((a.name || '?').slice(0, 1))}</i><span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(a.exchange || (a.type === 'invest' ? 'Investment' : 'Other product'))} · ${fmt(b, a.cur)}</small></span><span class="ramt"><b>${priced(db, a) ? money(val(db, a, b)) : '<small class="muted">no rate</small>'}</b></span></button>`; }).join('')}</div>`, '') : '';
   setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
   return `<div class="invpage">${hdr('Investments', '<button class="btn sm iv-rec" data-act="inv-add">Record activity</button> <button class="btn sm ghost iv-add" data-act="inv-new">Add asset</button>')}
-    <section class="nwcard one"><div class="nwmain"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${byEx.size} ${mode === 'type' ? 'type' : mode === 'risk' ? 'group' : 'place'}${byEx.size === 1 ? '' : 's'} · ${other.length} other</small><button type="button" class="ivgraph" data-act="inv-graph" aria-label="Open the graph of your market value over time"><span id="ivmini" class="ivmini"></span><span class="ivgl">Value over time ›</span></button><small class="updated">${updatedLine(db)}</small><button type="button" class="linkbtn" data-act="inv-cur">Show Investments in ${esc(invC)} ▾</button></div></section>
+    <section class="nwcard one"><div class="nwmain nwsplit"><div class="nwl"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${byEx.size} ${mode === 'type' ? 'type' : mode === 'risk' ? 'group' : 'place'}${byEx.size === 1 ? '' : 's'} · ${other.length} other</small></div><button type="button" class="ivgraph" data-act="inv-graph" aria-label="Open the graph of your market value over time"><span id="ivmini" class="ivmini"></span><span class="ivgl">Value over time ›</span></button><small class="updated">${updatedLine(db)}</small><button type="button" class="linkbtn" data-act="inv-cur">Show Investments in ${esc(invC)} ▾</button></div></section>
     ${unpriced.length ? `<p class="hint">No price yet for ${unpriced.map((a) => esc(a.cur)).join(', ')}, so ${unpriced.length === 1 ? 'it is' : 'they are'} left out of the total. Prices load when you are online, or set one in Settings, Exchange rates.</p>` : ''}
-    ${crypto.length ? `<div class="seg sm small" role="group" aria-label="Group by">${[['platform', 'By platform'], ['type', 'By asset type'], ['risk', 'By group']].map(([v, l]) => `<button type="button" data-act="inv-group" data-v="${v}" class="${mode === v ? 'on' : ''}" aria-pressed="${mode === v}">${l}</button>`).join('')}</div>${mode === 'risk' ? '<p class="hint">Groups: stablecoins (steady value), major coins, high-volatility coins, stocks, funds. Open a ticker below to move it to another group or make your own.</p>' : ''}` : ''}
+    ${items.length ? `<div class="grprow">${crypto.length ? `<div class="seg sm small" role="group" aria-label="Group by">${[['platform', 'By platform'], ['type', 'By asset type'], ['risk', 'By group']].map(([v, l]) => `<button type="button" data-act="inv-group" data-v="${v}" class="${mode === v ? 'on' : ''}" aria-pressed="${mode === v}">${l}</button>`).join('')}</div>` : ''}<button type="button" class="piebtn" data-act="inv-pie" aria-label="Pie chart of where your money is" title="Pie chart">${ic('pie')}</button></div>${crypto.length && mode === 'risk' ? '<p class="hint">Groups: stablecoins (steady value), major coins, high-volatility coins, stocks, funds. Open a ticker below to move it to another group or make your own.</p>' : ''}` : ''}
     ${cryptoAll.length && (hiddenN || showEmpty) ? `<p class="hint emptylink">${showEmpty ? 'Showing empty assets too.' : `${hiddenN} empty asset${hiddenN === 1 ? ' is' : 's are'} hidden.`} <button type="button" class="linkbtn" data-act="inv-empty">${showEmpty ? 'Hide empty assets' : 'Show them'}</button></p>` : ''}
     ${performanceCard(db, bal, book, items)}${incomeCard(db)}${feesCard(db, book)}${predictCard(db)}${gains}${exHtml}${otherHtml}${tickerCard(db, tickers)}
     ${items.length ? '' : '<p class="empty">Nothing here yet. Add an exchange coin, an investment, or any account marked “Show in Investments” (for example MP2).</p>'}

@@ -1,5 +1,5 @@
 // Offline shell: the app is fetched fresh when online and kept in the cache for when you are offline.
-const VERSION = 'sukli-v12ar';
+const VERSION = 'sukli-v12as';
 const FILES = ['./', 'index.html', 'styles.css', 'manifest.webmanifest',
   'js/app.js', 'js/finance.js', 'js/stats.js', 'js/merchants.js', 'js/textnorm.js', 'js/simgraph.js', 'js/receipt.js', 'js/sukliCsv.js', 'js/receiptimg.js', 'js/scan.js', 'js/compare.js', 'js/itemcat.js', 'js/route.js', 'js/rolling.js', 'js/version.js', 'js/label.js', 'js/loans.js', 'js/invest.js', 'js/trades.js', 'js/picker.js', 'js/inputlog.js', 'js/budgetsetup.js', 'js/tradecalc.js', 'js/loancalc.js', 'js/accpage.js', 'js/calc.js', 'js/appearance.js', 'js/core.js', 'js/importer.js', 'js/predict.js', 'js/drive.js', 'js/cloud.js', 'js/features.js', 'js/interest.js', 'js/fxview.js', 'js/tags.js', 'js/jpgloss.js', 'js/welcome.js', 'js/feedback.js', 'js/insights.js', 'js/views.js', 'config.js', 'js/ui.js', 'js/entry.js', 'js/screens.js', 'js/rates.js', 'js/backup.js', 'js/acctpicker.js', 'js/curpicker.js', 'js/datepicker.js', 'js/gestures.js', 'js/bin.js', 'js/analytics.js',
   'fonts/schibsted-grotesk-latin-wght-normal.woff2', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
