@@ -16,7 +16,8 @@ import { REMOVED_UI } from './features.js';
 import { fxBlockHtml, openConverter } from './fxview.js';
 import { tipBtn } from './interest.js';
 import { parseTags, hasTag, tagCounts } from './tags.js';
-import { feedbackCfg, testBuzz } from './feedback.js';
+import { feedbackCfg, testBuzz, iosVersion } from './feedback.js';
+import './glossary.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
 import { lossCard } from './loans.js';
@@ -717,7 +718,7 @@ export function settings(db) {
       <div class="field"><span>Theme</span>${segBtns('look', 'theme', [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']], lk.theme)}</div>
       <div class="field"><span>Colour</span><div class="swatches" role="group" aria-label="Accent colour">${Object.entries(ACCENTS).map(([k, v]) => `<button type="button" class="swatch ${lk.accent === k ? 'on' : ''}" data-act="look" data-k="accent" data-v="${k}" style="background:${v.l[0]}" aria-label="${v.n}" aria-pressed="${lk.accent === k}"></button>`).join('')}</div></div>
       <div class="field"><span>“Spent each day” chart on Home</span><div class="seg two small" role="group" aria-label="Chart direction">${[['v', 'Vertical bars'], ['h', 'Horizontal bars']].map(([v, l]) => `<button type="button" data-act="week-mode" data-v="${v}" class="${weekMode() === v ? 'on' : ''}" aria-pressed="${weekMode() === v}">${l}</button>`).join('')}</div></div>
-      <div class="field"><span>Tap feedback</span>${(() => { const c = feedbackCfg(); return `<label class="check"><input type="checkbox" data-fb="haptic" ${c.haptic ? 'checked' : ''}> Vibrate a little when I tap</label><label class="check"><input type="checkbox" data-fb="visual" ${c.visual ? 'checked' : ''}> Flash the button I tapped</label><label class="check"><input type="checkbox" data-fb="sound" ${c.sound ? 'checked' : ''}> Soft click sound</label><button type="button" class="btn sm ghost" data-act="fb-test">Test the buzz</button>`; })()}
+      <div class="field"><span>Tap feedback</span>${(() => { const c = feedbackCfg(); return `<label class="check"><input type="checkbox" data-fb="haptic" ${c.haptic ? 'checked' : ''}> Vibrate a little when I tap</label><label class="check"><input type="checkbox" data-fb="visual" ${c.visual ? 'checked' : ''}> Flash the button I tapped</label><label class="check"><input type="checkbox" data-fb="sound" ${c.sound ? 'checked' : ''}> Soft click sound</label><button type="button" class="btn sm ghost" data-act="fb-test">Test the buzz</button><label class="check realsw"><input type="checkbox" switch id="fb-realsw" aria-label="Real switch test"> <span>Tap this real switch. You should feel a small tick. If you do, your phone and its System Haptics are fine.</span></label>`; })()}
         <small class="hint">Some iPhones and browsers cannot vibrate, so the flash (and the click, if you turn it on) tells you the tap worked.</small></div>
       <div class="field"><span>Text size</span>${segBtns('look', 'size', SIZES.map((x) => [x[0], x[1]]), lk.size)}
         <small class="hint">Smaller text leaves more room above the on-screen keyboard.</small></div>
@@ -781,6 +782,7 @@ export function settings(db) {
       <p class="hint">Rates are used for new entries and for today’s balances. An entry you saved keeps the rate it was saved with, so old reports do not change. Type a rate below to override the live one; tap ✕ to go back to live. ${esc(RATE_CREDIT)}.</p>
       ${curs.map((c) => `<div class="ratebox">${fxBlockHtml({ from: c, to: HOME, amount: 0, rate: homeFx(db, c), open: `data-act="rate-open" data-c="${c}"`, db })}</div>`).join('')}
       <p class="hint">Tap “Exchange Rate” to convert an amount, type your own rate, or get the latest one. Each entry also lets you set the ${HOME} value from your bill.</p></section>
+    <section><h2>Glossary</h2><p class="hint">What the words mean: accounts, cards (statement, billing period, posted date), interest, investments, and common words on Japanese receipts with kanji, romaji and English.</p><div class="btnrow left"><button type="button" class="btn ghost" data-act="glossary">Open the glossary</button></div></section>
     <section><h2>Put it on your phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
     <section><h2>Erase</h2><button class="btn danger ghost" data-act="erase">Erase everything on this device</button>
       <p class="hint">Backups in your Google Drive are not touched.</p></section>`);
@@ -881,7 +883,13 @@ ACT['export-share'] = async () => {
   catch (e) { if (e && e.name === 'AbortError') return; }
   download(name, json, 'application/json'); toast('Your phone cannot share files from here, so the backup was downloaded instead.', { ms: 6000 });
 };
-ACT['fb-test'] = () => { testBuzz(); toast('If you felt nothing: on iPhone turn on Settings › Sounds & Haptics › System Haptics.', { ms: 7000 }); };
+ACT['fb-test'] = () => {
+  testBuzz(); const v = iosVersion();
+  toast(v && (v.major > 26 || (v.major === 26 && v.minor >= 5))
+    ? `This is iOS ${v.major}.${v.minor}. From iOS 26.5 Apple reportedly lets only a real tap on a switch tick, so a web page cannot trigger it. Try the real switch below; the flash still shows each tap.`
+    : v ? `This is iOS ${v.major}.${v.minor}. If you felt nothing: Settings › Sounds & Haptics › System Haptics must be on, and Safari only ticks inside a tap. Try the real switch below.`
+    : 'If you felt nothing: this browser may not support vibration. On iPhone, turn on Settings › Sounds & Haptics › System Haptics.', { ms: 11000 });
+};
 ACT['export-json'] = () => download(`sukli-backup-${fileStamp()}.json`, JSON.stringify({ ...get(), settings: { ...get().settings, driveClientId: '' } }), 'application/json');
 ACT.exclude = (el) => commit((d) => {
   const set = new Set(d.settings.excludeGroups);
@@ -977,7 +985,7 @@ const SET_GROUPS = [
   ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Account types', 'Name matching']],
   ['data', 'Backup and Data', 'Reminders, backups, export', ['Backup reminder', 'Your data', 'Google backup (optional)']],
   ['adv', 'Advanced', 'Most people never need these', ['Exchange rates', 'Live exchange rates', 'Coins and tokens: decimals', 'Cloud sync', 'Erase']],
-  ['help', 'Help', 'Install on your phone', ['Put it on your phone']],
+  ['help', 'Help', 'Glossary, install on your phone', ['Glossary', 'Put it on your phone']],
 ];
 const SET_OPEN = new Set(['look']);
 document.addEventListener('toggle', (e) => { const g = e.target.dataset && e.target.dataset.sgroup; if (g) { if (e.target.open) SET_OPEN.add(g); else SET_OPEN.delete(g); } }, true);

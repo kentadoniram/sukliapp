@@ -19,6 +19,8 @@ function buzz(strong) {
     sw.click();
   } catch { /* no haptics on this device */ }
 }
+// iPhone system version from the browser (Safari and Chrome on iPhone both report it), or null
+export const iosVersion = () => { const m = /OS (\d+)[_.](\d+)/.exec(navigator.userAgent || ''); return m && /iPhone|iPad|iPod/.test(navigator.userAgent) ? { major: +m[1], minor: +m[2] } : null; };
 export const testBuzz = () => { const was = cfg.haptic; cfg = { ...cfg, haptic: true }; buzz(true); cfg = { ...cfg, haptic: was }; };
 function click() {
   if (!cfg.sound) return;

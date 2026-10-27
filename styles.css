@@ -1017,3 +1017,19 @@ img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor:
 .piebtn { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--iv-add); border-radius: 12px; background: var(--sheet); color: var(--iv-add); cursor: pointer; }
 .piebtn .ic { width: 22px; height: 22px; }
 .pielegend button.on { background: var(--tint); border-radius: 8px; } .donut .slice.picked { stroke-opacity: 1; } .donut .slice { cursor: pointer; }
+/* v12at: account form fields, same size and spacing everywhere */
+#acct-form .two { align-items: start; gap: 10px; } #acct-form .two > .field { margin: 8px 0; min-width: 0; }
+#acct-form input, #acct-form select { min-height: 46px; height: 46px; width: 100%; min-width: 0; box-sizing: border-box; -webkit-appearance: none; appearance: none; border-radius: 10px; padding: 0 12px; font-size: max(16px, 1em); }
+#acct-form select { background-image: linear-gradient(45deg, transparent 50%, var(--ink2) 50%), linear-gradient(135deg, var(--ink2) 50%, transparent 50%); background-position: calc(100% - 18px) 55%, calc(100% - 13px) 55%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 30px; }
+#acct-form input[type=date] { display: block; text-align: left; line-height: 44px; }
+#acct-form input[type=date]::-webkit-date-and-time-value { text-align: left; margin: 0; min-height: 1.2em; }
+#acct-form input[type=date]::-webkit-calendar-picker-indicator { margin: 0; }
+#acct-form .check input { width: 22px; height: 22px; min-height: 22px; -webkit-appearance: auto; appearance: auto; }
+#acct-form .rcline { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px; align-items: end; margin: 6px 0; }
+#acct-form .rcline .field { margin: 0; } #acct-form .rcline .rmx { height: 46px; width: 40px; display: grid; place-items: center; }
+#acct-form .promoline { display: grid; gap: 2px; padding: 8px 10px 4px; border-radius: 12px; margin: 8px 0; } #acct-form .promoline .rmx { justify-self: end; min-height: 36px; color: var(--bad); }
+.curchip { min-width: 0; padding: 0 12px; } li.oddp { background: color-mix(in srgb, var(--bad) 10%, transparent); border-radius: 8px; }
+.calfacts .rmx { font-size: .85em; color: var(--bad); margin-left: 6px; } .warnline { color: var(--bad); }
+.check.realsw { align-items: flex-start; margin-top: 12px; } .check.realsw input[switch] { width: 51px; height: 31px; min-height: 31px; flex: none; -webkit-appearance: auto; appearance: auto; }
+.cardbox.stmt .tot { border-top: 1px solid var(--rule); margin-top: 4px; padding-top: 6px; }
+.gloss { margin: 4px 0 12px; } .gloss dt { font-weight: 700; margin-top: 10px; } .gloss dd { margin: 2px 0 0; color: var(--ink2); line-height: 1.4; }

@@ -44,7 +44,7 @@ with sync_playwright() as p:
     pg.evaluate("(()=>{const g=window.sukli.get();})()")
     pg.click('[data-act=inv-cur]'); pg.wait_for_selector('.pk-list'); ok('currency list opens with home and USD', pg.locator('.pk-list button').count()>=2 and pg.locator('.pk-opt[data-v=USD]').count()==1)
     pg.click('.pk-opt[data-v=USD]'); pg.wait_for_timeout(500)
-    h=pg.inner_text('.nwcard'); ok(f'tab now in USD: {h[:120]!r}', 'Market value in USD' in h and 'Show Investments in USD' in h)
+    h=pg.inner_text('.nwcard'); ok(f'tab now in USD: {h[:60]!r} chip={pg.inner_text(".curchip")!r}', 'Market value in USD' in h and pg.inner_text('.curchip').startswith('USD'))
     ok('saved as a setting', pg.evaluate("window.sukli.get().settings.invCur")=='USD')
     ok('other screens still in home currency', pg.evaluate("(async()=>{const m=await import('/js/core.js');return m.HOME})()")==pg.evaluate("window.sukli.get().settings.home||'PHP'"))
     pg.click('[data-act=inv-cur]'); pg.wait_for_selector('.pk-list'); pg.click('.pk-opt >> nth=0'); pg.wait_for_timeout(400)

@@ -276,6 +276,21 @@ export function periodFor(a, day) {
   const [py, pm] = m === 1 ? [y - 1, 12] : [y, m - 1], prev = dstr(py, pm, a.stmtDay), from = addDay(prev, 1);
   return { from, to: end, label: `${dshort(from)} – ${dshort(end)}` };
 }
+// What one card statement looked like: owed at the start, what was charged, paid and refunded in the period, owed at the statement date,
+// and how much is still due. Entries count on their posted date when one is set.
+export function statementSummary(db, a, per, asOf = today()) {
+  const eff = (t) => { if (t.kind === 'expense' && t.acct === a.id) return [postedDay(t), t.amount, 'charge']; if (t.kind === 'income' && t.acct === a.id) return [postedDay(t), -t.amount, 'credit'];
+    if (t.kind === 'transfer' && t.toAcct === a.id) return [String(t.date).slice(0, 10), -(t.toAmount != null ? t.toAmount : t.amount), 'pay']; if (t.kind === 'transfer' && t.acct === a.id) return [String(t.date).slice(0, 10), t.amount, 'advance']; return null; };
+  let start = -(a.open || 0), charges = 0, credits = 0, payments = 0, advances = 0, nCharge = 0, nPay = 0, after = 0, big = null;
+  for (const t of db.txs) { if (t.deleted) continue; const e = eff(t); if (!e) continue; const [d, v, k] = e;
+    if (d < per.from) start += v;
+    else if (d <= per.to) { if (k === 'charge') { charges += v; nCharge++; if (!big || v > big.v) big = { v, name: t.name }; } else if (k === 'credit') credits -= v; else if (k === 'pay') { payments -= v; nPay++; } else advances += v; }
+    else if (k === 'pay' && d <= asOf) after -= v; }
+  const closing = start + charges + advances - credits - payments, closed = per.to <= asOf;
+  let due = null; if (a.dueDay > 0) { const [y, m] = per.to.split('-').map(Number), same = a.dueDay > a.stmtDay, [dy, dm] = same ? [y, m] : (m === 12 ? [y + 1, 1] : [y, m + 1]); due = dstr(dy, dm, a.dueDay); }
+  const stillDue = closed ? Math.max(0, closing - after) : null;
+  return { start, charges, nCharge, credits, payments, nPay, advances, closing, closed, due, paidAfter: after, stillDue, big, overdue: !!(closed && due && due < asOf && stillDue > 0.005) };
+}
 export function billingPeriods(a, asOf = today(), n = 12) {
   let p = periodFor(a, asOf); if (!p) return []; const out = [p];
   while (out.length < n) { p = periodFor(a, addDay(p.from, -1)); out.push(p); }
