@@ -1,4 +1,5 @@
 // Reading and writing CSV in the same column layout as a Bluecoins export.
+import { isSukliCsv, importSukliCSV } from './sukliCsv.js';
 import { ensureCurrency, uid, stamp, findOrAddCategory, accountMap, catMap, balances, BASE, accLabel } from './core.js';
 
 export function parseCSV(text) {
@@ -78,6 +79,7 @@ function typeName(v) {
   return String(v || '').trim();
 }
 export function importBluecoins(db, text, opts = {}) {
+  if (isSukliCsv(text)) return importSukliCSV(db, text);          // Sukli's own CSV (Settings, Export Sukli CSV)
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
   const firstLine = text.split(/\r?\n/, 1)[0] || '';
   const count = (ch) => (firstLine.match(new RegExp(ch === '\t' ? '\t' : '\\' + ch, 'g')) || []).length;

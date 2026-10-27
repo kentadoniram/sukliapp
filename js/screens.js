@@ -8,6 +8,7 @@ import {
 } from './core.js';
 import { pace, insights, trend, totals, baselineMonths, groupTrend } from './insights.js';
 import { importBluecoins, previewImport, exportCSV, SPENDABLE_TYPES } from './importer.js';
+import { exportSukliCSV } from './sukliCsv.js';
 import { predict } from './predict.js';
 import { modelFor, openEntry, openBulk, openCategoryForm } from './entry.js';
 import { syncNow, status as syncStatus } from './drive.js';
@@ -754,12 +755,13 @@ export function settings(db) {
       <p class="status" id="syncstatus" role="status">${esc(syncStatus.text || (s.lastSync ? 'Last backup ' + new Date(s.lastSync).toLocaleString() : 'Not backed up yet.'))}</p></section>` : ''}
     <section><h2>Your data</h2>
       <div class="btnstack">
-        <label class="btn ghost filebtn">Import Bluecoins CSV<input type="file" id="file-bc" accept=".csv,text/csv" hidden></label>
-        <button class="btn ghost" data-act="export-csv">Export CSV</button>
+        <label class="btn ghost filebtn">Import CSV (Bluecoins or Sukli)<input type="file" id="file-bc" accept=".csv,text/csv" hidden></label>
+        <button class="btn ghost" data-act="export-sukli">Export Sukli CSV (all details)</button>
+        <button class="btn ghost" data-act="export-csv">Export Bluecoins CSV</button>
         <button class="btn ghost" data-act="export-json">Download full backup (JSON)</button>
         <button class="btn ghost" data-act="export-share">Share backup (save to Google Drive or Files)</button>
         <label class="btn ghost filebtn">Restore from backup (JSON)<input type="file" id="file-json" accept=".json,application/json" hidden></label></div>
-      <p class="hint">Importing the same file twice is safe: entries already here are skipped.</p></section>
+      <p class="hint">The Sukli CSV keeps everything: posted dates, billing period, tags, fees, trips, items, statement and platform details. Only Sukli reads it back; use the Bluecoins CSV for Bluecoins. Importing the same file twice is safe: entries already here are skipped.</p></section>
     <section><h2>Left out of cash outflow</h2>
       <p class="hint">Groups ticked here don’t count as spending in totals and charts (for example trading losses).</p>
       <div class="checks">${groups.map((g) => `<label class="check"><input type="checkbox" data-act="exclude" data-g="${esc(g)}" ${s.excludeGroups.includes(g) ? 'checked' : ''}> ${esc(g)}</label>`).join('')}</div></section>
@@ -870,6 +872,7 @@ ACT.sync = async () => {
   if (cid && cid.value.trim() !== get().settings.driveClientId) commitQuiet((d) => { d.settings.driveClientId = cid.value.trim(); });
   try { await syncNow({ interactive: true }); toast('Backed up to Google Drive.'); } catch (e) { toast(e.message, { ms: 9000 }); }
 };
+ACT['export-sukli'] = () => download(`sukli-full-${fileStamp()}.csv`, exportSukliCSV(get()));
 ACT['export-csv'] = () => download(`sukli-${fileStamp()}.csv`, exportCSV(get()));
 ACT['export-share'] = async () => {
   const name = `sukli-backup-${fileStamp()}.json`, json = JSON.stringify({ ...get(), settings: { ...get().settings, driveClientId: '' } });
