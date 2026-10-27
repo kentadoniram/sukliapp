@@ -1,7 +1,7 @@
 // The add / edit sheet, the category picker and the "add many at once" sheet.
 import {
   get, commit, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
-  findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete,
+  findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt,
 } from './core.js';
 import { buildGraph, makeResolver, explain } from './simgraph.js';
 import { nameRules } from './merchants.js';
@@ -119,16 +119,15 @@ export function openEntry(opts = {}) {
       <input id="f-what" name="memo" type="text" role="combobox" aria-autocomplete="list" aria-controls="sugg" aria-expanded="false" autocomplete="off" data-form-type="other" data-lpignore="true" value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary" ${existing ? '' : 'autofocus'}>
       <div id="sugg" class="sugg" hidden></div></div>
     <div class="field amount" id="amountbox"><span class="amtlabel">Amount <button type="button" class="linkbtn eye" data-e="eye" aria-label="Hide or show amounts">${priv.on ? 'Show' : 'Hide'} amounts</button></span>
-      <div class="amtrow"><div class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"><button type="button" class="amtx" data-e="amtclear" aria-label="Clear amount" ${f.amount ? '' : 'style="visibility:hidden"'}>×</button><button type="button" class="calcbtn" data-e="calc" aria-label="Calculator" aria-pressed="false" title="Calculator">${ic('calc')}</button></div><span id="curwrap" class="curwrap"></span></div>
+      <div class="amtrow"><div class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"><button type="button" class="amtx" data-e="amtclear" aria-label="Clear amount" ${f.amount ? '' : 'style="visibility:hidden"'}>×</button><button type="button" class="calcbtn" data-e="calc" aria-label="Calculator" aria-pressed="false" title="Calculator">${ic('calc')}</button></div><button type="button" class="btn sm ghost allbtn" id="f-all" data-e="allamt" hidden title="Use the whole balance of the From account">All</button><span id="curwrap" class="curwrap"></span></div>
       <div id="calcres" class="calcres" hidden></div><div id="keypad" class="keypad" hidden></div></div>
     <div id="fxline"></div>
-    <div id="acctrow"></div>
+    <div id="acctwhen" class="acctwhen"><div id="acctrow"></div><div class="field" id="whenrow"><span>When</span><button type="button" class="whenbtn" id="f-when" data-e="when"></button></div></div>
     <div id="convrow"></div>
     <div id="feerow"></div>
     <div id="catrow"></div>
     <div id="triprow"></div>
     <div id="itemsrow"></div>
-    <div class="field" id="whenrow"><span>When</span><button type="button" class="whenbtn" id="f-when" data-e="when"></button></div>
     <div class="field" id="tagsrow"></div>
     <label class="field" id="notesrow"><span>Notes</span><textarea id="f-notes" rows="2" placeholder="Optional">${esc(f.notes)}</textarea></label>
     <div id="safety" class="safety" aria-live="polite"></div>
@@ -139,11 +138,12 @@ export function openEntry(opts = {}) {
   const focusKeep = (el) => { if (el && document.activeElement !== el) el.focus(); };
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
-    flow: ['seg', 'freq', 'namefield', 'amountbox', 'fxline', 'acctrow', 'whenrow', 'catrow', 'triprow', 'itemsrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
+    flow: ['seg', 'freq', 'namefield', 'amountbox', 'fxline', 'acctwhen', 'catrow', 'triprow', 'itemsrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
     transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
   };
   function arrange() {
     const ids = f.kind === 'transfer' ? ORDER.transfer : ORDER.flow;
+    if (f.kind !== 'transfer') $f('acctwhen').append($f('acctrow'), $f('whenrow'));          // Account and When share one block (a row) for expense and income
     for (const id of ids) form.appendChild($f(id));
     const nh = form.querySelector('#namehelp'), nr = $f('notesrow'); if (nh && nr) nr.after(nh);
   }
@@ -206,9 +206,10 @@ export function openEntry(opts = {}) {
     const el = $f('acctrow');
     const a = acctOf(f.acct);
     renderCur();
+    $f('acctwhen').classList.toggle('inrow', f.kind !== 'transfer'); $f('f-all').hidden = f.kind !== 'transfer'; renderWhen();                  // Account and When share a row, except for transfers (From / To need the width)
     if (f.kind !== 'transfer') {
       const sug = f.acctSuggested && !f.acctTouched;
-      el.innerHTML = `<div class="field ${sug ? 'suggested' : ''}"><span>Account ${sug ? '<small class="sugnote">suggested from your history  tap to change</small>' : ''}</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc(accLabel(acctOf(f.acct)) || 'Choose account')}${acctOf(f.acct) ? ' · ' + acctOf(f.acct).cur : ''} ▾</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, '', '')}</select></div>`;
+      el.innerHTML = `<div class="field ${sug ? 'suggested' : ''}"><span>Account ${sug ? '<small class="sugnote">· suggested</small>' : ''}</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc(accLabel(acctOf(f.acct)) || 'Choose account')}${acctOf(f.acct) ? ' · ' + acctOf(f.acct).cur : ''} ▾</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, '', '')}</select></div>`;
     } else {
       if (!f.toAcct) { const o = get().accounts.find((x) => !x.deleted && !x.archived && x.id !== f.acct); f.toAcct = o ? o.id : ''; }
       el.innerHTML = `<div class="two sw"><div class="field"><span>From</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc(accLabel(acctOf(f.acct)) || 'Choose')} ▾${balLine(f.acct)}</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, f.toAcct, '')}</select></div>
@@ -300,11 +301,12 @@ export function openEntry(opts = {}) {
     const cur = f.feeBy === 'to' ? b.cur : a.cur;
     const sug = f.feeSuggested && !f.feeTouched;
     el.innerHTML = `<div class="field feebox ${sug ? 'suggested' : ''}"><span>Fee (optional) ${sug ? '<small class="sugnote">usual fee for this route · change if different</small>' : ''}</span>
-      <div class="feegrid"><label class="amtwrap sm"><b>${(CUR[cur] || { sym: cur }).sym}</b><input id="f-fee" inputmode="decimal" autocomplete="off" aria-label="Fee" placeholder="0" value="${esc(f.fee)}"></label>
-      <select id="f-feecat" aria-label="Fee type">${f.feeCat ? '' : '<option value="">Fee type</option>'}${feeCatOptions(f.feeCat)}</select></div>
-      <div class="seg sm" role="group" aria-label="Who pays the fee">
-        <button type="button" data-e="feeby" data-v="from" class="${f.feeBy !== 'to' ? 'on' : ''}" aria-pressed="${f.feeBy !== 'to'}">Taken from sender (${esc(a.name)})</button>
-        <button type="button" data-e="feeby" data-v="to" class="${f.feeBy === 'to' ? 'on' : ''}" aria-pressed="${f.feeBy === 'to'}">Taken from receiver (${esc(b.name)})</button></div></div>`;
+      <div class="feeline"><label class="amtwrap sm"><b>${(CUR[cur] || { sym: cur }).sym}</b><input id="f-fee" inputmode="decimal" autocomplete="off" aria-label="Fee" placeholder="0" value="${esc(f.fee)}"></label>
+        <div class="seg sm two" role="group" aria-label="Who pays the fee">
+          <button type="button" data-e="feeby" data-v="from" title="Taken from the sender (${esc(a.name)})" class="${f.feeBy !== 'to' ? 'on' : ''}" aria-pressed="${f.feeBy !== 'to'}">Taken from<br>sender</button>
+          <button type="button" data-e="feeby" data-v="to" title="Taken from the receiver (${esc(b.name)})" class="${f.feeBy === 'to' ? 'on' : ''}" aria-pressed="${f.feeBy === 'to'}">Taken from<br>receiver</button></div></div>
+      <select id="f-feecat" aria-label="Fee type">${f.feeCat ? '' : '<option value="">Fee type</option>'}${feeCatOptions(f.feeCat)}</select>
+      <small class="muted feewho">Taken from ${esc((f.feeBy === 'to' ? b : a).name)}</small></div>`;
     const fs = el.querySelector('#f-feecat');
     if (fs) enhanceSelect(fs, { title: 'Fee type', addLabel: 'Add a new fee type', onAdd: async () => { const n = (await promptDialog('New fee type', '', { okLabel: 'Add', hint: 'For example: Withdrawal fee, Gas fee' }))?.trim(); if (!n) return; fs.add(new Option(n, '__new:' + n)); fs.value = '__new:' + n; fs.dispatchEvent(new Event('change', { bubbles: true })); } });
   }
@@ -365,7 +367,12 @@ export function openEntry(opts = {}) {
     el.className = Math.abs(left) < 0.005 ? 'ok' : 'off';
     el.textContent = Math.abs(left) < 0.005 ? 'Items add up to the total' : (left > 0 ? `${fmt(left, cur)} not assigned yet` : `Items are ${fmt(-left, cur)} over the total`);
   }
-  function renderWhen() { $f('f-when').innerHTML = `<span>${esc(prettyDate(f.date))}</span>${ic('calendar')}`; }
+  function renderWhen() {
+    const pd = prettyDate(f.date);
+    if (f.kind === 'transfer') { $f('f-when').innerHTML = `<span>${esc(pd)}</span>${ic('calendar')}`; return; }
+    const [d, t] = pd.split(' · '), cy = String(new Date().getFullYear());                  // beside Account there is little room: date on top, time under it
+    $f('f-when').innerHTML = `<span class="w2"><b>${esc(d.replace(new RegExp(',? ' + cy + '$'), ''))}</b>${t ? `<small>${esc(t)}</small>` : ''}</span>${ic('calendar')}`;
+  }
   function renderBtns() {
     $f('btns').innerHTML = `${existing ? `<button type="button" class="btn danger ghost" data-e="del">Delete</button>` : ''}
       ${existing ? '' : `<button type="button" class="btn ghost" data-e="save-again">Save and add another</button>`}
@@ -635,6 +642,10 @@ export function openEntry(opts = {}) {
       case 'calc': f.calc = !f.calc; renderKeypad(); break;
       case 'k': keyPress(v); break;
       case 'when': openDatePicker(f.date, (val) => { f.date = val; renderWhen(); refreshPred(); renderSafety(); }, { title: 'When was it?' }); break;
+      case 'allamt': { const a0 = acctOf(f.acct); if (!a0) { toast('Choose the From account first.'); break; }
+        let v = balances(get()).get(f.acct) || 0; const fee = parseFloat(String(f.fee || '').replace(/,/g, '')) || 0; if (f.feeBy !== 'to' && fee > 0) v -= fee;   // a fee taken from the sender comes out of the same balance
+        if (!(v > 0)) { toast('There is nothing to move from this account.'); break; }
+        const am = $f('f-amount'); am.value = exactAmt(v); am.dispatchEvent(new Event('input', { bubbles: true })); break; }
       case 'amtclear': { f.amount = ''; const am = $f('f-amount'); am.value = ''; showCalcRes(); syncX(); heavy(); if (!f.calc) am.focus(); break; }
       case 'samediff': f.toAmount = f.amount; f.diffInit = false; renderConv(); break;
       case 'fxopen': { const a = acctOf(f.acct); if (!a) break; openConverter({ from: a.cur, to: HOME, amount: num(f.amount), rate: num(f.fx), applyLabel: 'Use this rate',

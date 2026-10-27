@@ -68,6 +68,8 @@ export const priv = {
   set(v) { this.on = !!v; try { localStorage.setItem('sukli-hide', this.on ? '1' : '0'); } catch { /* blocked */ } },
 };
 
+// a balance as the text to type into an amount box: no float noise, no trailing zeros (0.12345678, 1500)
+export const exactAmt = (n) => { const t = Math.abs(n) < 1e-9 ? '0' : n.toFixed(8); return t.includes('.') ? t.replace(/\.?0+$/, '') : t; };
 export function fmt(n, cur = BASE, opts = {}) {
   const c = CUR[cur] || { sym: cur + ' ', dec: 2 };
   const hide = priv.on && !opts.force;

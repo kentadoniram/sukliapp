@@ -940,3 +940,25 @@ html.kb #btns .btn, html.kb .sheet-body > form > .btnrow:last-child .btn { min-h
 .fixrow { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 2px; } .fixrow .chip { min-height: 42px; }
 img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor: zoom-out; }
 #scanform .field input:not([type=file]) { min-height: 46px; }
+
+/* ---- entry form: Account + When on one row; transfer fee + who pays on one row ---- */
+.acctwhen.inrow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(118px, 38%); gap: 8px; align-items: start; }
+.acctwhen.inrow > * { min-width: 0; }
+.acctwhen.inrow .acctbtn, .acctwhen.inrow .whenbtn { min-height: 46px; }
+.acctwhen.inrow .acctbtn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acctwhen.inrow .whenbtn { overflow: hidden; gap: 6px; padding: 0 10px; } .acctwhen.inrow .whenbtn .w2 { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .acctwhen.inrow .whenbtn .w2 b { font-weight: 600; font-size: calc(13.5px * var(--fs, 1)); } .acctwhen.inrow .whenbtn .w2 small { color: var(--ink2); font-size: calc(12px * var(--fs, 1)); }
+.feebox .feeline { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px; align-items: stretch; margin-bottom: 8px; }
+.feebox .feeline .seg { margin: 0; } .feebox .feeline .seg button { min-height: 46px; padding: 4px 4px; }
+.feebox .feewho { display: block; margin-top: 4px; }
+
+/* ---- Investments: platform names stand out; totals in two currencies ---- */
+.exname { font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.gsum2 { margin-left: 8px; font-size: calc(14px * var(--fs, 1)); white-space: nowrap; } .gsum2 b { font-weight: 700; } .gsum2 small { font-size: .85em; }
+.emptylink { margin: 4px 0 8px; }
+
+/* ---- "All": fill the whole balance ---- */
+.allbtn { min-height: 46px; font-weight: 700; }
+.amtrow .allbtn { flex: 0 0 auto; margin-left: 6px; border-radius: 12px; padding: 0 14px; }
+.field.hasall { position: relative; } .field.hasall input { padding-right: 58px; }
+.field.hasall .allbtn { position: absolute; right: 6px; bottom: 5px; min-height: 36px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--tint); color: var(--ink); cursor: pointer; }
+.field.hasall .allbtn[hidden] { display: none; }

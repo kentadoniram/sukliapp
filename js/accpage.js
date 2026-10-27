@@ -170,6 +170,21 @@ ACT['wallet-move'] = async (el) => {
   commit((d) => { const x = d.accounts.find((q) => q.id === a.id); const pre = `${x.exchange}${old === 'Spot' ? '' : ' ' + old} `; if (x.name.startsWith(pre)) x.name = `${x.exchange}${w === 'Spot' ? '' : ' ' + w} ${x.name.slice(pre.length)}`; x.wallet = w; stamp(x); });
   toast(`Moved to ${w}.`);
 };
+// move coins between two wallets of one platform (Spot, Earn…): they are separate balances, so it is a transfer between two accounts.
+// The account in the other wallet is made when it does not exist yet.
+ACT['wallet-xfer'] = async (el) => {
+  const db = get(), a = db.accounts.find((x) => x.id === el.dataset.id), w = el.dataset.w; if (!a || !w) return;
+  const ex = (a.exchange || '').toLowerCase(), same = (x) => !x.deleted && x.cur === a.cur && (x.exchange || '').toLowerCase() === ex && walletOf(x).toLowerCase() === w.toLowerCase();
+  let to = db.accounts.find(same);
+  if (!to) {
+    const old = walletOf(a), pre = `${a.exchange}${old === 'Spot' ? '' : ' ' + old} `, nid = uid();
+    const name = a.name.startsWith(pre) ? `${a.exchange}${w === 'Spot' ? '' : ' ' + w} ${a.name.slice(pre.length)}` : `${a.name} ${w}`;
+    commit((d) => { d.accounts.push(stamp({ id: nid, name, wallet: w, cur: a.cur, type: a.type, assetType: a.assetType, market: a.market, exchange: a.exchange, open: 0, include: false, archived: false, invtab: true })); });
+    to = get().accounts.find((x) => x.id === nid); toast(`Made ${name} for the move.`);
+  }
+  const { openEntry } = await import('./entry.js');
+  openEntry({ preset: { kind: 'transfer', acct: a.id, toAcct: to.id } });
+};
 ACT['acct-sp'] = () => toast('Spendable counts cash, bank, e-wallet and card accounts marked “Count in spendable total”.');
 
 // ---------- net worth ----------
@@ -292,7 +307,8 @@ export function openAccountDetail(id) {
       <div class="btnrow tight"><button class="btn sm" data-ad="add">Add entry</button>${isLiability(a) ? `<button class="btn sm ghost" data-act="loan-charge" data-id="${a.id}">Add charge</button>` : ''}
         ${['asset', 'invest', 'other'].includes(a.type) ? '<button class="btn sm ghost" data-ad="reval">Update value</button>' : ''}
         <button class="btn sm ghost" data-ad="edit">Edit</button></div>
-      ${a.exchange ? `<div class="wmove"><span class="muted">Wallet on ${esc(a.exchange)}</span><div class="chips">${[...new Set([...WALLETS, ...db.accounts.filter((x) => !x.deleted && x.exchange === a.exchange).map(walletOf)])].map((w) => `<button type="button" class="chip ${walletOf(a) === w ? 'on' : ''}" data-act="wallet-move" data-id="${a.id}" data-w="${esc(w)}" aria-pressed="${walletOf(a) === w}">${esc(w)}</button>`).join('')}<button type="button" class="chip" data-act="wallet-move" data-id="${a.id}" data-w="__new">+ New wallet</button></div></div>` : ''}
+      ${a.exchange && a.type === 'crypto' ? `<div class="wmove"><span class="muted">${esc(walletOf(a))} wallet on ${esc(a.exchange)}: move coins between wallets as a transfer</span><div class="chips">${walletOf(a) !== 'Earn' ? `<button type="button" class="btn sm" data-act="wallet-xfer" data-id="${a.id}" data-w="Earn">Move to Earn</button>` : ''}${walletOf(a) !== 'Spot' ? `<button type="button" class="btn sm ghost" data-act="wallet-xfer" data-id="${a.id}" data-w="Spot">Move to Spot</button>` : ''}</div></div>` : ''}
+      ${a.exchange ? `<details class="wmove"><summary class="muted">Wrong wallet on ${esc(a.exchange)}? Change this account’s wallet</summary><div class="chips">${[...new Set([...WALLETS, ...db.accounts.filter((x) => !x.deleted && x.exchange === a.exchange).map(walletOf)])].map((w) => `<button type="button" class="chip ${walletOf(a) === w ? 'on' : ''}" data-act="wallet-move" data-id="${a.id}" data-w="${esc(w)}" aria-pressed="${walletOf(a) === w}">${esc(w)}</button>`).join('')}<button type="button" class="chip" data-act="wallet-move" data-id="${a.id}" data-w="__new">+ New wallet</button></div></details>` : ''}
       <div class="rangebar seg sm" role="group" aria-label="Chart range">${[[30, '30 days'], [90, '90 days'], [365, '1 year'], [0, 'All']].map(([v, l]) => `<button type="button" data-ad="range" data-v="${v}" class="${st.range === v ? 'on' : ''}" aria-pressed="${st.range === v}">${l}</button>`).join('')}</div>
       <svg class="chart scrub" data-pts="${esc(JSON.stringify(pts))}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Balance over time. Touch and drag to read each day.">
         <path d="${area}" fill="var(--tint)"/><path d="${path}" fill="none" stroke="var(--line)" stroke-width="2.4" stroke-linejoin="round"/></svg>
@@ -411,6 +427,7 @@ export function openAccount(id, preset = {}) {
       <div class="two"><label class="field"><span>Statement closes on day</span><input name="stmtDay" inputmode="numeric" value="${a.stmtDay || ''}" placeholder="1–31"></label>
       <label class="field"><span>Payment due on day</span><input name="dueDay" inputmode="numeric" value="${a.dueDay || ''}" placeholder="1–31"></label></div>
       <p class="hint">Sukli shows a banner on Home when the payment is near, and can give you calendar reminders (.ics) from the account page.</p></div>
+    <p class="hint" id="earnnote" hidden>Exchanges pay interest on coins in <b>Earn</b>, not in Spot. To earn interest, move this coin to an Earn account (the account page has a “Move to Earn” button), and set the rate on that account.</p>
     <div id="intfields" ${isLiability(a) ? 'hidden' : ''}><div class="field"><span>Interest (optional) ${tipBtn('rate')}${tipBtn('start')}${tipBtn('tax')}</span>
       <div class="two"><label class="amtwrap sm"><input name="apy" inputmode="decimal" value="${a.apy || ''}" placeholder="0" aria-label="Yearly interest percent"><b>% a year</b></label>
       <input name="interestFrom" type="date" value="${esc(a.interestFrom || today())}" aria-label="Start date"></div>
@@ -433,10 +450,15 @@ export function openAccount(id, preset = {}) {
       <div class="two"><input name="real" inputmode="decimal" placeholder="Real balance" aria-label="Real balance"><button class="btn ghost">Correct it</button></div></form>` : ''}`,
   { title: id ? 'Edit account' : 'New account' });
   const walletAdd = { title: 'Wallet', addLabel: 'Add a new wallet', onAdd: async () => { const nm = (await promptDialog('New wallet', '', { okLabel: 'Add', hint: 'For example: Launchpool, Savings, Copy trading' }))?.trim(); if (!nm) return; const sel = s.el.querySelector('select[name=wallet]'); if (![...sel.options].some((o) => o.value.toLowerCase() === nm.toLowerCase())) sel.add(new Option(nm, nm)); sel.value = [...sel.options].find((o) => o.value.toLowerCase() === nm.toLowerCase()).value; sel.dispatchEvent(new Event('change', { bubbles: true })); } };
-  s.el.querySelector('select[name=exchange]').addEventListener('change', (e) => { s.el.querySelector('#walletf').hidden = !e.target.value; });
+  s.el.querySelector('select[name=exchange]').addEventListener('change', (e) => { s.el.querySelector('#walletf').hidden = !e.target.value; syncInt(); });
   pickAll(s.el, { wallet: walletAdd, exchange: { title: 'Exchange or platform', addLabel: 'Add a new platform', onAdd: async () => { const sel = s.el.querySelector('select[name=exchange]'); const nm = (await promptDialog('New platform', '', { okLabel: 'Add', hint: 'For example: Binance, Moomoo, SBI Securities' }))?.trim(); if (!nm) return; let v = canonPlatform(nm); const nr = nearPlatform(v); if (nr && await confirmDialog(`Did you mean ${nr}? You typed ${v}.`, `Yes, ${nr}`, false, `No, keep ${v}`)) v = nr; if (![...sel.options].some((o) => o.value === v)) sel.add(new Option(v, v)); sel.value = v; } }, type: { title: 'Account type', addLabel: 'Add a new account type', onAdd: () => { const t = s.el.querySelector('select[name=type]'); t.value = '__new'; t.dispatchEvent(new Event('change', { bubbles: true })); } } });
   const form = s.el.querySelector('#acct-form');
-  form.type.addEventListener('change', () => { s.el.querySelector('#cardfields').hidden = form.type.value !== 'card'; const L = isLiability({ type: form.type.value }); s.el.querySelector('#intfields').hidden = L; s.el.querySelector('#debtfields').hidden = !L; });
+  // interest belongs to Earn: a coin on a platform's Spot (or Margin, Futures…) wallet has no interest options, unless it already has a rate
+  const legacyInt = !!(a.apy > 0 || (a.rates || []).length || (a.promos || []).length), spotCrypto = () => form.type.value === 'crypto' && !!form.exchange.value && (form.wallet.value || 'Spot') !== 'Earn' && !legacyInt;
+  const syncInt = () => { const L = isLiability({ type: form.type.value }), sc = spotCrypto(); s.el.querySelector('#intfields').hidden = L || sc; s.el.querySelector('#earnnote').hidden = L || !sc; s.el.querySelector('#debtfields').hidden = !L; };
+  form.wallet.addEventListener('change', syncInt);
+  form.type.addEventListener('change', () => { s.el.querySelector('#cardfields').hidden = form.type.value !== 'card'; syncInt(); });
+  syncInt();
   // add / remove rows, debt interest switch, calculators
   s.el.addEventListener('click', (e) => { const add = e.target.closest('[data-add-row]'), rm = e.target.closest('[data-rm-row]');
     if (add) { const box = s.el.querySelector(`[data-rows="${add.dataset.addRow}"]`); box.insertAdjacentHTML('beforeend', add.dataset.addRow === 'rc' ? rateRow() : promoRow()); box.lastElementChild.querySelector('input').focus(); }
@@ -463,7 +485,7 @@ export function openAccount(id, preset = {}) {
     extra.rates = rcF.map((f, i) => ({ from: f, rate: num(rcR[i]) })).filter((r, i) => r.from && String(rcR[i]).trim() !== '');
     extra.promos = pF.map((f, i) => ({ depFrom: f, depTo: pT[i], rate: num(pR[i]), until: pU[i] || '', lockDays: Math.max(0, Math.round(num(pL[i]))) || 0, lockEnd: pLE[i] || '' })).filter((p) => p.depFrom && p.depTo && p.rate > 0);
     extra.debtInt = fd.has('d-on') ? { on: true, rate: num(fd.get('d-rate')), kind: fd.get('d-kind') || 'effective', comp: fd.get('d-comp') || 'monthly', fromDue: fd.has('d-due'), start: fd.get('d-start') || today(), principal: num(fd.get('d-principal')) } : { on: false };
-    if (isLiability({ type: fd.get('type') })) { extra.apy = 0; extra.rates = []; extra.promos = []; } else extra.debtInt = { on: false };
+    if (isLiability({ type: fd.get('type') }) || spotCrypto()) { extra.apy = 0; extra.rates = []; extra.promos = []; } if (!isLiability({ type: fd.get('type') })) extra.debtInt = { on: false };
     if (fd.get('type') !== 'card') { extra.limit = 0; extra.stmtDay = 0; extra.dueDay = 0; }
     let retaxed = 0;
     commit((d) => {

@@ -11,7 +11,9 @@ const GAP = new RegExp(`(?<=[${CJK}])\\s+(?=[${CJK}])|(?<=\\d)\\s+(?=[${CJK}])`,
 // OCR puts spaces between Japanese characters ("ライ フ 塚越 店") and reads ¥ as a backslash: tidy both
 const NK = (s) => String(s || '').normalize('NFKC').replace(/[￥円]/g, '¥').replace(/\\(?=\s?\d)/g, '¥').replace(GAP, '')
   .replace(/(?<=[\d¥])[OoQD](?=[\d,.\s¥軽※*外内]|$)/g, '0').replace(/(?<=¥)[OoQ](?=\d)/g, '0').replace(/(?<=\d)[lI|](?=\d|\s|$)/g, '1')
-  .replace(/(?<=^|[\s*・.:])[yYvV](?=\d{2,5}(?:\D|$))/g, '¥').replace(/(?<=¥)[Il|](?=\d)/g, '1');   // ¥ read as y, Y or v; ¥I08 is ¥108
+  .replace(/(?<=^|[\s*・.:])[yYvV](?=\d{2,5}(?:\D|$))/g, '¥').replace(/(?<=¥)[Il|](?=\d)/g, '1')   // ¥ read as y, Y or v; ¥I08 is ¥108
+  // thousands marks the reader mangles: "¥2, 227" (space), "¥2.,227" (dot and comma), "¥1.675" and "¥2.063" (dot instead of comma)
+  .replace(/(?<=\d)\s?[.,]\s?,(?=\d{3}(?!\d))/g, ',').replace(/(?<=\d)[,.]\s+(?=\d{3}(?!\d))/g, ',').replace(/(?<=¥\s?)([1-9]\d{0,2})\.(?=\d{3}(?!\d))/g, '$1,');
 // OCR often adds a few junk characters after the price ("¥299 【", "¥754 F ーー"): drop them when nothing numeric follows
 const trimTail = (t) => { const re = /(¥\s?-?\d[\d,]*|-?\d[\d,]*)\s*[軽※*外内E]?/g; let last = null, m; while ((m = re.exec(t))) last = m; if (!last) return t; const end = last.index + last[0].length, tail = t.slice(end); return tail && tail.length <= 14 && !/\d/.test(tail) ? t.slice(0, end).trim() : t; };
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -121,7 +123,7 @@ function priceOf(t) {
   if (!m) return null; const v = money(m[1].replace(/\s/g, '')); return v == null ? null : { v, at: m.index, mark: m[2] || '', strong: false };
 }
 export function findItems(lines) {
-  const items = []; let tax = 0, taxIncluded = false;
+  const items = []; let tax = 0, taxIncluded = false, pend = null;       // pend: an item name printed alone, its price comes on the next line ("3コ×単108 ¥324")
   for (const [i, l] of lines.entries()) {
     const t = trimTail(NK(l.text).trim()); if (!t) continue;
     if (/外税|外\s?\d{1,3}\s?%|消費税|\btax\b|\bvat\b/i.test(t)) {
@@ -134,12 +136,16 @@ export function findItems(lines) {
     if (q && items.length) { items[items.length - 1].qty = +q[1]; if (q[2]) items[items.length - 1].unit = +q[2]; continue; }
     if (/20\d{2}[^\d\n]{1,2}\d{1,2}[^\d\n]{1,2}\d{1,2}|\d{1,2}\s*[:：]\s*\d{2}/.test(t) || NOT_AMOUNT.test(t)) continue;   // date, time, phone, card and register lines
     if (SKIP_ITEM.test(t) && !/値引|割引|クーポン/.test(t)) continue;
-    const pr = priceOf(t); if (!pr || !pr.v) continue;
-    const name = t.slice(0, pr.at).replace(/[¥\s.:*＊]+$/, '').replace(/^[^\p{L}\p{N}-]+/u, '').replace(/^[\d\s]*(?=\D)/, '').replace(/^[*＊\s]+/, '').trim();
+    const pr = priceOf(t);
+    if (!pr || !pr.v) { if (/^[*＊・]\s*\S{2,}/.test(t) && !/\d{3,}/.test(t)) pend = { name: t.replace(/^[*＊・\s]+/, '').trim(), i }; continue; }
+    let name = t.slice(0, pr.at).replace(/[¥\s.:*＊]+$/, '').replace(/^[^\p{L}\p{N}-]+/u, '').replace(/^[xX×]\s*(?=[\d\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}])/u, '').replace(/^[\d\s]*(?=\D)(?!等)/, '').replace(/^[*＊\s]+/, '').replace(/(?<=\d)[OoＯ](?=\d|\D?$)/g, '0').trim();
+    const qm = t.match(/^\s*(\d{1,3})\s*[コ個点本]\s*[x×X＊*@]\s*単?\s*¥?(\d{1,5})/);
+    if (qm && pend && i - pend.i <= 1) { name = pend.name; pend = null; }                  // the name came on the line above
+    else if ((!goodName(name) || !/[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}]/u.test(name)) && [2, 3, 5, 10, 20].includes(pr.v) && !pr.mark && /¥/.test(t)) name = 'レジ袋';   // a few yen with an unreadable name is the plastic bag
     const disc = /値引|割引|クーポン|引|discount/i.test(name) && !/ー$/.test(name);
     if (!pr.strong && !(goodName(name) && pr.v >= 10 && name.replace(/[^\p{L}]/gu, '').length >= (/[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}]/u.test(name) ? 1 : 3))) continue;   // an unmarked number is only a price when the name is clearly a word
     const pm = disc ? name.match(/(\d{1,2})\s?%/) : null, ok = goodName(name);
-    items.push({ name: ok ? name : '', raw: name, amt: disc && pr.v > 0 ? -pr.v : pr.v, pct: pm ? +pm[1] : 0, reduced: pr.mark === '軽', conf: clamp((0.35 + 0.65 * ((l.conf ?? 70) / 100)) * (ok ? 1 : 0.7)), line: i });
+    items.push({ name: ok ? name : '', raw: name, ...(qm ? { qty: +qm[1], unit: +qm[2] } : {}), amt: disc && pr.v > 0 ? -pr.v : pr.v, pct: pm ? +pm[1] : 0, reduced: pr.mark === '軽', conf: clamp((0.35 + 0.65 * ((l.conf ?? 70) / 100)) * (ok ? 1 : 0.7)), line: i });
   }
   return { items, tax, taxIncluded };
 }

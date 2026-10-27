@@ -1,6 +1,6 @@
 // Buy / sell / convert for crypto, stocks and other investments. Recorded as a movement between your cash account and the holding,
 // marked as a trade (not ordinary spending), with fees saved as a financial loss and gains or losses worked out by average cost.
-import { accLabel, get, commit, uid, stamp, nowStamp, rateFor, homeFx, fmt, HOME, balances, findOrAddCategory, softDelete } from './core.js';
+import { accLabel, get, commit, uid, stamp, nowStamp, rateFor, homeFx, fmt, HOME, balances, findOrAddCategory, softDelete, exactAmt } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
 import { inInvest, pushHistory, exchangeOf, addAsset } from './invest.js';
@@ -29,8 +29,8 @@ export function openTrade(pre = {}) {
     <div id="f-conv" hidden><label class="field"><span>Convert into</span><select name="asset2">${opt(hold, (hold.find((a) => a.id !== (pre.asset || hold[0].id)) || hold[0]).id)}</select></label>
       <div class="two"><label class="field"><span>Amount you receive</span><input name="qty2" inputmode="decimal"></label><label class="field"><span>Worth in ${HOME} (optional)</span><input name="worth" inputmode="decimal"></label></div></div>
     <div id="f-cash"><label class="field"><span id="l-cash">Paid from</span><select name="cash"></select></label></div>
-    <div class="two"><label class="field"><span id="l-qty">Units</span><input name="qty" inputmode="decimal" placeholder="e.g. 0.01"></label><label class="field" id="f-price"><span>Price per unit</span><input name="price" inputmode="decimal"></label></div>
-    <label class="field" id="f-total"><span id="l-total">Total paid</span><input name="total" inputmode="decimal"></label>
+    <div class="two"><label class="field hasall"><span id="l-qty">Units</span><input name="qty" inputmode="decimal" placeholder="e.g. 0.01"><button type="button" class="allbtn" data-all="qty" hidden>All</button></label><label class="field" id="f-price"><span>Price per unit</span><input name="price" inputmode="decimal"></label></div>
+    <label class="field hasall" id="f-total"><span id="l-total">Total paid</span><input name="total" inputmode="decimal"><button type="button" class="allbtn" data-all="total" hidden>All</button></label>
     <div class="two feerow"><label class="field"><span id="l-fee">Trading fee</span><input name="fee" inputmode="decimal" placeholder="0"></label>
       <label class="field"><span>Fee is</span><select name="feeMode"><option value="fixed">A fixed amount</option><option value="pct">A % of the trade</option></select></label></div>
     <label class="field"><span>Fee is charged in</span><select name="feeIn"></select></label>
@@ -59,6 +59,7 @@ export function openTrade(pre = {}) {
     s.el.querySelector('#l-cash').textContent = conv ? 'Pay the fee from' : side === 'buy' ? 'Paid from' : 'Money goes to';
     s.el.querySelector('#l-total').textContent = side === 'buy' ? 'Total paid' : 'Total received';
     s.el.querySelector('#l-qty').textContent = conv ? 'Amount you give' : 'Units';
+    f.querySelector('[data-all=qty]').hidden = side === 'buy'; f.querySelector('[data-all=total]').hidden = side !== 'buy';   // All: the whole holding when selling or converting, the whole cash balance when buying
     const fi = f.feeIn, want = [c && c.cur, a && a.cur].filter((x, i, arr) => x && arr.indexOf(x) === i), have = [...fi.options].map((o) => o.value);
     if (want.join() !== have.join()) { const keep = fi.value; fi.innerHTML = want.map((x, i) => `<option value="${x}">${x}${i === 0 ? ' (the money used)' : ' (the asset itself)'}</option>`).join(''); if (want.includes(keep)) fi.value = keep; }
     s.el.querySelector('#l-fee').textContent = f.feeMode.value === 'pct' ? 'Fee %  (e.g. 0.05)' : `Fee amount (${fi.value || 'currency'})`;
@@ -66,6 +67,11 @@ export function openTrade(pre = {}) {
     const fcur = f.feeIn.value || (c && c.cur), fee = f.feeMode.value === 'pct' ? ((fcur === (a && a.cur) ? q : (num(f.total.value) || 0)) * num(f.fee.value)) / 100 : num(f.fee.value); s.el.querySelector('#tr-sum').textContent = conv ? `${q || 0} ${a ? a.cur : ''} becomes ${num(f.qty2.value) || 0} ${acct(f.asset2.value) ? acct(f.asset2.value).cur : ''}.${fee ? ` Fee ${money(fee, fcur)} is saved as a financial loss.` : ''}` : (q && num(f.total.value) ? `${side === 'buy' ? 'Buy' : 'Sell'} ${q} ${a ? a.cur : ''} for ${money(num(f.total.value), c ? c.cur : HOME)}.${fee ? ` The fee of ${money(fee, fcur)} is saved separately as a financial loss.` : ''} This is not counted as spending.` : '');
   };
   f.addEventListener('input', (e) => sync(e.target.name === 'fee' ? '' : e.target.name)); f.addEventListener('change', () => sync(''));
+  f.querySelectorAll('[data-all]').forEach((b) => { b.onclick = () => {
+    const src = b.dataset.all === 'qty' ? acct(f.asset.value) : acct(f.cash.value), v = src ? balances(db).get(src.id) || 0 : 0;
+    if (!(v > 0)) { toast(`There is nothing in ${src ? src.name : 'that account'} to use.`); return; }
+    const inp = f[b.dataset.all]; inp.value = exactAmt(v); inp.dispatchEvent(new Event('input', { bubbles: true }));
+  }; });
   f.querySelectorAll('[data-side]').forEach((b) => { b.onclick = () => { side = b.dataset.side; sync(''); }; });
   s.el.querySelector('[data-x]').onclick = () => s.close(); sync('');
   f.onsubmit = async (e) => {
