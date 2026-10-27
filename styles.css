@@ -1004,3 +1004,6 @@ img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor:
 .ivseg { margin-bottom: 4px; }
 .invpage .nwcard.one div.nwmain .ivgraph { border: 0; background: none; border-radius: 0; padding: 4px 0; box-shadow: none; display: flex; width: 100%; }
 .ivseg { display: flex; width: 100%; } .ivseg button { flex: 1 1 0; text-align: center; justify-content: center; }
+/* v12aq: card billing period and posted date */
+.postedrow { margin: -4px 0 8px; } .postedrow .whenbtn { min-height: 46px; width: 100%; } .postedrow .field > span .linkbtn { float: right; }
+.bperiod select { width: 100%; min-height: 46px; }

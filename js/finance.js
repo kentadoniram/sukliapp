@@ -239,6 +239,8 @@ export function cardBilling(db, a, bal0, asOf = today()) {
   let owedAtStmt = owed, paid = 0, dueAmount = owed;
   if (stmt) {
     owedAtStmt = Math.max(0, -(balances(db, stmt + ' 23:59:59').get(a.id) || 0));
+    // an expense dated on or before the statement day but posted after it belongs to the next statement
+    for (const t of db.txs) if (!t.deleted && t.acct === a.id && t.kind === 'expense' && t.posted && String(t.date).slice(0, 10) <= stmt && t.posted > stmt) owedAtStmt = Math.max(0, owedAtStmt - t.amount);
     for (const t of db.txs) if (!t.deleted && t.kind === 'transfer' && t.toAcct === a.id && t.date.slice(0, 10) > stmt) paid += (t.toAmount != null ? t.toAmount : t.amount) - (t.feeBy === 'to' ? feeOf(t) : 0);
     dueAmount = Math.min(owed, Math.max(0, owedAtStmt - paid));
   }
@@ -260,6 +262,25 @@ export function cardBilling(db, a, bal0, asOf = today()) {
   };
 }
 export const cardInfo = (db, a, bal) => cardBilling(db, a, bal);
+// ---- billing periods: the day after one statement date up to and including the next statement date ----
+const addDay = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+export { addDay };
+// the day an entry counts on a statement: the posted date when it was set (and is later than the entry date), else the entry date
+export const postedDay = (t) => { const d = String(t.date).slice(0, 10); return t.posted && t.posted > d ? t.posted : d; };
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const dshort = (s) => `${+s.slice(8, 10)} ${MON[+s.slice(5, 7) - 1]}${s.slice(0, 4) === String(new Date().getFullYear()) ? '' : ' ' + s.slice(0, 4)}`;
+export function periodFor(a, day) {
+  if (!(a.stmtDay > 0)) return null;
+  let [y, m] = day.split('-').map(Number), end = dstr(y, m, a.stmtDay);
+  if (end < day) { m === 12 ? (y++, m = 1) : m++; end = dstr(y, m, a.stmtDay); }
+  const [py, pm] = m === 1 ? [y - 1, 12] : [y, m - 1], prev = dstr(py, pm, a.stmtDay), from = addDay(prev, 1);
+  return { from, to: end, label: `${dshort(from)} – ${dshort(end)}` };
+}
+export function billingPeriods(a, asOf = today(), n = 12) {
+  let p = periodFor(a, asOf); if (!p) return []; const out = [p];
+  while (out.length < n) { p = periodFor(a, addDay(p.from, -1)); out.push(p); }
+  return out;
+}
 
 // cards that need attention: payment due within `window` days (or overdue) with something still unpaid, or limit nearly used
 export function cardReminders(db, window = 3) {

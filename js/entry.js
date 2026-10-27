@@ -10,7 +10,7 @@ import { smartKind, openLoanPlanner } from './loans.js';
 import { fxBlockHtml, fxBlockUpdate, openConverter } from './fxview.js';
 import { parseTags, joinTags, tagCounts } from './tags.js';
 import { tipBtn } from './interest.js';
-import { isLiability, lockInfo } from './finance.js';
+import { isLiability, lockInfo, periodFor, addDay } from './finance.js';
 import { budgetAlerts, newAlertsSince } from './budgetsetup.js';
 import { guessLabel, transferLabel } from './label.js';
 import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat, transportWord, modeOf, tripLabel, bareMode } from './route.js';
@@ -58,7 +58,7 @@ function blank() {
   const accts = db.accounts.filter((a) => !a.deleted && !a.archived);
   const last = accts.find((a) => a.id === db.settings.lastAcct) || accts.find((a) => a.include) || accts[0];
   return { kind: 'expense', amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
-    catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), notes: '', labels: '', items: [], flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
+    catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), posted: '', postedOn: false, notes: '', labels: '', items: [], flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
     fee: '', feeCat: '', feeBy: 'from', feeTouched: false, calc: false, convert: false, cRate: '', qtab: '', qtabManual: false };
 }
 function fromTx(t) {
@@ -68,7 +68,7 @@ function fromTx(t) {
     toAmount: t.toAmount != null ? String(t.toAmount) : '', fx: t.fx ? prec(t.fx / homeRate(db, t.date)) : '', cat: t.cat || '',
     fee: t.fee > 0 ? String(t.fee) : '', feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
     convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
-    catTouched: true, acctTouched: true, date: t.date, notes: t.notes || '', labels: t.labels || '', flag: t.flag || null, id: t.id, pred: null,
+    catTouched: true, acctTouched: true, date: t.date, posted: t.posted || '', postedOn: !!t.posted, notes: t.notes || '', labels: t.labels || '', flag: t.flag || null, id: t.id, pred: null,
     items: (t.items || []).map((i) => ({ n: i.n, amt: String(i.amt), cat: i.cat || '' })), showItems: !!(t.items && t.items.length), from: t.from || '', to: t.to || '' };
 }
 
@@ -123,6 +123,7 @@ export function openEntry(opts = {}) {
       <div id="calcres" class="calcres" hidden></div><div id="keypad" class="keypad" hidden></div></div>
     <div id="fxline"></div>
     <div id="acctwhen" class="acctwhen"><div id="acctrow"></div><div class="field" id="whenrow"><span>When</span><button type="button" class="whenbtn" id="f-when" data-e="when"></button></div></div>
+    <div id="postedrow" class="postedrow" hidden></div>
     <div id="convrow"></div>
     <div id="feerow"></div>
     <div id="catrow"></div>
@@ -138,7 +139,7 @@ export function openEntry(opts = {}) {
   const focusKeep = (el) => { if (el && document.activeElement !== el) el.focus(); };
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
-    flow: ['seg', 'freq', 'namefield', 'amountbox', 'fxline', 'acctwhen', 'catrow', 'triprow', 'itemsrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
+    flow: ['seg', 'freq', 'namefield', 'amountbox', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'itemsrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
     transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
   };
   function arrange() {
@@ -205,7 +206,7 @@ export function openEntry(opts = {}) {
     updateNamePh();
     const el = $f('acctrow');
     const a = acctOf(f.acct);
-    renderCur();
+    renderCur(); renderPosted();
     $f('acctwhen').classList.toggle('inrow', f.kind !== 'transfer'); $f('f-all').hidden = f.kind !== 'transfer'; renderWhen();                  // Account and When share a row, except for transfers (From / To need the width)
     if (f.kind !== 'transfer') {
       const sug = f.acctSuggested && !f.acctTouched;
@@ -366,6 +367,16 @@ export function openEntry(opts = {}) {
     const cur = a ? a.cur : HOME;
     el.className = Math.abs(left) < 0.005 ? 'ok' : 'off';
     el.textContent = Math.abs(left) < 0.005 ? 'Items add up to the total' : (left > 0 ? `${fmt(left, cur)} not assigned yet` : `Items are ${fmt(-left, cur)} over the total`);
+  }
+  // optional "posted" date for a card entry: it counts in the statement of that day (for a charge made on the statement day that the bank posts the next day)
+  function renderPosted() {
+    const el = $f('postedrow'), a = acctOf(f.acct), show = f.kind !== 'transfer' && a && a.type === 'card' && a.stmtDay > 0;
+    if (!show) { el.hidden = true; el.innerHTML = ''; return; }
+    el.hidden = false; const day = String(f.date).slice(0, 10);
+    if (f.postedOn && (!f.posted || f.posted <= day)) f.posted = addDay(day, 1);
+    if (!f.postedOn) { el.innerHTML = `<button type="button" class="linkbtn" data-e="postedon">Posted on a later day? (optional)</button>`; return; }
+    const p = periodFor(a, f.posted);
+    el.innerHTML = `<div class="field"><span>Posted date <button type="button" class="linkbtn" data-e="postedoff">Remove</button></span><button type="button" class="whenbtn" data-e="posted">${esc(prettyDate(f.posted + ' 00:00:00').split(' · ')[0])}${ic('calendar')}</button><small class="muted">Counts in the statement ${p ? esc(p.label) : ''}, not the one for ${esc(prettyDate(f.date).split(' · ')[0])}.</small></div>`;
   }
   function renderWhen() {
     const pd = prettyDate(f.date);
@@ -641,7 +652,10 @@ export function openEntry(opts = {}) {
       case 'route': pickRoute(b.dataset.from, b.dataset.to); break;
       case 'calc': f.calc = !f.calc; renderKeypad(); break;
       case 'k': keyPress(v); break;
-      case 'when': openDatePicker(f.date, (val) => { f.date = val; renderWhen(); refreshPred(); renderSafety(); }, { title: 'When was it?' }); break;
+      case 'postedon': f.postedOn = true; renderPosted(); break;
+      case 'postedoff': f.postedOn = false; f.posted = ''; renderPosted(); break;
+      case 'posted': openDatePicker(f.posted + ' 00:00:00', (val) => { const v = val.slice(0, 10), day = String(f.date).slice(0, 10); if (v <= day) { f.posted = addDay(day, 1); toast('The posted date must be after the entry date.'); } else f.posted = v; renderPosted(); }, { title: 'Posted date', time: false }); break;
+      case 'when': openDatePicker(f.date, (val) => { f.date = val; renderPosted(); renderWhen(); refreshPred(); renderSafety(); }, { title: 'When was it?' }); break;
       case 'allamt': { const a0 = acctOf(f.acct); if (!a0) { toast('Choose the From account first.'); break; }
         let v = balances(get()).get(f.acct) || 0; const fee = parseFloat(String(f.fee || '').replace(/,/g, '')) || 0; if (f.feeBy !== 'to' && fee > 0) v -= fee;   // a fee taken from the sender comes out of the same balance
         if (!(v > 0)) { toast('There is nothing to move from this account.'); break; }
@@ -774,7 +788,8 @@ export function openEntry(opts = {}) {
       else { label = guessLabel(db2, { kind: f.kind, cat, amount, acct: a.id, hour: hourOf(f.date) }).name; flag = 'review'; }
     }
     const rec = { kind: f.kind, amount, cur: a.cur, fx, date: f.date, name: label, autoName, cat, acct: a.id,
-      toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), labels: joinTags(parseTags(f.labels)), items: items && items.length ? items : [], flag };
+      toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), labels: joinTags(parseTags(f.labels)), items: items && items.length ? items : [], flag,
+      posted: (f.kind !== 'transfer' && f.postedOn && a.type === 'card' && a.stmtDay > 0 && f.posted > String(f.date).slice(0, 10)) ? f.posted : '' };
     if (f.kind !== 'transfer' && cat && ((f.catTouched && f.guessed && f.guessed !== cat) || (existing && existing.cat && existing.cat !== cat) || (existing && existing.corrected))) rec.corrected = true;
     if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) { rec.from = f.from.trim(); rec.to = f.to.trim(); } else if (existing && (existing.from || existing.to)) { rec.from = ''; rec.to = ''; }
     let savedAs; const alertsBefore = budgetAlerts(get(), rec.date.slice(0, 7));

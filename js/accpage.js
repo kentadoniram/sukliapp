@@ -9,7 +9,7 @@ import {
   adjustmentCategory, shiftMonth, thisMonth, monthLabel, monthParts, deltaFor, dayLabel,
 } from './core.js';
 import { transferHints } from './finance.js';
-import { lockInfo, interestPreview, promoStatus, rateHistory, debtPreview, hasDebtInt, accountHistory, netWorth, cardInfo, cardReminders, cardIcs, isLiability, setLiab, today, postInterest, postDebtInterest, interestTaxPct, retaxInterest } from './finance.js';
+import { lockInfo, interestPreview, promoStatus, rateHistory, debtPreview, hasDebtInt, accountHistory, netWorth, cardInfo, billingPeriods, postedDay, cardReminders, cardIcs, isLiability, setLiab, today, postInterest, postDebtInterest, interestTaxPct, retaxInterest } from './finance.js';
 import { esc, ic, ACT, sheet, toast, download, confirmDialog, promptDialog } from './ui.js';
 import { applyHide } from './appearance.js';
 import { money, eq, hdr, coll, ui, tradeKids, effectLine } from './screens.js';
@@ -248,7 +248,8 @@ export function openAccountDetail(id) {
     if (!a || a.deleted) { s.close(); return; }
     const bal = balances(db).get(id) || 0, r = homeFx(db, a.cur);
     const hist = accountHistory(db, id);                         // newest first
-    const inRange = (h) => (!st.from || h.t.date.slice(0, 10) >= st.from) && (!st.to || h.t.date.slice(0, 10) <= st.to);
+    const dayOf = (h) => (a.type === 'card' ? postedDay(h.t) : h.t.date.slice(0, 10));           // a card entry counts on the day it was posted
+    const inRange = (h) => (!st.from || dayOf(h) >= st.from) && (!st.to || dayOf(h) <= st.to);
     const typeOk = (h) => st.type === 'all' || (st.type === 'in' && h.d > 0 && h.t.kind !== 'transfer') || (st.type === 'out' && h.d < 0 && h.t.kind !== 'transfer') || (st.type === 'tr' && h.t.kind === 'transfer');
     // a fee that belongs to a trade or transfer shown on the same account is folded into that row (its amount and balance follow)
     const kidsInfo = tradeKids(db), idx = new Map(hist.map((h, i) => [h.t.id, i])), absorbed = new Map(), hidden = new Set();
@@ -291,7 +292,7 @@ export function openAccountDetail(id) {
       const kids = absorbed.get(t.id) || [], feeD = kids.reduce((m, k) => m + k.d, 0), top = kids.reduce((m, k) => (idx.get(k.t.id) < idx.get(t.id) && idx.get(k.t.id) < m.i ? { i: idx.get(k.t.id), bal: k.bal } : m), { i: idx.get(t.id), bal: h.bal });
       const dShow = h.d + feeD, balShow = top.bal;
       const feeTxt = kids.length ? kids.map((k) => `fee ${money(k.t.amount, k.t.cur)}`).join(', ') : (t.fee > 0 ? `fee ${money(t.fee, t.feeCur || t.cur)}` : '');
-      const sub = `${dayLabel(t.date)} · ${tr ? (t.acct === id ? 'to ' : 'from ') + esc(other || '?') : esc(c ? c.name : 'No category')}${t.auto || t.autoDebt ? ' · automatic' : ''}${feeTxt ? ' · ' + esc(feeTxt) : ''}`;
+      const sub = `${dayLabel(t.date)} · ${tr ? (t.acct === id ? 'to ' : 'from ') + esc(other || '?') : esc(c ? c.name : 'No category')}${t.auto || t.autoDebt ? ' · automatic' : ''}${t.posted && t.posted > String(t.date).slice(0, 10) ? ' · posted ' + esc(dayLabel(t.posted + ' 00:00:00').split(',')[0]) : ''}${feeTxt ? ' · ' + esc(feeTxt) : ''}`;
       return `<button class="row" data-act="edit" data-id="${t.id}"><i class="badge sm" style="background:${tr ? 'var(--xfer)' : groupColor(c ? c.group : 'Uncategorized')}">${groupLetter(tr ? 'Transfer' : (c ? c.group : 'U'))}</i>
         <span class="rmain"><strong>${esc(title)}</strong><small>${sub}</small><small class="eff">${effectLine(t, null)}</small></span>
         <span class="ramt ${dShow >= 0 ? 'income' : 'expense'}"><b>${dShow >= 0 ? '+' : ''}${money(dShow, a.cur)}</b><small>${money(balShow, a.cur)}</small></span></button>`;
@@ -341,6 +342,7 @@ export function openAccountDetail(id) {
       <h3>History</h3>
       <div class="histfilter"><div class="seg sm" role="group" aria-label="Show">${[['all', 'All'], ['in', 'Money in'], ['out', 'Money out'], ['tr', 'Transfers']].map(([v, l]) => `<button type="button" data-ad="type" data-v="${v}" class="${st.type === v ? 'on' : ''}" aria-pressed="${st.type === v}">${l}</button>`).join('')}</div>
         <div class="seg sm" role="group" aria-label="Period">${[['m', 'This month'], ['p', 'Last month'], ['y', 'This year'], ['', 'All time']].map(([v, l]) => `<button type="button" data-ad="preset" data-v="${v}" class="${(st.preset ?? '') === v && (v === '' ? (!st.from && !st.to) : true) ? 'on' : ''}" aria-pressed="${(st.preset ?? '') === v}">${l}</button>`).join('')}</div>
+        ${a.type === 'card' && a.stmtDay > 0 ? (() => { const ps = billingPeriods(a), cur = ps.find((p) => p.from === st.from && p.to === st.to); return `<label class="field bperiod"><span>Billing period</span><select data-bp aria-label="Billing period"><option value="">Any (use the dates below)</option>${ps.map((p, i) => `<option value="${p.from}|${p.to}" ${cur === p ? 'selected' : ''}>${i === 0 ? 'Current: ' : ''}${esc(p.label)}</option>`).join('')}</select><small class="muted">From the day after the statement date to the next statement date. An entry counts on the day it was posted.</small></label>`; })() : ''}
         <div class="two"><button type="button" class="whenbtn" data-ad="from"><span>${st.from ? esc(st.from) : 'From: any date'}</span>${ic('calendar')}</button><button type="button" class="whenbtn" data-ad="to"><span>${st.to ? esc(st.to) : 'To: any date'}</span>${ic('calendar')}</button></div></div>
       ${st.from || st.to || st.type !== 'all' ? `<div class="facts"><div><span>Income / in</span><b class="in">${money(rsum.inc, a.cur)}</b></div><div><span>Expenses / out</span><b>${money(rsum.exp, a.cur)}</b></div><div><span>Transfers in</span><b>${money(rsum.tin, a.cur)}</b></div><div><span>Transfers out</span><b>${money(rsum.tout, a.cur)}</b></div><div><span>Opening</span><b>${openBal == null ? '—' : money(openBal, a.cur)}</b></div><div><span>Closing</span><b>${closeBal == null ? '—' : money(closeBal, a.cur)}</b></div></div>` : ''}
       <div class="rows plain">${rowsHtml || '<p class="empty">No entries for this filter.</p>'}</div>
@@ -351,6 +353,7 @@ export function openAccountDetail(id) {
   const un = (() => { let q = false; const f = () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; if (root.isConnected) draw(); }); }; window.addEventListener('sukli-render', f); const u2 = subscribe(f); return () => { window.removeEventListener('sukli-render', f); u2(); }; })();
   const oldClose = s.close; s.close = () => { un(); oldClose(); };
   s.root.querySelector('[data-close]').onclick = () => s.close();
+  root.addEventListener('change', (e) => { const sel = e.target.closest('select[data-bp]'); if (!sel) return; const [f0, t0] = (sel.value || '|').split('|'); st.from = f0; st.to = t0; st.preset = f0 ? 'custom' : ''; st.more = 25; draw(); });
   root.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-ad]'); if (!b) return;
     const db = get(), a = db.accounts.find((x) => x.id === id);
