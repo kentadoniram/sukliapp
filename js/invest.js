@@ -78,6 +78,73 @@ ACT['inv-cur'] = () => {
   pickerList([...common.map((c) => ({ ...opt(c), group: 'Common' })), ...allCurrencies().filter((c) => ok(c) && !common.includes(c)).map((c) => ({ ...opt(c), group: 'All with a known rate' }))], { value: cur, title: 'Show Investments in',
     onPick: (v) => commit((d) => { d.settings.invCur = v === HOME ? '' : v; }) });
 };
+
+// ---------- market value over time (recorded values only) ----------
+const PLAT_COLORS = ['#2F6FDE', '#1F9D6B', '#C2410C', '#7C3AED', '#0E7490', '#BE185D', '#A16207', '#4D7C0F'];
+const platColor = (n) => { let h = 0; for (const c of String(n).toLowerCase()) h = (h * 31 + c.charCodeAt(0)) >>> 0; return PLAT_COLORS[h % PLAT_COLORS.length]; };
+const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// One point per day on which something was recorded: an entry in an investment account, or a price (live, set by you, or from a trade).
+// Value = what you held at the end of that day x the last price recorded on or before that day, in your home currency
+// (quote currencies are converted at today's rate, the rate history is not kept). Nothing is estimated between the points.
+export function valueSeries(db) {
+  const items = live(db.accounts).filter(inInvest), tickers = db.settings.tickers || {}, ids = new Set(items.map((a) => a.id)), days = new Set([localDay()]);
+  for (const t of db.txs) if (!t.deleted && (ids.has(t.acct) || ids.has(t.toAcct))) days.add(String(t.date).slice(0, 10));
+  const hist = new Map();
+  for (const a of items) { const h = ((tickers[a.cur] || {}).history || []).filter((p) => p && p.price > 0 && p.date).slice().sort((x, y) => (x.date + (x.ts || 0) < y.date + (y.ts || 0) ? -1 : 1)); hist.set(a.cur, h); for (const p of h) days.add(p.date); }
+  let list = [...days].filter((d) => d <= localDay()).sort();
+  if (list.length > 160) { const step = Math.ceil(list.length / 160); list = list.filter((d, i) => i % step === 0 || i === list.length - 1); }
+  const now = new Map(), pxAt = (a, day) => {
+    if (a.cur === HOME) return 1; const h = hist.get(a.cur) || [];
+    if (!h.length) return homeFx(db, a.cur) || 0;
+    let p = h[0]; for (const q of h) { if (q.date <= day) p = q; else break; }
+    const qf = (!p.quote || p.quote === HOME) ? 1 : (now.has(p.quote) ? now.get(p.quote) : (now.set(p.quote, homeFx(db, p.quote) || 0), now.get(p.quote)));
+    return p.price * qf; };
+  const out = [];
+  for (const d of list) { const b = balances(db, d + ' 23:59:59'); let v = 0, any = false; for (const a of items) { const q = b.get(a.id) || 0; if (Math.abs(q) > 1e-12) { any = true; v += q * pxAt(a, d); } } if (any || out.length) out.push({ d, v }); }
+  while (out.length && out[0].v === 0) out.shift();
+  return out;
+}
+function miniSvg(pts) {
+  if (pts.length < 2) return '';
+  const W = 120, H = 34, lo = Math.min(...pts.map((p) => p.v)), hi = Math.max(...pts.map((p) => p.v)), X = (i) => 2 + (i / (pts.length - 1)) * (W - 4), Y = (v) => (hi === lo ? H / 2 : H - 3 - ((v - lo) / (hi - lo)) * (H - 6));
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><path d="${pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('')}" fill="none" stroke="var(--iv-rec)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+const RANGES = [['1M', 30], ['3M', 91], ['1Y', 365], ['All', 0]];
+ACT['inv-graph'] = () => {
+  const db = get(); setInvCur(db); const all = valueSeries(db);
+  const W = 320, H = 190, PL = 8, PR = 8, PT = 14, PB = 22;
+  const s = sheet(`<div id="ivg"></div>`, { title: `Market value in ${invC}`, wide: true });
+  let range = 'All', cur = null;
+  const pick = () => { const r = RANGES.find((x) => x[0] === range), days = r ? r[1] : 0; if (!days) return all; const cut = localDay(new Date(Date.now() - days * 864e5)); const sub = all.filter((p) => p.d >= cut); return sub.length >= 2 ? sub : all.slice(-2); };
+  const draw = () => {
+    const pts = pick(), box = s.el.querySelector('#ivg');
+    if (all.length < 2) { box.innerHTML = `<p class="hint">Not enough history yet. A point is recorded each day something changes: you trade or record activity, you set a price, or live prices load. Come back after a few days and the line will fill in.</p><div class="btnrow"><button type="button" class="btn" data-x>Close</button></div>`; box.querySelector('[data-x]').onclick = () => s.close(); return; }
+    const vals = pts.map((p) => p.v * invK), lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.05 || 1, y0 = lo - pad, y1 = hi + pad;
+    const t0 = Date.parse(pts[0].d), t1 = Date.parse(pts[pts.length - 1].d) || t0 + 1, X = (d) => PL + ((Date.parse(d) - t0) / ((t1 - t0) || 1)) * (W - PL - PR), Y = (v) => PT + (1 - (v - y0) / (y1 - y0)) * (H - PT - PB);
+    const line = pts.map((p, i) => `${i ? 'L' : 'M'}${X(p.d).toFixed(1)} ${Y(p.v * invK).toFixed(1)}`).join(''), area = `${line}L${X(pts[pts.length - 1].d).toFixed(1)} ${H - PB}L${X(pts[0].d).toFixed(1)} ${H - PB}Z`;
+    const first = pts[0], last = pts[pts.length - 1], ch = (last.v - first.v) * invK, pc = first.v ? (last.v - first.v) / Math.abs(first.v) * 100 : 0;
+    const gridY = [0, 0.5, 1].map((f) => { const v = y0 + (y1 - y0) * f; return `<line x1="${PL}" x2="${W - PR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--rule)" stroke-width="1"/><text x="${PL + 2}" y="${(Y(v) - 3).toFixed(1)}" class="ivax">${esc(fmt(v, invC))}</text>`; }).join('');
+    cur = pts[pts.length - 1];
+    box.innerHTML = `<div class="ivseg seg sm small" role="group" aria-label="Range">${RANGES.map(([l]) => `<button type="button" data-rg="${l}" class="${l === range ? 'on' : ''}" aria-pressed="${l === range}">${l}</button>`).join('')}</div>
+      <div class="ivread"><b id="ivv">${esc(fmt(last.v * invK, invC))}</b> <small id="ivd" class="muted">${esc(last.d)}</small><br><small id="ivc" class="${ch >= 0 ? 'cg' : 'cr'}">${ch >= 0 ? '+' : '−'}${esc(fmt(Math.abs(ch), invC))} (${pc >= 0 ? '+' : '−'}${Math.abs(pc).toFixed(1)}%) since ${esc(first.d)}</small></div>
+      <svg id="ivsvg" class="ivchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Market value over time" style="touch-action:pan-y">${gridY}<path d="${area}" fill="var(--iv-rec)" opacity=".12"/><path d="${line}" fill="none" stroke="var(--iv-rec)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+        ${pts.length <= 60 ? pts.map((p) => `<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v * invK).toFixed(1)}" r="2.6" fill="var(--sheet)" stroke="var(--iv-rec)" stroke-width="1.6"/>`).join('') : ''}
+        <g id="ivx" hidden><line id="ivxl" y1="${PT}" y2="${H - PB}" stroke="var(--ink2)" stroke-dasharray="3 3"/><circle id="ivxc" r="4.5" fill="var(--iv-rec)" stroke="var(--sheet)" stroke-width="2"/></g>
+        <text x="${PL}" y="${H - 6}" class="ivax">${esc(first.d)}</text><text x="${W - PR}" y="${H - 6}" text-anchor="end" class="ivax">${esc(last.d)}</text></svg>
+      <small class="muted">Touch or drag the graph to read a day. Each point is a day something was recorded (an entry, or a price you set, traded at or that loaded live): what you held that day times the last price recorded by then. Nothing is estimated between points. Prices in other currencies use today’s exchange rate.</small>
+      <ul class="calfacts"><li><span>Highest</span><b>${esc(fmt(Math.max(...vals), invC))}</b></li><li><span>Lowest</span><b>${esc(fmt(Math.min(...vals), invC))}</b></li><li><span>Points</span><b>${pts.length}</b></li></ul>
+      <div class="btnrow"><button type="button" class="btn" data-x>Close</button></div>`;
+    box.querySelectorAll('[data-rg]').forEach((b) => { b.onclick = () => { range = b.dataset.rg; draw(); }; });
+    box.querySelector('[data-x]').onclick = () => s.close();
+    const svg = box.querySelector('#ivsvg'), g = box.querySelector('#ivx'), xl = box.querySelector('#ivxl'), xc = box.querySelector('#ivxc');
+    const at = (ev) => { const r = svg.getBoundingClientRect(), px = ((ev.clientX - r.left) / r.width) * W; let best = pts[0], bd = 1e9; for (const p of pts) { const d = Math.abs(X(p.d) - px); if (d < bd) { bd = d; best = p; } }
+      g.removeAttribute('hidden'); xl.setAttribute('x1', X(best.d)); xl.setAttribute('x2', X(best.d)); xc.setAttribute('cx', X(best.d)); xc.setAttribute('cy', Y(best.v * invK));
+      box.querySelector('#ivv').textContent = fmt(best.v * invK, invC); box.querySelector('#ivd').textContent = best.d;
+      const c2 = (best.v - first.v) * invK, p2 = first.v ? (best.v - first.v) / Math.abs(first.v) * 100 : 0, el = box.querySelector('#ivc'); el.className = c2 >= 0 ? 'cg' : 'cr'; el.textContent = `${c2 >= 0 ? '+' : '−'}${fmt(Math.abs(c2), invC)} (${p2 >= 0 ? '+' : '−'}${Math.abs(p2).toFixed(1)}%) since ${first.d}`; };
+    svg.addEventListener('pointerdown', at); svg.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' || e.buttons) at(e); });
+  };
+  draw();
+};
 export function investments(db) {
   setInvCur(db);
   const bal = balances(db), items = live(db.accounts).filter(inInvest), book = tradeBook(db.txs);
@@ -101,25 +168,26 @@ export function investments(db) {
   const walletBlocks = (list, t) => { const srt = (l) => l.slice().sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0));
     const ws = new Map(); for (const a of list) { const w = a.exchange ? walletOf(a) : ''; if (!ws.has(w)) ws.set(w, []); ws.get(w).push(a); }
     if (mode !== 'platform' || (ws.size === 1 && (ws.has('Spot') || ws.has('')))) return `<div class="rows plain">${srt(list).map((a) => holding(a, t)).join('')}</div>`;
-    return [...ws.entries()].sort((x, y) => (WALLETS.indexOf(x[0]) + 1 || 99) - (WALLETS.indexOf(y[0]) + 1 || 99) || x[0].localeCompare(y[0])).map(([w, l]) => `<h4 class="wlt">${esc(w || 'Other')} <small class="muted">${money(exSum(l))}${earnedTxt(l)}</small></h4><div class="rows plain">${srt(l).map((a) => holding(a, t)).join('')}</div>`).join(''); };
+    return [...ws.entries()].sort((x, y) => (WALLETS.indexOf(x[0]) + 1 || 99) - (WALLETS.indexOf(y[0]) + 1 || 99) || x[0].localeCompare(y[0])).map(([w, l]) => `<h4 class="wlt w-${esc((w || 'other').toLowerCase())}">${esc(w || 'Other')} <small class="muted">${money(exSum(l))}${earnedTxt(l)}</small></h4><div class="rows plain">${srt(l).map((a) => holding(a, t)).join('')}</div>`).join(''); };
   const holding = (a, tot) => { const b = bal.get(a.id) || 0, v = val(db, a, b), ok = priced(db, a), px = homeFx(db, a.cur) || 0;
     return `<button class="row acct hold" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:var(--xfer)">${esc(a.cur.slice(0, 1))}</i>
       <span class="rmain"><strong>${a.cur === 'USD' || a.cur === HOME ? esc(a.name) : `${esc((tickers[a.cur] && tickers[a.cur].ticker) || a.cur)} <small class="muted">${esc(curName(a.cur) || '')}${a.market ? ` · ${esc(a.market)}` : ''}</small>`}</strong><small>${qty(b, a.cur)}${paidTxt(a)}${ok && a.cur !== HOME ? ` · price ${money(px)}` : ''}${tot > 0 && ok ? ` · ${Math.round((v / tot) * 100)}%` : ''}${basis(a)}</small></span>
       <span class="ramt"><b>${ok ? money(v) : '<small class="muted">no price</small>'}</b></span></button>`; };
   const exHtml = [...byEx.entries()].sort((x, y) => mode === 'risk' ? (((RISK_GROUPS.indexOf(x[0]) + 1) || 99) - ((RISK_GROUPS.indexOf(y[0]) + 1) || 99)) || x[0].localeCompare(y[0]) : exSum(y[1]) - exSum(x[1])).map(([ex, list]) => {
-    const t = exSum(list); return coll('ix-' + ex, `<span class="exname">${esc(ex)}</span> <span class="gsum2"><b>${money(t)}</b>${altOf(db, t) ? ` <small class="muted">≈ ${altOf(db, t)}</small>` : ''}</span>`,
+    const t = exSum(list); return `<div class="ivplat" style="--pc:${platColor(ex)}">` + coll('ix-' + ex, `<span class="exname">${esc(ex)}</span> <span class="gsum2"><b>${money(t)}</b>${altOf(db, t) ? ` <small class="muted">≈ ${altOf(db, t)}</small>` : ''}</span>`,
       `${list.length ? walletBlocks(list, t) : `<p class="hint">${cryptoAll.some((a) => (exchangeOf(a) || 'Wallets and other') === ex) ? 'Nothing with a balance here. Empty assets are hidden.' : 'No assets here yet.'}</p>`}
-       ${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="btnrow left"><button type="button" class="btn sm" data-act="inv-add" data-ex="${esc(ex)}">Record activity on ${esc(ex)}</button><button type="button" class="btn sm ghost" data-act="inv-coin" data-ex="${esc(ex)}">+ Add an asset to ${esc(ex)}</button><button type="button" class="btn sm ghost" data-act="inv-rename" data-ex="${esc(ex)}">Rename platform</button>${list.length || cryptoAll.some((a) => (exchangeOf(a) || 'Wallets and other') === ex) ? '' : `<button type="button" class="btn sm ghost" data-act="inv-platdel" data-ex="${esc(ex)}">Remove platform</button>`}</div>` : ''}`, ''); }).join('');
+       ${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="btnrow left"><button type="button" class="btn sm iv-rec" data-act="inv-add" data-ex="${esc(ex)}">Record activity on ${esc(ex)}</button><button type="button" class="btn sm ghost iv-add" data-act="inv-coin" data-ex="${esc(ex)}">+ Add an asset to ${esc(ex)}</button><button type="button" class="btn sm ghost" data-act="inv-rename" data-ex="${esc(ex)}">Rename platform</button>${list.length || cryptoAll.some((a) => (exchangeOf(a) || 'Wallets and other') === ex) ? '' : `<button type="button" class="btn sm ghost danger" data-act="inv-platdel" data-ex="${esc(ex)}">Remove platform</button>`}</div>` : ''}`, '') + '</div>'; }).join('');
   const otherHtml = other.length ? coll('i-other', `Investments and other products <small class="muted gsum">${money(exSum(other))}</small>`, `<div class="rows plain">${other.sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0)).map((a) => { const b = bal.get(a.id) || 0;
     return `<button class="row acct" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:var(--line)">${esc((a.name || '?').slice(0, 1))}</i><span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(a.exchange || (a.type === 'invest' ? 'Investment' : 'Other product'))} · ${fmt(b, a.cur)}</small></span><span class="ramt"><b>${priced(db, a) ? money(val(db, a, b)) : '<small class="muted">no rate</small>'}</b></span></button>`; }).join('')}</div>`, '') : '';
-  return `${hdr('Investments', '<button class="btn sm" data-act="inv-add">Record activity</button> <button class="btn sm ghost" data-act="inv-new">Add asset</button>')}
-    <section class="nwcard one"><div class="nwmain"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${byEx.size} ${mode === 'type' ? 'type' : mode === 'risk' ? 'group' : 'place'}${byEx.size === 1 ? '' : 's'} · ${other.length} other</small><small class="updated">${updatedLine(db)}</small><button type="button" class="linkbtn" data-act="inv-cur">Show Investments in ${esc(invC)} ▾</button></div></section>
+  setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
+  return `<div class="invpage">${hdr('Investments', '<button class="btn sm iv-rec" data-act="inv-add">Record activity</button> <button class="btn sm ghost iv-add" data-act="inv-new">Add asset</button>')}
+    <section class="nwcard one"><div class="nwmain"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${byEx.size} ${mode === 'type' ? 'type' : mode === 'risk' ? 'group' : 'place'}${byEx.size === 1 ? '' : 's'} · ${other.length} other</small><button type="button" class="ivgraph" data-act="inv-graph" aria-label="Open the graph of your market value over time"><span id="ivmini" class="ivmini"></span><span class="ivgl">Value over time ›</span></button><small class="updated">${updatedLine(db)}</small><button type="button" class="linkbtn" data-act="inv-cur">Show Investments in ${esc(invC)} ▾</button></div></section>
     ${unpriced.length ? `<p class="hint">No price yet for ${unpriced.map((a) => esc(a.cur)).join(', ')}, so ${unpriced.length === 1 ? 'it is' : 'they are'} left out of the total. Prices load when you are online, or set one in Settings, Exchange rates.</p>` : ''}
     ${crypto.length ? `<div class="seg sm small" role="group" aria-label="Group by">${[['platform', 'By platform'], ['type', 'By asset type'], ['risk', 'By group']].map(([v, l]) => `<button type="button" data-act="inv-group" data-v="${v}" class="${mode === v ? 'on' : ''}" aria-pressed="${mode === v}">${l}</button>`).join('')}</div>${mode === 'risk' ? '<p class="hint">Groups: stablecoins (steady value), major coins, high-volatility coins, stocks, funds. Open a ticker below to move it to another group or make your own.</p>' : ''}` : ''}
     ${cryptoAll.length && (hiddenN || showEmpty) ? `<p class="hint emptylink">${showEmpty ? 'Showing empty assets too.' : `${hiddenN} empty asset${hiddenN === 1 ? ' is' : 's are'} hidden.`} <button type="button" class="linkbtn" data-act="inv-empty">${showEmpty ? 'Hide empty assets' : 'Show them'}</button></p>` : ''}
     ${performanceCard(db, bal, book, items)}${incomeCard(db)}${feesCard(db, book)}${predictCard(db)}${gains}${exHtml}${otherHtml}${tickerCard(db, tickers)}
     ${items.length ? '' : '<p class="empty">Nothing here yet. Add an exchange coin, an investment, or any account marked “Show in Investments” (for example MP2).</p>'}
-    <p class="hint">Each coin or share is its own balance at its platform (for example USDT, BNB and NVDA). The line under it shows the amount, what you paid, and today’s price; the right side is the value in ${invC}.</p>`;
+    <p class="hint">Each coin or share is its own balance at its platform (for example USDT, BNB and NVDA). The line under it shows the amount, what you paid, and today’s price; the right side is the value in ${invC}.</p></div>`;
 }
 
 // manual tickers: any coin, token, stock or fund, on any platform or market (Tokyo, Korea, NASDAQ...), kept apart from real currencies

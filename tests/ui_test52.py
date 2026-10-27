@@ -11,7 +11,7 @@ with sync_playwright() as p:
     # 1. entry layout
     pg.evaluate("(async()=>{const m=await import('/js/entry.js');m.openEntry()})()"); pg.wait_for_selector('#f-what')
     r=pg.evaluate("(()=>{const a=document.querySelector('#acctrow .acctbtn').getBoundingClientRect(),w=document.querySelector('#f-when').getBoundingClientRect();return {at:a.top,wt:w.top,ah:a.height,wh:w.height,aw:a.width,ww:w.width,right:w.right}})()")
-    ok(f'expense: Account and When on one row {r}', abs(r['at']-r['wt'])<6 and r['ww']>=110 and r['aw']>r['ww'])
+    ok(f'expense: Account and When on one row {r}', abs(r['at']-r['wt'])<6 and r['ww']>=110 and abs(r['aw']-r['ww'])<2)
     ok(f'When button fits the screen {r}', r['right']<=402-18)
     pg.click('#seg [data-k=income]') if pg.locator('#seg [data-k=income]').count() else None
     pg.wait_for_timeout(200)

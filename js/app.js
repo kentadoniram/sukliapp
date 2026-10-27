@@ -55,7 +55,7 @@ function tabs(route) {
   const t = ids.map((id) => [id, TAB_DEFS[id][0], TAB_DEFS[id][1]]); t.splice(half, 0, null);
   const n = reviewCount(get());
   return t.map((x) => x === null
-    ? `<button class="fab" data-act="add" aria-label="Add an entry">${ic('plus')}</button>`
+    ? `<button class="fab${route === 'invest' ? ' inv' : ''}" data-act="add" aria-label="Add an entry">${ic('plus')}</button>`
     : `<a href="#/${x[0]}" class="${route === x[0] ? 'on' : ''}" ${route === x[0] ? 'aria-current="page"' : ''}>${ic(x[2])}<span>${x[1]}</span>${x[0] === 'home' && n ? `<em class="dot" aria-label="${n} to check"></em>` : ''}</a>`).join('');
 }
 

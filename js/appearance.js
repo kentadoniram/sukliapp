@@ -13,7 +13,7 @@ export const ACCENTS = {
   graphite: { n: 'Graphite', l: ['#3B4650', '#E6E9EC', '#FFFFFF'], d: ['#AEBBC7', '#232B33', '#0E141A'] },
 };
 export const SIZES = [['xs', 'Extra small', 0.8], ['s', 'Small', 0.9], ['m', 'Medium', 1], ['l', 'Large', 1.12], ['xl', 'Extra large', 1.25]];
-const DEFAULT = { accent: 'blue', theme: 'auto', size: 's' };
+const DEFAULT = { accent: 'blue', theme: 'auto', size: 's', pcase: 'upper' };
 
 export function look() {
   try { return { ...DEFAULT, ...(JSON.parse(localStorage.getItem(KEY) || '{}')) }; } catch { return { ...DEFAULT }; }
@@ -30,6 +30,7 @@ export function applyLook() {
   if (v.theme === 'auto') root.removeAttribute('data-theme'); else root.dataset.theme = v.theme;
   const a = (ACCENTS[v.accent] || ACCENTS.blue)[dark ? 'd' : 'l'];
   root.style.setProperty('--line', a[0]); root.style.setProperty('--tint', a[1]); root.style.setProperty('--line-ink', a[2]);
+  root.dataset.pcase = ['upper', 'title', 'lower'].includes(v.pcase) ? v.pcase : 'upper';
   const sz = SIZES.find((s) => s[0] === v.size) || SIZES[1];
   root.style.setProperty('--fs', String(sz[2]));
   const mt = document.querySelector('meta[name="theme-color"]');

@@ -962,3 +962,45 @@ img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor:
 .field.hasall { position: relative; } .field.hasall input { padding-right: 58px; }
 .field.hasall .allbtn { position: absolute; right: 6px; bottom: 5px; min-height: 36px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--tint); color: var(--ink); cursor: pointer; }
 .field.hasall .allbtn[hidden] { display: none; }
+
+/* v12ap: entry rows, All inside the amount box, currency height, Investments colours and graph */
+.acctwhen.inrow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.amtwrap .allin { flex: none; height: 32px; padding: 0 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--tint); color: var(--line); font: inherit; font-size: calc(14px * var(--fs, 1)); font-weight: 700; cursor: pointer; }
+.amtwrap .allin[hidden] { display: none; }
+.amtwrap .allin + .calcbtn { margin-left: -4px; }
+.amtrow .curwrap { display: flex; align-items: stretch; }
+.amtrow .curwrap .curbtn { height: 100%; min-height: 62px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 12px; }
+:root { --iv-rec: #1F7A4D; --iv-add: #3A5BD0; --iv-spot: #2F6FDE; --iv-earn: #1F9D6B; --iv-margin: #B45309; --iv-fut: #7C3AED; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --iv-rec: #4CC38A; --iv-add: #8DA2F5; --iv-spot: #7AB0EE; --iv-earn: #4CC38A; --iv-margin: #E0A04A; --iv-fut: #B39DF0; } }
+:root[data-theme="dark"] { --iv-rec: #4CC38A; --iv-add: #8DA2F5; --iv-spot: #7AB0EE; --iv-earn: #4CC38A; --iv-margin: #E0A04A; --iv-fut: #B39DF0; }
+.btn.iv-rec { background: var(--iv-rec); border-color: var(--iv-rec); color: #fff; }
+:root[data-theme="dark"] .btn.iv-rec { color: #0E141A; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.iv-rec { color: #0E141A; } }
+.btn.iv-add { background: none; border-color: var(--iv-add); color: var(--iv-add); }
+.fab.inv { background: var(--iv-rec); }
+:root[data-theme="dark"] .fab.inv { color: #0E141A; }
+.invpage .nwcard.one div.nwmain { border-left: 4px solid var(--iv-rec); background: linear-gradient(135deg, color-mix(in srgb, var(--iv-rec) 12%, var(--sheet)), var(--sheet)); }
+.invpage .seg button.on { background: var(--iv-add); border-color: var(--iv-add); color: #fff; }
+.invpage .coll { border-left: 4px solid var(--pc, var(--rule)); }
+.invpage .ivplat .coll > .collrow .collhead h2 { color: var(--pc); }
+.invpage [data-sec="i-perf"] { --pc: #1F9D6B; } .invpage [data-sec="i-inc"] { --pc: #B7791F; } .invpage [data-sec="i-fees"] { --pc: #C2410C; }
+.invpage [data-sec="i-gain"] { --pc: #2F6FDE; } .invpage [data-sec="i-pred"] { --pc: #7C3AED; } .invpage [data-sec="i-tick"] { --pc: #0E7490; } .invpage [data-sec="i-other"] { --pc: #64748B; }
+.invpage .wlt { border-left: 3px solid var(--ink2); padding-left: 8px; }
+.invpage .wlt.w-spot { border-color: var(--iv-spot); color: var(--iv-spot); } .invpage .wlt.w-earn { border-color: var(--iv-earn); color: var(--iv-earn); }
+.invpage .wlt.w-margin { border-color: var(--iv-margin); color: var(--iv-margin); } .invpage .wlt.w-futures { border-color: var(--iv-fut); color: var(--iv-fut); }
+.invpage .btnrow .btn.iv-rec { color: #fff; }
+:root[data-theme="dark"] .invpage .btnrow .btn.iv-rec { color: #0E141A; }
+/* platform names: always bold, the capitals follow the setting */
+.exname { font-weight: 800; text-transform: uppercase; }
+:root[data-pcase="title"] .exname { text-transform: capitalize; letter-spacing: .01em; }
+:root[data-pcase="lower"] .exname { text-transform: lowercase; letter-spacing: .01em; }
+.ivgraph { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; padding: 6px 0; min-height: 44px; }
+.ivgraph:focus-visible { outline: 2px solid var(--line); border-radius: 8px; }
+.ivgl { color: var(--iv-add); font-weight: 700; font-size: calc(13px * var(--fs, 1)); white-space: nowrap; }
+.ivmini { display: block; min-width: 120px; min-height: 34px; }
+.ivchart { width: 100%; height: auto; display: block; margin: 6px 0; user-select: none; }
+.ivax { font-size: 9px; fill: var(--ink2); }
+.ivread { margin: 8px 0 2px; } .ivread b { font-size: calc(24px * var(--fs, 1)); letter-spacing: -.02em; }
+.ivseg { margin-bottom: 4px; }
+.invpage .nwcard.one div.nwmain .ivgraph { border: 0; background: none; border-radius: 0; padding: 4px 0; box-shadow: none; display: flex; width: 100%; }
+.ivseg { display: flex; width: 100%; } .ivseg button { flex: 1 1 0; text-align: center; justify-content: center; }

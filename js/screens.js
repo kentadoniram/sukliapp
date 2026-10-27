@@ -40,7 +40,7 @@ export const ui = { month: thisMonth(), tag: '', q: '', filter: 'all', acct: '',
 // collapsible section: tap the heading to fold it away (remembered on this device)
 export function coll(id, title, body, extra = '') {
   const closed = !!ui.collapsed[id];
-  return `<section class="coll ${closed ? 'closed' : ''}"><div class="collrow"><button class="collhead" data-act="coll" data-id="${id}" aria-expanded="${!closed}"><h2>${title}</h2>${ic('down', 'chev')}</button>${extra}</div><div class="collbody" ${closed ? 'hidden' : ''}>${body}</div></section>`;
+  return `<section data-sec="${id}" class="coll ${closed ? 'closed' : ''}"><div class="collrow"><button class="collhead" data-act="coll" data-id="${id}" aria-expanded="${!closed}"><h2>${title}</h2>${ic('down', 'chev')}</button>${extra}</div><div class="collbody" ${closed ? 'hidden' : ''}>${body}</div></section>`;
 }
 // opening or closing a card only flips that card in place; redrawing the whole screen made the pie charts beside it flicker
 ACT.coll = (el) => {
@@ -720,6 +720,7 @@ export function settings(db) {
         <small class="hint">Some iPhones and browsers cannot vibrate, so the flash (and the click, if you turn it on) tells you the tap worked.</small></div>
       <div class="field"><span>Text size</span>${segBtns('look', 'size', SIZES.map((x) => [x[0], x[1]]), lk.size)}
         <small class="hint">Smaller text leaves more room above the on-screen keyboard.</small></div>
+      <div class="field"><span>Platform names (Investments)</span>${segBtns('look', 'pcase', [['upper', 'UPPERCASE'], ['title', 'Title Case'], ['lower', 'lowercase']], lk.pcase)}<small class="muted">Always bold. Only the capital letters change.</small></div>
       <div class="field"><span>When amounts are hidden (the eye button)</span>${segBtns('hidestyle', 'style', [['dot', 'Dots  ₱•••••'], ['blur', 'Blur']], priv.style)}</div>
       <div class="field"><span>Card payment reminders</span>${segBtns('remind', 'days', [[3, '3 days'], [5, '5 days'], [7, '7 days'], [10, '10 days']], db.settings.remindDays || 5)}
         <small class="hint">How early the banner on Home appears before a credit card is due. A web page cannot send alerts when it is closed, so for phone alerts use “Add reminders to my calendar” on the card’s account page.</small></div>
