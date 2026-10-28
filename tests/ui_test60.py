@@ -1,0 +1,36 @@
+# v12au: bulk edit of selected entries, bigger graph, aligned interest boxes
+from playwright.sync_api import sync_playwright
+CSV='/home/claude/Transactions.csv'; res=[]
+def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':390,'height':844},service_workers='block'); errs=[]
+    pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
+    pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
+    pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{const cat=d.categories.filter(x=>!x.deleted&&x.kind==='expense'),a=d.accounts.find(x=>!x.deleted&&x.cur===c.HOME&&x.type!=='card');
+      for(const [i,n,amt] of [['ba','Bulk one',100],['bb','Bulk two',200],['bc','Bulk three',300]]) d.txs.push(c.stamp({id:i,kind:'expense',amount:amt,cur:c.HOME,fx:1,date:'2026-10-2'+(i==='ba'?'1':i==='bb'?'2':'3')+' 10:00:00',name:n,cat:cat[0].id,acct:a.id,labels:i==='ba'?'old':''}))})})()""")
+    pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_selector('#ledger-list'); pg.wait_for_timeout(600)
+    pg.click('[data-act=sel-start]'); pg.fill('#q','Bulk'); pg.wait_for_timeout(500)
+    pg.click('[data-act=sel-all]'); pg.wait_for_timeout(300)
+    ok('Edit button shows count 3', 'Edit (3)' in pg.inner_text('.selbar'))
+    pg.click('[data-act=sel-edit]'); pg.wait_for_selector('#be'); t=pg.inner_text('#be')
+    ok('says names are not the same', 'Not the same' in t and 'sets all 3' in t)
+    ok('Change disabled until something is filled', pg.is_disabled('#be-go'))
+    pg.fill('#be-name','Renamed'); pg.fill('#be-tags','Trip'); pg.wait_for_timeout(100); ok('Change enabled', not pg.is_disabled('#be-go'))
+    cats=pg.eval_on_selector_all('#be-cat option','o=>o.map(x=>x.value).filter(Boolean)'); pg.select_option('#be-cat',cats[3])
+    pg.click('#be-go'); pg.wait_for_timeout(800)
+    r=pg.evaluate("window.sukli.get().txs.filter(t=>['ba','bb','bc'].includes(t.id)).map(t=>[t.name,t.labels,t.cat,t.amount])")
+    print(r)
+    ok('all three renamed and tagged, amounts kept', all(x[0]=='Renamed' for x in r) and all('Trip' in x[1] for x in r) and [x[3] for x in r]==[100,200,300] and any('old' in x[1] for x in r))
+    ok('all three got the category', len({x[2] for x in r})==1 and r[0][2]==cats[3])
+    pg.click('.toast [data-undo], .toast button'); pg.wait_for_timeout(600)
+    r2=pg.evaluate("window.sukli.get().txs.filter(t=>['ba','bb','bc'].includes(t.id)).map(t=>t.name)")
+    ok('undo restores names %s'%r2, sorted(r2)==['Bulk one','Bulk three','Bulk two'])
+    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(900)
+    g=pg.evaluate("(()=>{const e=document.querySelector('.ivgraph').getBoundingClientRect();return [e.width,e.height]})()")
+    ok('graph is large %s and has no label'%g, g[0]>=130 and g[1]>=60 and 'Value over time' not in pg.inner_text('.nwcard'))
+    pg.evaluate("(async()=>{const m=await import('/js/accpage.js');m.openAccount(window.sukli.get().accounts.find(a=>!a.deleted&&a.type==='bank').id)})()"); pg.wait_for_selector('#acct-form'); pg.wait_for_timeout(300)
+    y=pg.evaluate("(()=>{const a=document.querySelector('#intfields [name=taxPct]').getBoundingClientRect(),c=document.querySelector('#intfields .ifld [name=compound]').closest('label').querySelector('.pkbtn').getBoundingClientRect();return [a.top,c.top,a.height,c.height]})()")
+    ok('tax and compounding boxes aligned %s'%y, abs(y[0]-y[1])<1.5 and abs(y[2]-y[3])<1.5)
+    ok('no errors', not errs); print(errs[:3]); b.close()
+print(sum(res),'/',len(res))

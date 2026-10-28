@@ -18,6 +18,7 @@ import { tipBtn } from './interest.js';
 import { parseTags, hasTag, tagCounts } from './tags.js';
 import { feedbackCfg, testBuzz, iosVersion } from './feedback.js';
 import './glossary.js';
+import { openBulkEdit } from './bulkedit.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
 import { lossCard } from './loans.js';
@@ -532,13 +533,14 @@ const filterHint = () => esc(FILTER_HINTS[ui.filter] || '');
 function selBar() {
   if (!ui.selecting) return `<div class="btnrow left selstart"><button type="button" class="btn sm ghost" data-act="sel-start">${ic('check')} Select entries</button><button type="button" class="btn sm ghost" data-act="ih-open">Input history</button></div>`;
   const n = ui.sel.size;
-  return `<div class="selbar" role="toolbar" aria-label="Selected entries"><span><b>${n}</b> selected</span><button type="button" class="btn sm ghost" data-act="sel-all">${n && n >= (ui.shown || []).length ? 'Clear' : 'Select all shown'}</button><button type="button" class="btn sm danger" data-act="sel-del" ${n ? '' : 'disabled'}>${ic('trash')} Delete (${n})</button><button type="button" class="btn sm ghost" data-act="sel-end">Done</button></div>`;
+  return `<div class="selbar" role="toolbar" aria-label="Selected entries"><span><b>${n}</b> selected</span><button type="button" class="btn sm ghost" data-act="sel-all">${n && n >= (ui.shown || []).length ? 'Clear' : 'Select all shown'}</button><button type="button" class="btn sm" data-act="sel-edit" ${n ? '' : 'disabled'}>Edit (${n})</button><button type="button" class="btn sm danger" data-act="sel-del" ${n ? '' : 'disabled'}>${ic('trash')} Delete (${n})</button><button type="button" class="btn sm ghost" data-act="sel-end">Done</button></div>`;
 }
 const selRefresh = () => { const l = document.getElementById('ledger-list'), w = document.getElementById('selbar-wrap'); if (!l) return window.dispatchEvent(new Event('sukli-render')); const y = window.scrollY; l.innerHTML = ledgerRows(get()); w.innerHTML = selBar(); window.scrollTo(0, y); };
 ACT['sel-start'] = () => { ui.selecting = true; ui.sel = new Set(); selRefresh(); };
 ACT['sel-end'] = () => { ui.selecting = false; ui.sel = new Set(); selRefresh(); };
 ACT['sel-toggle'] = (el) => { const id = el.dataset.id; if (ui.sel.has(id)) ui.sel.delete(id); else ui.sel.add(id); selRefresh(); };
 ACT['sel-all'] = () => { const all = ui.shown || []; if (ui.sel.size >= all.length) ui.sel = new Set(); else ui.sel = new Set(all); selRefresh(); };
+ACT['sel-edit'] = () => { const ids = [...ui.sel]; if (ids.length) openBulkEdit(ids, () => { ui.selecting = false; ui.sel = new Set(); }); };
 ACT['sel-del'] = async () => {
   const ids = [...ui.sel]; if (!ids.length) return;
   if (!(await confirmDialog(`Delete ${ids.length} ${ids.length === 1 ? 'entry' : 'entries'}? They move to the recycle bin and can be restored.`, 'Delete', true))) return;

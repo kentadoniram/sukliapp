@@ -1033,3 +1033,10 @@ img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor:
 .check.realsw { align-items: flex-start; margin-top: 12px; } .check.realsw input[switch] { width: 51px; height: 31px; min-height: 31px; flex: none; -webkit-appearance: auto; appearance: auto; }
 .cardbox.stmt .tot { border-top: 1px solid var(--rule); margin-top: 4px; padding-top: 6px; }
 .gloss { margin: 4px 0 12px; } .gloss dt { font-weight: 700; margin-top: 10px; } .gloss dd { margin: 2px 0 0; color: var(--ink2); line-height: 1.4; }
+/* v12au: bigger market value graph, aligned interest boxes, bulk edit */
+.nwcard div.nwmain.nwsplit { grid-template-columns: minmax(0, 1fr) minmax(130px, 44%); }
+.invpage .nwcard.one div.nwmain .ivgraph { align-self: stretch; width: 100%; padding: 0; border-radius: 12px; background: color-mix(in srgb, var(--iv-rec) 7%, transparent); overflow: hidden; align-items: stretch; justify-content: center; min-height: 70px; }
+.ivgraph .ivmini { min-width: 0; width: 100%; min-height: 0; } .ivgraph .ivmini svg { width: 100%; height: 66px; display: block; }
+#acct-form .field > span { min-height: 28px; display: flex; align-items: center; gap: 6px; }
+#acct-form .field > span .tipbtn { width: 22px; height: 22px; min-height: 22px; font-size: 13px; line-height: 20px; padding: 0; flex: none; }
+.mixed { color: var(--warn, #B7791F); } #be .seg.three { grid-template-columns: repeat(3, 1fr); } #be input, #be select { min-height: 46px; }
