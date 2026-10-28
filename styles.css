@@ -1040,3 +1040,13 @@ img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor:
 #acct-form .field > span { min-height: 28px; display: flex; align-items: center; gap: 6px; }
 #acct-form .field > span .tipbtn { width: 22px; height: 22px; min-height: 22px; font-size: 13px; line-height: 20px; padding: 0; flex: none; }
 .mixed { color: var(--warn, #B7791F); } #be .seg.three { grid-template-columns: repeat(3, 1fr); } #be input, #be select { min-height: 46px; }
+/* v13: Debts tab */
+.debtpage .cardbox { margin: 12px 0; } .debtsum .dsrow { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--rule); } .debtsum .dsrow b { text-align: right; }
+.debtlight { display: flex; gap: 10px; align-items: flex-start; margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--rule); } .debtlight > div { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.debtlight .ld { width: 14px; height: 14px; border-radius: 50%; margin-top: 3px; flex: none; background: var(--muted, #888); } .debtlight.green .ld { background: #2f9e5b; } .debtlight.yellow .ld { background: #d9a21b; } .debtlight.red .ld { background: #d64545; }
+.debtmode { margin: 6px 0 10px; } .debtmode.two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } .debtmode button.on { background: var(--accent, #1f6feb); border-color: var(--accent, #1f6feb); color: #fff; }
+.payorder { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; } .payorder li { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--rule); border-radius: 12px; } .payorder li.first { border-color: var(--accent, #1f6feb); }
+.payorder .po-n { width: 26px; height: 26px; border-radius: 50%; background: var(--rule); display: grid; place-items: center; font-weight: 700; flex: none; } .payorder li.first .po-n { background: var(--accent, #1f6feb); color: #fff; }
+.payorder .po-b { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 14px; }
+.debtrow { margin: 10px 0; padding: 12px; border: 1px solid var(--rule); border-radius: 14px; } .debtrow.od { border-color: #d64545; } .dr-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; } .dr-head > div { display: flex; flex-direction: column; min-width: 0; } .dr-owed { font-size: 18px; }
+.debtpage .calfacts li { gap: 10px; } .debtpage .limits li { flex-direction: column; align-items: flex-start; gap: 2px; } .debtpage .limits b { font-weight: 500; }

@@ -2,6 +2,10 @@
 
 A private money tracker that runs entirely in the browser. Your data stays on your device, with an optional backup to a hidden folder in your own Google Drive. No server, no subscription, no AI service: the category guesser is a small model that learns from your own entries and runs on the phone.
 
+## What's new in v13
+
+- **13.1: Debts tab.** A new tab (menu, or Settings > arrange tabs) that lists every loan and credit card you still owe on, with its interest (a year and a month), term (payments left), next due date and minimum payment. *Can I pay?*: shows what you owe, the minimum payments, and what you can put toward debts each month (worked out from your last 3 whole months of income minus spending, or your own figure, which you can change or remove) with a green, yellow or red light. *Pay in this order*: pay every minimum, then the extra to one debt, either highest interest first or smallest debt first (you choose), with this month's amount for each debt and a comparison of debt-free date and total interest against the other way and against minimums only. A debt with no rate set is flagged, add-on interest gets a plain warning, and a short list of the BSP and SEC interest limits is in a fold. "Change figures" on a debt sets its rate, minimum and due day for the plan only (it never adds entries). Nothing is posted by this tab.
+
 ## What's new in v12
 
 - **12.72: edit many entries, bigger graph, aligned boxes.** *Entries*: in select mode, **Edit (n)** changes the name, category, tags (add, replace or remove), notes, account or day of all selected entries at once; amounts are never changed. Each field says whether the selected entries are all the same or "Not the same" (so your change sets all of them); nothing changes until you fill a field, and Undo restores the old values. *Investments*: the line graph beside Market value is much bigger and the "Value over time" words are gone (tap the graph to open it). *Account form*: "Tax on interest" and "Added to balance" labels are the same height so the boxes line up.

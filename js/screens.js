@@ -1003,7 +1003,7 @@ function settingsGrouped(html) {
 }
 
 // ---------------- Arrange tabs and Home cards (Settings) ----------------
-export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Entries', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'], invest: ['Invest', 'spark'] };
+export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Entries', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'], invest: ['Invest', 'spark'], debts: ['Debts', 'calc'] };
 export const DEFAULT_TABS = ['home', 'ledger', 'calendar', 'accounts'];
 export function tabIds(db) {
   const t = ((db.settings && db.settings.tabs) || []).filter((x, i, a) => TAB_DEFS[x] && a.indexOf(x) === i).slice(0, 4);
