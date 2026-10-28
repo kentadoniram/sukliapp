@@ -1053,3 +1053,6 @@ img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor:
 
 /* v13: Pay debt */
 .debtq { margin: 2px 0 6px; } #seg { grid-template-columns: repeat(4, 1fr); } #seg button { padding-left: 4px; padding-right: 4px; white-space: nowrap; } .debtrow .btnrow.tight { display: flex; gap: 8px; flex-wrap: wrap; }
+/* v13.3: plan with due dates, habits and shortfall */
+.shortlist { margin: 4px 0 0; padding-left: 18px; } .cutbox { margin-top: 10px; padding: 10px 12px; border: 1px dashed var(--rule); border-radius: 12px; font-size: 14px; } .cutbox ul { margin: 6px 0 0; padding-left: 18px; } .cutbox li { margin: 3px 0; }
+.payorder li.od { border-color: #d64545; } .payorder small { display: block; line-height: 1.35; } .debtpage .subh { margin: 14px 0 6px; font-size: 15px; }
