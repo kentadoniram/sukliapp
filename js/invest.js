@@ -369,7 +369,7 @@ function performanceCard(db, bal, book, items) {
   const known = rows.filter((r) => r.cost > 0), unk = rows.filter((r) => !(r.cost > 0)), tc = known.reduce((x, r) => x + r.cost, 0), tv = known.reduce((x, r) => x + r.v, 0), mx = Math.max(1, ...known.map((r) => Math.max(r.cost, r.v)));
   const nm = (a) => ((db.settings.tickers || {})[a.cur] || {}).ticker || a.cur;
   const bar = (r) => `<div class="perf"><div class="perfhead"><b>${esc(nm(r.a))}</b> <small class="muted">${esc(r.a.exchange || '')}</small><span class="${r.v >= r.cost ? 'cg' : 'cr'}">${r.v >= r.cost ? '+' : '−'}${money(Math.abs(r.v - r.cost))} (${((r.v - r.cost) / r.cost * 100).toFixed(1)}%)</span></div>
-    <div class="perfbars"><i class="pb paid" style="width:${(r.cost / mx * 100).toFixed(1)}%"></i><small>paid ${money(r.cost)}${r.own ? ' (your figure)' : ''}</small></div>
+    <div class="perfbars"><i class="pb paid" style="width:${(r.cost / mx * 100).toFixed(1)}%"></i><small>paid ${money(r.cost)}${r.own ? ` (your figure) <button type="button" class="linkbtn" data-act="inv-cost" data-id="${r.a.id}">Change</button> <button type="button" class="linkbtn rmx" data-act="inv-cost-clear" data-id="${r.a.id}">Remove</button>` : ''}</small></div>
     <div class="perfbars"><i class="pb now ${r.v >= r.cost ? 'up' : 'down'}" style="width:${(r.v / mx * 100).toFixed(1)}%"></i><small>now ${money(r.v)}</small></div></div>`;
   return coll('i-perf', `Performance <small class="muted gsum">${tc > 0 ? `${tv >= tc ? '+' : '−'}${money(Math.abs(tv - tc))} (${((tv - tc) / tc * 100).toFixed(1)}%)` : ''}</small>`,
     `${known.sort((x, y) => y.v - x.v).map(bar).join('') || '<p class="hint">Buy through Buy / sell, or tell Sukli what you paid, to compare.</p>'}
@@ -378,8 +378,13 @@ function performanceCard(db, bal, book, items) {
 }
 ACT['inv-cost'] = async (el) => {
   const a = get().accounts.find((x) => x.id === el.dataset.id); if (!a) return;
-  const v = await promptDialog(`In total, how much did you pay for ${a.cur}? (in ${HOME})`, a.costHome ? String(a.costHome) : '', { type: 'number' });
-  if (v == null) return; const n = parseFloat(v); if (!(n > 0)) return; commit((d) => { const x = d.accounts.find((q) => q.id === a.id); x.costHome = n; stamp(x); });
+  const v = await promptDialog(`In total, how much did you pay for ${a.cur}? (in ${HOME})`, a.costHome ? String(a.costHome) : '', { type: 'number', hint: a.costHome ? 'Leave it empty to remove your figure.' : '' });
+  if (v == null) return; const n = parseFloat(v); if (!(n > 0)) { if (a.costHome && String(v).trim() === '') ACT['inv-cost-clear'](el); return; } commit((d) => { const x = d.accounts.find((q) => q.id === a.id); x.costHome = n; stamp(x); });
+};
+ACT['inv-cost-clear'] = async (el) => {
+  const a = get().accounts.find((x) => x.id === el.dataset.id); if (!a || !a.costHome) return;
+  if (!(await confirmDialog(`Remove the figure you entered for ${a.cur} (${fmt(a.costHome, HOME)})? Performance will show it as having no known cost until you enter one or buy through Buy / sell.`, 'Remove', true))) return;
+  commit((d) => { const x = d.accounts.find((q) => q.id === a.id); if (x) { delete x.costHome; stamp(x); } }); toast('Removed.');
 };
 // income from investments: staking, airdrops, dividends, yield: any date, any amount
 const INCOME_TYPES = ['Staking reward', 'Airdrop', 'Dividend', 'Interest or yield', 'Other distribution'];
