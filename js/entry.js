@@ -57,14 +57,14 @@ function blank() {
   const db = get();
   const accts = db.accounts.filter((a) => !a.deleted && !a.archived);
   const last = accts.find((a) => a.id === db.settings.lastAcct) || accts.find((a) => a.include) || accts[0];
-  return { kind: 'expense', amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
+  return { kind: 'expense', debt: false, amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
     catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), posted: '', postedOn: false, notes: '', labels: '', items: [], flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
     fee: '', feeCat: '', feeBy: 'from', feeTouched: false, calc: false, convert: false, cRate: '', qtab: '', qtabManual: false };
 }
 function fromTx(t) {
   const db = get();
   const cross = t.kind === 'transfer' && t.toAmount != null && Math.abs(t.toAmount - t.amount) > 1e-9;
-  return { kind: t.kind, amount: String(t.amount), name: t.name || '', acct: t.acct, toAcct: t.toAcct || '',
+  return { kind: t.kind, debt: !!t.debtPay, amount: String(t.amount), name: t.name || '', acct: t.acct, toAcct: t.toAcct || '',
     toAmount: t.toAmount != null ? String(t.toAmount) : '', fx: t.fx ? prec(t.fx / homeRate(db, t.date)) : '', cat: t.cat || '',
     fee: t.fee > 0 ? String(t.fee) : '', feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
     convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
@@ -101,10 +101,22 @@ function catOptions(sel, kind) {
       `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`).join('');
 }
 
+// Pay debt works like a transfer, but the form asks plain questions: which debt, paid from where. Keep the two sides sensible.
+const owedOf = (id) => Math.max(0, -(balances(get()).get(id) || 0));
+function debtFix(f) {
+  const live = get().accounts.filter((a) => !a.deleted && !a.archived), pay = live.filter((a) => !isLiability(a)), debts = live.filter((a) => isLiability(a));
+  const to = live.find((a) => a.id === f.toAcct);
+  if (!to || !isLiability(to)) { const d = debts.filter((a) => owedOf(a.id) > 0.004).sort((x, y) => owedOf(y.id) - owedOf(x.id))[0] || debts[0]; f.toAcct = d ? d.id : ''; }
+  const from = live.find((a) => a.id === f.acct);
+  const tt = live.find((a) => a.id === f.toAcct);
+  if (!from || isLiability(from) || (!f.acctTouched && tt && from.cur !== tt.cur)) { const same = (x) => !tt || x.cur === tt.cur, p = pay.find((a) => same(a) && a.include) || pay.find(same) || pay.find((a) => a.include) || pay[0]; f.acct = p ? p.id : ''; }
+}
+
 export function openEntry(opts = {}) {
   const db = get();
   const existing = opts.id ? db.txs.find((t) => t.id === opts.id) : null;
   const f = existing ? fromTx(existing) : { ...blank(), ...(opts.preset || {}) };
+  if (f.debt && f.kind === 'transfer') debtFix(f);
   if (!db.accounts.some((a) => !a.deleted)) {
     toast('Add an account first (Accounts tab), then you can record entries.');
     location.hash = '#/accounts';
@@ -151,10 +163,10 @@ export function openEntry(opts = {}) {
 
   // ---------- renderers ----------
   function renderSeg() {
-    const k = [['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']];
-    $f('seg').innerHTML = k.map(([v, l]) => `<button type="button" data-e="kind" data-v="${v}" aria-pressed="${f.kind === v}" class="${f.kind === v ? 'on' : ''}">${l}</button>`).join('');
-    $f('namelabel').textContent = f.kind === 'transfer' ? 'Label (optional, remembers the route)' : f.kind === 'income' ? 'Where from?' : 'What was it?';
-    $f('f-what').placeholder = f.kind === 'transfer' ? 'e.g. Card payment, Top up Maya' : 'e.g. Life Tsukagoshi, bus, salary';
+    const k = [['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer'], ['debt', 'Pay debt']], on = (v) => (v === 'debt' ? f.kind === 'transfer' && f.debt : v === 'transfer' ? f.kind === 'transfer' && !f.debt : f.kind === v);
+    $f('seg').innerHTML = k.map(([v, l]) => `<button type="button" data-e="kind" data-v="${v}" aria-pressed="${on(v)}" class="${on(v) ? 'on' : ''}">${l}</button>`).join('');
+    $f('namelabel').textContent = f.kind === 'transfer' ? (f.debt ? 'Note (optional)' : 'Label (optional, remembers the route)') : f.kind === 'income' ? 'Where from?' : 'What was it?';
+    $f('f-what').placeholder = f.kind === 'transfer' ? (f.debt ? 'e.g. Monthly payment' : 'e.g. Card payment, Top up Maya') : 'e.g. Life Tsukagoshi, bus, salary';
   }
   // quick picks: tap one and the name, amount, account and category are filled in
   function renderFreq() {
@@ -167,10 +179,10 @@ export function openEntry(opts = {}) {
       tabs = [['routes', 'Usual routes'], ['recent', 'Recent']];
       if (!f.qtab || !tabs.some((t) => t[0] === f.qtab)) f.qtab = 'routes';
       const nm = (id) => (am.get(id) || { name: '?' }).name;
-      const routes = hints.routes.filter((r) => am.has(r.from) && am.has(r.to) && !am.get(r.from).deleted && !am.get(r.to).deleted);
+      const routes = hints.routes.filter((r) => am.has(r.from) && am.has(r.to) && !am.get(r.from).deleted && !am.get(r.to).deleted && (!f.debt || isLiability(am.get(r.to))));
       const list = (f.qtab === 'routes' ? routes.sort((a, b) => b.n - a.n) : routes.sort((a, b) => (a.last < b.last ? 1 : -1))).slice(0, 6);
       chips = list.map((r) => `<button type="button" class="chip" data-e="route" data-from="${r.from}" data-to="${r.to}">${esc(nm(r.from))} → ${esc(nm(r.to))}${r.name && r.name !== `${nm(r.from)} → ${nm(r.to)}` ? ` <small>${esc(r.name)}</small>` : ''}</button>`).join('');
-      hint = chips ? '' : 'Routes you use often will show here.';
+      hint = chips ? '' : (f.debt ? 'Debts you pay often will show here.' : 'Routes you use often will show here.');
     } else {
       const amt = num(f.amount), a = acctOf(f.acct);
       tabs = [['usual', 'Usual'], ['recent', 'Recent']];
@@ -198,7 +210,7 @@ export function openEntry(opts = {}) {
   }
   function updateNamePh() {                                             // a transfer left unnamed will be called "from - to"
     const el = form.querySelector('#f-what'); if (!el) return;
-    el.placeholder = f.kind === 'transfer' ? (acctOf(f.acct) && acctOf(f.toAcct) ? `Leave blank: ${acctOf(f.acct).name} - ${acctOf(f.toAcct).name}` : 'Leave blank to use the two account names') : 'e.g. Life Tsukagoshi, bus, salary (blank is filled in for you)';
+    el.placeholder = f.kind === 'transfer' && f.debt ? 'Optional. Blank is filled in for you' : f.kind === 'transfer' ? (acctOf(f.acct) && acctOf(f.toAcct) ? `Leave blank: ${acctOf(f.acct).name} - ${acctOf(f.toAcct).name}` : 'Leave blank to use the two account names') : 'e.g. Life Tsukagoshi, bus, salary (blank is filled in for you)';
   }
   // what the account holds right now, shown under its name in a transfer
   const balLine = (id) => { const a = acctOf(id); if (!a) return ''; const v = balances(get()).get(id) || 0; return `<small class="acctbal ${v < 0 ? 'neg' : ''}">Balance ${esc(fmt(v, a.cur, { force: !priv.on }))}</small>`; };
@@ -207,10 +219,16 @@ export function openEntry(opts = {}) {
     const el = $f('acctrow');
     const a = acctOf(f.acct);
     renderCur(); renderPosted();
-    $f('acctwhen').classList.toggle('inrow', f.kind !== 'transfer'); $f('f-all').hidden = f.kind !== 'transfer'; renderWhen();                  // Account and When share a row, except for transfers (From / To need the width)
+    $f('acctwhen').classList.toggle('inrow', f.kind !== 'transfer'); $f('f-all').hidden = f.kind !== 'transfer' || f.debt; renderWhen();                  // Account and When share a row, except for transfers (From / To need the width)
     if (f.kind !== 'transfer') {
       const sug = f.acctSuggested && !f.acctTouched;
       el.innerHTML = `<div class="field ${sug ? 'suggested' : ''}"><span>Account ${sug ? '<small class="sugnote">· suggested</small>' : ''}</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc(accLabel(acctOf(f.acct)) || 'Choose account')}${acctOf(f.acct) ? ' · ' + acctOf(f.acct).cur : ''} ▾</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, '', '')}</select></div>`;
+    } else if (f.debt) {
+      debtFix(f); const b = acctOf(f.toAcct), owed = owedOf(f.toAcct), L = b && b.loan, minV = b ? ((b.dm && b.dm.min) || (L && L.monthly) || 0) : 0, same = a && b && a.cur === b.cur;
+      const q = same && owed > 0.004 ? `<div class="chips debtq">${minV > 0 && minV < owed ? `<button type="button" class="chip" data-e="debtamt" data-v="${minV}">Minimum <small>${esc(fmt(minV, b.cur, { force: !priv.on }))}</small></button>` : ''}<button type="button" class="chip" data-e="debtamt" data-v="${owed}">All I owe <small>${esc(fmt(owed, b.cur, { force: !priv.on }))}</small></button></div>` : '';
+      el.innerHTML = `<div class="field"><span>What will you pay?</span><button type="button" class="acctbtn" data-e="acctpick" data-which="to">${esc(accLabel(b) || 'Choose a card or loan')} ▾${b ? `<small class="acctbal neg">You owe ${esc(fmt(owed, b.cur, { force: !priv.on }))}</small>` : ''}</button><select id="f-to" hidden aria-hidden="true">${acctOptions(f.toAcct, f.acct)}</select></div>
+        <div class="field"><span>Paid from</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc(accLabel(a) || 'Choose')} ▾${balLine(f.acct)}</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, f.toAcct, '')}</select></div>${q}
+        <p class="hint">This is not counted as spending. It lowers what you owe and the money in the account you pay from.</p>`;
     } else {
       if (!f.toAcct) { const o = get().accounts.find((x) => !x.deleted && !x.archived && x.id !== f.acct); f.toAcct = o ? o.id : ''; }
       el.innerHTML = `<div class="two sw"><div class="field"><span>From</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc(accLabel(acctOf(f.acct)) || 'Choose')} ▾${balLine(f.acct)}</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, f.toAcct, '')}</select></div>
@@ -295,7 +313,7 @@ export function openEntry(opts = {}) {
   }
   function renderFee() {
     const el = $f('feerow');
-    if (f.kind !== 'transfer') { el.innerHTML = ''; return; }
+    if (f.kind !== 'transfer' || f.debt) { el.innerHTML = ''; return; }
     suggestFee();
     const a = acctOf(f.acct), b = acctOf(f.toAcct);
     if (!a || !b) { el.innerHTML = ''; return; }
@@ -511,14 +529,14 @@ export function openEntry(opts = {}) {
     const k = smartKind(f.name); let html = '';
     if (k === 'cash') html = `<button type="button" class="chip" data-e="smart" data-v="cash">Credit to cash: see the fees and interest first</button>`;
     else if (k === 'loan') html = `<button type="button" class="chip" data-e="smart" data-v="loan">Taking a loan? Open the loan planner</button>`;
-    else if ((k === 'cardpay' || k === 'loanpay') && f.kind !== 'transfer') html = `<button type="button" class="chip" data-e="smart" data-v="${k}">This is money moving to ${k === 'cardpay' ? 'your card' : 'your loan'}: record it as a transfer</button>`;
+    else if ((k === 'cardpay' || k === 'loanpay') && !(f.kind === 'transfer' && f.debt)) html = `<button type="button" class="chip" data-e="smart" data-v="${k}">Paying ${k === 'cardpay' ? 'your card' : 'your loan'}? Use Pay debt</button>`;
     el.innerHTML = html ? `<div class="chips">${html}</div>` : '';
   }
   function smartAct(v) {
     if (v === 'cash') return openLoanPlanner({ kind: 'cash' });
     if (v === 'loan') return openLoanPlanner({ kind: 'personal' });
     const accts = get().accounts.filter((a) => !a.deleted && !a.archived), t = accts.filter((a) => (v === 'cardpay' ? a.type === 'card' : a.type === 'loan' || a.loan) && a.id !== f.acct).sort((x, y) => (y.loan ? 1 : 0) - (x.loan ? 1 : 0))[0];
-    form.querySelector('[data-e=kind][data-v=transfer]').click();
+    form.querySelector('[data-e=kind][data-v=debt]').click();
     if (t) { f.toAcct = t.id; if (!num(f.amount) && t.loan && t.loan.monthly) { f.amount = String(t.loan.monthly); $f('f-amount').value = f.amount; } renderAccts(); renderFx(); syncCross(); }
   }
   function renderNameHelp() {
@@ -637,17 +655,18 @@ export function openEntry(opts = {}) {
     const v = b.dataset.v;
     switch (b.dataset.e) {
       case 'kind':
-        f.kind = v; if (v !== 'expense') { f.items = []; f.showItems = false; }
+        { const was = f.debt; f.debt = v === 'debt'; f.kind = v === 'debt' ? 'transfer' : v; if (was && !f.debt) { f.feeTouched = false; f.fee = ''; } } if (f.debt) { debtFix(f); f.feeTouched = true; f.fee = ''; f.convert = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; } if (v !== 'expense') { f.items = []; f.showItems = false; }
         f.qtab = ''; f.qtabManual = false;
-        if (!f.catTouched || v === 'transfer') { f.cat = ''; f.catTouched = false; }
-        else { const c = catMap(get()).get(f.cat); if (c && !(c.kind === v || c.kind === 'both')) { f.cat = ''; f.catTouched = false; } }
+        if (!f.catTouched || f.kind === 'transfer') { f.cat = ''; f.catTouched = false; }
+        else { const c = catMap(get()).get(f.cat); if (c && !(c.kind === f.kind || c.kind === 'both')) { f.cat = ''; f.catTouched = false; } }
         arrange(); renderSeg(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderSugg(); renderSafety(); break;
+      case 'debtamt': { f.amount = String(+(+v).toFixed(6)); const fa = $f('f-amount'); fa.value = commasOn() ? withCommas(f.amount) : f.amount; fa.dispatchEvent(new Event('input', { bubbles: true })); break; }
       case 'swapacct': { const t = f.acct; f.acct = f.toAcct; f.toAcct = t; f.acctTouched = true; f.acctSuggested = false; f.feeTouched = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; f.cRate = ''; renderAccts(); renderFx(); syncCross(); renderSugg(); break; }
       case 'smart': smartAct(v); break;
       case 'qtab': f.qtab = v; f.qtabManual = true; renderFreq(); break;
       case 'pick': if (Date.now() - sgDone > 700) applyPick(v); break;
       case 'acctpick': { const to = b.dataset.which === 'to', sel = $f(to ? 'f-to' : 'f-acct'), a = acctOf(f.acct);
-        openAccountPicker({ selected: sel.value, skip: to ? f.acct : (f.kind === 'transfer' ? f.toAcct : ''), cur: to ? '' : (a && a.cur) || '', title: to ? 'To account' : f.kind === 'transfer' ? 'From account' : 'Account' }, (id) => { sel.value = id; sel.dispatchEvent(new Event('change', { bubbles: true })); }); break; }
+        openAccountPicker({ selected: sel.value, skip: to ? f.acct : (f.kind === 'transfer' ? f.toAcct : ''), cur: to ? '' : (a && a.cur) || '', only: f.debt ? (to ? 'debt' : 'pay') : '', title: f.debt ? (to ? 'What will you pay?' : 'Paid from') : to ? 'To account' : f.kind === 'transfer' ? 'From account' : 'Account' }, (id) => { sel.value = id; sel.dispatchEvent(new Event('change', { bubbles: true })); }); break; }
       case 'curpick': openCurrencyPicker((c) => { const sel = $f('f-cur'); if (![...sel.options].some((o) => o.value === c)) sel.add(new Option(c, c)); sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); }, { title: 'Currency' }); break;
       case 'route': pickRoute(b.dataset.from, b.dataset.to); break;
       case 'calc': f.calc = !f.calc; renderKeypad(); break;
@@ -752,12 +771,14 @@ export function openEntry(opts = {}) {
     let toAmount = null;
     if (f.kind === 'transfer') {
       const b = acctOf(f.toAcct);
+      if (f.debt && (!b || !isLiability(b))) return fail('Choose the card or loan you are paying.');
+      if (f.debt && isLiability(a)) return fail('Choose the account you pay from (not a card or loan).');
       if (!b || b.id === a.id) return fail('Choose two different accounts.');
       toAmount = a.cur === b.cur ? (f.sameDiff && num(f.toAmount) > 0 ? +num(f.toAmount).toFixed(6) : amount) : !f.convert ? amount : +num(f.toAmount).toFixed(6);
       if (!(toAmount > 0)) return fail(`Enter how much arrived in ${b.name} (${b.cur}).`);
     }
     let fee = 0, feeCat = '', feeFx = null, feeCur = '';
-    if (f.kind === 'transfer' && num(f.fee) > 0) {
+    if (f.kind === 'transfer' && !f.debt && num(f.fee) > 0) {
       fee = +num(f.fee).toFixed(6);
       if (!f.feeCat) return fail('Choose what kind of fee it is (transfer fee, bank service fee, network fee…).');
       const fa = f.feeBy === 'to' ? acctOf(f.toAcct) : a;
@@ -782,7 +803,8 @@ export function openEntry(opts = {}) {
     } else if (!label && f.kind === 'expense' && tripCat() && !(f.from.trim() && f.to.trim())) { label = tripLabel(modeNow(), '', ''); autoName = true; }
     if (!label) {
       autoName = true;
-      if (f.kind === 'transfer') label = transferLabel(a, acctOf(f.toAcct));
+      if (f.kind === 'transfer' && f.debt) label = `Paid ${acctOf(f.toAcct).name}`;
+      else if (f.kind === 'transfer') label = transferLabel(a, acctOf(f.toAcct));
       else if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) label = tripLabel(modeNow(), f.from.trim(), f.to.trim());
       else if (f.kind === 'expense' && tripCat() && (() => { const x = suggestTrips(db2, isTransportCat(db2.categories), { hour: hourOf(f.date), prevTo: prevTrip(), limit: 1 })[0]; if (x && x.p >= 0.4) { label = x.name; if (!f.from.trim() && !f.to.trim()) { f.from = x.from; f.to = x.to; } return true; } return false; })()) flag = 'review';
       else { label = guessLabel(db2, { kind: f.kind, cat, amount, acct: a.id, hour: hourOf(f.date) }).name; flag = 'review'; }
@@ -790,6 +812,7 @@ export function openEntry(opts = {}) {
     const rec = { kind: f.kind, amount, cur: a.cur, fx, date: f.date, name: label, autoName, cat, acct: a.id,
       toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), labels: joinTags(parseTags(f.labels)), items: items && items.length ? items : [], flag,
       posted: (f.kind !== 'transfer' && f.postedOn && a.type === 'card' && a.stmtDay > 0 && f.posted > String(f.date).slice(0, 10)) ? f.posted : '' };
+    if (f.debt && f.kind === 'transfer') rec.debtPay = true;
     if (f.kind !== 'transfer' && cat && ((f.catTouched && f.guessed && f.guessed !== cat) || (existing && existing.cat && existing.cat !== cat) || (existing && existing.corrected))) rec.corrected = true;
     if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) { rec.from = f.from.trim(); rec.to = f.to.trim(); } else if (existing && (existing.from || existing.to)) { rec.from = ''; rec.to = ''; }
     let savedAs; const alertsBefore = budgetAlerts(get(), rec.date.slice(0, 7));
@@ -802,7 +825,7 @@ export function openEntry(opts = {}) {
         // keep what it was before this change, so the Input history can put it back (the last 5 versions)
         const before = {}; for (const k of ['kind', 'date', 'name', 'amount', 'cur', 'fx', 'acct', 'toAcct', 'toAmount', 'cat', 'notes', 'fee', 'feeCat', 'feeBy']) if (t[k] !== undefined) before[k] = t[k];
         t.rev = [{ at: Date.now(), ...before }, ...(t.rev || [])].slice(0, 5);
-        Object.assign(t, rec); stamp(t); savedAs = t; }
+        Object.assign(t, rec); if (!rec.debtPay) delete t.debtPay; stamp(t); savedAs = t; }
       else { savedAs = stamp({ id: uid(), ...rec, createdAt: Date.now() }); d.txs.push(savedAs); }
       d.settings.lastAcct = a.id;
     });

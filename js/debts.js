@@ -3,6 +3,7 @@
 import { get, commit, stamp, balances, homeFx, fmt, HOME, nowStamp, thisMonth, shiftMonth } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog, ic } from './ui.js';
 import { hdr, coll } from './screens.js';
+import { openEntry } from './entry.js';
 import { cardBilling, isLiability } from './finance.js';
 import { loanProgress } from './loancalc.js';
 import { loanPayments, LOAN_KINDS } from './loans.js';
@@ -84,7 +85,7 @@ export function debts(db) {
   const dueText = (d) => (d.due ? `<b class="${d.overdue ? 'cr' : ''}">${d.overdue ? 'Overdue since ' + niceDate(d.due) : niceDate(d.due) + (d.days != null ? (d.days === 0 ? ' (today)' : ` (${d.days} day${d.days === 1 ? '' : 's'})`) : '')}</b>` : '<span class="muted">not set</span>');
   const rows = orderDebts(list, md).map((d) => `<div class="debtrow ${d.overdue ? 'od' : ''}"><div class="dr-head"><div><b>${esc(d.name)}</b><small class="muted">${esc(d.kind)}${d.cur !== HOME ? ` · ${fmt(d.owedCur, d.cur)}` : ''}</small></div><b class="dr-owed">${money(d.owed)}</b></div>
     <ul class="calfacts"><li><span>Interest</span>${rateText(d)}</li><li><span>Term</span><b>${d.left ? `${d.left} payment${d.left > 1 ? 's' : ''} left` : (d.months ? `${d.months} months` : 'No fixed end')}</b></li><li><span>Next payment due</span>${dueText(d)}</li>${d.type === 'card' && d.dueAmount != null && d.dueAmount > 0 ? `<li><span>Statement amount due</span><b>${money(d.dueAmount)}</b></li>` : ''}<li><span>Minimum payment</span><b>${money(d.min)}</b>${d.minEst ? ' <small class="muted">(estimate: 5%)</small>' : ''}</li></ul>
-    <div class="btnrow tight"><button type="button" class="btn sm ghost" data-act="debt-edit" data-id="${d.id}">${d.rateKnown && d.src !== 'yours' && !d.minTyped ? 'Check or change figures' : 'Change figures'}</button></div></div>`).join('');
+    <div class="btnrow tight"><button type="button" class="btn sm" data-act="debt-pay" data-id="${d.id}">Pay this debt</button><button type="button" class="btn sm ghost" data-act="debt-edit" data-id="${d.id}">${d.rateKnown && d.src !== 'yours' && !d.minTyped ? 'Check or change figures' : 'Change figures'}</button></div></div>`).join('');
   const warn = `${unknownRate.length ? `<p class="lpwarn">${ic('spark')} No interest rate is set for ${unknownRate.map((d) => esc(d.name)).join(', ')}. The plan counts it as 0% until you set it, so the order may be wrong.</p>` : ''}${addons.length ? `<p class="hint">${addons.map((d) => esc(d.name)).join(', ')} uses add-on interest: a fixed charge on the original amount. Paying it off early may save little or nothing, so ask the lender what an early payoff costs.</p>` : ''}`;
   const limits = `<ul class="calfacts limits">
     <li><span>Credit cards (BSP)</span><b>Interest on an unpaid balance: at most 3% a month (36% a year). Cash advance fee: at most ₱200 each. The BSP kept these limits in August 2023 and said it would review them.</b></li>
@@ -98,6 +99,7 @@ export function debts(db) {
     ${coll('d-limits', 'Interest limits in the Philippines', limits)}</div>`;
 }
 
+ACT['debt-pay'] = (el) => openEntry({ preset: { kind: 'transfer', debt: true, toAcct: el.dataset.id } });
 ACT['debt-mode'] = (el) => commit((d) => { d.settings.debtMode = el.dataset.m === 'snowball' ? 'snowball' : 'avalanche'; });
 ACT['debt-budget'] = () => {
   const db = get(), cur = db.settings.debtBudget || '', b = budgetInfo(db);

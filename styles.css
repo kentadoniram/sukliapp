@@ -1050,3 +1050,6 @@ img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor:
 .payorder .po-b { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 14px; }
 .debtrow { margin: 10px 0; padding: 12px; border: 1px solid var(--rule); border-radius: 14px; } .debtrow.od { border-color: #d64545; } .dr-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; } .dr-head > div { display: flex; flex-direction: column; min-width: 0; } .dr-owed { font-size: 18px; }
 .debtpage .calfacts li { gap: 10px; } .debtpage .limits li { flex-direction: column; align-items: flex-start; gap: 2px; } .debtpage .limits b { font-weight: 500; }
+
+/* v13: Pay debt */
+.debtq { margin: 2px 0 6px; } #seg { grid-template-columns: repeat(4, 1fr); } #seg button { padding-left: 4px; padding-right: 4px; white-space: nowrap; } .debtrow .btnrow.tight { display: flex; gap: 8px; flex-wrap: wrap; }
