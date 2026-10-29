@@ -2,7 +2,6 @@
 // Each entry, account, category and budget is one row; only rows that changed travel.
 // Sign-in is email + password, and a database rule lets each user see only their own rows.
 import { get, commit } from './core.js';
-import { CONFIG } from '../config.js';
 
 export const SETUP_SQL = `-- Run this once in Supabase: SQL Editor, paste, Run.
 create table if not exists public.records (
@@ -54,11 +53,10 @@ export const session = () => lsGet(AUTH_KEY);
 export const signedIn = () => !!(session() && session().refresh_token);
 export const lastOk = () => (lsGet(META_KEY) || {}).lastOk || 0;
 
-export const configured = () => !!(CONFIG.supabaseUrl && CONFIG.supabaseKey);
 const cfg = () => {
   const c = get().settings.cloud || {};
-  const url = String(CONFIG.supabaseUrl || c.url || '').trim().replace(/\/+$/, '');
-  const key = String(CONFIG.supabaseKey || c.key || '').trim();
+  const url = String(c.url || '').trim().replace(/\/+$/, '');
+  const key = String(c.key || '').trim();
   if (!/^https:\/\/[^/]+$/.test(url) || !key) throw new Error('Add your Supabase project URL and public key first.');
   return { url, key };
 };
@@ -134,34 +132,6 @@ export async function signUp(email, password) {
   const s = storeSession(j);
   commit((d) => { d.settings.cloud = { ...(d.settings.cloud || {}), email, auto: true }; });
   return s;
-}
-
-// ---------- Google sign-in (through Supabase) ----------
-// Supabase sends the person to Google and back to this page with the tokens after the "#".
-export function signInWithGoogle() {
-  const { url } = cfg();
-  const back = location.origin + location.pathname;
-  location.href = `${url}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(back)}`;
-}
-
-// called once at start-up: if we were just sent back from Google, keep the session. Returns a message to show, or ''.
-export async function handleOAuthReturn() {
-  const raw = location.hash.replace(/^#\/?/, '');
-  const q = new URLSearchParams(raw.includes('=') ? raw : '');
-  const qs = new URLSearchParams(location.search);
-  const err = q.get('error_description') || qs.get('error_description');
-  if (!q.get('access_token') && !err) return '';
-  history.replaceState(null, '', location.pathname + '#/home');
-  if (err) return /not enabled|provider/i.test(err) ? 'Google sign-in is not switched on in your Supabase project yet. See Settings, Cloud sync, Set up Google sign-in.' : `Google sign-in failed: ${err}`;
-  try {
-    const { url, key } = cfg();
-    const r = await fetch(url + '/auth/v1/user', { headers: { apikey: key, Authorization: 'Bearer ' + q.get('access_token') } });
-    const user = r.ok ? await r.json() : {};
-    storeSession({ access_token: q.get('access_token'), refresh_token: q.get('refresh_token'), expires_in: +q.get('expires_in') || 3600, user });
-    commit((d) => { d.settings.cloud = { ...(d.settings.cloud || {}), email: user.email || '', auto: true }; });
-    await cloudSync();
-    return `Signed in with Google${user.email ? ' as ' + user.email : ''} and synced.`;
-  } catch (e) { return e.message || 'Could not finish Google sign-in.'; }
 }
 
 export function signOut() { lsSet(AUTH_KEY, null); lsSet(META_KEY, null); say('Signed out. Entries stay on this device.'); }

@@ -1,56 +1,21 @@
 // The add / edit sheet, the category picker and the "add many at once" sheet.
 import {
   get, commit, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
-  findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt,
+  findOrAddCategory, groupColor, groupLetter, BASE, balances, CUR, priv,
 } from './core.js';
-import { buildGraph, makeResolver, explain } from './simgraph.js';
-import { nameRules } from './merchants.js';
-import { compareCard, relatedNames } from './compare.js';
-import { smartKind, openLoanPlanner } from './loans.js';
-import { fxBlockHtml, fxBlockUpdate, openConverter } from './fxview.js';
-import { parseTags, joinTags, tagCounts } from './tags.js';
-import { tipBtn } from './interest.js';
-import { isLiability, lockInfo, periodFor, addDay } from './finance.js';
-import { budgetAlerts, newAlertsSince } from './budgetsetup.js';
-import { guessLabel, transferLabel } from './label.js';
-import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat, transportWord, modeOf, tripLabel, bareMode } from './route.js';
-import { buildModel, predict, suggest, lookup, catCandidates, byAmount, recentNames } from './predict.js';
-import { evalExpr, isExpr, tidy } from './calc.js';
-import { predictFee, safetyCheck, typeGroupName, typeGroupOrder, transferHints } from './finance.js';
-import { esc, sheet, toast, ic, confirmDialog, promptDialog } from './ui.js';
-import { applyHide } from './appearance.js';
-import { openDatePicker, prettyDate } from './datepicker.js';
-import { openCurrencyPicker, favCurs, flagOf } from './curpicker.js';
-import { openAccountPicker } from './acctpicker.js';
-import { pickerList, enhanceSelect } from './picker.js';
-import { similarNames } from './merchants.js';
-import { openMerchantPicker, canonMerchant, guessMerchant } from './merchantpick.js';
+import { buildModel, predict, suggest, lookup } from './predict.js';
+import { esc, sheet, toast, ic } from './ui.js';
 
 // ---- models are rebuilt only when the data changed ----
 const cache = {};
 export function modelFor(kind) {
   const db = get();
-  const key = db.txs.length + ':' + db.txs.reduce((m, t) => Math.max(m, t.updatedAt || 0), 0) + ':' + db.categories.length + ':' + db.categories.reduce((m, c) => Math.max(m, c.updatedAt || 0), 0) + ':' + JSON.stringify(nameRules());
-  if (!cache[kind] || cache[kind].key !== key) cache[kind] = { key, m: buildModel(db.txs, kind, db.categories, makeResolver(buildGraph(db))) };
+  const key = db.txs.length + ':' + db.txs.reduce((m, t) => Math.max(m, t.updatedAt || 0), 0) + ':' + db.categories.length + ':' + db.categories.reduce((m, c) => Math.max(m, c.updatedAt || 0), 0);
+  if (!cache[kind] || cache[kind].key !== key) cache[kind] = { key, m: buildModel(db.txs, kind, db.categories) };
   return cache[kind].m;
 }
 
-const commasOn = () => { try { return localStorage.getItem('sukli.commas') !== '0'; } catch { return true; } };
-const withCommas = (v) => {
-  const m = String(v).match(/^(-?)(\d[\d,]*)(\.\d*)?$/);   // plain numbers only; sums like 120+45 are left alone
-  return m ? m[1] + m[2].replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (m[3] || '') : v;
-};
-function formatAmountInput(inp) {
-  if (!commasOn()) return;
-  const raw = inp.value, out = withCommas(raw);
-  if (out === raw) return;
-  const left = raw.slice(0, inp.selectionStart ?? raw.length).replace(/[^\d.]/g, '').length;
-  inp.value = out;
-  let i = 0, c = 0;
-  while (i < out.length && c < left) { if (/[\d.]/.test(out[i])) c++; i++; }
-  try { inp.setSelectionRange(i, i); } catch { /* ignore */ }
-}
-const num = (s) => evalExpr(s);   // plain numbers, or a sum like 120+45*2
+const num = (s) => parseFloat(String(s ?? '').replace(/,/g, ''));
 const hourOf = (d) => parseInt(String(d).slice(11, 13), 10);
 const prec = (x) => String(Number(Number(x).toPrecision(6)));
 
@@ -58,36 +23,21 @@ function blank() {
   const db = get();
   const accts = db.accounts.filter((a) => !a.deleted && !a.archived);
   const last = accts.find((a) => a.id === db.settings.lastAcct) || accts.find((a) => a.include) || accts[0];
-  return { kind: 'expense', debt: false, merchant: '', merchTouched: false, merchSuggested: false, amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
-    catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), posted: '', postedOn: false, notes: '', labels: '', items: [], flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
-    fee: '', feeCat: '', feeBy: 'from', feeTouched: false, calc: false, convert: false, cRate: '', qtab: '', qtabManual: false };
+  return { kind: 'expense', amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
+    catTouched: false, acctTouched: false, date: nowStamp(), notes: '', items: [], flag: null, id: null, pred: null, showItems: false };
 }
 function fromTx(t) {
-  const db = get();
-  const cross = t.kind === 'transfer' && t.toAmount != null && Math.abs(t.toAmount - t.amount) > 1e-9;
-  return { kind: t.kind, debt: !!t.debtPay, merchant: t.merchant || '', merchTouched: true, merchSuggested: false, amount: String(t.amount), name: t.name || '', acct: t.acct, toAcct: t.toAcct || '',
-    toAmount: t.toAmount != null ? String(t.toAmount) : '', fx: t.fx ? prec(t.fx / homeRate(db, t.date)) : '', cat: t.cat || '',
-    fee: t.fee > 0 ? String(t.fee) : '', feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
-    convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
-    catTouched: true, acctTouched: true, date: t.date, posted: t.posted || '', postedOn: !!t.posted, notes: t.notes || '', labels: t.labels || '', flag: t.flag || null, id: t.id, pred: null,
-    items: (t.items || []).map((i) => ({ n: i.n, amt: String(i.amt), cat: i.cat || '' })), showItems: !!(t.items && t.items.length), from: t.from || '', to: t.to || '' };
+  return { kind: t.kind, amount: String(t.amount), name: t.name || '', acct: t.acct, toAcct: t.toAcct || '',
+    toAmount: t.toAmount != null ? String(t.toAmount) : '', fx: t.fx ? prec(t.fx) : '', cat: t.cat || '',
+    catTouched: true, acctTouched: true, date: t.date, notes: t.notes || '', flag: t.flag || null, id: t.id, pred: null,
+    items: (t.items || []).map((i) => ({ n: i.n, amt: String(i.amt), cat: i.cat || '' })), showItems: !!(t.items && t.items.length) };
 }
 
-// accounts grouped by kind (Banks, E-wallets, Crypto…), most recently used first inside each group
-function acctOptions(sel, skip, cur) {
+function acctOptions(sel, skip) {
   const db = get();
-  const lastUsed = new Map();
-  for (const t of db.txs) { if (t.deleted) continue; for (const id of [t.acct, t.toAcct]) if (id && (lastUsed.get(id) || '') < t.date) lastUsed.set(id, t.date); }
-  const groups = new Map();
-  for (const a of db.accounts) {
-    if (a.deleted || a.id === skip || (a.archived && a.id !== sel) || (cur && a.cur !== cur)) continue;
-    const g = a.exchange && (a.type === 'crypto' || a.type === 'invest' || a.invtab) ? `${a.exchange} · ${a.wallet || 'Spot'}` : typeGroupName(a.type);
-    if (!groups.has(g)) groups.set(g, { o: typeGroupOrder(a.type), list: [] });
-    groups.get(g).list.push(a);
-  }
-  const opt = (a) => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(accLabel(a))} · ${a.cur}</option>`;
-  return [...groups.entries()].sort((x, y) => x[1].o - y[1].o || x[0].localeCompare(y[0])).map(([g, v]) =>
-    `<optgroup label="${esc(g)}">${v.list.sort((a, b) => (lastUsed.get(b.id) || '').localeCompare(lastUsed.get(a.id) || '') || a.name.localeCompare(b.name)).map(opt).join('')}</optgroup>`).join('');
+  return db.accounts.filter((a) => !a.deleted && a.id !== skip && (!a.archived || a.id === sel))
+    .sort((a, b) => (b.include - a.include) || a.name.localeCompare(b.name))
+    .map((a) => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)} · ${a.cur}</option>`).join('');
 }
 function catOptions(sel, kind) {
   const db = get();
@@ -102,22 +52,10 @@ function catOptions(sel, kind) {
       `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`).join('');
 }
 
-// Pay debt works like a transfer, but the form asks plain questions: which debt, paid from where. Keep the two sides sensible.
-const owedOf = (id) => Math.max(0, -(balances(get()).get(id) || 0));
-function debtFix(f) {
-  const live = get().accounts.filter((a) => !a.deleted && !a.archived), pay = live.filter((a) => !isLiability(a)), debts = live.filter((a) => isLiability(a));
-  const to = live.find((a) => a.id === f.toAcct);
-  if (!to || !isLiability(to)) { const d = debts.filter((a) => owedOf(a.id) > 0.004).sort((x, y) => owedOf(y.id) - owedOf(x.id))[0] || debts[0]; f.toAcct = d ? d.id : ''; }
-  const from = live.find((a) => a.id === f.acct);
-  const tt = live.find((a) => a.id === f.toAcct);
-  if (!from || isLiability(from) || (!f.acctTouched && tt && from.cur !== tt.cur)) { const same = (x) => !tt || x.cur === tt.cur, p = pay.find((a) => same(a) && a.include) || pay.find(same) || pay.find((a) => a.include) || pay[0]; f.acct = p ? p.id : ''; }
-}
-
 export function openEntry(opts = {}) {
   const db = get();
   const existing = opts.id ? db.txs.find((t) => t.id === opts.id) : null;
   const f = existing ? fromTx(existing) : { ...blank(), ...(opts.preset || {}) };
-  if (f.debt && f.kind === 'transfer') debtFix(f);
   if (!db.accounts.some((a) => !a.deleted)) {
     toast('Add an account first (Accounts tab), then you can record entries.');
     location.hash = '#/accounts';
@@ -126,257 +64,83 @@ export function openEntry(opts = {}) {
   const s = sheet('<form id="entry" novalidate></form>', { title: existing ? 'Edit entry' : 'New entry', wide: true });
   const form = s.el.querySelector('form');
   form.innerHTML = `
+    <div id="freq" class="chips"></div>
     <div class="seg" id="seg" role="group" aria-label="Entry type"></div>
-    <div id="freq" class="qp"></div>
-    <div class="field" id="namefield"><span id="namelabel">What was it?</span>
-      <input id="f-what" name="memo" type="text" role="combobox" aria-autocomplete="list" aria-controls="sugg" aria-expanded="false" autocomplete="off" data-form-type="other" data-lpignore="true" value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary" ${existing ? '' : 'autofocus'}>
-      <div id="sugg" class="sugg" hidden></div></div>
-    <div class="field" id="merchrow" hidden></div>
-    <div class="field amount" id="amountbox"><span class="amtlabel">Amount <button type="button" class="linkbtn eye" data-e="eye" aria-label="Hide or show amounts">${priv.on ? 'Show' : 'Hide'} amounts</button></span>
-      <div class="amtrow"><div class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"><button type="button" class="amtx" data-e="amtclear" aria-label="Clear amount" ${f.amount ? '' : 'style="visibility:hidden"'}>×</button><button type="button" class="allin" id="f-all" data-e="allamt" hidden title="Use the whole balance of the From account">All</button><button type="button" class="calcbtn" data-e="calc" aria-label="Calculator" aria-pressed="false" title="Calculator">${ic('calc')}</button></div><span id="curwrap" class="curwrap"></span></div>
-      <div id="calcres" class="calcres" hidden></div><div id="keypad" class="keypad" hidden></div></div>
+    <div class="field amount"><span class="amtlabel">Amount <button type="button" class="linkbtn eye" data-e="eye" aria-label="Hide or show amounts">${priv.on ? 'Show' : 'Hide'} amounts</button></span>
+      <label class="amtwrap"><b id="sym"></b><input id="f-amount" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(f.amount)}" ${existing ? '' : 'autofocus'}></label></div>
     <div id="fxline"></div>
-    <div id="acctwhen" class="acctwhen"><div id="acctrow"></div><div class="field" id="whenrow"><span>When</span><button type="button" class="whenbtn" id="f-when" data-e="when"></button></div></div>
-    <div id="postedrow" class="postedrow" hidden></div>
-    <div id="convrow"></div>
-    <div id="feerow"></div>
+    <div class="field" id="namefield"><span id="namelabel">What was it?</span>
+      <input id="f-name" autocomplete="off" value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary">
+      <div id="sugg" class="sugg" hidden></div></div>
+    <div id="acctrow"></div>
     <div id="catrow"></div>
-    <div id="triprow"></div>
     <div id="itemsrow"></div>
-    <div class="field" id="tagsrow"></div>
-    <label class="field" id="notesrow"><span>Notes</span><textarea id="f-notes" rows="2" placeholder="Optional">${esc(f.notes)}</textarea></label>
-    <div id="safety" class="safety" aria-live="polite"></div>
+    <label class="field"><span>When</span><input id="f-date" type="datetime-local" value="${toLocalInput(f.date)}"></label>
+    <label class="field"><span>Notes</span><textarea id="f-notes" rows="2" placeholder="Optional">${esc(f.notes)}</textarea></label>
     <p class="err" id="err" role="alert" hidden></p>
     <div class="btnrow" id="btns"></div>`;
   const $f = (id) => form.querySelector('#' + id);
-  // iPhone (installed web app): giving a "name"-like field focus again after a tap makes Safari offer contact autofill. Do not re-focus a field that already has focus.
-  const focusKeep = (el) => { if (el && document.activeElement !== el) el.focus(); };
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
-  const ORDER = {
-    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'itemsrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
-    transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
-  };
-  function arrange() {
-    const ids = f.kind === 'transfer' ? ORDER.transfer : ORDER.flow;
-    if (f.kind !== 'transfer') $f('acctwhen').append($f('acctrow'), $f('whenrow'));          // Account and When share one block (a row) for expense and income
-    for (const id of ids) form.appendChild($f(id));
-    const nh = form.querySelector('#namehelp'), nr = $f('notesrow'); if (nh && nr) nr.after(nh);
-  }
 
   // ---------- renderers ----------
-  // Merchant: where it was bought. Only for expenses; one fixed-height row, so nothing moves while typing.
-  function renderMerch() {
-    const el = $f('merchrow'); el.hidden = f.kind !== 'expense'; if (el.hidden) return;
-    el.innerHTML = `<span>Merchant (optional) ${f.merchSuggested && f.merchant ? '<small class="sugnote">· suggested</small>' : ''}</span><button type="button" class="acctbtn" data-e="merchpick">${f.merchant ? esc(f.merchant) : '<span class="muted">Where did you buy it? (Shopee, wet market…)</span>'} ▾</button>`;
-  }
-  function suggestMerchant() {
-    if (f.merchTouched || existing) return;
-    const g = guessMerchant(get(), f.name);
-    if (g && g !== f.merchant) { f.merchant = g; f.merchSuggested = true; renderMerch(); } else if (!g && f.merchSuggested) { f.merchant = ''; f.merchSuggested = false; renderMerch(); }
-  }
-  function renderSeg() {
-    const k = [['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer'], ['debt', 'Pay debt']], on = (v) => (v === 'debt' ? f.kind === 'transfer' && f.debt : v === 'transfer' ? f.kind === 'transfer' && !f.debt : f.kind === v);
-    $f('seg').innerHTML = k.map(([v, l]) => `<button type="button" data-e="kind" data-v="${v}" aria-pressed="${on(v)}" class="${on(v) ? 'on' : ''}">${l}</button>`).join('');
-    $f('namelabel').textContent = f.kind === 'transfer' ? (f.debt ? 'Note (optional)' : 'Label (optional, remembers the route)') : f.kind === 'income' ? 'Where from?' : 'What was it?';
-    $f('f-what').placeholder = f.kind === 'transfer' ? (f.debt ? 'e.g. Monthly payment' : 'e.g. Card payment, Top up Maya') : 'e.g. Life Tsukagoshi, bus, salary';
-  }
-  // quick picks: tap one and the name, amount, account and category are filled in
   function renderFreq() {
     const el = $f('freq');
-    if (existing) { el.innerHTML = ''; return; }
-    const db2 = get(), am = accountMap(db2);
-    let tabs, chips = '', hint = '';
-    if (f.kind === 'transfer') {
-      const hints = transferHints(db2);
-      tabs = [['routes', 'Usual routes'], ['recent', 'Recent']];
-      if (!f.qtab || !tabs.some((t) => t[0] === f.qtab)) f.qtab = 'routes';
-      const nm = (id) => (am.get(id) || { name: '?' }).name;
-      const routes = hints.routes.filter((r) => am.has(r.from) && am.has(r.to) && !am.get(r.from).deleted && !am.get(r.to).deleted && (!f.debt || isLiability(am.get(r.to))));
-      const list = (f.qtab === 'routes' ? routes.sort((a, b) => b.n - a.n) : routes.sort((a, b) => (a.last < b.last ? 1 : -1))).slice(0, 6);
-      chips = list.map((r) => `<button type="button" class="chip" data-e="route" data-from="${r.from}" data-to="${r.to}">${esc(nm(r.from))} → ${esc(nm(r.to))}${r.name && r.name !== `${nm(r.from)} → ${nm(r.to)}` ? ` <small>${esc(r.name)}</small>` : ''}</button>`).join('');
-      hint = chips ? '' : (f.debt ? 'Debts you pay often will show here.' : 'Routes you use often will show here.');
-    } else {
-      const amt = num(f.amount), a = acctOf(f.acct);
-      tabs = [['usual', 'Usual'], ['recent', 'Recent']];
-      if (f.qtab !== 'usual' && f.qtab !== 'recent') f.qtab = 'usual';
-      const m = modelFor(f.kind);
-      let names = [];
-      if (f.qtab === 'usual') { const isT = isTransportCat(db2.categories); names = rankRouteNames(db2, isT, freqNames(db2, 90, 14, f.kind), hourOf(f.date)).slice(0, 6).map((n) => ({ name: n })); }
-      else if (f.qtab === 'recent') names = recentNames(m, 6);
-      chips = names.map((x) => `<button type="button" class="chip" data-e="pick" data-v="${esc(x.name)}">${esc(x.name)}${x.amount ? ` <small>${esc(fmt(x.amount, a ? a.cur : HOME, { force: !priv.on }).replace(/\.00$/, ''))}</small>` : ''}</button>`).join('');
-      hint = 'Tap one to fill in the name, amount, account and category.';
-    }
-    el.innerHTML = `<div class="qptabs" role="tablist" aria-label="Quick picks">${tabs.map(([v, l]) => `<button type="button" role="tab" class="qtab ${f.qtab === v ? 'on' : ''}" aria-selected="${f.qtab === v}" data-e="qtab" data-v="${v}">${l}</button>`).join('')}</div>
-      <div class="chips ${f.kind === 'transfer' ? 'qpone' : ''}">${chips || ''}</div><span class="qphint">${hint || '&nbsp;'}</span>`;
+    if (existing || f.kind === 'transfer') { el.innerHTML = ''; return; }
+    const names = freqNames(get(), 90, 8, f.kind);
+    el.innerHTML = names.length ? `<span class="chiplabel">Usual</span>` + names.map((n) => `<button type="button" class="chip" data-e="pick" data-v="${esc(n)}">${esc(n)}</button>`).join('') : '';
   }
-  function currencies() {
-    const cnt = new Set(favCurs());
-    for (const a of get().accounts) if (!a.deleted && !a.archived) cnt.add(a.cur);
-    const a = acctOf(f.acct); if (a) cnt.add(a.cur);
-    return [...cnt];
+  function renderSeg() {
+    const k = [['expense', 'Spent'], ['income', 'Got'], ['transfer', 'Moved']];
+    $f('seg').innerHTML = k.map(([v, l]) => `<button type="button" data-e="kind" data-v="${v}" aria-pressed="${f.kind === v}" class="${f.kind === v ? 'on' : ''}">${l}</button>`).join('');
+    $f('namelabel').textContent = f.kind === 'transfer' ? 'Label (optional)' : f.kind === 'income' ? 'Where from?' : 'What was it?';
   }
-  function renderCur() {
-    const a = acctOf(f.acct), list = currencies(), cur = (a && a.cur) || list[0];
-    if (!list.includes(cur)) list.push(cur);
-    $f('curwrap').innerHTML = `<button type="button" class="curbtn sm" data-e="curpick" aria-label="Choose currency" title="Currency">${flagOf(cur)} ${cur} ▾</button><select id="f-cur" hidden aria-hidden="true">${list.map((c) => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join('')}</select>`;
-  }
-  function updateNamePh() {                                             // a transfer left unnamed will be called "from - to"
-    const el = form.querySelector('#f-what'); if (!el) return;
-    el.placeholder = f.kind === 'transfer' && f.debt ? 'Optional. Blank is filled in for you' : f.kind === 'transfer' ? (acctOf(f.acct) && acctOf(f.toAcct) ? `Leave blank: ${acctOf(f.acct).name} - ${acctOf(f.toAcct).name}` : 'Leave blank to use the two account names') : 'e.g. Life Tsukagoshi, bus, salary (blank is filled in for you)';
-  }
-  // what the account holds right now, shown under its name in a transfer
-  const balLine = (id) => { const a = acctOf(id); if (!a) return ''; const v = balances(get()).get(id) || 0; return `<small class="acctbal ${v < 0 ? 'neg' : ''}">Balance ${esc(fmt(v, a.cur, { force: !priv.on }))}</small>`; };
   function renderAccts() {
-    updateNamePh();
     const el = $f('acctrow');
-    const a = acctOf(f.acct);
-    renderCur(); renderPosted();
-    $f('acctwhen').classList.toggle('inrow', f.kind !== 'transfer'); $f('f-all').hidden = f.kind !== 'transfer' || f.debt; renderWhen();                  // Account and When share a row, except for transfers (From / To need the width)
+    const a = acctOf(f.acct), b = acctOf(f.toAcct);
+    $f('sym').textContent = a ? ((CUR[a.cur] || { sym: a.cur + ' ' }).sym) : '';
     if (f.kind !== 'transfer') {
-      const sug = f.acctSuggested && !f.acctTouched;
-      el.innerHTML = `<div class="field ${sug ? 'suggested' : ''}"><span>Account ${sug ? '<small class="sugnote">· suggested</small>' : ''}</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc(accLabel(acctOf(f.acct)) || 'Choose account')}${acctOf(f.acct) ? ' · ' + acctOf(f.acct).cur : ''} ▾</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, '', '')}</select></div>`;
-    } else if (f.debt) {
-      debtFix(f); const b = acctOf(f.toAcct), owed = owedOf(f.toAcct), L = b && b.loan, minV = b ? ((b.dm && b.dm.min) || (L && L.monthly) || 0) : 0, same = a && b && a.cur === b.cur;
-      const q = same && owed > 0.004 ? `<div class="chips debtq">${minV > 0 && minV < owed ? `<button type="button" class="chip" data-e="debtamt" data-v="${minV}">Minimum <small>${esc(fmt(minV, b.cur, { force: !priv.on }))}</small></button>` : ''}<button type="button" class="chip" data-e="debtamt" data-v="${owed}">All I owe <small>${esc(fmt(owed, b.cur, { force: !priv.on }))}</small></button></div>` : '';
-      el.innerHTML = `<div class="field"><span>What will you pay?</span><button type="button" class="acctbtn" data-e="acctpick" data-which="to">${esc(accLabel(b) || 'Choose a card or loan')} ▾${b ? `<small class="acctbal neg">You owe ${esc(fmt(owed, b.cur, { force: !priv.on }))}</small>` : ''}</button><select id="f-to" hidden aria-hidden="true">${acctOptions(f.toAcct, f.acct)}</select></div>
-        <div class="field"><span>Paid from</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc(accLabel(a) || 'Choose')} ▾${balLine(f.acct)}</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, f.toAcct, '')}</select></div>${q}
-        <p class="hint">This is not counted as spending. It lowers what you owe and the money in the account you pay from.</p>`;
+      el.innerHTML = `<label class="field"><span>Account</span><select id="f-acct">${acctOptions(f.acct)}</select></label>`;
     } else {
       if (!f.toAcct) { const o = get().accounts.find((x) => !x.deleted && !x.archived && x.id !== f.acct); f.toAcct = o ? o.id : ''; }
-      el.innerHTML = `<div class="two sw"><div class="field"><span>From</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc(accLabel(acctOf(f.acct)) || 'Choose')} ▾${balLine(f.acct)}</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, f.toAcct, '')}</select></div>
-        <div class="swapcol field"><span aria-hidden="true">&nbsp;</span><button type="button" class="swapbtn" data-e="swapacct" aria-label="Swap From and To" title="Swap From and To">${ic('swap')}</button></div>
-        <div class="field"><span>To</span><button type="button" class="acctbtn" data-e="acctpick" data-which="to">${esc(accLabel(acctOf(f.toAcct)) || 'Choose')} ▾${balLine(f.toAcct)}</button><select id="f-to" hidden aria-hidden="true">${acctOptions(f.toAcct, f.acct)}</select></div></div>`;
+      const b2 = acctOf(f.toAcct);
+      const cross = a && b2 && a.cur !== b2.cur;
+      el.innerHTML = `<div class="two"><label class="field"><span>From</span><select id="f-acct">${acctOptions(f.acct, f.toAcct)}</select></label>
+        <label class="field"><span>To</span><select id="f-to">${acctOptions(f.toAcct, f.acct)}</select></label></div>
+        ${cross ? `<label class="field"><span>Amount received (${b2.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label>` : ''}`;
     }
-    renderConv();
-    renderFee();
-    renderSafety();
-  }
-  const diffNote = (f, a) => { const d = num(f.amount) - num(f.toAmount); return d > 0 ? `${fmt(d, a.cur, { force: false })} less arrived than was sent (a fee or a loss on the way).` : d < 0 ? `${fmt(-d, a.cur, { force: false })} more arrived than was sent.` : ''; };
-  // converting between currencies is optional: off means the same number arrives
-  function renderConv() {
-    const el = $f('convrow');
-    const a = acctOf(f.acct), b = acctOf(f.toAcct);
-    if (f.kind === 'transfer' && a && b && a.cur === b.cur) {
-      // the received amount differs from the sent amount in the same currency (a fee or loss in the transfer): keep it visible and keep it on save
-      if (f.diffInit === undefined) f.diffInit = num(f.toAmount) > 0 && Math.abs(num(f.toAmount) - num(f.amount)) > 1e-9;
-      f.sameDiff = f.diffInit;
-      el.innerHTML = f.sameDiff ? `<div class="convbox"><label class="fxpeso"><span>Received in ${esc(b.name)} (${b.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label><small class="hint" id="diffnote">${diffNote(f, a)}</small><button type="button" class="linkbtn" data-e="samediff">Make the received amount the same</button></div>` : '';
-      f.convert = false; return;
-    }
-    f.sameDiff = false;
-    if (f.kind !== 'transfer' || !a || !b || a.cur === b.cur) { el.innerHTML = ''; f.convert = false; return; }
-    if (a.type === 'crypto' && b.type === 'crypto' && !f.convTouched) f.convert = true;   // two coins are never exactly 1:1
-    el.innerHTML = `<label class="check"><input type="checkbox" id="f-conv" ${f.convert ? 'checked' : ''}> ${a.type === 'crypto' && b.type === 'crypto' ? `Trade ${a.cur} for ${b.cur} (not 1:1)` : `Convert ${a.cur} to ${b.cur} (use an exchange rate)`}</label>
-      ${f.convert ? `<div class="convbox">${fxBlockHtml({ from: a.cur, to: b.cur, amount: num(f.amount), rate: num(f.cRate), always: true, open: 'data-e="fxopen2"' })}<input id="f-crate" type="hidden" value="${esc(f.cRate)}">
-        <label class="fxpeso"><span>Received (${b.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label>
-        ${a.type === 'crypto' || b.type === 'crypto' ? '<small class="hint">Add the exchange’s buy or sell fee below (Fee, type “Trading fee”).</small>' : ''}</div>`
-        : `<small class="hint">Off: the same number arrives in ${esc(b.name)}. Turn on when the amounts differ, like USDT to PHP.</small>`}`;
-  }
-  function crossRate() {
-    const a = acctOf(f.acct), b = acctOf(f.toAcct); if (!a || !b) return 0;
-    const ra = rateFor(get(), a.cur), rb = rateFor(get(), b.cur);
-    return ra > 0 && rb > 0 ? ra / rb : 0;
-  }
-  function syncCross(from) {
-    const amt = num(f.amount), cr = $f('f-crate'), ta = $f('f-toamt');
-    if (!cr || !ta) return;
-    const showInv = () => { const a2 = acctOf(f.acct), b2 = acctOf(f.toAcct), box = $f('convrow'); if (a2 && b2 && box) fxBlockUpdate(box, { from: a2.cur, to: b2.cur, amount: num(f.amount), rate: num(f.cRate) }); };
-    if (from === 'rate') { const r = num(f.cRate); if (amt > 0 && r > 0) { f.toAmount = String(Math.round(amt * r * 1e6) / 1e6); ta.value = f.toAmount; } }
-    else if (from === 'to') { const t = num(f.toAmount); if (amt > 0 && t > 0) { f.cRate = prec(t / amt); cr.value = f.cRate; } }
-    else { const r = num(f.cRate); if (amt > 0 && r > 0) { f.toAmount = String(Math.round(amt * r * 1e6) / 1e6); ta.value = f.toAmount; } }
-    showInv();
   }
   function renderFx() {
     const a = acctOf(f.acct);
     const el = $f('fxline');
-    if (!a || a.cur === HOME || a.cur === BASE) { el.innerHTML = ''; return; }
-    if (!f.fx && f.fxMode !== 'peso') { const r = homeFx(get(), a.cur); f.fx = r ? prec(r) : ''; }
-    // the rate and the home value are kept in two hidden fields; the person sees "Exchange Rate" and a three-line summary
-    el.innerHTML = `${fxBlockHtml({ from: a.cur, to: HOME, amount: num(f.amount), rate: num(f.fx), always: true, open: 'data-e="fxopen"' })}<input id="f-fx" type="hidden" value="${esc(f.fx)}"><input id="f-peso" type="hidden" value="${esc(f.peso)}">`;
+    if (!a || a.cur === BASE) { el.innerHTML = ''; return; }
+    if (!f.fx) { const r = rateFor(get(), a.cur); f.fx = r ? prec(r) : ''; }
+    el.innerHTML = `<div class="fxline"><em id="fxval" class="fxbig"></em><span>1 ${a.cur} =</span><input id="f-fx" inputmode="decimal" aria-label="Exchange rate" value="${esc(f.fx)}"><span>${BASE}</span></div>`;
     updateFxVal();
   }
-  function refreshFxView() { const a = acctOf(f.acct), el = $f('fxline'); if (a && el && a.cur !== HOME) fxBlockUpdate(el, { from: a.cur, to: HOME, amount: num(f.amount), rate: num(f.fx) }); }
-  // two-way: whichever of the rate and the home value you typed last is kept, the other follows the amount
   function updateFxVal() {
-    const pe = $f('f-peso'), fe = $f('f-fx');
-    if (!pe || !fe) return;
-    const amt = num(f.amount);
-    if (f.fxMode === 'peso') {
-      const pv = num(f.peso);
-      if (amt > 0 && pv > 0) { f.fx = prec(pv / amt); fe.value = f.fx; }
-    } else {
-      const x = amt * num(f.fx);
-      f.peso = x > 0 ? String(Math.round(x * 100) / 100) : '';
-      pe.value = f.peso;
-    }
-    fe.value = f.fx; refreshFxView();
-  }
-  // ---- transfer fee (bank service fee, network fee, transfer fee): predicted from earlier transfers ----
-  function feeCatOptions(sel) {
-    const have = get().categories.filter((c) => !c.deleted && c.group === 'Fees' && (c.kind === 'expense' || c.kind === 'both'));
-    const names = ['Transfer fee', 'Trading fee', 'Bank service fee', 'Network fee'].filter((n) => !have.some((c) => c.name === n));
-    return `${have.map((c) => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}${names.map((n) => `<option value="__new:${n}" ${sel === '__new:' + n ? 'selected' : ''}>${n}</option>`).join('')}<optgroup label="Other categories">${catOptions(sel, 'expense')}</optgroup>`;
-  }
-  function suggestFee() {
-    if (f.kind !== 'transfer' || f.feeTouched) return;
-    const p = predictFee(get(), f.acct, f.toAcct, num(f.amount) || 0);
-    if (!p) { if (f.feeSuggested) { f.fee = ''; f.feeSuggested = false; } return; }
-    f.fee = String(p.fee); f.feeCat = p.feeCat; f.feeBy = p.feeBy; f.feeSuggested = true;
-  }
-  function renderFee() {
-    const el = $f('feerow');
-    if (f.kind !== 'transfer' || f.debt) { el.innerHTML = ''; return; }
-    suggestFee();
-    const a = acctOf(f.acct), b = acctOf(f.toAcct);
-    if (!a || !b) { el.innerHTML = ''; return; }
-    const cur = f.feeBy === 'to' ? b.cur : a.cur;
-    const sug = f.feeSuggested && !f.feeTouched;
-    el.innerHTML = `<div class="field feebox ${sug ? 'suggested' : ''}"><span>Fee (optional) ${sug ? '<small class="sugnote">usual fee for this route · change if different</small>' : ''}</span>
-      <div class="feeline"><label class="amtwrap sm"><b>${(CUR[cur] || { sym: cur }).sym}</b><input id="f-fee" inputmode="decimal" autocomplete="off" aria-label="Fee" placeholder="0" value="${esc(f.fee)}"></label>
-        <div class="seg sm two" role="group" aria-label="Who pays the fee">
-          <button type="button" data-e="feeby" data-v="from" title="Taken from the sender (${esc(a.name)})" class="${f.feeBy !== 'to' ? 'on' : ''}" aria-pressed="${f.feeBy !== 'to'}">Taken from<br>sender</button>
-          <button type="button" data-e="feeby" data-v="to" title="Taken from the receiver (${esc(b.name)})" class="${f.feeBy === 'to' ? 'on' : ''}" aria-pressed="${f.feeBy === 'to'}">Taken from<br>receiver</button></div></div>
-      <select id="f-feecat" aria-label="Fee type">${f.feeCat ? '' : '<option value="">Fee type</option>'}${feeCatOptions(f.feeCat)}</select>
-      <small class="muted feewho">Taken from ${esc((f.feeBy === 'to' ? b : a).name)}</small></div>`;
-    const fs = el.querySelector('#f-feecat');
-    if (fs) enhanceSelect(fs, { title: 'Fee type', addLabel: 'Add a new fee type', onAdd: async () => { const n = (await promptDialog('New fee type', '', { okLabel: 'Add', hint: 'For example: Withdrawal fee, Gas fee' }))?.trim(); if (!n) return; fs.add(new Option(n, '__new:' + n)); fs.value = '__new:' + n; fs.dispatchEvent(new Event('change', { bubbles: true })); } });
+    const v = $f('fxval'), a = acctOf(f.acct);
+    if (v && a) { const x = num(f.amount) * num(f.fx); v.textContent = x > 0 ? '≈ ' + fmt(x, BASE) : ''; }
+    const sh = get().settings.showHome !== false;
+    const fl = form.querySelector('.fxline'); if (fl) fl.classList.toggle('quiet', !sh);
   }
   function topCats(kind, n) {
     const m = modelFor(kind);
     return [...m.classes.entries()].sort((x, y) => y[1].n - x[1].n).slice(0, n).map(([id]) => ({ id, p: 0 }));
   }
-  function candidates() { return f.name.trim() ? catCandidates(modelFor(f.kind), get().categories, f.name, f.kind, 6) : []; }
-  // no category yet: offer the existing groups (the larger headings), most used first; tapping one lists its categories
-  function groupSuggest(cm) {
-    const m = modelFor(f.kind), use = new Map();
-    for (const [id, v] of m.classes.entries()) { const c = cm.get(id); if (c) use.set(c.group, (use.get(c.group) || 0) + v.n); }
-    for (const c of get().categories) if (!c.deleted && c.group !== 'Adjustments' && (c.kind === f.kind || c.kind === 'both') && !use.has(c.group)) use.set(c.group, 0);
-    const gs = [...use.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8).map(([g]) => g);
-    if (!gs.length) return '';
-    return `<small class="muted">Not sure which category? Choose a group first:</small><div class="chips grp">${gs.map((g) => `<button type="button" class="chip" data-e="catgroup" data-v="${esc(g)}"><i style="background:${groupColor(g)}">${groupLetter(g)}</i>${esc(g)}</button>`).join('')}</div>`;
-  }
   function renderCats() {
     const el = $f('catrow');
     if (f.kind === 'transfer') { el.innerHTML = ''; return; }
     const cm = catMap(get());
-    const typed = f.name.trim(), short = typed.length < 3;
-    const cands = candidates().filter((x) => cm.has(x.id));
-    const pl = (f.pred && f.pred.cats.length && typed) ? f.pred.cats.slice() : [];
-    let list = typed ? (short ? [...cands, ...pl] : [...pl, ...cands]) : topCats(f.kind, 4);
-    const seen = new Set(); list = list.filter((x) => !seen.has(x.id) && seen.add(x.id));
+    let list = (f.pred && f.pred.cats.length && f.name.trim()) ? f.pred.cats.slice() : topCats(f.kind, 4);
     if (f.cat && !list.some((x) => x.id === f.cat)) list.unshift({ id: f.cat, p: 0 });
-    list = list.filter((x) => cm.has(x.id)).slice(0, 6);
-    const guess = typed && !f.catTouched && f.cat && (f.guessWhy || (f.pred && f.pred.cats[0] ? `${Math.round(f.pred.cats[0].p * 100)}% sure` : ''));
-    const nofit = typed.length >= 2 && !cands.length && !(f.pred && f.pred.cats.length && f.pred.conf >= 0.35);
-    el.innerHTML = `<div class="field"><span>Category ${guess ? `<small class="muted">· guessed: ${esc(f.guessWhy || guess)}</small>` : ''}</span>
-      ${guess && f.pred && f.pred.via ? `<small class="muted via">Matched through: ${esc(explain({ path: f.pred.via.path }))}</small>` : ''}
-      <div class="chips">${list.map((x) => { const c = cm.get(x.id); return ` <button type="button" class="chip cat ${f.cat === x.id ? 'on' : ''} ${guess && f.cat === x.id ? 'guess' : ''}" data-e="cat" data-v="${x.id}"><i style="background:${groupColor(c.group)}">${groupLetter(c.group)}</i>${esc(c.name)}</button>`; }).join('')}
+    list = list.filter((x) => cm.has(x.id)).slice(0, 5);
+    const guess = f.pred && f.name.trim() && !f.catTouched && f.pred.cats[0];
+    el.innerHTML = `<div class="field"><span>Category ${guess ? `<small class="muted">· guessed from your history, ${Math.round(guess.p * 100)}% sure</small>` : ''}</span>
+      <div class="chips">${list.map((x) => { const c = cm.get(x.id); return `<button type="button" class="chip cat ${f.cat === x.id ? 'on' : ''}" data-e="cat" data-v="${x.id}"><i style="background:${groupColor(c.group)}">${groupLetter(c.group)}</i>${esc(c.name)}</button>`; }).join('')}
       <button type="button" class="chip more" data-e="allcats">All</button>
-      <button type="button" class="chip more" data-e="newcat">+ New</button></div>
-      ${!f.cat || nofit ? groupSuggest(cm) : ''}
-      ${nofit ? `<button type="button" class="linkbtn nofit" data-e="newcat">No category fits “${esc(typed.slice(0, 24))}”. Add it as a new category</button>` : ''}</div>`;
+      <button type="button" class="chip more" data-e="newcat">+ New</button></div></div>`;
   }
-  function itemSum() { return f.items.reduce((s2, i) => s2 + (num(i.amt) || 0), 0); }
+  function itemSum() { return f.items.reduce((s, i) => s + (num(i.amt) || 0), 0); }
   function renderItems() {
     const el = $f('itemsrow');
     if (f.kind !== 'expense') { el.innerHTML = ''; return; }
@@ -388,49 +152,19 @@ export function openEntry(opts = {}) {
         <select class="in-c" aria-label="Item category"><option value="">Same as above</option>${catOptions(it.cat, 'expense')}</select>
         <button type="button" class="iconbtn" data-e="item-del" data-v="${i}" aria-label="Remove item">${ic('x')}</button></div>`).join('')}</div>
       <div class="itemfoot"><button type="button" class="linkbtn" data-e="item-add">+ Add item</button><span id="itemleft"></span></div></div>`;
-    el.querySelectorAll('select.in-c').forEach((sel) => enhanceSelect(sel, { title: 'Category', addLabel: 'Add a new category', onAdd: () => openCategoryForm({ kind: 'expense', onDone: (c) => { sel.add(new Option(c.name, c.id)); sel.value = c.id; sel.dispatchEvent(new Event('change', { bubbles: true })); } }) }));
     updateItemLeft();
   }
   function updateItemLeft() {
     const el = $f('itemleft'); if (!el) return;
     const a = acctOf(f.acct); const total = num(f.amount) || 0; const left = total - itemSum();
-    const cur = a ? a.cur : HOME;
+    const cur = a ? a.cur : BASE;
     el.className = Math.abs(left) < 0.005 ? 'ok' : 'off';
     el.textContent = Math.abs(left) < 0.005 ? 'Items add up to the total' : (left > 0 ? `${fmt(left, cur)} not assigned yet` : `Items are ${fmt(-left, cur)} over the total`);
-  }
-  // optional "posted" date for a card entry: it counts in the statement of that day (for a charge made on the statement day that the bank posts the next day)
-  function renderPosted() {
-    const el = $f('postedrow'), a = acctOf(f.acct), show = f.kind !== 'transfer' && a && a.type === 'card' && a.stmtDay > 0;
-    if (!show) { el.hidden = true; el.innerHTML = ''; return; }
-    el.hidden = false; const day = String(f.date).slice(0, 10);
-    if (f.postedOn && (!f.posted || f.posted <= day)) f.posted = addDay(day, 1);
-    if (!f.postedOn) { el.innerHTML = `<button type="button" class="linkbtn" data-e="postedon">Posted on a later day? (optional)</button>`; return; }
-    const p = periodFor(a, f.posted);
-    el.innerHTML = `<div class="field"><span>Posted date <button type="button" class="linkbtn" data-e="postedoff">Remove</button></span><button type="button" class="whenbtn" data-e="posted">${esc(prettyDate(f.posted + ' 00:00:00').split(' · ')[0])}${ic('calendar')}</button><small class="muted">Counts in the statement ${p ? esc(p.label) : ''}, not the one for ${esc(prettyDate(f.date).split(' · ')[0])}.</small></div>`;
-  }
-  function renderWhen() {
-    const pd = prettyDate(f.date);
-    if (f.kind === 'transfer') { $f('f-when').innerHTML = `<span>${esc(pd)}</span>${ic('calendar')}`; return; }
-    const [d, t] = pd.split(' · '), cy = String(new Date().getFullYear());                  // beside Account there is little room: date on top, time under it
-    $f('f-when').innerHTML = `<span class="w2"><b>${esc(d.replace(new RegExp(',? ' + cy + '$'), ''))}</b>${t ? `<small>${esc(t)}</small>` : ''}</span>${ic('calendar')}`;
   }
   function renderBtns() {
     $f('btns').innerHTML = `${existing ? `<button type="button" class="btn danger ghost" data-e="del">Delete</button>` : ''}
       ${existing ? '' : `<button type="button" class="btn ghost" data-e="save-again">Save and add another</button>`}
       <button type="button" class="btn" data-e="save">Save</button>`;
-  }
-  // warnings: budget and spending limit, income, card bills, cash for upcoming payments
-  let safeTimer;
-  function renderSafety() {
-    clearTimeout(safeTimer);
-    safeTimer = setTimeout(() => {
-      const el = $f('safety'); if (!el) return;
-      if (f.kind !== 'expense' && f.kind !== 'transfer') { el.innerHTML = ''; return; }
-      const cm = catMap(get()), c = cm.get(f.cat);
-      const list = f.kind === 'expense' ? safetyCheck(get(), { amount: num(f.amount), acctId: f.acct, kind: f.kind, date: f.date, group: c ? c.group : '' }) : [];
-      const fa = acctOf(f.acct); if (fa && (fa.promos || []).length) { const li = lockInfo(get(), fa, (f.date || '').slice(0, 10) || undefined); if (li.locked > 0 && num(f.amount) > li.available) list.push({ level: 'warn', text: `${fmt(li.locked, fa.cur)} in ${fa.name} is locked until ${li.nextUnlock}. Taking out more than ${fmt(li.available, fa.cur)} may cost you the promo rate.` }); }
-      el.innerHTML = list.map((x) => `<div class="sf ${x.level}" role="${x.level === 'danger' ? 'alert' : 'note'}"><strong>${x.level === 'danger' ? 'Careful: ' : x.level === 'warn' ? 'Heads up: ' : ''}</strong>${esc(x.text)}</div>`).join('');
-    }, 120);
   }
 
   // ---------- prediction ----------
@@ -438,170 +172,35 @@ export function openEntry(opts = {}) {
     if (f.kind === 'transfer') return;
     const a = acctOf(f.acct);
     f.pred = predict(modelFor(f.kind), f.name, num(f.amount) || 0, { acct: f.acct, cur: a && a.cur, hour: hourOf(f.date) });
-    if (!f.catTouched && f.name.trim()) {
-      const cands = candidates(), typed = f.name.trim();
-      if (typed.length >= 3 && f.pred.cats[0] && f.pred.conf >= 0.3) { f.cat = f.pred.cats[0].id; f.guessWhy = ''; }
-      else if (cands[0]) { f.cat = cands[0].id; f.guessWhy = cands[0].why; }
-      else if (f.pred.cats[0]) { f.cat = f.pred.cats[0].id; f.guessWhy = ''; }
-    }
-    typedTransport();
-    renderSmart();
+    if (!f.catTouched && f.pred.cats.length && f.name.trim()) f.cat = f.pred.cats[0].id;
     renderCats();
-    if (tripCat() !== tripShown) renderTrip();
-    renderSafety();
   }
   function renderSugg() {
     const el = $f('sugg');
-    let list;
-    if (f.kind === 'transfer') {
-      const q = f.name.trim().toLowerCase();
-      const am = accountMap(get());
-      list = q ? transferHints(get()).names.filter((x) => x.name.toLowerCase().includes(q) && x.name.toLowerCase() !== q).sort((a, b) => b.n - a.n).slice(0, 5)
-        .map((x) => ({ name: x.name, n: x.n, route: `${(am.get(x.from) || {}).name || '?'} → ${(am.get(x.to) || {}).name || '?'}` })) : [];
-    } else list = suggest(modelFor(f.kind), f.name, 5).filter((x) => x.name.toLowerCase() !== f.name.trim().toLowerCase());
-    el.hidden = !list.length; const wf = $f('f-what'); if (wf) wf.setAttribute('aria-expanded', String(!!list.length));
-    const an = (id) => (acctOf(id) || {}).name || '';
-    el.innerHTML = list.map((x) => `<button type="button" data-e="pick" data-v="${esc(x.name)}">${esc(x.name)} <small>${x.route ? esc(x.route) + ' · ' : (an(x.acct) ? esc(an(x.acct)) + ' · ' : '')}${x.n}×</small></button>`).join('');
-  }
-  // while typing: guess the account you usually pay that name with (shown highlighted until you choose one yourself)
-  function suggestAcct() {
-    if (f.kind === 'transfer' || f.acctTouched || existing || !f.name.trim()) return;
-    const sg = suggest(modelFor(f.kind), f.name, 1)[0];
-    if (!sg || !sg.acct) return;
-    const a = acctOf(sg.acct);
-    if (!a || a.archived) return;
-    if (sg.acct === f.acct) { if (!f.acctSuggested) { f.acctSuggested = true; renderAccts(); } return; }
-    f.acct = sg.acct; f.acctSuggested = true; f.fx = ''; f.fxMode = 'rate'; f.peso = '';
-    renderAccts(); renderFx();
-  }
-  function useAccount(id) { f.acct = id; f.acctSuggested = true; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; renderAccts(); renderFx(); }
-  // remember what the app guessed when you pick something else: a fixed guess teaches the model more
-  // ---------- trips: optional From / To for public transport ----------
-  const tripCat = () => { if (f.kind !== 'expense') return false; if (transportWord(f.name)) return true; return !!f.cat && isTransportCat(get().categories)(f.cat); };
-  // typing "bus" or "MRT" means a trip: move to a transport category (unless you picked one yourself) and show From / To
-  let tripShown = false;
-  function typedTransport() {
-    if (f.kind !== 'expense' || f.catTouched || !transportWord(f.name)) return;
-    const cats = get().categories.filter((c) => !c.deleted && c.kind !== 'income'), isT = isTransportCat(get().categories);
-    if (f.cat && isT(f.cat)) return;
-    const w = (String(f.name).toLowerCase().match(/bus|mrt|lrt|jeep|train|tricycle|taxi|grab|ferry|metro|subway/) || [''])[0];
-    const c = (w && cats.find((x) => isT(x.id) && x.name.toLowerCase().includes(w))) || cats.find((x) => x.group === 'Transportation') || cats.find((x) => isT(x.id));
-    if (c) { f.cat = c.id; f.guessWhy = 'you typed a transport word'; }
-  }
-  // where the last trip you entered today ended: you are probably there now. Entry ORDER counts, not the clock time, so a night of catching up
-  // ("Shibuya - Harajuku" then "Harajuku - Shibuya") still chains correctly.
-  function prevTrip() {
-    const day = String(f.date).slice(0, 10), isT = isTransportCat(get().categories), txs = get().txs; let best = '';
-    const stop = existing ? txs.findIndex((t) => t.id === existing.id) : txs.length;
-    for (let i = 0; i < (stop < 0 ? txs.length : stop); i++) { const t = txs[i]; if (t.deleted || t.kind !== 'expense' || !isT(t.cat) || String(t.date).slice(0, 10) !== day) continue; const r = parseRoute(t.name) || (t.from && t.to ? { to: t.to } : null); if (r) best = r.to; }
-    return best;
-  }
-  const modeNow = () => modeOf(f.name, (catMap(get()).get(f.cat) || {}).name);
-  function tripName() {
-    if (f.from.trim() && f.to.trim() && (!f.name.trim() || f.name === f.autoName || parseRoute(f.name) || bareMode(f.name))) { f.name = tripLabel(modeNow(), f.from, f.to); f.autoName = f.name; $f('f-what').value = f.name; refreshPred(); renderSugg(); renderNameHelp(); }
-    if (f.from.trim() && f.to.trim() && !f.catTouched) { const x = suggestTrips(get(), isTransportCat(get().categories), { hour: hourOf(f.date), from: f.from, to: f.to, limit: 1 })[0]; if (x && x.cat && x.cat !== f.cat) { f.cat = x.cat; f.guessWhy = 'your usual for this trip'; renderCats(); } }
-  }
-  function pickTrip(x) {
-    f.from = x.from; f.to = x.to; if (!f.name.trim() || f.name === f.autoName || parseRoute(f.name) || bareMode(f.name)) { f.name = tripLabel(modeNow(), x.from, x.to); f.autoName = f.name; $f('f-what').value = f.name; }
-    if (x.cat && (!f.catTouched || !tripCat())) { f.cat = x.cat; f.catTouched = false; f.guessWhy = 'your usual for this trip'; }
-    if (!num(f.amount) && x.amount) { f.amount = String(x.amount); $f('f-amount').value = f.amount; updateFxVal && updateFxVal(); }
-    refreshPred(); renderCats(); renderTrip(); renderSugg();
-  }
-  function tripChips() {
-    const el = form.querySelector('#tripchips'); if (!el) return;
-    const db2 = get(), isT = isTransportCat(db2.categories), cm = catMap(db2), both = f.from.trim() && f.to.trim();
-    const list = both ? [] : suggestTrips(db2, isT, { hour: hourOf(f.date), from: f.from, to: f.to, prevTo: prevTrip() });
-    f._trips = list;
-    const guess = list[0] && !f.to.trim() ? list[0].to : '', inp = form.querySelector('#f-to'); if (inp) inp.placeholder = guess ? `${guess}?` : 'To';
-    el.innerHTML = list.length ? `<small class="muted">${f.from.trim() ? 'Where to from ' + esc(f.from.trim()) + '?' : 'Likely trips now'}</small><div class="chips">${list.map((x, i) => `<button type="button" class="chip" data-e="trip" data-v="${i}">${esc(x.from)} → ${esc(x.to)} <small>${esc((cm.get(x.cat) || {}).name || '')} · ${Math.round(x.p * 100)}%</small></button>`).join('')}</div>` : '';
-  }
-  // tag or event: pick one you used before, or add a new one (several are fine)
-  function renderTags() {
-    const el = $f('tagsrow'); if (!el) return;
-    const on = parseTags(f.labels), onSet = new Set(on.map((x) => x.toLowerCase())), more = tagCounts(get()).filter((x) => !onSet.has(x.tag.toLowerCase())).slice(0, 8);
-    el.innerHTML = `<span>Tag or event (optional) ${tipBtn('tags')}</span><div class="chips tagchips">${on.map((x) => `<button type="button" class="chip on" data-e="tag" data-v="${esc(x)}" aria-pressed="true">#${esc(x)} ×</button>`).join('')}${more.map((x) => `<button type="button" class="chip" data-e="tag" data-v="${esc(x.tag)}" aria-pressed="false">#${esc(x.tag)}</button>`).join('')}<button type="button" class="chip" data-e="newtag">+ New tag</button></div>`;
-  }
-  function renderTrip() {
-    tripShown = tripCat();
-    const el = $f('triprow'); if (!tripCat()) { el.innerHTML = ''; return; }
-    const r = parseRoute(f.name); if (!f.from && !f.to && r) { f.from = r.from; f.to = r.to; }
-    const places = [...routeStats(get(), isTransportCat(get().categories)).places.values()].sort((a, b) => b.n - a.n).slice(0, 40);
-    el.innerHTML = `<div class="field trip"><span>Trip <small class="muted">· optional</small></span>
-      <div class="tripin"><input id="f-from" list="placelist" placeholder="From" value="${esc(f.from)}" autocomplete="off" aria-label="From"><b aria-hidden="true">→</b><input id="f-to" list="placelist" placeholder="To" value="${esc(f.to)}" autocomplete="off" aria-label="To"></div>
-      <datalist id="placelist">${places.map((p) => `<option value="${esc(p.name)}">`).join('')}</datalist><div id="tripchips"></div></div>`;
-    tripChips();
-  }
-  function pickCat(id) { const nm = $f('f-what'); if (nm && nm.value !== f.name) f.name = nm.value; if (!f.catTouched && f.cat && f.cat !== id) f.guessed = f.cat; f.cat = id; f.catTouched = true; }
-
-  // a new name that looks like one you already use: ask, remember the answer
-  // labels like "Loan Payment", "Credit Card Payment", "Credit to Cash" point to a different kind of entry: offer it (never switches by itself)
-  function renderSmart() {
-    let el = form.querySelector('#smarthint');
-    if (!el) { const nf = $f('namefield'); if (!nf) return; el = document.createElement('div'); el.id = 'smarthint'; nf.after(el); }
-    const k = smartKind(f.name); let html = '';
-    if (k === 'cash') html = `<button type="button" class="chip" data-e="smart" data-v="cash">Credit to cash: see the fees and interest first</button>`;
-    else if (k === 'loan') html = `<button type="button" class="chip" data-e="smart" data-v="loan">Taking a loan? Open the loan planner</button>`;
-    else if ((k === 'cardpay' || k === 'loanpay') && !(f.kind === 'transfer' && f.debt)) html = `<button type="button" class="chip" data-e="smart" data-v="${k}">Paying ${k === 'cardpay' ? 'your card' : 'your loan'}? Use Pay debt</button>`;
-    el.innerHTML = html ? `<div class="chips">${html}</div>` : '';
-  }
-  function smartAct(v) {
-    if (v === 'cash') return openLoanPlanner({ kind: 'cash' });
-    if (v === 'loan') return openLoanPlanner({ kind: 'personal' });
-    const accts = get().accounts.filter((a) => !a.deleted && !a.archived), t = accts.filter((a) => (v === 'cardpay' ? a.type === 'card' : a.type === 'loan' || a.loan) && a.id !== f.acct).sort((x, y) => (y.loan ? 1 : 0) - (x.loan ? 1 : 0))[0];
-    form.querySelector('[data-e=kind][data-v=debt]').click();
-    if (t) { f.toAcct = t.id; if (!num(f.amount) && t.loan && t.loan.monthly) { f.amount = String(t.loan.monthly); $f('f-amount').value = f.amount; } renderAccts(); renderFx(); syncCross(); }
-  }
-  function renderNameHelp() {
-    let el = form.querySelector('#namehelp');
-    if (!el) { const nf = $f('notesrow'); if (!nf) return; el = document.createElement('div'); el.id = 'namehelp'; el.className = 'namehelp'; nf.after(el); }
-    const c = f.kind === 'transfer' ? [] : similarNames(get(), f.name, 1);
-    const rel = f.kind === 'transfer' || !f.name.trim() ? [] : relatedNames(get(), f.name).slice(0, 2);
-    el.innerHTML = c.map((x) => compareCard(get(), f.name.trim(), x.name)).join('') + (c.length ? '' : rel.map((x) => `<p class="relhint muted">Related to <b>${esc(x.name)}</b>${x.cat ? ` (${esc(x.cat)})` : ''}, ${Math.round(x.w * 100)}% close. It keeps its own category.</p>`).join(''));
+    const list = f.kind === 'transfer' ? [] : suggest(modelFor(f.kind), f.name, 5).filter((x) => x.name.toLowerCase() !== f.name.trim().toLowerCase());
+    el.hidden = !list.length;
+    el.innerHTML = list.map((x) => `<button type="button" data-e="pick" data-v="${esc(x.name)}">${esc(x.name)} <small>${x.n}×</small></button>`).join('');
   }
   function applyPick(name) {
-    f.name = name; $f('f-what').value = name;
-    if (f.kind === 'transfer') {
-      const h = transferHints(get()).names.find((x) => x.name.toLowerCase() === name.toLowerCase());
-      if (h) {
-        if (acctOf(h.from) && !acctOf(h.from).archived) { f.acct = h.from; f.acctTouched = true; }
-        if (acctOf(h.to) && !acctOf(h.to).archived) f.toAcct = h.to;
-        if (!num(f.amount) && h.amount) { f.amount = String(h.amount); $f('f-amount').value = f.amount; }
-        f.feeTouched = false; renderAccts(); renderFx(); syncCross();
-      }
-      renderSugg(); renderFreq();
-      return;
-    }
+    f.name = name; $f('f-name').value = name;
     const lk = lookup(modelFor(f.kind), name);
     if (lk) {
       if (!f.catTouched) f.cat = lk.cat;
-      if (!f.acctTouched && lk.acct && acctOf(lk.acct) && !acctOf(lk.acct).archived) useAccount(lk.acct);
+      if (!f.acctTouched && lk.acct && acctOf(lk.acct) && !acctOf(lk.acct).archived) { f.acct = lk.acct; f.fx = ''; renderAccts(); renderFx(); }
       if (!num(f.amount) && lk.amount) { f.amount = String(lk.amount); $f('f-amount').value = f.amount; }
     }
-    refreshPred(); renderSugg(); updateFxVal(); updateItemLeft(); renderFreq();
-    focusKeep($f(num(f.amount) ? 'f-what' : 'f-amount'));
-  }
-  function pickRoute(from, to) {
-    const h = transferHints(get()).routes.find((r) => r.from === from && r.to === to);
-    f.acct = from; f.toAcct = to; f.acctTouched = true; f.feeTouched = false;
-    if (h) { if (!f.name.trim() && h.name) { f.name = h.name; $f('f-what').value = h.name; } if (!num(f.amount) && h.amount) { f.amount = String(h.amount); $f('f-amount').value = f.amount; } }
-    renderAccts(); renderFx(); syncCross(); renderSugg();
-    focusKeep($f(num(f.amount) ? 'f-what' : 'f-amount'));
+    refreshPred(); renderSugg(); updateFxVal(); updateItemLeft();
+    $f(num(f.amount) ? 'f-name' : 'f-amount').focus();
   }
 
   // ---------- events ----------
-  form.addEventListener('focusout', (e) => { if (e.target.id === 'f-amount') formatAmountInput(e.target); });
   form.addEventListener('input', (e) => {
     const id = e.target.id;
-    if (id === 'f-amount') {
-      formatAmountInput(e.target); f.amount = e.target.value; showCalcRes(); syncX(); updateFxVal(); heavy();
-    }
-    else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
-    else if (id === 'f-from' || id === 'f-to') { if (id === 'f-from') f.from = e.target.value; else f.to = e.target.value; tripName(); tripChips(); }
-    else if (id === 'f-what') { f.name = e.target.value; renderNameHelp(); suggestAcct(); suggestMerchant(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
-    else if (id === 'f-fx') { f.fx = e.target.value; f.fxMode = 'rate'; updateFxVal(); }
-    else if (id === 'f-peso') { f.peso = e.target.value; f.fxMode = 'peso'; updateFxVal(); }
-    else if (id === 'f-crate') { f.cRate = e.target.value; syncCross('rate'); }
-    else if (id === 'f-toamt') { f.toAmount = e.target.value; syncCross('to'); const dn = $f('diffnote'); if (dn && f.sameDiff) dn.textContent = diffNote(f, acctOf(f.acct)); }
+    if (id === 'f-amount') { f.amount = e.target.value; updateFxVal(); updateItemLeft(); if (f.name.trim()) refreshPred(); }
+    else if (id === 'f-name') { f.name = e.target.value; refreshPred(); renderSugg(); }
+    else if (id === 'f-fx') { f.fx = e.target.value; updateFxVal(); }
+    else if (id === 'f-toamt') f.toAmount = e.target.value;
+    else if (id === 'f-date') f.date = fromLocalInput(e.target.value || toLocalInput(f.date));
     else if (id === 'f-notes') f.notes = e.target.value;
     else if (e.target.closest('.item')) {
       const row = e.target.closest('.item'), i = +row.dataset.i, it = f.items[i];
@@ -615,101 +214,29 @@ export function openEntry(opts = {}) {
       } else if (e.target.classList.contains('in-a')) { it.amt = e.target.value; updateItemLeft(); }
     }
   });
-  async function newAccountFor(cur) {
-    const nm = await promptDialog(`Name for your new ${cur} account`, `${cur} wallet`, { okLabel: 'Create' });
-    if (!nm || !nm.trim()) return null;
-    let acc;
-    commit((d) => { acc = stamp({ id: uid(), name: nm.trim(), cur, type: cur === 'USDT' || /^(BTC|ETH|BNB|SOL|XRP|USDC)$/.test(cur) ? 'crypto' : 'bank', open: 0, include: true, archived: false }); d.accounts.push(acc); });
-    return acc;
-  }
-  form.addEventListener('change', async (e) => {
+  form.addEventListener('change', (e) => {
     const id = e.target.id;
-    if (id === 'f-acct') { f.acct = e.target.value; f.acctTouched = true; f.acctSuggested = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; if (f.kind === 'transfer' && f.toAcct === f.acct) f.toAcct = ''; renderAccts(); renderFx(); refreshPred(); updateItemLeft(); if (f.kind !== 'transfer') renderFreq(); }
-    else if (id === 'f-to') { f.toAcct = e.target.value; f.feeTouched = f.feeTouched && !f.feeSuggested; renderAccts(); syncCross(); }
-    else if (id === 'f-conv') {
-      f.convTouched = true;
-      f.convert = e.target.checked;
-      if (f.convert && !f.cRate) { const r = crossRate(); if (r) f.cRate = prec(r); }
-      renderConv(); syncCross('rate');
-      const note = $f('crossnote'); if (note && f.convert) note.textContent = crossRate() ? '' : 'No rate known for this pair yet. Type one.';
-    }
-    else if (id === 'f-cur') {
-      const cur = e.target.value, db2 = get();
-      const choose = async (c) => {
-        const pool = db2.accounts.filter((a) => !a.deleted && !a.archived && a.cur === c && a.id !== (f.kind === 'transfer' ? f.toAcct : ''));
-        let pick = pool.find((a) => a.id === db2.settings.lastAcct) || pool.find((a) => a.include) || pool[0];
-        if (!pick) pick = await newAccountFor(c);
-        if (pick) { f.acct = pick.id; f.acctTouched = true; f.acctSuggested = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; if (f.toAcct === f.acct) f.toAcct = ''; }
-        renderAccts(); renderFx(); refreshPred(); updateItemLeft(); renderFreq();
-      };
-      if (cur === '__more') { renderCur(); openCurrencyPicker((c) => choose(c), { title: 'More currencies' }); }
-      else await choose(cur);
-    }
-    else if (id === 'f-feecat') { f.feeCat = e.target.value; f.feeTouched = true; f.feeSuggested = false; renderFee(); }
+    if (id === 'f-acct') { f.acct = e.target.value; f.acctTouched = true; f.fx = ''; if (f.kind === 'transfer' && f.toAcct === f.acct) f.toAcct = ''; renderAccts(); renderFx(); refreshPred(); updateItemLeft(); }
+    else if (id === 'f-to') { f.toAcct = e.target.value; renderAccts(); }
     else if (e.target.classList.contains('in-c')) { const it = f.items[+e.target.closest('.item').dataset.i]; it.cat = e.target.value; it.catTouched = true; }
   });
-  form.addEventListener('focusout', (e) => {
-    if (e.target.id === 'f-amount' && isExpr(f.amount) && !f.calc) { const v = num(f.amount); if (v > 0) { f.amount = tidy(v); e.target.value = f.amount; showCalcRes(); updateFxVal(); } }
-  });
-  // tapping a suggestion must not take focus from the text box (no blur, no re-focus, so Safari never shows the contact bar)
-  form.addEventListener('mousedown', (e) => { if (e.target.closest('#sugg')) e.preventDefault(); });
-  // Touch: choose on lift-off instead of waiting for the synthesized click, which the installed iPhone app can swallow or deliver to the wrong row
-  let sgDown = null, sgDone = 0;
-  form.addEventListener('pointerdown', (e) => { const b = e.pointerType !== 'mouse' && e.target.closest('#sugg [data-e=pick]'); sgDown = b ? { b, x: e.clientX, y: e.clientY } : null; });
-  form.addEventListener('pointercancel', () => { sgDown = null; });
-  form.addEventListener('pointerup', (e) => { const d = sgDown; sgDown = null; if (!d) return; const b = e.target.closest('#sugg [data-e=pick]');
-    if (b !== d.b || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return; sgDone = Date.now(); applyPick(b.dataset.v); });
-  form.addEventListener('focusout', () => setTimeout(() => { const el = $f('sugg'); if (el && !el.contains(document.activeElement) && document.activeElement !== $f('f-what')) el.hidden = true; }, 150));
+  form.addEventListener('focusout', () => setTimeout(() => { const el = $f('sugg'); if (el && !el.contains(document.activeElement)) el.hidden = true; }, 150));
   form.addEventListener('submit', (e) => { e.preventDefault(); save(false); });
   form.addEventListener('click', (e) => {
     const b = e.target.closest('[data-e]');
     if (!b) return;
-    if (Date.now() - sgDone < 600 && b.dataset.e !== 'pick') return;   // the synthesized click after a touch pick lands on whatever moved up under the finger
     const v = b.dataset.v;
     switch (b.dataset.e) {
       case 'kind':
-        { const was = f.debt; f.debt = v === 'debt'; f.kind = v === 'debt' ? 'transfer' : v; if (was && !f.debt) { f.feeTouched = false; f.fee = ''; } } if (f.debt) { debtFix(f); f.feeTouched = true; f.fee = ''; f.convert = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; } if (v !== 'expense') { f.items = []; f.showItems = false; }
-        f.qtab = ''; f.qtabManual = false;
-        if (!f.catTouched || f.kind === 'transfer') { f.cat = ''; f.catTouched = false; }
-        else { const c = catMap(get()).get(f.cat); if (c && !(c.kind === f.kind || c.kind === 'both')) { f.cat = ''; f.catTouched = false; } }
-        arrange(); renderSeg(); renderMerch(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderSugg(); renderSafety(); break;
-      case 'debtamt': { f.amount = String(+(+v).toFixed(6)); const fa = $f('f-amount'); fa.value = commasOn() ? withCommas(f.amount) : f.amount; fa.dispatchEvent(new Event('input', { bubbles: true })); break; }
-      case 'merchpick': openMerchantPicker({ selected: f.merchant }, (v) => { f.merchant = v; f.merchTouched = true; f.merchSuggested = false; renderMerch(); }); break;
-      case 'swapacct': { const t = f.acct; f.acct = f.toAcct; f.toAcct = t; f.acctTouched = true; f.acctSuggested = false; f.feeTouched = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; f.cRate = ''; renderAccts(); renderFx(); syncCross(); renderSugg(); break; }
-      case 'smart': smartAct(v); break;
-      case 'qtab': f.qtab = v; f.qtabManual = true; renderFreq(); break;
-      case 'pick': if (Date.now() - sgDone > 700) applyPick(v); break;
-      case 'acctpick': { const to = b.dataset.which === 'to', sel = $f(to ? 'f-to' : 'f-acct'), a = acctOf(f.acct);
-        openAccountPicker({ selected: sel.value, skip: to ? f.acct : (f.kind === 'transfer' ? f.toAcct : ''), cur: to ? '' : (a && a.cur) || '', only: f.debt ? (to ? 'debt' : 'pay') : '', title: f.debt ? (to ? 'What will you pay?' : 'Paid from') : to ? 'To account' : f.kind === 'transfer' ? 'From account' : 'Account' }, (id) => { sel.value = id; sel.dispatchEvent(new Event('change', { bubbles: true })); }); break; }
-      case 'curpick': openCurrencyPicker((c) => { const sel = $f('f-cur'); if (![...sel.options].some((o) => o.value === c)) sel.add(new Option(c, c)); sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); }, { title: 'Currency' }); break;
-      case 'route': pickRoute(b.dataset.from, b.dataset.to); break;
-      case 'calc': f.calc = !f.calc; renderKeypad(); break;
-      case 'k': keyPress(v); break;
-      case 'postedon': f.postedOn = true; renderPosted(); break;
-      case 'postedoff': f.postedOn = false; f.posted = ''; renderPosted(); break;
-      case 'posted': openDatePicker(f.posted + ' 00:00:00', (val) => { const v = val.slice(0, 10), day = String(f.date).slice(0, 10); if (v <= day) { f.posted = addDay(day, 1); toast('The posted date must be after the entry date.'); } else f.posted = v; renderPosted(); }, { title: 'Posted date', time: false }); break;
-      case 'when': openDatePicker(f.date, (val) => { f.date = val; renderPosted(); renderWhen(); refreshPred(); renderSafety(); }, { title: 'When was it?' }); break;
-      case 'allamt': { const a0 = acctOf(f.acct); if (!a0) { toast('Choose the From account first.'); break; }
-        let v = balances(get()).get(f.acct) || 0; const fee = parseFloat(String(f.fee || '').replace(/,/g, '')) || 0; if (f.feeBy !== 'to' && fee > 0) v -= fee;   // a fee taken from the sender comes out of the same balance
-        if (!(v > 0)) { toast('There is nothing to move from this account.'); break; }
-        const am = $f('f-amount'); am.value = exactAmt(v); am.dispatchEvent(new Event('input', { bubbles: true })); break; }
-      case 'amtclear': { f.amount = ''; const am = $f('f-amount'); am.value = ''; showCalcRes(); syncX(); heavy(); if (!f.calc) am.focus(); break; }
-      case 'samediff': f.toAmount = f.amount; f.diffInit = false; renderConv(); break;
-      case 'fxopen': { const a = acctOf(f.acct); if (!a) break; openConverter({ from: a.cur, to: HOME, amount: num(f.amount), rate: num(f.fx), applyLabel: 'Use this rate',
-        onApply: ({ rate, a: fa, b: tb, billed }) => { if (billed && num(f.amount) > 0 && Math.abs(fa - num(f.amount)) < 1e-9) { f.fxMode = 'peso'; f.peso = String(Math.round(tb * 100) / 100); } else { f.fxMode = 'rate'; f.fx = prec(rate); } renderFx(); } }); break; }
-      case 'fxopen2': { const a = acctOf(f.acct), b = acctOf(f.toAcct); if (!a || !b) break; openConverter({ from: a.cur, to: b.cur, amount: num(f.amount), rate: num(f.cRate) || crossRate(), applyLabel: 'Use this rate',
-        onApply: ({ rate, a: fa, b: tb, billed }) => { f.cRate = prec(rate); const cr = $f('f-crate'); if (cr) cr.value = f.cRate; if (billed && num(f.amount) > 0 && Math.abs(fa - num(f.amount)) < 1e-9) { f.toAmount = String(Math.round(tb * 1e6) / 1e6); const ta = $f('f-toamt'); if (ta) ta.value = f.toAmount; syncCross('to'); } else syncCross('rate'); } }); break; }
-      case 'livecross': { const r = crossRate(); if (r) { f.cRate = prec(r); const cr = $f('f-crate'); if (cr) cr.value = f.cRate; syncCross('rate'); } else toast('No live rate for this pair yet. Type one.'); break; }
-      case 'feeby': f.feeBy = v; f.feeTouched = true; f.feeSuggested = false; renderFee(); break;
-      case 'cat': pickCat(v); renderCats(); renderTrip(); renderSafety(); break;
-      case 'tag': { const cur = parseTags(f.labels), i = cur.findIndex((x) => x.toLowerCase() === v.toLowerCase()); if (i >= 0) cur.splice(i, 1); else cur.push(v); f.labels = joinTags(cur); renderTags(); break; }
-      case 'newtag': { promptDialog('New tag or event', '', { okLabel: 'Add', hint: 'For example: Okinawa trip, Birthday, Moving' }).then((n) => { if (n && n.trim()) { f.labels = joinTags([...parseTags(f.labels), n.trim()]); renderTags(); } }); break; }
-      case 'trip': { const x = (f._trips || [])[+v]; if (x) pickTrip(x); break; }
-      case 'eye': priv.set(!priv.on); applyHide(); b.textContent = (priv.on ? 'Show' : 'Hide') + ' amounts'; updateFxVal(); updateItemLeft(); window.dispatchEvent(new Event('sukli-render')); break;
-      case 'newcat': openCategoryForm({ kind: f.kind, name: f.name.trim().replace(/\b\w/g, (m) => m.toUpperCase()).slice(0, 40), keywords: f.name.trim().toLowerCase(), onDone: (c) => { pickCat(c.id); refreshPred(); renderCats(); } }); break;
-      case 'catgroup': { const g = v, list = get().categories.filter((c) => !c.deleted && c.group === g && (c.kind === f.kind || c.kind === 'both')).sort((a, b) => a.name.localeCompare(b.name));
-        pickerList(list.map((c) => ({ value: c.id, label: c.name, group: '' })), { title: g, addLabel: `Add a new category in ${g}`, onAdd: () => openCategoryForm({ kind: f.kind, group: g, name: f.name.trim().replace(/\b\w/g, (x) => x.toUpperCase()).slice(0, 40), keywords: f.name.trim().toLowerCase(), onDone: (c) => { pickCat(c.id); refreshPred(); renderCats(); } }), onPick: (id) => { pickCat(id); renderCats(); renderTrip(); renderSafety(); } }); break; }
-      case 'allcats': openCategoryPicker(f.kind, (id) => { pickCat(id); renderCats(); }); break;
+        f.kind = v; if (v !== 'expense') { f.items = []; f.showItems = false; }
+        if (!f.catTouched || v === 'transfer') { f.cat = ''; f.catTouched = false; }
+        else { const c = catMap(get()).get(f.cat); if (c && !(c.kind === v || c.kind === 'both')) { f.cat = ''; f.catTouched = false; } }
+        renderSeg(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderSugg(); break;
+      case 'pick': applyPick(v); break;
+      case 'cat': f.cat = v; f.catTouched = true; renderCats(); break;
+      case 'eye': priv.set(!priv.on); document.body.classList.toggle('hide-amts', priv.on); b.textContent = (priv.on ? 'Show' : 'Hide') + ' amounts'; updateFxVal(); updateItemLeft(); window.dispatchEvent(new Event('sukli-render')); break;
+      case 'newcat': openCategoryForm({ kind: f.kind, keywords: f.name.trim().toLowerCase(), onDone: (c) => { f.cat = c.id; f.catTouched = true; refreshPred(); renderCats(); } }); break;
+      case 'allcats': openCategoryPicker(f.kind, (id) => { f.cat = id; f.catTouched = true; renderCats(); }); break;
       case 'items-on': f.showItems = true; if (!f.items.length) f.items.push({ n: '', amt: '', cat: '' }); renderItems(); break;
       case 'item-add': f.items.push({ n: '', amt: '', cat: '' }); renderItems(); form.querySelectorAll('.item .in-n')[f.items.length - 1].focus(); break;
       case 'item-del': f.items.splice(+v, 1); renderItems(); break;
@@ -717,87 +244,30 @@ export function openEntry(opts = {}) {
       case 'save-again': save(true); break;
       case 'del': {
         const t = get().txs.find((x) => x.id === f.id);
-        commit(() => { softDelete(t); });
+        commit(() => { t.deleted = true; stamp(t); });
         s.close();
-        toast('Moved to the recycle bin', { undo: () => commit(() => { t.deleted = false; delete t.deletedAt; stamp(t); }) });
+        toast('Entry deleted', { undo: () => commit(() => { t.deleted = false; stamp(t); }) });
         break;
       }
     }
   });
 
-  // ---------- calculator (opens under the amount; the phone keyboard stays away) ----------
-  function showCalcRes() {
-    const el = $f('calcres'), v = num(f.amount);
-    const show = isExpr(f.amount) && v > 0;
-    el.hidden = !(show || f.calc);
-    el.textContent = '\u00a0';
-    if (show) { const a = acctOf(f.acct); el.textContent = '= ' + fmt(v, a ? a.cur : HOME, { force: !priv.on }); }
-  }
-  function renderKeypad() {
-    const kp = $f('keypad'), amt = $f('f-amount');
-    form.querySelector('.calcbtn').setAttribute('aria-pressed', String(f.calc));
-    kp.hidden = !f.calc; showCalcRes();
-    amt.setAttribute('inputmode', f.calc ? 'none' : 'decimal');
-    if (!f.calc) { amt.focus(); return; }
-    kp.innerHTML = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', '.', '⌫', '='].map((k) =>
-      `<button type="button" data-e="k" data-v="${k}" class="${/[÷×−+=]/.test(k) ? 'op' : ''} ${k === '=' ? 'eq' : ''}">${k}</button>`).join('');
-    amt.blur();
-  }
-  function keyPress(k) {
-    const amt = $f('f-amount');
-    if (k === 'C') f.amount = '';
-    else if (k === '⌫') f.amount = f.amount.slice(0, -1);
-    else if (k === '=') { const v = num(f.amount); if (v > 0) f.amount = tidy(v); }
-    else f.amount += k;
-    amt.value = f.amount; showCalcRes(); syncX(); updateFxVal(); heavy();
-  }
-  // the slow work (guesses, home value, fee, warnings) waits until you pause, so keys react at once and nothing moves while you tap
-  let heavyT;
-  function heavy() {
-    clearTimeout(heavyT);
-    heavyT = setTimeout(() => {
-      updateItemLeft();
-      if (f.name.trim()) refreshPred(); else renderSafety();
-      if (f.kind === 'transfer') { if (!f.feeTouched) { suggestFee(); const fe = $f('f-fee'); if (fe) fe.value = f.fee; } if (f.convert) syncCross('rate'); }
-    }, 350);
-  }
-  function syncX() { const x = form.querySelector('.amtx'); if (x) x.style.visibility = f.amount ? 'visible' : 'hidden'; }
-
   function fail(msg) { const el = $f('err'); el.textContent = msg; el.hidden = false; el.scrollIntoView({ block: 'nearest' }); }
 
   function save(again) {
-    const db2 = get();
+    const db = get();
     const a = acctOf(f.acct);
-    const amount = +num(f.amount).toFixed(6);
+    const amount = num(f.amount);
     if (!(amount > 0)) return fail('Enter an amount greater than zero.');
     if (!a) return fail('Choose an account.');
-    // fx is kept with the entry as ledger value per unit, so later rate changes never alter this entry
     let fx = 1;
-    if (a.cur === BASE) fx = 1;
-    else if (a.cur === HOME) fx = homeRate(db2, f.date);
-    else {
-      const hr = homeRate(db2, f.date);
-      let fh = num(f.fx);
-      if (f.fxMode === 'peso' && num(f.peso) > 0) fh = num(f.peso) / amount;
-      if (!(fh > 0)) return fail(`Enter the exchange rate (how many ${HOME} one ${a.cur} is worth).`);
-      fx = fh * hr;
-    }
+    if (a.cur !== BASE) { fx = num(f.fx); if (!(fx > 0)) return fail(`Enter the exchange rate (how many ${BASE} one ${a.cur} is worth).`); }
     let toAmount = null;
     if (f.kind === 'transfer') {
       const b = acctOf(f.toAcct);
-      if (f.debt && (!b || !isLiability(b))) return fail('Choose the card or loan you are paying.');
-      if (f.debt && isLiability(a)) return fail('Choose the account you pay from (not a card or loan).');
       if (!b || b.id === a.id) return fail('Choose two different accounts.');
-      toAmount = a.cur === b.cur ? (f.sameDiff && num(f.toAmount) > 0 ? +num(f.toAmount).toFixed(6) : amount) : !f.convert ? amount : +num(f.toAmount).toFixed(6);
+      toAmount = a.cur === b.cur ? amount : num(f.toAmount);
       if (!(toAmount > 0)) return fail(`Enter how much arrived in ${b.name} (${b.cur}).`);
-    }
-    let fee = 0, feeCat = '', feeFx = null, feeCur = '';
-    if (f.kind === 'transfer' && !f.debt && num(f.fee) > 0) {
-      fee = +num(f.fee).toFixed(6);
-      if (!f.feeCat) return fail('Choose what kind of fee it is (transfer fee, bank service fee, network fee…).');
-      const fa = f.feeBy === 'to' ? acctOf(f.toAcct) : a;
-      feeCur = fa.cur;
-      feeFx = fa.cur === BASE ? 1 : (fa.id === a.id ? fx : rateFor(db2, fa.cur)) || 1;
     }
     let cat = f.cat, flag = null, items;
     if (f.kind !== 'transfer') {
@@ -810,50 +280,21 @@ export function openEntry(opts = {}) {
       items = f.items.filter((i) => i.n.trim() || num(i.amt)).map((i) => ({ n: i.n.trim(), amt: num(i.amt) || 0, cat: i.cat || '' }));
       if (items.length && Math.abs(items.reduce((s2, i) => s2 + i.amt, 0) - amount) >= 0.01) flag = 'review';
     }
-    // a blank label is filled in: a transfer gets "from - to", other entries get the usual label for this category and amount, and go to Review
-    let label = f.name.trim(), autoName = false;
-    if (f.kind === 'expense' && tripCat() && label && bareMode(label)) {      // only "bus" was typed: name the trip
-      const mode = modeNow(); label = tripLabel(mode, f.from.trim(), f.to.trim()); autoName = true;
-    } else if (!label && f.kind === 'expense' && tripCat() && !(f.from.trim() && f.to.trim())) { label = tripLabel(modeNow(), '', ''); autoName = true; }
-    if (!label) {
-      autoName = true;
-      if (f.kind === 'transfer' && f.debt) label = `Paid ${acctOf(f.toAcct).name}`;
-      else if (f.kind === 'transfer') label = transferLabel(a, acctOf(f.toAcct));
-      else if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) label = tripLabel(modeNow(), f.from.trim(), f.to.trim());
-      else if (f.kind === 'expense' && tripCat() && (() => { const x = suggestTrips(db2, isTransportCat(db2.categories), { hour: hourOf(f.date), prevTo: prevTrip(), limit: 1 })[0]; if (x && x.p >= 0.4) { label = x.name; if (!f.from.trim() && !f.to.trim()) { f.from = x.from; f.to = x.to; } return true; } return false; })()) flag = 'review';
-      else { label = guessLabel(db2, { kind: f.kind, cat, amount, acct: a.id, hour: hourOf(f.date) }).name; flag = 'review'; }
-    }
-    const rec = { kind: f.kind, amount, cur: a.cur, fx, date: f.date, name: label, autoName, cat, acct: a.id,
-      toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), labels: joinTags(parseTags(f.labels)), items: items && items.length ? items : [], flag,
-      posted: (f.kind !== 'transfer' && f.postedOn && a.type === 'card' && a.stmtDay > 0 && f.posted > String(f.date).slice(0, 10)) ? f.posted : '' };
-    if (f.debt && f.kind === 'transfer') rec.debtPay = true;
-    { const mc = f.kind === 'expense' ? canonMerchant(db2, f.merchant) : ''; if (mc) rec.merchant = mc; }
-    if (f.kind !== 'transfer' && cat && ((f.catTouched && f.guessed && f.guessed !== cat) || (existing && existing.cat && existing.cat !== cat) || (existing && existing.corrected))) rec.corrected = true;
-    if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) { rec.from = f.from.trim(); rec.to = f.to.trim(); } else if (existing && (existing.from || existing.to)) { rec.from = ''; rec.to = ''; }
-    let savedAs; const alertsBefore = budgetAlerts(get(), rec.date.slice(0, 7));
+    const rec = { kind: f.kind, amount, cur: a.cur, fx, date: f.date, name: f.name.trim(), cat, acct: a.id,
+      toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, notes: f.notes.trim(), items: items && items.length ? items : [], flag };
+    let savedAs;
     commit((d) => {
-      if (fee) {
-        if (f.feeCat.startsWith('__new:')) rec.feeCat = findOrAddCategory(d, 'Fees', f.feeCat.slice(6), 'expense').id;
-        else rec.feeCat = f.feeCat;
-      } else rec.feeCat = '';
-      if (existing) { const t = d.txs.find((x) => x.id === existing.id);
-        // keep what it was before this change, so the Input history can put it back (the last 5 versions)
-        const before = {}; for (const k of ['kind', 'date', 'name', 'amount', 'cur', 'fx', 'acct', 'toAcct', 'toAmount', 'cat', 'notes', 'fee', 'feeCat', 'feeBy']) if (t[k] !== undefined) before[k] = t[k];
-        t.rev = [{ at: Date.now(), ...before }, ...(t.rev || [])].slice(0, 5);
-        Object.assign(t, rec); if (!rec.debtPay) delete t.debtPay; if (!rec.merchant) delete t.merchant; stamp(t); savedAs = t; }
-      else { savedAs = stamp({ id: uid(), ...rec, createdAt: Date.now() }); d.txs.push(savedAs); }
+      if (existing) { const t = d.txs.find((x) => x.id === existing.id); Object.assign(t, rec); stamp(t); savedAs = t; }
+      else { savedAs = stamp({ id: uid(), ...rec }); d.txs.push(savedAs); }
       d.settings.lastAcct = a.id;
     });
-    // say so when this entry pushed a budget past the warning line (once per budget per month)
-    try { const fresh = newAlertsSince(alertsBefore, budgetAlerts(get(), rec.date.slice(0, 7))); if (fresh.length && rec.kind === 'expense') setTimeout(() => toast(fresh[0].text, { ms: 7000 }), 900); } catch { /* alerts are a bonus */ }
     s.close();
     toast(rec.flag === 'review' ? 'Saved. It is in Review so you can confirm the category later.' : 'Saved');
-    if (again) openEntry({ preset: { acct: a.id } });
+    if (again) openEntry({ preset: { acct: a.id, acctTouched: true } });
   }
 
-  arrange(); renderSeg(); renderMerch(); renderFreq(); renderAccts(); renderFx(); renderItems(); renderWhen(); renderBtns(); renderSafety();
+  renderFreq(); renderSeg(); renderAccts(); renderFx(); renderItems(); renderBtns();
   if (existing) { refreshPred(); f.cat = existing.cat || ''; renderCats(); } else renderCats();
-  renderTrip(); renderTags();
   updateFxVal();
 }
 
@@ -883,7 +324,7 @@ export function openCategoryPicker(kind, onPick) {
 }
 
 // create or edit a category. Keywords make it predictable straight away: any entry whose name contains one is guessed into it.
-export function openCategoryForm({ id = null, kind = 'expense', group = '', name = '', keywords = '', onDone } = {}) {
+export function openCategoryForm({ id = null, kind = 'expense', group = '', keywords = '', onDone } = {}) {
   const db = get();
   const c = id ? db.categories.find((x) => x.id === id) : null;
   const groups = [...new Set(db.categories.filter((x) => !x.deleted && (x.kind === kind || x.kind === 'both')).map((x) => x.group))].sort();
@@ -891,7 +332,7 @@ export function openCategoryForm({ id = null, kind = 'expense', group = '', name
   const s = sheet(`<form id="catform">
     <label class="field"><span>Group (the bigger heading)</span><input name="g" list="grouplist" value="${esc(c ? c.group : group)}" placeholder="${isInc ? 'e.g. Employer, Side income' : 'e.g. Food &amp; Drinks, Health'}" required autocomplete="off"></label>
     <datalist id="grouplist">${groups.map((g) => `<option value="${esc(g)}">`).join('')}</datalist>
-    <label class="field"><span>Category (the detail)</span><input name="n" value="${esc(c ? c.name : name)}" placeholder="${isInc ? 'e.g. Bonus, Freelance, Refund' : 'e.g. Gym, Vet, Gifts'}" required autocomplete="off" ${id ? '' : 'autofocus'}></label>
+    <label class="field"><span>Category (the detail)</span><input name="n" value="${esc(c ? c.name : '')}" placeholder="${isInc ? 'e.g. Bonus, Freelance, Refund' : 'e.g. Gym, Vet, Gifts'}" required autocomplete="off" ${id ? '' : 'autofocus'}></label>
     <label class="field"><span>Words that should land here (optional)</span><input name="k" value="${esc(c ? c.keywords || '' : keywords)}" placeholder="${isInc ? 'e.g. bonus, 13th month' : 'e.g. gym, fitness, anytime'}" autocomplete="off" autocapitalize="off"></label>
     <p class="hint">Separate words with commas. Next time a name contains one of them, this category is guessed. It also learns from every entry you put here.</p>
     <div class="btnrow">${c ? '<button type="button" class="btn danger ghost" data-del>Delete</button>' : ''}<button class="btn">${c ? 'Save' : 'Add and use'}</button></div></form>`,
@@ -901,19 +342,6 @@ export function openCategoryForm({ id = null, kind = 'expense', group = '', name
     const fd = new FormData(e.target);
     const g = fd.get('g').trim(), n = fd.get('n').trim(), k = fd.get('k').trim();
     let out;
-    // naming it like another category in the same group merges the two: entries, items and budgets move over
-    const twin = c && get().categories.find((q) => !q.deleted && q.id !== c.id && q.group === g && q.name.toLowerCase() === n.toLowerCase() && (q.kind === c.kind || q.kind === 'both' || c.kind === 'both'));
-    if (twin) {
-      const used = get().txs.filter((t) => !t.deleted && (t.cat === c.id || (t.items || []).some((i) => i.cat === c.id))).length;
-      confirmDialog(`“${twin.name}” already exists in ${g}. Move ${used} ${used === 1 ? 'entry' : 'entries'} from “${c.name}” into it and remove “${c.name}”?`, 'Merge').then((yes) => {
-        if (!yes) return;
-        commit((d) => { for (const t of d.txs) { let ch = false; if (t.cat === c.id) { t.cat = twin.id; ch = true; } for (const i of t.items || []) if (i.cat === c.id) { i.cat = twin.id; ch = true; } if (ch) stamp(t); }
-          for (const b of d.budgets) if (!b.deleted && b.cat === c.id) { b.cat = twin.id; stamp(b); }
-          const t2 = d.categories.find((q) => q.id === twin.id), x = d.categories.find((q) => q.id === c.id); if (k) { t2.keywords = [t2.keywords, k].filter(Boolean).join(', '); stamp(t2); } softDelete(x); });
-        s.close(); toast(`Merged into “${twin.name}”.`); if (onDone) onDone(twin);
-      });
-      return;
-    }
     commit((d) => {
       if (c) {
         const x = d.categories.find((q) => q.id === c.id);
@@ -927,10 +355,8 @@ export function openCategoryForm({ id = null, kind = 'expense', group = '', name
     s.close(); if (onDone) onDone(out);
   };
   const del = s.el.querySelector('[data-del]');
-  if (del) del.onclick = async () => {
-    const used = get().txs.filter((t) => !t.deleted && (t.cat === c.id || (t.items || []).some((i) => i.cat === c.id))).length;
-    if (used && !(await confirmDialog(`${used} ${used === 1 ? 'entry uses' : 'entries use'} “${c.name}”. They keep the name, but you will not be able to pick it for new entries. Delete it?`, 'Delete', true))) return;
-    commit((d) => { const x = d.categories.find((q) => q.id === c.id); softDelete(x); });
+  if (del) del.onclick = () => {
+    commit((d) => { const x = d.categories.find((q) => q.id === c.id); x.deleted = true; stamp(x); });
     s.close(); toast('Category removed. Old entries keep their label.'); if (onDone) onDone(null);
   };
 }

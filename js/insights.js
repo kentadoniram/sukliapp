@@ -1,5 +1,5 @@
 // Home-screen analysis. Plain maths over your own entries, all in base currency, nothing leaves the device.
-import { monthParts, shiftMonth, thisMonth, nowStamp, daysInMonth, fmt, HOME } from './core.js';
+import { monthParts, shiftMonth, thisMonth, nowStamp, daysInMonth, fmt, BASE } from './core.js';
 
 const sum = (a) => a.reduce((s, x) => s + x, 0);
 const median = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : 0; };
@@ -64,7 +64,7 @@ export function trend(db, ym, n = 6) {
 export function insights(db, ym) {
   const out = [];
   const p = pace(db, ym);
-  const money = (n) => fmt(n, HOME, { round: true });
+  const money = (n) => fmt(n, BASE, { round: true });
   const pct = (a, b) => Math.round(Math.abs(a - b) / b * 100);
   if (p.usual > 0 && p.spent > 0) {
     if (p.live && p.day >= 5) {
