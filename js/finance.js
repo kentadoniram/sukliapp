@@ -15,9 +15,7 @@ export const today = () => nowStamp().slice(0, 10);
 const addDays = (s, n) => { const [y, m, d] = s.split('-').map(Number); return ymd(new Date(y, m - 1, d + n)); };
 const sum = (a) => a.reduce((s, x) => s + x, 0);
 
-export const ASSET_TYPES = new Set(['cash', 'bank', 'ewallet', 'invest', 'crypto', 'other', 'asset', 'owed']);
-// money other people owe you (an asset). Never spendable; the Owed to you tab lists them.
-export const isOwed = (a) => !!a && a.type === 'owed';
+export const ASSET_TYPES = new Set(['cash', 'bank', 'ewallet', 'invest', 'crypto', 'other', 'asset']);
 const LIAB = new Set(['card', 'loan']);
 export const setLiab = (keys) => { LIAB.clear(); for (const k of ['card', 'loan', ...keys]) LIAB.add(k); };
 export const isLiability = (a) => LIAB.has(a.type);
@@ -333,7 +331,7 @@ export function cardIcs(db) {
 // groups for account pickers and the Accounts page
 export const TYPE_GROUP = {
   bank: ['Banks', 1], ewallet: ['E-wallets', 2], crypto: ['Crypto exchanges and wallets', 3], cash: ['Cash', 4],
-  invest: ['Investments', 5], asset: ['Assets', 6], owed: ['Money owed to me', 6.5], card: ['Credit cards', 7], loan: ['Loans and money owed', 8], other: ['Other', 9],
+  invest: ['Investments', 5], asset: ['Assets', 6], card: ['Credit cards', 7], loan: ['Loans and money owed', 8], other: ['Other', 9],
 };
 export const typeGroupName = (t) => (TYPE_GROUP[t] || TYPE_GROUP.other)[0];
 export const typeGroupOrder = (t) => (TYPE_GROUP[t] || TYPE_GROUP.other)[1];

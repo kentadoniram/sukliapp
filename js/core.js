@@ -221,7 +221,7 @@ export function fixRouteNames(d) {
   if (!d || !d.accounts || !d.txs) return;
   const nm = new Map(d.accounts.filter((a) => !a.deleted).map((a) => [a.id, a.name.trim()])), live = new Set([...nm.values()].map((x) => x.toLowerCase()));
   for (const t of d.txs) {
-    if (t.deleted || t.kind !== 'transfer' || t.trade || t.debtPay || t.debtBorrow || t.lent || t.lentBack || !t.name) continue;
+    if (t.deleted || t.kind !== 'transfer' || t.trade || !t.name) continue;
     const m = /^(.+?)\s*(→|->|\sto\s)\s*(.+)$/i.exec(t.name.trim()); if (!m) continue;
     const fn = nm.get(t.acct), tn = nm.get(t.toAcct); if (!fn || !tn) continue;
     const l = m[1].trim().toLowerCase(), r = m[3].trim().toLowerCase(), lOk = l === fn.toLowerCase(), rOk = r === tn.toLowerCase();

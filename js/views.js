@@ -30,7 +30,7 @@ ACT.menu = () => {
   const wrap = document.createElement('div');
   wrap.className = 'drawer-scrim';
   wrap.innerHTML = `<nav class="drawer" aria-label="Menu"><div class="drawer-head"><b>Sukli</b><button type="button" class="iconbtn" data-x aria-label="Close menu">${ic('x')}</button></div>
-    <ul>${item('home', 'Home', 'home')}${item('ledger', 'Entries', 'list')}${item('calendar', 'Calendar', 'calendar')}${item('budget', 'Budget', 'pie')}${item('invest', 'Investments', 'spark')}${item('debts', 'Debts', 'calc')}${item('owed', 'Owed to you', 'wallet')}${item('cashflow', 'Cash flow', 'flow')}${item('outlook', 'Outlook', 'spark')}${item('analytics', 'Analytics', 'chart')}${item('accounts', 'Accounts', 'wallet')}${item('review', 'Review', 'check', n)}</ul>
+    <ul>${item('home', 'Home', 'home')}${item('ledger', 'Entries', 'list')}${item('calendar', 'Calendar', 'calendar')}${item('budget', 'Budget', 'pie')}${item('invest', 'Investments', 'spark')}${item('debts', 'Debts', 'calc')}${item('cashflow', 'Cash flow', 'flow')}${item('outlook', 'Outlook', 'spark')}${item('analytics', 'Analytics', 'chart')}${item('accounts', 'Accounts', 'wallet')}${item('review', 'Review', 'check', n)}</ul>
     <button type="button" class="dhead" data-dtoggle aria-expanded="${catOpen()}"><span>Categories</span>${ic('down', 'chev')}</button>
     <ul class="dsub" ${catOpen() ? '' : 'hidden'}>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
     <ul>${'<li><a href="#" data-act="scan">'}${ic('camera')}<span>Scan a receipt</span></a></li><li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan planner</span></a></li></ul>
