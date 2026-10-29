@@ -134,7 +134,7 @@ export function row(t, accts, cats, sel, trail) {
   const group = tr ? 'Transfer' : (c ? c.group : 'Uncategorized');
   const title = t.name || (c ? c.name : 'Untitled');
   const sub = tr ? `${t.trade ? 'Trade · ' : t.debtPay ? 'Pay debt · ' : 'Transfer · '}${esc(a ? a.name : '?')} → ${esc((accts.get(t.toAcct) || {}).name || '?')}`
-    : `${esc(c ? c.name : 'No category')} · ${esc(a ? a.name : '')}${t.items && t.items.length ? ` · ${t.items.length} items` : ''}`;
+    : `${esc(c ? c.name : 'No category')}${t.merchant ? ` · ${esc(t.merchant)}` : ''} · ${esc(a ? a.name : '')}${t.items && t.items.length ? ` · ${t.items.length} items` : ''}`;
   const tg = parseTags(t.labels).map((x) => `#${esc(x)}`).join(' '), sub2 = tg ? `${sub} · <span class="rtags">${tg}</span>` : sub;
   const bb = tr ? accts.get(t.toAcct) : null, arr = tr && t.toAmount != null && bb && Math.abs(t.toAmount - t.amount) > 1e-9 && !t.trade ? `<small class="arrived">arrived ${money(t.toAmount, bb.cur)}</small>` : '';
   const signed = tr ? money(t.amount, t.cur) : money(t.kind === 'income' ? t.amount : -t.amount, t.cur);
@@ -427,7 +427,7 @@ function ledgerRows(db) {
   }
   if (q) list = list.filter((t) => {
     const c = cats.get(t.cat), a = accts.get(t.acct);
-    return [t.name, t.notes, t.labels, c && c.name, c && c.group, a && a.name, (t.items || []).map((i) => i.n).join(' ')].join(' ').toLowerCase().includes(q);
+    return [t.name, t.merchant, t.notes, t.labels, c && c.name, c && c.group, a && a.name, (t.items || []).map((i) => i.n).join(' ')].join(' ').toLowerCase().includes(q);
   });
   // a fee that belongs to a trade is shown inside the trade's row, not as a separate entry (still searchable, and in the Expense filter)
   const kidMap = tradeKids(db).parentOf, hideKids = !q && ui.filter !== 'expense';

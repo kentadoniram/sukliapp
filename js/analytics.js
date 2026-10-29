@@ -4,6 +4,10 @@ import { today, cardBilling, isLiability, safetyCfg } from './finance.js';
 import { esc, ic, ACT, sheet } from './ui.js';
 import { hdr, coll, ui } from './screens.js';
 import { openDatePicker } from './datepicker.js';
+import { norm } from './merchants.js';
+import { fillCandidates, canonMerchant } from './merchantpick.js';
+import { commit, stamp } from './core.js';
+import { confirmDialog, toast } from './ui.js';
 
 const A = { range: '30d', from: '', to: '', acct: '', cur: '', group: '', cat: '', by: 'group', prev: false };
 const money = (n, c = HOME) => fmt(n, c, { round: true });
@@ -155,13 +159,20 @@ export function analytics(db) {
     <tr><td>Income</td><td>${money(pI)}</td><td>${money(I)}</td><td>${pI ? Math.round((I - pI) / pI * 100) + '%' : '—'}</td></tr><tr><td>Spending</td><td>${money(pE)}</td><td>${money(E)}</td><td>${pE ? Math.round((E - pE) / pE * 100) + '%' : '—'}</td></tr>
     ${keys.map((k) => { const a = before.get(k) || 0, b = now.get(k) || 0; return `<tr><td>${esc(k)}</td><td>${money(a)}</td><td>${money(b)}</td><td class="${b > a ? 'neg' : 'in'}">${a ? Math.round((b - a) / a * 100) + '%' : 'new'}</td></tr>`; }).join('')}</tbody></table>`;
 
+  // by merchant: where the money went (the category still says what it was)
+  const mm = new Map();
+  for (const p of exps) { const m = String(p.t.merchant || '').trim(), k = m ? norm(m) : ''; const o = mm.get(k) || { name: m || 'No merchant', v: 0, ids: new Set(), spell: new Map() }; o.v += p.v; o.ids.add(p.t.id); if (m) o.spell.set(m, (o.spell.get(m) || 0) + 1); mm.set(k, o); }
+  const mrows = [...mm.entries()].map(([k, o]) => ({ k, name: o.spell.size ? [...o.spell.entries()].sort((a, b) => b[1] - a[1])[0][0] : o.name, v: o.v, n: o.ids.size })).sort((a, b) => (a.k === '') - (b.k === '') || b.v - a.v);
+  const mtot = sum(mrows.map((r) => r.v)), fill = fillCandidates(db), anyM = mrows.some((r) => r.k);
+  const merchHtml = `${anyM ? `<div class="rows plain">${mrows.slice(0, 12).map((r) => `<button class="row" data-act="an-merch" data-k="${esc(r.k)}"><span class="rmain"><strong>${esc(r.name)}</strong><small>${r.n} ${r.n === 1 ? 'entry' : 'entries'} · ${mtot ? Math.round(r.v / mtot * 100) : 0}% of spending</small></span><span class="ramt expense"><b>${money(r.v)}</b></span></button>`).join('')}</div>` : '<p class="hint">No merchant is set on these entries yet. Add one when you record an expense (Shopee, Lazada, wet market…), and this shows how much goes where, and what it was.</p>'}
+    ${fill.length ? `<div class="btnrow tight"><button type="button" class="btn sm ghost" data-act="merch-fill">Fill merchant from names (${fill.length})</button></div><p class="hint">Entries whose name contains a merchant you use, such as “Shopee order”. The names stay as they are.</p>` : ''}`;
   const top5 = exps.slice().sort((a, b) => b.v - a.v).slice(0, 8);
   const topHtml = `<div class="rows plain">${top5.map((p) => `<button class="row" data-act="edit" data-id="${p.t.id}"><i class="badge sm" style="background:${groupColor(p.group)}">${esc((p.group || '?')[0])}</i><span class="rmain"><strong>${esc(p.label || p.t.name || 'Entry')}</strong><small>${esc(p.t.date.slice(0, 10))} · ${esc(p.group)}</small></span><span class="ramt expense"><b>${money(p.v)}</b></span></button>`).join('') || '<p class="empty">Nothing yet.</p>'}</div>`;
 
   LAST = { parts, P };
   return `${hdr('Analytics')}${filters}${kpis}
     ${coll('an-ie', 'Income vs spending', incExp)}${coll('an-cf', 'Cash flow (running net)', line(cf, 'Running net cash flow'))}${coll('an-nw', 'Net worth', line(nwS, 'Net worth'))}
-    ${coll('an-by', 'Where the money went', breakdown)}${coll('an-bud', 'Budgets and limit', budgets)}${coll('an-card', 'Credit cards', cardsHtml)}${coll('an-cmp', 'Compared with the earlier period', compare)}${coll('an-top', 'Biggest expenses', topHtml)}`;
+    ${coll('an-by', 'Where the money went', breakdown)}${coll('an-merch', 'By merchant', merchHtml)}${coll('an-bud', 'Budgets and limit', budgets)}${coll('an-card', 'Credit cards', cardsHtml)}${coll('an-cmp', 'Compared with the earlier period', compare)}${coll('an-top', 'Biggest expenses', topHtml)}`;
 }
 
 const redraw = () => window.dispatchEvent(new Event('sukli-render'));
@@ -179,3 +190,22 @@ ACT['an-key'] = (el) => {
   openTxList(k, LAST.parts.filter((p) => p.kind === 'expense' && (isBudget ? (p.group || 'Uncategorized') === k : f(p))));
 };
 document.addEventListener('change', (e) => { const s = e.target.closest && e.target.closest('[data-an]'); if (s) { A[s.dataset.an] = s.value; redraw(); } });
+
+// one merchant: what was bought there (by category), then the entries
+ACT['an-merch'] = (el) => {
+  const k = el.dataset.k, db = get(), cm = catMap(db), am = accountMap(db);
+  const ps = (LAST.parts || []).filter((p) => p.kind === 'expense' && (p.t.merchant ? norm(p.t.merchant) : '') === k); if (!ps.length) return;
+  const name = ps.find((p) => p.t.merchant) ? ps.find((p) => p.t.merchant).t.merchant : 'No merchant', total = sum(ps.map((p) => p.v));
+  const by = new Map(); for (const p of ps) { const c = cm.get(p.cat), n = c ? c.name : 'Uncategorized'; by.set(n, (by.get(n) || 0) + p.v); }
+  const rows = ps.slice().sort((a, b) => (a.t.date < b.t.date ? 1 : -1));
+  sheet(`<p class="hint">${new Set(ps.map((p) => p.t.id)).size} entries · <b>${money(total)}</b></p><h3>What it was</h3>
+    <ul class="calfacts">${[...by.entries()].sort((a, b) => b[1] - a[1]).map(([n, v]) => `<li><span>${esc(n)} <small class="muted">${total ? Math.round(v / total * 100) : 0}%</small></span><b>${money(v)}</b></li>`).join('')}</ul>
+    <h3>Entries</h3><div class="rows plain">${rows.slice(0, 100).map((p) => { const c = cm.get(p.cat), a = am.get(p.t.acct); return `<button class="row" data-act="edit" data-id="${p.t.id}"><i class="badge sm" style="background:${groupColor(p.group)}">${esc((p.group || '?')[0])}</i><span class="rmain"><strong>${esc(p.label || p.t.name || (c ? c.name : 'Entry'))}</strong><small>${esc(p.t.date.slice(0, 10))} · ${esc(c ? c.name : '')}${a ? ' · ' + esc(a.name) : ''}</small></span><span class="ramt expense"><b>−${money(p.v)}</b></span></button>`; }).join('')}</div>${rows.length > 100 ? '<p class="hint">Showing the 100 newest.</p>' : ''}`, { title: name, wide: true });
+};
+ACT['merch-fill'] = async () => {
+  const db = get(), c = fillCandidates(db); if (!c.length) { toast('Nothing to fill.'); return; }
+  if (!(await confirmDialog(`Set the merchant on ${c.length} ${c.length === 1 ? 'entry' : 'entries'} from their names? For example “Shopee order” gets the merchant Shopee. The names stay as they are.`, 'Yes, fill them in'))) return;
+  const by = new Map(c.map((x) => [x.id, x.m]));
+  commit((d) => { for (const t of d.txs) { const m = by.get(t.id); if (m && !t.merchant) { t.merchant = canonMerchant(d, m); stamp(t); } } });
+  toast(`Merchant set on ${c.length} ${c.length === 1 ? 'entry' : 'entries'}.`, { ms: 6000, undo: () => commit((d) => { for (const t of d.txs) if (by.has(t.id)) { delete t.merchant; stamp(t); } }) });
+};

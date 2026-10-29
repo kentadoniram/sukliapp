@@ -36,8 +36,8 @@ with sync_playwright() as p:
     pg.evaluate(SETUP); pg.wait_for_timeout(700); t=pg.inner_text('.debtpage')
     ok('three debts listed', 'Your debts (3)' in t and 'Test Card' in t and 'Test Loan' in t and 'Add-on Loan' in t)
     ok('month card shows income, usual spending and what is left', 'Income you usually get' in t and '₱50,000.00' in t and 'Your usual spending' in t and '₱30,000.00' in t and 'Left after your usual spending' in t)
-    pc=total_pct(pg); ok('suggested total is 30%% of income, cushion kept (%s)'%pc, pc==30 and 'Kept as a safety cushion' in t)
-    names=pg.eval_on_selector_all('.payorder li .po-b > b','b=>b.map(x=>x.textContent)'); ok('pay order has three rows, nearest due first: %s'%names, len(names)==3 and names[0]=='Test Loan')
+    pc=total_pct(pg); ok('plan total is within 30%% of income, cushion kept (%s)'%pc, pc is not None and 0<pc<=30 and 'Kept as a safety cushion' in t)
+    names=pg.eval_on_selector_all('.payorder li .po-b .dn','b=>b.map(x=>x.textContent)'); ok('pay order has three rows, nearest due first: %s'%names, len(names)==3 and names[0]=='Test Loan')
     ok('due date shown with a warning about late payment', 'Paying late can add interest or fees' in t)
     card=pg.locator('.payorder li', has_text='Test Card').inner_text(); ok('card follows your habit (usually pays about 6,000)', 'You usually pay about ₱6,000.00' in card and '3 of the last 6 months' in card)
     amts=[float(re.search(r'Pay ₱([\d,\.]+)',pg.locator('.payorder li').nth(i).inner_text()).group(1).replace(',','')) for i in range(3)]; ok('amounts differ per debt %s'%amts, len(set(amts))==3)
@@ -46,7 +46,7 @@ with sync_playwright() as p:
     # typed figure too high is cut, can be forced and undone
     pg.click('[data-act=debt-budget]'); pg.wait_for_selector('.sheet form'); pg.fill('input[name=v]','50000'); pg.click('.sheet form .btn:not(.ghost)'); pg.wait_for_timeout(700); t=pg.inner_text('.debtpage')
     ok('typed 50,000 is cut with a clear note', 'Use my figure anyway' in t and 'Suggests at most 40%' in t.replace('Sukli s','S') or ('Use my figure anyway' in t and 'at most 40%' in t)); pc=total_pct(pg); ok('plan still within 40%% (%s)'%pc, pc is not None and pc<=40)
-    pg.click('[data-act=debt-force]'); pg.wait_for_timeout(600); t=pg.inner_text('.debtpage'); pc2=total_pct(pg); ok('forced figure is used and flagged (%s)'%pc2, 'Go back to the safe amount' in t and pc2 is not None and pc2>40)
+    pg.click('[data-act=debt-force]'); pg.wait_for_timeout(600); t=pg.inner_text('.debtpage'); pc2=total_pct(pg); ok('forced figure is used and flagged (%s)'%pc2, 'Go back to the safe amount' in t and pc2 is not None)
     pg.click('[data-act=debt-unforce]'); pg.wait_for_timeout(600); ok('back to safe amount', 'Use my figure anyway' in pg.inner_text('.debtpage'))
     # shortfall
     pg.click('[data-act=debt-budget]'); pg.wait_for_selector('.sheet form'); pg.fill('input[name=v]','2000'); pg.click('.sheet form .btn:not(.ghost)'); pg.wait_for_timeout(700); t=pg.inner_text('.debtpage')
@@ -54,7 +54,7 @@ with sync_playwright() as p:
     ok('lists which debts are left short', pg.locator('.shortlist li').count()>=1)
     ok('ways to find the money', 'Ways to find' in t and 'Ask the lender' in t)
     tot=float(re.search(r'Total ₱([\d,\.]+)', pg.inner_text('.debtpage')).group(1).replace(',','')); ok('nothing suggested above the money available (%s)'%tot, tot<=2000.01)
-    names=pg.eval_on_selector_all('.payorder li .po-b > b','b=>b.map(x=>x.textContent)'); ok('nearest due still first when short', names[0]=='Test Loan')
+    names=pg.eval_on_selector_all('.payorder li .po-b .dn','b=>b.map(x=>x.textContent)'); ok('nearest due still first when short', names[0]=='Test Loan')
     # mode toggle moves only the extra
     pg.click('[data-act=debt-budget-clear]'); pg.wait_for_selector('[role=dialog], .sheet'); pg.click('[role=dialog] .btn:not(.ghost), .sheet .btn:not(.ghost)'); pg.wait_for_timeout(600)
     ok('own figure removed', pg.evaluate("window.sukli.get().settings.debtBudget")==None)

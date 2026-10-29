@@ -7,12 +7,12 @@ import { periodFor, postedDay } from './finance.js';
 
 export const SUKLI_HEAD = ['Record', 'Id', 'Name', 'Date', 'Time', 'Kind', 'Amount', 'Currency', 'Rate', 'Category Group', 'Category', 'Account', 'Account Id',
   'To Account', 'To Account Id', 'To Amount', 'To Rate', 'Fee', 'Fee Currency', 'Fee Paid By', 'Fee Category', 'Posted Date', 'Billing Period',
-  'Notes', 'Tags', 'Trip From', 'Trip To', 'Items', 'Review Flag', 'Opening Balance', 'Opening Date', 'Statement Day', 'Due Day', 'Credit Limit',
+  'Notes', 'Tags', 'Merchant', 'Trip From', 'Trip To', 'Items', 'Review Flag', 'Opening Balance', 'Opening Date', 'Statement Day', 'Due Day', 'Credit Limit',
   'Platform', 'Wallet', 'Interest APY', 'Market', 'In Totals', 'Archived', 'Updated', 'Extra (JSON)'];
 const q = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
 const ACC_KNOWN = ['id', 'name', 'type', 'cur', 'open', 'openDate', 'include', 'archived', 'stmtDay', 'dueDay', 'limit', 'exchange', 'wallet', 'apy', 'market', 'updatedAt', 'deleted'];
 const TX_KNOWN = ['id', 'kind', 'date', 'name', 'amount', 'cur', 'fx', 'cat', 'acct', 'toAcct', 'toAmount', 'toFx', 'fee', 'feeBy', 'feeCat', 'feeFx', 'feeCur',
-  'notes', 'labels', 'posted', 'from', 'to', 'items', 'flag', 'updatedAt', 'deleted', 'rev'];
+  'notes', 'labels', 'merchant', 'posted', 'from', 'to', 'items', 'flag', 'updatedAt', 'deleted', 'rev'];
 const rest = (o, known) => { const e = {}; for (const [k, v] of Object.entries(o)) if (!known.includes(k) && v !== undefined && v !== '' && v !== null) e[k] = v; return Object.keys(e).length ? JSON.stringify(e) : ''; };
 const itemsOut = (l) => (l || []).map((i) => `${String(i.n).replace(/[;|]/g, ',')}|${i.amt}|${i.cat || ''}`).join(';');
 const itemsIn = (s) => String(s || '').split(';').filter(Boolean).map((x) => { const [n, amt, cat] = x.split('|'); return { n, amt: parseFloat(amt) || 0, cat: cat || '' }; });
@@ -30,7 +30,7 @@ export function exportSukliCSV(db) {
     push({ ...blank(), Record: 'Entry', Id: t.id, Name: t.name, Date: t.date.slice(0, 10), Time: t.date.slice(11, 19), Kind: t.kind, Amount: t.amount, Currency: t.cur, Rate: t.fx ?? '',
       'Category Group': c ? c.group : '', Category: c ? c.name : '', Account: a ? a.name : '', 'Account Id': t.acct, 'To Account': b ? b.name : '', 'To Account Id': t.toAcct || '',
       'To Amount': t.toAmount ?? '', 'To Rate': t.toFx ?? '', Fee: t.fee || '', 'Fee Currency': t.feeCur || '', 'Fee Paid By': t.fee ? (t.feeBy || 'from') : '', 'Fee Category': fc ? fc.name : '',
-      'Posted Date': t.posted || '', 'Billing Period': per ? `${per.from}..${per.to}` : '', Notes: t.notes || '', Tags: t.labels || '', 'Trip From': t.from || '', 'Trip To': t.to || '',
+      'Posted Date': t.posted || '', 'Billing Period': per ? `${per.from}..${per.to}` : '', Notes: t.notes || '', Tags: t.labels || '', Merchant: t.merchant || '', 'Trip From': t.from || '', 'Trip To': t.to || '',
       Items: itemsOut(t.items), 'Review Flag': t.flag || '', Updated: t.updatedAt || '', 'Extra (JSON)': rest(t, TX_KNOWN) });
   }
   return '﻿' + out.join('\r\n');
@@ -68,6 +68,7 @@ export function importSukliCSV(db, text) {
     else { const b = ensureAcct(g(r, 'To Account Id'), g(r, 'To Account'), cur, r); t.toAcct = b.id; const ta = n(g(r, 'To Amount')); if (ta != null) t.toAmount = ta; const tf = n(g(r, 'To Rate')); if (tf != null) t.toFx = tf; }
     const fee = n(g(r, 'Fee')); if (fee > 0) { t.fee = fee; t.feeBy = g(r, 'Fee Paid By') || 'from'; if (g(r, 'Fee Currency')) t.feeCur = g(r, 'Fee Currency'); const fc = g(r, 'Fee Category'); if (fc) t.feeCat = findOrAddCategory(db, 'Fees', fc, 'expense').id; }
     if (g(r, 'Posted Date')) t.posted = g(r, 'Posted Date');
+    if (g(r, 'Merchant')) t.merchant = g(r, 'Merchant');
     if (g(r, 'Trip From')) t.from = g(r, 'Trip From'); if (g(r, 'Trip To')) t.to = g(r, 'Trip To');
     if (g(r, 'Items')) t.items = itemsIn(g(r, 'Items')); if (g(r, 'Review Flag')) t.flag = g(r, 'Review Flag');
     try { Object.assign(t, JSON.parse(g(r, 'Extra (JSON)') || '{}')); } catch { /* ignore */ }

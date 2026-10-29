@@ -94,24 +94,73 @@ export function habit(payments, today, monthsBack = 6) {
   return { n: list.length, months: ms.size, usual: ms.size >= 2 ? mid : 0, last: list.length ? list[list.length - 1].date.slice(0, 10) : '' };
 }
 
-// This month's plan. Debts: { id, owed, rate, addon, addonMonthly, min, paid (already paid this month), usual, days (to the next due date or null), overdue }.
-// 1. what is due (overdue first, then the nearest due date), 2. what you usually pay when that is more than the minimum, 3. any money left to the first debt
-// in line (highest interest first or smallest first, with a due-soon nudge). Never more than funds; what cannot be covered is reported as short.
+// Steady payer: pays this debt in at least 4 of the last 6 months and about the installment (not more). Then the plan keeps to the installment.
+export const steady = (d) => (d.payMonths || 0) >= 4 && d.min > 0 && !d.minEst && d.usual > 0 && d.usual <= d.min * 1.15;
+
+// This month's plan for what must or usually gets paid. Debts: { id, owed, rate, addon, addonMonthly, min, paid (already paid this month), usual,
+// payMonths, days (to the next due date or null), overdue, flex (no fixed deadline, such as a friend or family) }.
+// 1. what is due (overdue first, then the nearest due date; flexible debts last and with no minimum), 2. what you usually pay when that is more than
+// the minimum. Never more than funds; what cannot be covered is reported as short. Extra money is NOT assigned here (see suggestExtra).
 export function planMonth(debts, funds, mode = 'avalanche') {
   let left = Math.max(0, funds || 0);
   const act = debts.filter((d) => d.owed > 0.004);
-  const rows = act.map((d) => { const need = Math.min(d.owed, Math.max(0, (d.min || 0) - (d.paid || 0))); const want = Math.min(d.owed, Math.max(need, (d.usual || 0) - (d.paid || 0))); return { id: d.id, d, need, want, base: 0, topup: 0, extra: 0, short: 0 }; });
-  const dueKey = (r) => (r.d.overdue ? -1e6 + (r.d.days || 0) : r.d.days == null ? 1e6 : r.d.days);
+  const rows = act.map((d) => { const need = d.flex ? 0 : Math.min(d.owed, Math.max(0, (d.min || 0) - (d.paid || 0))); const want = d.flex ? need : Math.min(d.owed, Math.max(need, (d.usual || 0) - (d.paid || 0))); return { id: d.id, d, need, want, base: 0, topup: 0, extra: 0, short: 0 }; });
+  const dueKey = (r) => (r.d.flex ? 2e6 : r.d.overdue ? -1e6 + (r.d.days || 0) : r.d.days == null ? 1e6 : r.d.days);
   const byDue = [...rows].sort((a, b) => dueKey(a) - dueKey(b) || rankRate(b.d) - rankRate(a.d) || a.d.owed - b.d.owed);
   for (const r of byDue) { const p = Math.min(r.need, left); r.base = p; r.short = r.need - p; left -= p; }
-  const soon = (r) => (r.d.overdue || (r.d.days != null && r.d.days <= 7) ? 0 : 1);
-  const prio = (a, b) => soon(a) - soon(b) || (mode === 'snowball' ? (a.d.owed - b.d.owed) || (rankRate(b.d) - rankRate(a.d)) : (rankRate(b.d) - rankRate(a.d)) || (a.d.owed - b.d.owed));
-  const byPrio = [...rows].sort(prio);
+  const prio = priority(mode);
+  const byPrio = [...rows].sort((a, b) => prio(a.d, b.d));
   for (const r of byPrio) { const x = Math.min(r.want - r.need, left); if (x > 0.004) { r.topup = x; left -= x; } }
-  for (const r of byPrio) { if (left <= 0.004) break; const room = Math.max(0, r.d.owed - (r.paid || 0) - r.base - r.topup), x = Math.min(room, left); if (x > 0.004) { r.extra = x; left -= x; break; } }   // extra goes to the first debt in line that can still take it
-  const out = byDue.map((r) => ({ id: r.id, need: r.need, base: r.base, topup: r.topup, extra: r.extra, pay: r.base + r.topup + r.extra, short: r.short, min: r.d.min, paid: r.d.paid || 0 }));
-  const needTotal = rows.reduce((s, r) => s + r.need, 0), shortTotal = out.reduce((s, r) => s + r.short, 0);
-  return { rows: out, leftover: left, needTotal, shortTotal, payTotal: out.reduce((s, r) => s + r.pay, 0), firstId: (byPrio[0] || {}).id || null };
+  const out = byDue.map((r) => ({ id: r.id, need: r.need, base: r.base, topup: r.topup, extra: 0, pay: r.base + r.topup, short: r.short, min: r.d.min, paid: r.d.paid || 0, flex: !!r.d.flex, steady: steady(r.d) }));
+  const needTotal = rows.reduce((s2, r) => s2 + r.need, 0), shortTotal = out.reduce((s2, r) => s2 + r.short, 0);
+  return { rows: out, leftover: left, needTotal, shortTotal, payTotal: out.reduce((s2, r) => s2 + r.pay, 0), firstId: (byPrio[0] || {}).id || null };
+}
+// who gets extra money first: debts due within 7 days or overdue, never flexible ones before fixed ones, then highest interest or smallest debt
+const priority = (mode) => (a, b) => {
+  const soon = (d) => (d.overdue || (d.days != null && d.days <= 7) ? 0 : 1), fl = (d) => (d.flex ? 1 : 0);
+  return fl(a) - fl(b) || soon(a) - soon(b) || (mode === 'snowball' ? (a.owed - b.owed) || (rankRate(b) - rankRate(a)) : (rankRate(b) - rankRate(a)) || (a.owed - b.owed));
+};
+
+// Is paying E extra on this debt worth it? Compares the interest saved with what the money could earn in savings and with any fee for paying early.
+// ctx: { saveRate (yearly % after tax of your best savings you can reach, 0 if none) }
+export function evalExtra(d, E, ctx = {}) {
+  const save = +ctx.saveRate || 0;
+  if (d.addon) return { worth: false, why: 'Add-on interest is a fixed charge on the original amount, so paying early saves little or nothing. Ask the lender what an early payoff costs.' };
+  if (!(d.rate > 0)) return { worth: false, why: d.flex ? 'No interest and no deadline: pay it when you comfortably can.' : 'No interest is set, so paying early would not save anything. Set the rate to check.' };
+  if (save > 0 && d.rate < save + 2) return { worth: false, why: `Your savings earn about ${save.toFixed(1).replace(/\.0$/, '')}% and this debt costs ${(+d.rate).toFixed(1).replace(/\.0$/, '')}%, so keeping the money in savings is about as good.` };
+  const s0 = simulate([d], Math.max(d.min || 0, 0.01)), s1 = simulate([{ ...d, owed: Math.max(0, d.owed - E) }], Math.max(d.min || 0, 0.01));
+  const saving = s0.never ? E * (d.rate / 100) : Math.max(0, s0.interest - s1.interest), cost = E * ((+d.earlyPct || 0) / 100), monthsSaved = s0.never ? 0 : Math.max(0, s0.months - s1.months);
+  const net = saving - cost - E * (save / 100) * Math.min(12, Math.max(1, s0.months || 12)) / 12;
+  if (saving < 1) return { worth: false, why: 'The interest saved would be too small to matter.' };
+  if (cost > 0 && saving <= cost) return { worth: false, why: `The fee for paying early (about ${cost.toFixed(0)}) is as much as the interest saved.`, saving, cost };
+  if (save > 0 && net <= 0) return { worth: false, why: 'The interest saved is not more than savings would earn on the same money.', saving, cost };
+  return { worth: true, saving, cost, monthsSaved, why: `Saves about ${Math.round(saving)} in interest${monthsSaved >= 1 ? ` and ${monthsSaved} month${monthsSaved === 1 ? '' : 's'} sooner` : ''}.${d.loanLike && !d.earlyPct ? ' Ask the lender if there is a fee for paying early.' : ''}` };
+}
+
+// Optional extra on top of the plan: only from money left after what is due and your habit, only when cash is not thin, and only where it is worth it.
+// ctx: { saveRate, liquid (cash you hold now, home currency), spend (usual monthly spending) }
+export function suggestExtra(debts, plan, mode = 'avalanche', ctx = {}) {
+  if (ctx.liquid != null && ctx.spend > 0 && ctx.liquid < ctx.spend) return { rows: [], total: 0, blocked: 'Your cash accounts hold less than one month of your usual spending. Keep that as a cushion before paying anything extra.' };
+  let pool = plan.leftover; const act = debts.filter((d) => d.owed > 0.004).sort(priority(mode)), by = new Map(plan.rows.map((r) => [r.id, r])), rows = [];
+  for (const d of act) {
+    const r = by.get(d.id), room = Math.max(0, d.owed - (r ? r.pay : 0)); if (room <= 0.004) continue;
+    const E = Math.min(room, Math.max(pool, Math.min(room, plan.leftover)));
+    const ev = evalExtra(d, E > 0 ? E : room, ctx);
+    if (ev.worth && pool > 0.5) { const x = Math.min(room, pool); pool -= x; rows.push({ id: d.id, extra: x, ...ev, saving: evalExtra(d, x, ctx).saving }); }
+    else rows.push({ id: d.id, extra: 0, worth: false, why: ev.worth ? 'No money is left over this month.' : ev.why });
+  }
+  return { rows, total: rows.reduce((s2, r) => s2 + r.extra, 0), blocked: '' };
+}
+
+// Keep money in an interest-earning account until just before a due date? saver: { name, net (yearly % after tax), fee (usual transfer fee), free (money not locked) }
+export function parkIdea({ amount, days, saver, before = 1 }) {
+  if (!saver) return { ok: false };
+  if (days == null || days < before + 2) return { ok: false, why: 'Due too soon to park the money.' };
+  if (saver.free < amount) return { ok: false, why: `Not enough free money in ${saver.name}${saver.lockNote ? ` (${saver.lockNote})` : ''}.` };
+  const hold = days - before, interest = amount * (saver.net / 100) * hold / 365, fee = saver.fee || 0;
+  if (interest < 1) return { ok: false, why: `It would earn under 1 in ${saver.name}, not worth the trouble.` };
+  if (fee >= interest) return { ok: false, why: `Moving it costs ${fee.toFixed(0)}, more than the ${interest.toFixed(0)} it would earn.`, interest, fee };
+  return { ok: true, hold, moveOn: before, interest, fee, net: interest - fee, name: saver.name };
 }
 
 // Ways to free up money: trim the biggest want and luxury categories a little (about 20%, more if the gap is large) until the gap is covered.
