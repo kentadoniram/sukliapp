@@ -19,7 +19,7 @@ import { favCurs, openCurrencyPicker, flagOf } from './curpicker.js';
 import { openDatePicker } from './datepicker.js';
 
 // where each kind of account shows up, in plain words (used by the Change type shortcut)
-export const typeWhere = { cash: 'Cash and bank. Counted in Spendable now.', bank: 'Cash and bank. Counted in Spendable now.', ewallet: 'Cash and bank. Counted in Spendable now.', card: 'Credit cards, under what you owe. Not spendable.', crypto: 'Investments tab, with prices and gains.', invest: 'Investments tab, with prices and gains.', asset: 'Property and other assets.', loan: 'Loans and money owed, under what you owe.', other: 'Other. Not counted in Spendable now.' };
+export const typeWhere = { cash: 'Cash and bank. Counted in Spendable now.', bank: 'Cash and bank. Counted in Spendable now.', ewallet: 'Cash and bank. Counted in Spendable now.', card: 'Credit cards, under what you owe. Not spendable.', crypto: 'Investments tab, with prices and gains.', invest: 'Investments tab, with prices and gains.', asset: 'Property and other assets.', owed: 'Money other people owe you. See the Owed to you tab. Not spendable.', loan: 'Loans and money owed, under what you owe.', other: 'Other. Not counted in Spendable now.' };
 const SPEND = ['cash', 'bank', 'ewallet'], INVT = ['crypto', 'invest'];
 // quick way to say what an account is, without opening the whole edit form (for example a bank account that is really a crypto exchange)
 export function openReclass(id) {
@@ -32,7 +32,7 @@ export function openReclass(id) {
       x.invtab = INVT.includes(t) ? true : (INVT.includes(was) ? false : !!x.invtab); if (isLiability({ type: t })) x.apy = 0; stamp(x); });
     toast(`${a0.name} is now ${typeNames[t]}. ${typeWhere[t]}`, { undo: () => commit((d) => { const x = d.accounts.find((q) => q.id === id); if (x) { Object.assign(x, before); stamp(x); } }) }); }; });
 }
-export const typeNames = { cash: 'Cash', bank: 'Bank', ewallet: 'E-wallet / card balance', card: 'Credit card', crypto: 'Crypto', invest: 'Investment', asset: 'Asset (property, vehicle…)', loan: 'Loan or money owed', other: 'Other' };
+export const typeNames = { cash: 'Cash', bank: 'Bank', ewallet: 'E-wallet / card balance', card: 'Credit card', crypto: 'Crypto', invest: 'Investment', asset: 'Asset (property, vehicle…)', owed: 'Money owed to me', loan: 'Loan or money owed', other: 'Other' };
 const DEFAULT_TYPES = { ...typeNames };
 // account types you can rename and add to (Settings, Account types). Custom ones count as an asset or a liability.
 export function applyTypes(st = {}) {
@@ -42,10 +42,10 @@ export function applyTypes(st = {}) {
   for (const k of Object.keys(DEFAULT_TYPES)) if (labels[k]) typeNames[k] = labels[k];
   for (const [k, v] of Object.entries(custom)) typeNames[k] = labels[k] || v.label;
   typeOrder.length = 0;
-  typeOrder.push('cash', 'bank', 'ewallet', 'crypto', 'invest', 'asset', 'other', ...Object.keys(custom), 'card', 'loan');
+  typeOrder.push('cash', 'bank', 'ewallet', 'crypto', 'invest', 'asset', 'owed', 'other', ...Object.keys(custom), 'card', 'loan');
   setLiab(Object.entries(custom).filter(([, v]) => v.liab).map(([k]) => k));
 }
-const typeOrder = ['cash', 'bank', 'ewallet', 'crypto', 'invest', 'asset', 'other', 'card', 'loan'];
+const typeOrder = ['cash', 'bank', 'ewallet', 'crypto', 'invest', 'asset', 'owed', 'other', 'card', 'loan'];
 
 // ---- view choices (remembered on this device) ----
 const VKEY = 'sukli-acctview2';
@@ -113,7 +113,7 @@ export function accounts(db) {
   } else if (grp === 'class') {
     const cls = (a) => {
       if (isLiability(a)) return a.type === 'card' ? 'Credit cards' : (a.type === 'loan' || a.loan) ? 'Loans and money owed' : 'Other debts';
-      return ['invest', 'crypto'].includes(a.type) ? 'Investments and crypto' : a.type === 'asset' ? 'Property and other assets' : 'Cash and bank';
+      return ['invest', 'crypto'].includes(a.type) ? 'Investments and crypto' : a.type === 'asset' ? 'Property and other assets' : a.type === 'owed' ? 'Money owed to me' : 'Cash and bank';
     };
     const order = [['Assets', ['Cash and bank', 'Investments and crypto', 'Property and other assets']], ['Liabilities', ['Credit cards', 'Loans and money owed', 'Other debts']]];
     const m = new Map(order.flatMap(([, ks]) => ks).map((k) => [k, []])); for (const a of shown) m.get(cls(a)).push(a);

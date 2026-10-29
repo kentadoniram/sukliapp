@@ -5,11 +5,11 @@ import { get, groupColor, groupLetter, accLabel, walletOf, balances, fmt, priv }
 const INV = (a) => !!a && (a.type === 'crypto' || a.type === 'invest' || !!a.invtab);
 import { typeNames } from './accpage.js';
 import { sheet, esc } from './ui.js';
-import { isLiability } from './finance.js';
+import { isLiability, isOwed } from './finance.js';
 
 export function openAccountPicker({ selected = '', skip = '', cur = '', only = '', title = 'Account' }, onPick) {
   const db = get(), bal = balances(db);
-  const list = db.accounts.filter((a) => !a.deleted && (!a.archived || a.id === selected) && (!only || (only === 'debt' ? isLiability(a) : !isLiability(a))));   // the account on the other side stays in the list (greyed), so it never looks missing
+  const list = db.accounts.filter((a) => !a.deleted && (!a.archived || a.id === selected) && (!only || (only === 'debt' ? isLiability(a) : only === 'owed' ? isOwed(a) : !isLiability(a) && !isOwed(a))));   // the account on the other side stays in the list (greyed), so it never looks missing
   const curs = [...new Set(list.map((a) => a.cur))];
   let chip = cur && curs.includes(cur) ? cur : '';
   const s = sheet(`<input type="search" id="acq" class="search" data-noclear="1" placeholder="Search account, type or currency" autocomplete="off" autofocus>
