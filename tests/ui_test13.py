@@ -30,8 +30,8 @@ with sync_playwright() as p:
     ok('exchange group shown (Investments tab)', 'Bybit' in pg.inner_text('main, #app'))
     # custom account type (receivable) from Settings
     pg.goto('http://localhost:8123/index.html#/settings'); pg.wait_for_selector('#atype-new')
-    pg.fill('#atype-new','Prepaid pot'); pg.click('[data-act=atype-add]'); pg.wait_for_timeout(400)
-    ok('custom type stored', pg.evaluate("Object.values(window.sukli.get().settings.customTypes||{}).some(v=>v.label==='Prepaid pot')"))
+    pg.fill('#atype-new','Money owed to me'); pg.click('[data-act=atype-add]'); pg.wait_for_timeout(400)
+    ok('custom type stored', pg.evaluate("Object.values(window.sukli.get().settings.customTypes||{}).some(v=>v.label==='Money owed to me')"))
     key=pg.evaluate("Object.keys(window.sukli.get().settings.customTypes)[0]")
     pg.evaluate("window.sukli.commit(d=>{d.accounts.push({id:'rcv',name:'Owed by Juan',cur:'PHP',type:'%s',open:0,include:false,archived:false,updatedAt:Date.now()})})" % key)
     nw0=pg.evaluate("(async()=>{const m=await import('./js/finance.js');return m.netWorth(window.sukli.get()).net})()")
