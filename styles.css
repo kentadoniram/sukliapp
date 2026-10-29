@@ -1052,7 +1052,7 @@ img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor:
 .debtpage .calfacts li { gap: 10px; } .debtpage .limits li { flex-direction: column; align-items: flex-start; gap: 2px; } .debtpage .limits b { font-weight: 500; }
 
 /* v13: Pay debt */
-.debtq { margin: 2px 0 6px; } #seg { grid-template-columns: repeat(4, 1fr); } #seg button { padding-left: 4px; padding-right: 4px; white-space: nowrap; } .debtrow .btnrow.tight { display: flex; gap: 8px; flex-wrap: wrap; }
+.debtq { margin: 2px 0 6px; } .debtrow .btnrow.tight { display: flex; gap: 8px; flex-wrap: wrap; }
 /* v13.3: plan with due dates, habits and shortfall */
 .shortlist { margin: 4px 0 0; padding-left: 18px; } .cutbox { margin-top: 10px; padding: 10px 12px; border: 1px dashed var(--rule); border-radius: 12px; font-size: 14px; } .cutbox ul { margin: 6px 0 0; padding-left: 18px; } .cutbox li { margin: 3px 0; }
 .payorder li.od { border-color: #d64545; } .payorder small { display: block; line-height: 1.35; } .debtpage .subh { margin: 14px 0 6px; font-size: 15px; }
@@ -1064,3 +1064,13 @@ img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor:
 .btnsub{display:block;font-weight:400;font-size:.8rem;opacity:.85;margin-top:2px;white-space:normal}
 .lvlbtn{flex-direction:column;height:auto;min-height:0;padding:14px 16px;gap:4px;line-height:1.3;margin-bottom:12px}
 .lvlbtn .btnsub{margin:0;text-align:center}
+/* v13.6 entry types: three main buttons, then Debt and Lent with captions, a sub-choice, and a one-line note */
+.segbox .seg { margin-bottom: 8px; }
+.segbox .seg.three { grid-template-columns: repeat(3, 1fr); }
+.segbox .segloan button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 6px 4px; min-height: 52px; line-height: 1.2; }
+.segbox .segloan button small { font-weight: 400; font-size: .72rem; opacity: .85; }
+.segsub { margin: 0 0 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+.segsub .chip { flex: 1 1 0; text-align: center; min-height: 40px; }
+.segnote { margin: 0 0 8px; font-size: .8rem; color: var(--ink2); }
+.owedpage .debtrow .btnrow.tight { display: flex; gap: 8px; flex-wrap: wrap; }
+.qp.qp-off { min-height: 0; margin: 0; }
