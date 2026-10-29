@@ -535,3 +535,6 @@ export function purgeExpired(db) {
   for (const it of binItems(db)) if (it.at < cut) { purgeRec(it.r); n++; }
   return n;
 }
+
+// Simple or Advanced. Nothing is ever deleted when it changes. No value saved (older data, imports, restores) means Advanced, so nobody loses anything they use.
+export const appMode = (db) => ((db || get()).settings && (db || get()).settings.mode === 'simple' ? 'simple' : 'advanced');

@@ -15,7 +15,9 @@ export function merchantList(db) {
     if (t.deleted || !t.merchant) continue; const k = norm(t.merchant), o = m.get(k) || { name: clean(t.merchant), n: 0, last: '', spell: new Map() };
     o.n++; if (String(t.date) > o.last) o.last = String(t.date); o.spell.set(clean(t.merchant), (o.spell.get(clean(t.merchant)) || 0) + 1); m.set(k, o);
   }
-  return [...m.values()].map((o) => ({ name: [...o.spell.entries()].sort((a, b) => b[1] - a[1])[0][0], n: o.n, last: o.last })).sort((a, b) => b.n - a.n || (a.last < b.last ? 1 : -1));
+  const out = [...m.values()].map((o) => ({ name: [...o.spell.entries()].sort((a, b) => b[1] - a[1])[0][0], n: o.n, last: o.last })).sort((a, b) => b.n - a.n || (a.last < b.last ? 1 : -1));
+  for (const x of db.settings.merchants || []) if (!m.has(norm(x))) out.push({ name: clean(x), n: 0, last: '' });   // added in Settings, not used yet
+  return out;
 }
 // the spelling to save: one you already use if it matches (ignoring case and spaces), a suggestion's spelling, else what was typed
 export function canonMerchant(db, text) {
@@ -42,7 +44,7 @@ export function openMerchantPicker({ selected = '', title = 'Merchant' } = {}, o
     const u = used.filter((m) => has(m.name)), g = sugg.filter(has);
     const add = clean(q) && !used.some((m) => norm(m.name) === k) && !STARTERS.some((x) => norm(x) === k) ? `<h3>New</h3><div class="rows plain">${row(clean(q), 'Add as a new merchant', 'addnew')}</div>` : '';
     s.el.querySelector('#mlist').innerHTML = `${selected ? '<div class="rows plain"><button type="button" class="row cur" data-m=""><span class="rmain"><strong>No merchant</strong><small>Clear it for this entry</small></span></button></div>' : ''}
-      ${u.length ? `<h3>You have used</h3><div class="rows plain">${u.map((m) => row(m.name, `${m.n} ${m.n === 1 ? 'entry' : 'entries'}`)).join('')}</div>` : ''}
+      ${u.length ? `<h3>You have used</h3><div class="rows plain">${u.map((m) => row(m.name, `${m.n ? `${m.n} ${m.n === 1 ? 'entry' : 'entries'}` : 'Added by you'}`)).join('')}</div>` : ''}
       ${g.length ? `<h3>Suggestions</h3><div class="rows plain">${g.map((x) => row(x, '')).join('')}</div>` : ''}${add}
       ${!u.length && !g.length && !add ? '<p class="empty">Nothing matches. Type the merchant name to add it.</p>' : ''}`;
   };

@@ -14,6 +14,7 @@ export const GLOSSARY = [
   ['Debts', 'Smallest debt first', 'Pay every minimum, then put all extra money on the smallest debt. You finish one sooner, which keeps many people going. It can cost a little more interest. Also called the snowball way.'],
   ['Debts', 'Add-on interest', 'A fixed charge worked out on the original amount you borrowed, not on what is left. Paying early may save little or nothing.'],
   ['Debts', 'Interest a year and a month', '3% a month is about 36% a year (about 42.6% if it compounds). Always compare debts in the same unit.'],
+  ['Money basics', 'Simple and Advanced', 'Simple shows just the basics. Advanced shows everything (interest, loans, investments, tags, exports). Switching in Settings never deletes anything you entered.'],
   ['Money basics', 'Merchant', 'Where you bought something (Shopee, Lazada, wet market, mall). The category says what it was, so a Shopee order can be Food or Clothing.'],
   ['Money basics', 'Net worth', 'Everything you own minus everything you owe.'],
   ['Money basics', 'Category group', 'A heading that holds several categories, such as Food holding Groceries and Eating out.'],

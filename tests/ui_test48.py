@@ -18,7 +18,7 @@ with sync_playwright() as p:
     ok('"used a budget app" shows the old welcome', 'Start: add my first account' in pg.inner_text('#view') and pg.locator('#first-file').count()==1)
     pg.tap('[data-act=wz-home]'); pg.wait_for_timeout(300)
     # I am new: one question at a time
-    pg.tap('[data-act=wz-new]'); pg.wait_for_timeout(300)
+    pg.tap('[data-act=wz-new]'); pg.wait_for_timeout(300); ok('mode choice comes first', 'How do you want Sukli' in pg.inner_text('#view')); pg.tap('[data-act=wz-lvl][data-v=simple]'); pg.wait_for_timeout(300)
     ok('question 1 alone: What did you spend?', 'What did you spend?' in pg.inner_text('#view') and 'How much?' not in pg.inner_text('#view') and 'Question 1 of 5' in pg.inner_text('#view'))
     ok('Next is off until you answer', pg.locator('#wz-next').is_disabled())
     pg.tap('#wz-what'); pg.keyboard.type('Lunch'); pg.wait_for_timeout(150)

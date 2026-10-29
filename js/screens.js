@@ -1,5 +1,5 @@
 // The five screens: Home, Ledger, Review, Accounts, Reports, and Settings.
-import { softDelete } from './core.js';
+import { softDelete, appMode } from './core.js';
 import { safetyCfg, balanceTrail } from './finance.js';
 import {
   get, commit, commitQuiet, stamp, uid, fmt, BASE, HOME, homeFx, homeRate, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
@@ -18,6 +18,7 @@ import { tipBtn } from './interest.js';
 import { parseTags, hasTag, tagCounts } from './tags.js';
 import { feedbackCfg, testBuzz, iosVersion } from './feedback.js';
 import './glossary.js';
+import { merchantsSection } from './merchantset.js';
 import { openBulkEdit } from './bulkedit.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
@@ -698,6 +699,9 @@ export function settings(db) {
   const cl = s.cloud || {};
   const me = signedIn() ? (session() || {}).user : null;
   return settingsGrouped(`${hdr('Settings')}
+    <section><h2>Mode</h2><p class="hint">Simple shows just the basics. Advanced shows everything. Switching never deletes anything you entered.</p>
+      <div class="seg two" role="group" aria-label="Mode"><button type="button" data-act="set-mode" data-v="simple" class="${appMode(db) === 'simple' ? 'on' : ''}" aria-pressed="${appMode(db) === 'simple'}">Simple</button><button type="button" data-act="set-mode" data-v="advanced" class="${appMode(db) === 'advanced' ? 'on' : ''}" aria-pressed="${appMode(db) === 'advanced'}">Advanced</button></div></section>
+    ${merchantsSection(db)}
     <section><h2>Categories</h2>
       <p class="hint">Add, rename and delete your expense and income categories, with keywords so the app guesses them.</p>
       <div class="btnrow left"><a class="btn" href="#/categories?k=expense">Expense categories</a><a class="btn ghost" href="#/categories?k=income">Income categories</a></div></section>
@@ -983,9 +987,9 @@ ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
 
 // Settings, grouped by what they are for. Advanced items sit in their own folded group.
 const SET_GROUPS = [
-  ['look', 'Look and Feel', 'Tabs, Home cards, colours, text size', ['Tabs and Home cards', 'Appearance', 'Display']],
+  ['look', 'Look and Feel', 'Simple or Advanced, tabs, Home cards, colours, text size', ['Mode', 'Tabs and Home cards', 'Appearance', 'Display']],
   ['money', 'Money and Alerts', 'Home currency, spending warnings', ['Currency', 'Spending safety', 'Left out of cash outflow']],
-  ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Account types', 'Name matching']],
+  ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Account types', 'Name matching']],
   ['data', 'Backup and Data', 'Reminders, backups, export', ['Backup reminder', 'Your data', 'Google backup (optional)']],
   ['adv', 'Advanced', 'Most people never need these', ['Exchange rates', 'Live exchange rates', 'Coins and tokens: decimals', 'Cloud sync', 'Erase']],
   ['help', 'Help', 'Glossary, install on your phone', ['Glossary', 'Put it on your phone']],
@@ -1093,3 +1097,5 @@ export function confirmImport(pv) {
     };
   });
 }
+
+ACT['set-mode'] = (el) => { const v = el.dataset.v === 'simple' ? 'simple' : 'advanced'; commit((d) => { d.settings.mode = v; }); toast(v === 'simple' ? 'Simple mode.' : 'Advanced mode. Everything is shown.'); };

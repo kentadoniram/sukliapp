@@ -5,7 +5,7 @@ import { ACT, esc, toast } from './ui.js';
 const KINDS = { cash: ['Cash', 'cash'], bank: ['Bank or debit card', 'bank'], ewallet: ['E-wallet (GCash, PayPay…)', 'ewallet'], card: ['Credit card', 'card'] };
 const FOODS = ['Lunch', 'Coffee', 'Groceries', 'Train', 'Snack'];
 const STEPS = 5;
-const wz = { mode: '', step: 0, what: '', amount: '', pay: '', now: '', whenKind: '', whenAt: '' };
+const wz = { mode: '', lvl: '', step: 0, what: '', amount: '', pay: '', now: '', whenKind: '', whenAt: '' };
 const rerender = () => window.dispatchEvent(new Event('sukli-render'));
 const num = (v) => { const x = parseFloat(String(v ?? '').replace(/,/g, '')); return Number.isFinite(x) ? x : NaN; };
 const sym = () => (CUR[HOME] || { sym: HOME + ' ' }).sym;
@@ -65,6 +65,10 @@ export function welcomeHtml(oldHtml) {
     <button type="button" class="btn wide" data-act="wz-new">I am new</button>
     <button type="button" class="btn ghost wide" data-act="wz-old">I’ve used a budget app before</button>
     <div class="or"><span>or</span></div>${restoreBtn('first-json')}<input type="file" id="first-file" accept=".csv,text/csv" hidden aria-hidden="true" tabindex="-1"></section>`;
+  if (!wz.lvl) return `<section class="welcome wz"><h1>How do you want Sukli?</h1><p class="hint">You can change this any time in Settings. Nothing you enter is ever deleted when you switch.</p>
+    <button type="button" class="btn wide lvlbtn" data-act="wz-lvl" data-v="simple">Simple<small class="btnsub">Just the basics: add what you spend, see where it went. Other options stay hidden until you want them.</small></button>
+    <button type="button" class="btn ghost wide lvlbtn" data-act="wz-lvl" data-v="advanced">Advanced<small class="btnsub">Everything: interest, loans, investments, tags, merchants, exports.</small></button>
+    <p class="hint center"><button type="button" class="linkbtn" data-act="wz-home">Back</button></p></section>`;
   const s = wz.step, last = s === STEPS - 1;
   const q = [
     () => `<h1>What did you spend?</h1><p class="hint">Anything you paid for today or lately. A word is enough.</p>
@@ -80,10 +84,11 @@ export function welcomeHtml(oldHtml) {
   return `<section class="welcome wz">${bar()}${q}${nav(valid(), last)}<p class="hint center"><button type="button" class="linkbtn" data-act="wz-home">Start over</button></p></section>`;
 }
 
-ACT['wz-new'] = () => { Object.assign(wz, { mode: 'new', step: 0, what: '', amount: '', pay: '', now: '', whenKind: '', whenAt: '' }); rerender(); };
+ACT['wz-new'] = () => { Object.assign(wz, { mode: 'new', lvl: '', step: 0, what: '', amount: '', pay: '', now: '', whenKind: '', whenAt: '' }); rerender(); };
+ACT['wz-lvl'] = (el) => { wz.lvl = el.dataset.v === 'simple' ? 'simple' : 'advanced'; rerender(); };
 ACT['wz-old'] = () => { wz.mode = 'old'; rerender(); };
 ACT['wz-home'] = () => { wz.mode = ''; rerender(); };
-ACT['wz-back'] = () => { if (wz.step > 0) wz.step--; else wz.mode = ''; rerender(); };
+ACT['wz-back'] = () => { if (wz.step > 0) wz.step--; else wz.lvl = ''; rerender(); };
 ACT['wz-pick'] = (el) => { wz.what = el.dataset.v; rerender(); };
 ACT['wz-pay'] = (el) => { wz.pay = el.dataset.v; rerender(); };
 ACT['wz-when'] = async (el) => {
@@ -96,6 +101,7 @@ ACT['wz-next'] = () => {
   if (!valid()) return;
   if (wz.step < STEPS - 1) { wz.step++; rerender(); setTimeout(() => { const i = document.querySelector('.wzin'); if (i) i.focus(); }, 60); return; }
   createFirst({ what: wz.what.trim(), amount: num(wz.amount), pay: wz.pay, now: num(wz.now), date: whenDate(wz.whenKind, wz.whenAt) });
+  commit((d) => { d.settings.mode = wz.lvl === 'simple' ? 'simple' : 'advanced'; });
   wz.mode = ''; location.hash = '#/home';
   toast('Saved. Tap the round + button to add the next one.', { ms: 6000 });
 };
