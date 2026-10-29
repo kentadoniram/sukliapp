@@ -117,6 +117,9 @@ export function effectLine(t, accts) {
   if (t.loanNet) return `Loan: borrowed ${money(t.loanNet.principal, t.cur)}${t.loanNet.fees > 0 ? `, fees ${money(t.loanNet.fees, t.cur)} deducted` : ''}, received ${money(t.loanNet.net, t.cur)}`;
   if (t.trade) return `Trade, not counted as spending${feeTxt}`;
   if (t.debtPay) return `Debt payment: lowers what you owe, not counted as spending${feeTxt}`;
+  if (t.debtBorrow) return 'Borrowed money: adds to what you owe, not counted as income';
+  if (t.lent) return 'Money you lent: not counted as spending';
+  if (t.lentBack) return 'Paid back to you: not counted as income';
   if (t.kind === 'transfer') return `Moved between accounts, not counted as spending${feeTxt}`;
   if (t.invIncome) return 'Investment income recorded';
   if (t.autoDebt) return 'Interest on a debt, added automatically';
@@ -134,7 +137,7 @@ export function row(t, accts, cats, sel, trail) {
   const a = accts.get(t.acct), c = cats.get(t.cat), tr = t.kind === 'transfer';
   const group = tr ? 'Transfer' : (c ? c.group : 'Uncategorized');
   const title = t.name || (c ? c.name : 'Untitled');
-  const sub = tr ? `${t.trade ? 'Trade · ' : t.debtPay ? 'Pay debt · ' : 'Transfer · '}${esc(a ? a.name : '?')} → ${esc((accts.get(t.toAcct) || {}).name || '?')}`
+  const sub = tr ? `${t.trade ? 'Trade · ' : t.debtPay ? 'Pay debt · ' : t.debtBorrow ? 'Borrowed · ' : t.lent ? 'Lent · ' : t.lentBack ? 'Paid back · ' : 'Transfer · '}${esc(a ? a.name : '?')} → ${esc((accts.get(t.toAcct) || {}).name || '?')}`
     : `${esc(c ? c.name : 'No category')}${t.merchant ? ` · ${esc(t.merchant)}` : ''} · ${esc(a ? a.name : '')}${t.items && t.items.length ? ` · ${t.items.length} items` : ''}`;
   const tg = parseTags(t.labels).map((x) => `#${esc(x)}`).join(' '), sub2 = tg ? `${sub} · <span class="rtags">${tg}</span>` : sub;
   const bb = tr ? accts.get(t.toAcct) : null, arr = tr && t.toAmount != null && bb && Math.abs(t.toAmount - t.amount) > 1e-9 && !t.trade ? `<small class="arrived">arrived ${money(t.toAmount, bb.cur)}</small>` : '';
@@ -1008,7 +1011,7 @@ function settingsGrouped(html) {
 }
 
 // ---------------- Arrange tabs and Home cards (Settings) ----------------
-export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Entries', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'], invest: ['Invest', 'spark'], debts: ['Debts', 'calc'] };
+export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Entries', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'], invest: ['Invest', 'spark'], debts: ['Debts', 'calc'], owed: ['Owed to you', 'wallet'] };
 export const DEFAULT_TABS = ['home', 'ledger', 'calendar', 'accounts'];
 export function tabIds(db) {
   const t = ((db.settings && db.settings.tabs) || []).filter((x, i, a) => TAB_DEFS[x] && a.indexOf(x) === i).slice(0, 4);
