@@ -1,5 +1,6 @@
-// Beginner help for a few pages: a small "?" in the header opens a short, plain explanation (what the page is, how to use it, one tip).
+// Beginner help for a few pages (Simple mode only): a small "?" in the header opens a short, plain explanation (what the page is, how to use it, one tip).
 import { ACT, sheet, esc } from './ui.js';
+import { get, appMode } from './core.js';
 
 export const HELP = {
   home: ['Home', 'Your month at a glance.', ['The top numbers show what came in and what went out this month.', 'Use the arrows at the top to look at other months.', 'Tap the round + to add something you spent or earned.'], 'Add an entry every day, even a small one. A word and a number are enough.'],
@@ -11,7 +12,7 @@ export const HELP = {
   owed: ['Owed to you', 'Money other people owe you.', ['Record lending with + then Lent then “I lent money”.', 'When they pay, use “They paid me back”. It is not income.', 'Lent money is not counted as spending.'], 'Tap Change on a person to set the date you expect it back. It is only a reminder for you.'],
 };
 const key = () => (location.hash.replace(/^#\/?/, '').split(/[?/]/)[0] || 'home');
-export const helpBtn = () => (HELP[key()] ? `<button type="button" class="iconbtn helpbtn" data-act="tab-help" aria-label="Help for this page">?</button>` : '');
+export const helpBtn = () => (HELP[key()] && appMode(get()) === 'simple' ? `<button type="button" class="iconbtn helpbtn" data-act="tab-help" aria-label="Help for this page">?</button>` : '');
 ACT['tab-help'] = () => {
   const h = HELP[key()]; if (!h) return;
   sheet(`<p><b>${esc(h[1])}</b></p><ul class="helplist">${h[2].map((x) => `<li>${esc(x)}</li>`).join('')}</ul><p class="hint"><b>Tip:</b> ${esc(h[3])}</p><div class="btnrow left"><button type="button" class="linkbtn" data-act="glossary">Words explained</button></div>`, { title: h[0] + ': help' });

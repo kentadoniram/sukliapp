@@ -7,6 +7,8 @@ with sync_playwright() as p:
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
+    pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(400); ok('Advanced mode: no help button', pg.locator('header .helpbtn').count()==0)
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='simple'})})()"); pg.wait_for_timeout(500)
     for r,w in [('home','Home'),('ledger','Entries'),('calendar','Calendar'),('budget','Budget'),('accounts','Accounts'),('debts','Debts'),('owed','Owed to you')]:
         pg.goto('http://localhost:8123/#/'+r); pg.wait_for_timeout(500)
         ok(r+' has a help button', pg.locator('header .helpbtn').count()==1)
