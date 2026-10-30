@@ -231,11 +231,50 @@ export function fixRouteNames(d) {
       const sep = m[2].trim() === 'to' ? ' to ' : ` ${m[2].trim()} `; t.name = `${fn}${sep}${tn}`; t.autoRoute = true; stamp(t); }
   }
 }
+// ---- general undo (this session only, last 10 changes, never for imports/restores/sync) ----
+// Before each commit the data (entries, accounts, categories, budgets, merchant list, custom account types) is kept as text; if the commit changed any of it, that
+// text becomes one undo step. Quick commits within 0.8 s are one step. Undoing puts the old records back with a new "updated" time so sync carries the change,
+// and entries that were added are moved to the Recycle bin instead of being erased.
+const UNDO_MAX = 10, UNDO_BYTES = 14e6, undoStack = [], redoStack = []; let undoAt = 0;
+const undoPartsOf = (d) => JSON.stringify({ txs: d.txs, accounts: d.accounts, categories: d.categories, budgets: d.budgets, merchants: d.settings.merchants || null, customTypes: d.settings.customTypes || null, typeLabels: d.settings.typeLabels || null });
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+function undoLabel(t0, nTx) {
+  const touched = state.txs.filter((t) => t.updatedAt >= t0), added = state.txs.length - nTx, dels = touched.filter((t) => t.deleted).length;
+  if (added > 0) return `Added ${plural(added, 'entry', 'entries')}`;
+  if (touched.length && dels === touched.length) return `Deleted ${plural(dels, 'entry', 'entries')}`;
+  if (touched.length) return `Edited ${plural(touched.length, 'entry', 'entries')}`;
+  const ac = state.accounts.filter((a) => a.updatedAt >= t0).length; if (ac) return `Changed ${plural(ac, 'account', 'accounts')}`;
+  const ca = state.categories.filter((c) => c.updatedAt >= t0).length; if (ca) return `Changed ${plural(ca, 'category', 'categories')}`;
+  return 'Changed your data';
+}
+function trimUndo() { let bytes = undoStack.reduce((q, s) => q + s.snap.length, 0); while (undoStack.length > UNDO_MAX || (undoStack.length > 1 && bytes > UNDO_BYTES)) bytes -= undoStack.shift().snap.length; }
+export const undoInfo = () => ({ undo: undoStack.length ? { label: undoStack[undoStack.length - 1].label, at: undoStack[undoStack.length - 1].at, count: undoStack.length } : null, redo: redoStack.length ? { label: redoStack[redoStack.length - 1].label } : null });
+export const undoClear = () => { undoStack.length = 0; redoStack.length = 0; };
+function applyParts(json) {
+  const t = JSON.parse(json), now = Date.now();
+  for (const k of ['txs', 'accounts', 'categories']) {
+    const cur = state[k], want = new Map((t[k] || []).map((r) => [r.id, r])), have = new Set(cur.map((r) => r.id));
+    for (let i = 0; i < cur.length; i++) {
+      const r = cur[i], w = want.get(r.id);
+      if (!w) { if (!r.deleted) { r.deleted = true; r.deletedAt = now; r.updatedAt = now; } }
+      else if (JSON.stringify(w) !== JSON.stringify(r)) cur[i] = { ...w, updatedAt: now };
+    }
+    for (const [id, w] of want) if (!have.has(id)) cur.push({ ...w, updatedAt: now });
+  }
+  state.budgets = t.budgets || [];
+  for (const k of ['merchants', 'customTypes', 'typeLabels']) { if (t[k] == null) delete state.settings[k]; else state.settings[k] = t[k]; }
+  fixRouteNames(state); syncHome(); clearTimeout(saveTimer); saveTimer = setTimeout(() => writeRaw(state), 150); subs.forEach((f) => f(state));
+}
+export function undoLast() { const s = undoStack.pop(); if (!s) return null; undoAt = 0; redoStack.push({ label: s.label, at: Date.now(), snap: undoPartsOf(state) }); applyParts(s.snap); return s.label; }
+export function redoLast() { const s = redoStack.pop(); if (!s) return null; undoAt = 0; undoStack.push({ label: s.label, at: Date.now(), snap: undoPartsOf(state) }); applyParts(s.snap); return s.label; }
 export function commit(mutator) {
+  const track = !!state && (!undoStack.length || Date.now() - undoAt > 800); let before = null; const t0 = Date.now(), nTx = state ? state.txs.length : 0;
+  if (track) before = undoPartsOf(state);
   mutator(state); fixRouteNames(state);
   syncHome();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => writeRaw(state), 150);
+  if (before !== null && undoPartsOf(state) !== before) { undoStack.push({ label: undoLabel(t0, nTx), at: t0, snap: before }); undoAt = Date.now(); redoStack.length = 0; trimUndo(); }
   subs.forEach((f) => f(state));
 }
 // saves without redrawing: for text boxes, where a redraw would steal focus from the next box

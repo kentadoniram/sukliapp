@@ -1074,3 +1074,10 @@ img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor:
 .segnote { margin: 0 0 8px; font-size: .8rem; color: var(--ink2); }
 .owedpage .debtrow .btnrow.tight { display: flex; gap: 8px; flex-wrap: wrap; }
 .qp.qp-off { min-height: 0; margin: 0; }
+/* v13.7 folded sections inside Look and Feel */
+.ssub > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
+.ssub > summary::-webkit-details-marker { display: none; }
+.ssub > summary h2 { margin: 0; }
+.ssub > summary::after { content: '▾'; color: var(--ink2); transition: transform .15s; }
+.ssub[open] > summary::after { transform: rotate(180deg); }
+body.simple .adv-only:not(.keep) { display: none !important; }

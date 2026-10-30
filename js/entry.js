@@ -1,6 +1,6 @@
 // The add / edit sheet, the category picker and the "add many at once" sheet.
 import {
-  get, commit, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
+  get, commit, undoLast, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
   findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt,
 } from './core.js';
 import { buildGraph, makeResolver, explain } from './simgraph.js';
@@ -151,7 +151,7 @@ export function openEntry(opts = {}) {
     <div class="field" id="namefield"><span id="namelabel">What was it?</span>
       <input id="f-what" name="memo" type="text" role="combobox" aria-autocomplete="list" aria-controls="sugg" aria-expanded="false" autocomplete="off" data-form-type="other" data-lpignore="true" value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary" ${existing ? '' : 'autofocus'}>
       <div id="sugg" class="sugg" hidden></div></div>
-    <div class="field" id="merchrow" hidden></div>
+    <div class="field adv-only" id="merchrow" hidden></div>
     <div class="field amount" id="amountbox"><span class="amtlabel">Amount <button type="button" class="linkbtn eye" data-e="eye" aria-label="Hide or show amounts">${priv.on ? 'Show' : 'Hide'} amounts</button></span>
       <div class="amtrow"><div class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"><button type="button" class="amtx" data-e="amtclear" aria-label="Clear amount" ${f.amount ? '' : 'style="visibility:hidden"'}>×</button><button type="button" class="allin" id="f-all" data-e="allamt" hidden title="Use the whole balance of the From account">All</button><button type="button" class="calcbtn" data-e="calc" aria-label="Calculator" aria-pressed="false" title="Calculator">${ic('calc')}</button></div><span id="curwrap" class="curwrap"></span></div>
       <div id="calcres" class="calcres" hidden></div><div id="keypad" class="keypad" hidden></div></div>
@@ -186,7 +186,7 @@ export function openEntry(opts = {}) {
   // ---------- renderers ----------
   // Merchant: where it was bought. Only for expenses; one fixed-height row, so nothing moves while typing.
   function renderMerch() {
-    const el = $f('merchrow'); el.hidden = f.kind !== 'expense'; if (el.hidden) return;
+    const el = $f('merchrow'); el.hidden = f.kind !== 'expense'; el.classList.toggle('keep', !!f.merchant); if (el.hidden) return;   // Simple mode hides this row unless the entry already has a merchant
     el.innerHTML = `<span>Merchant (optional) ${f.merchSuggested && f.merchant ? '<small class="sugnote">· suggested</small>' : ''}</span><button type="button" class="acctbtn" data-e="merchpick">${f.merchant ? esc(f.merchant) : '<span class="muted">Where did you buy it? (Shopee, wet market…)</span>'} ▾</button>`;
   }
   function suggestMerchant() {
@@ -906,7 +906,7 @@ export function openEntry(opts = {}) {
     // say so when this entry pushed a budget past the warning line (once per budget per month)
     try { const fresh = newAlertsSince(alertsBefore, budgetAlerts(get(), rec.date.slice(0, 7))); if (fresh.length && rec.kind === 'expense') setTimeout(() => toast(fresh[0].text, { ms: 7000 }), 900); } catch { /* alerts are a bonus */ }
     s.close();
-    toast(rec.flag === 'review' ? 'Saved. It is in Review so you can confirm the category later.' : 'Saved');
+    toast(rec.flag === 'review' ? 'Saved. It is in Review so you can confirm the category later.' : 'Saved', { undo: () => undoLast() });
     if (again) openEntry({ preset: { acct: a.id } });
   }
 

@@ -1,5 +1,6 @@
 // The extra windows: menu drawer, Calendar, Budget (donut), Cash flow, Categories, and the detail sheets.
-import { softDelete, scopeIds, scopeOptionsHtml, withScope } from './core.js';
+import { softDelete, scopeIds, scopeOptionsHtml, withScope, appMode } from './core.js';
+import { undoMenuHtml } from './undoui.js';
 import {
   get, commit, stamp, fmt, compact, BASE, HOME, monthParts, dayTotals, daysInMonth, shiftMonth, thisMonth, monthLabel, dayLabel, nowStamp,
   reviewCount, catMap, accountMap, groupColor, groupLetter, sortedTxs,
@@ -24,17 +25,17 @@ let drawerOpen = null;
 const catOpen = () => { try { return localStorage.getItem('sukli-menu-cats') === '1'; } catch { return false; } };
 ACT.menu = () => {
   if (drawerOpen) { drawerOpen(); return; }
-  const n = reviewCount(get());
+  const n = reviewCount(get()), simple = appMode(get()) === 'simple';
   const here = location.hash.replace(/^#\/?/, '') || 'home';
   const item = (h, label, icon, badge) => `<li><a href="#/${h}" class="${here === h || (h === 'home' && !location.hash) ? 'on' : ''}">${ic(icon)}<span>${label}</span>${badge ? `<em class="pill">${badge}</em>` : ''}</a></li>`;
   const wrap = document.createElement('div');
   wrap.className = 'drawer-scrim';
   wrap.innerHTML = `<nav class="drawer" aria-label="Menu"><div class="drawer-head"><b>Sukli</b><button type="button" class="iconbtn" data-x aria-label="Close menu">${ic('x')}</button></div>
-    <ul>${item('home', 'Home', 'home')}${item('ledger', 'Entries', 'list')}${item('calendar', 'Calendar', 'calendar')}${item('budget', 'Budget', 'pie')}${item('invest', 'Investments', 'spark')}${item('debts', 'Debts', 'calc')}${item('owed', 'Owed to you', 'wallet')}${item('cashflow', 'Cash flow', 'flow')}${item('outlook', 'Outlook', 'spark')}${item('analytics', 'Analytics', 'chart')}${item('accounts', 'Accounts', 'wallet')}${item('review', 'Review', 'check', n)}</ul>
+    <ul>${item('home', 'Home', 'home')}${item('ledger', 'Entries', 'list')}${item('calendar', 'Calendar', 'calendar')}${item('budget', 'Budget', 'pie')}${simple ? '' : item('invest', 'Investments', 'spark')}${item('debts', 'Debts', 'calc')}${item('owed', 'Owed to you', 'wallet')}${simple ? '' : item('cashflow', 'Cash flow', 'flow') + item('outlook', 'Outlook', 'spark') + item('analytics', 'Analytics', 'chart')}${item('accounts', 'Accounts', 'wallet')}${item('review', 'Review', 'check', n)}</ul>
     <button type="button" class="dhead" data-dtoggle aria-expanded="${catOpen()}"><span>Categories</span>${ic('down', 'chev')}</button>
     <ul class="dsub" ${catOpen() ? '' : 'hidden'}>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
-    <ul>${'<li><a href="#" data-act="scan">'}${ic('camera')}<span>Scan a receipt</span></a></li><li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan planner</span></a></li></ul>
-    <ul class="last">${item('bin', 'Recycle bin', 'trash')}${item('settings', 'Settings', 'gear')}</ul></nav>`;
+    <ul>${'<li><a href="#" data-act="scan">'}${ic('camera')}<span>Scan a receipt</span></a></li>${simple ? '' : `<li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan planner</span></a></li>`}</ul>
+    ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle bin', 'trash')}${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
   document.body.appendChild(wrap);
   document.body.classList.add('noscroll');
   const onKey = (e) => { if (e.key === 'Escape') close(); };

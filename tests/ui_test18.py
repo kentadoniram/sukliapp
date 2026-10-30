@@ -30,6 +30,7 @@ with sync_playwright() as p:
     ok('back keeps scroll', y>200 and abs(y2-y)<60)
     # settings arrange
     pg.goto(U+'#/settings'); pg.wait_for_selector('#arrange'); 
+    pg.evaluate("document.querySelectorAll('details.sgroup,details.ssub').forEach(d=>d.open=true)"); pg.wait_for_timeout(150)
     pg.click('#arrange [data-act=arr-tab-off][data-id=calendar]'); pg.wait_for_timeout(400)
     pg.click('#arrange [data-act=arr-tab-on][data-id=budget]'); pg.wait_for_timeout(400)
     tabs=pg.inner_text('#tabs'); ok('tab bar changed', 'Budget' in tabs and 'Calendar' not in tabs)

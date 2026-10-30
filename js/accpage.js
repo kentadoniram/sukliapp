@@ -438,7 +438,7 @@ export function openAccount(id, preset = {}) {
       <label class="field"><span>Payment due on day</span><input name="dueDay" inputmode="numeric" value="${a.dueDay || ''}" placeholder="1–31"></label></div>
       <p class="hint">Sukli shows a banner on Home when the payment is near, and can give you calendar reminders (.ics) from the account page.</p></div>
     <p class="hint" id="earnnote" hidden>Exchanges pay interest on coins in <b>Earn</b>, not in Spot. To earn interest, move this coin to an Earn account (the account page has a “Move to Earn” button), and set the rate on that account.</p>
-    <div id="intfields" ${isLiability(a) ? 'hidden' : ''}><div class="field"><span>Interest (optional) ${tipBtn('rate')}${tipBtn('start')}${tipBtn('tax')}</span>
+    <div id="intfields" class="${(+a.apy > 0 || (a.promos || []).length || (a.rates || []).length) ? 'keep' : 'adv-only'}" ${isLiability(a) ? 'hidden' : ''}><div class="field"><span>Interest (optional) ${tipBtn('rate')}${tipBtn('start')}${tipBtn('tax')}</span>
       <small class="hint">For Maya Savings, Binance Earn and the like. Sukli adds one small entry a day (Interest, or Crypto earned for crypto accounts) based on that day’s balance. It is an estimate, so set the rate your app shows.</small></div>
       <div class="two ifld"><label class="field"><span>Rate (% a year)</span><input name="apy" inputmode="decimal" value="${a.apy || ''}" placeholder="0" aria-label="Yearly interest percent"></label>
       <label class="field"><span>Starts on</span><input name="interestFrom" type="date" value="${esc(a.interestFrom || today())}" aria-label="Start date"></label></div>

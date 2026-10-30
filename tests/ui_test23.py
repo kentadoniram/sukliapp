@@ -22,7 +22,7 @@ with sync_playwright() as p:
     ok('invtab ticked for investment type', pg.is_checked('[name=invtab]'))
     pg.click('#acct-form button:text-is("Save")'); pg.wait_for_timeout(700)
     t=pg.inner_text('#view'); ok('MP2 in other products', 'MP2 Pag-IBIG' in t and 'Investments and other products' in t)
-    pg.goto(U+'#/settings'); pg.wait_for_selector('#arrange'); pg.click('#arrange [data-act=arr-tab-off][data-id=calendar]'); pg.click('#arrange [data-act=arr-tab-on][data-id=invest]'); pg.wait_for_timeout(400)
+    pg.goto(U+'#/settings'); pg.wait_for_selector('#arrange'); pg.evaluate("document.querySelectorAll('details.sgroup,details.ssub').forEach(d=>d.open=true)"); pg.wait_for_timeout(150); pg.click('#arrange [data-act=arr-tab-off][data-id=calendar]'); pg.click('#arrange [data-act=arr-tab-on][data-id=invest]'); pg.wait_for_timeout(400)
     ok('Invest tab can be put in the bar', 'Invest' in pg.inner_text('#tabs'))
     ok('no errors', not errs); print(errs[:5])
     b.close()

@@ -19,6 +19,7 @@ import { parseTags, hasTag, tagCounts } from './tags.js';
 import { feedbackCfg, testBuzz, iosVersion } from './feedback.js';
 import './glossary.js';
 import { merchantsSection } from './merchantset.js';
+import { undoSection } from './undoui.js';
 import { openBulkEdit } from './bulkedit.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
@@ -703,8 +704,10 @@ export function settings(db) {
   const me = signedIn() ? (session() || {}).user : null;
   return settingsGrouped(`${hdr('Settings')}
     <section><h2>Mode</h2><p class="hint">Simple shows just the basics. Advanced shows everything. Switching never deletes anything you entered.</p>
+      ${appMode(db) === 'simple' ? '<p class="hint" id="simplelist"><b>Hidden in Simple mode:</b> Investments, Cash flow, Outlook and Analytics in the menu; Loan planner; the Merchant row on new entries; interest settings on new accounts; Name matching, Coins and tokens and Cloud sync in Settings. Anything you already set up stays visible. Choose Advanced to see them all.</p>' : ''}
       <div class="seg two" role="group" aria-label="Mode"><button type="button" data-act="set-mode" data-v="simple" class="${appMode(db) === 'simple' ? 'on' : ''}" aria-pressed="${appMode(db) === 'simple'}">Simple</button><button type="button" data-act="set-mode" data-v="advanced" class="${appMode(db) === 'advanced' ? 'on' : ''}" aria-pressed="${appMode(db) === 'advanced'}">Advanced</button></div></section>
     ${merchantsSection(db)}
+    ${undoSection()}
     <section><h2>Categories</h2>
       <p class="hint">Add, rename and delete your expense and income categories, with keywords so the app guesses them.</p>
       <div class="btnrow left"><a class="btn" href="#/categories?k=expense">Expense categories</a><a class="btn ghost" href="#/categories?k=income">Income categories</a></div></section>
@@ -993,11 +996,13 @@ const SET_GROUPS = [
   ['look', 'Look and Feel', 'Simple or Advanced, tabs, Home cards, colours, text size', ['Mode', 'Tabs and Home cards', 'Appearance', 'Display']],
   ['money', 'Money and Alerts', 'Home currency, spending warnings', ['Currency', 'Spending safety', 'Left out of cash outflow']],
   ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Account types', 'Name matching']],
-  ['data', 'Backup and Data', 'Reminders, backups, export', ['Backup reminder', 'Your data', 'Google backup (optional)']],
+  ['data', 'Backup and Data', 'Undo, reminders, backups, export', ['Undo', 'Backup reminder', 'Your data', 'Google backup (optional)']],
   ['adv', 'Advanced', 'Most people never need these', ['Exchange rates', 'Live exchange rates', 'Coins and tokens: decimals', 'Cloud sync', 'Erase']],
   ['help', 'Help', 'Glossary, install on your phone', ['Glossary', 'Put it on your phone']],
 ];
 const SET_OPEN = new Set(['look']);
+const SUB_OPEN = new Set((() => { try { return JSON.parse(localStorage.getItem('sukli-ssub') || '[]'); } catch { return []; } })());
+document.addEventListener('toggle', (e) => { const g = e.target.dataset && e.target.dataset.ssub; if (g) { if (e.target.open) SUB_OPEN.add(g); else SUB_OPEN.delete(g); try { localStorage.setItem('sukli-ssub', JSON.stringify([...SUB_OPEN])); } catch { /* optional */ } } }, true);
 document.addEventListener('toggle', (e) => { const g = e.target.dataset && e.target.dataset.sgroup; if (g) { if (e.target.open) SET_OPEN.add(g); else SET_OPEN.delete(g); } }, true);
 const titleCase = (t) => t.split(' ').map((w, i) => (i && ['and', 'or', 'of', 'the', 'to', 'on', 'in'].includes(w)) ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 function settingsGrouped(html) {
@@ -1005,7 +1010,13 @@ function settingsGrouped(html) {
   const head = html.slice(0, i), secs = [...html.slice(i).matchAll(/<section[\s\S]*?<\/section>/g)].map((m) => m[0]);
   const title = (x) => ((x.match(/<h2>([^<]*)<\/h2>/) || [])[1] || '').trim();
   const by = new Map(SET_GROUPS.map((g) => [g[0], []]));
-  for (const sec of secs) { const t = title(sec), g = SET_GROUPS.find((x) => x[3].includes(t)) || SET_GROUPS.find((x) => x[0] === 'adv'); by.get(g[0]).push(sec.replace(/<h2>([^<]*)<\/h2>/, (m, h) => '<h2>' + titleCase(h) + '</h2>')); }
+  for (const sec of secs) {
+    const t = title(sec), g = SET_GROUPS.find((x) => x[3].includes(t)) || SET_GROUPS.find((x) => x[0] === 'adv');
+    let out = sec.replace(/<h2>([^<]*)<\/h2>/, (m, h) => '<h2>' + titleCase(h) + '</h2>');
+    if (g[0] === 'look' && t !== 'Mode') out = out.replace(/^(<section[^>]*>)<h2>([^<]*)<\/h2>([\s\S]*)<\/section>$/, (m, open, h, rest) => `${open}<details class="ssub" data-ssub="${esc(h)}" ${SUB_OPEN.has(h) ? 'open' : ''}><summary><h2>${h}</h2></summary>${rest}</details></section>`);   // inside Look and Feel the long sections fold away
+    if (['Name matching', 'Coins and tokens: decimals', 'Cloud sync'].includes(t)) out = out.replace('<section', '<section class="adv-only"').replace('class="adv-only" class="', 'class="adv-only ');
+    by.get(g[0]).push(out);
+  }
   const ver = `<p class="hint verline" id="appver">Sukli version ${versionText()}</p>`;
   return head + SET_GROUPS.filter((g) => by.get(g[0]).length).map(([k, name, desc]) => `<details class="sgroup" data-sgroup="${k}" ${SET_OPEN.has(k) ? 'open' : ''}><summary><b>${name}</b><small>${desc}</small></summary>${by.get(k).join('')}</details>`).join('') + ver;
 }
