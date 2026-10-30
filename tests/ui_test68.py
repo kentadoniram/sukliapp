@@ -19,7 +19,7 @@ with sync_playwright() as p:
     # Simple
     J(pg,"c.commit(d=>{d.settings.mode='simple'})"); pg.wait_for_timeout(500)
     pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer'); t=pg.inner_text('.drawer'); ok('Simple menu hides Investments, Analytics, Cash flow, Outlook, Loan planner', not any(x in t for x in ['Investments','Analytics','Cash flow','Outlook','Loan planner']))
-    ok('Simple menu keeps Debts, Owed to you, Accounts, Settings and offers Advanced', all(x in t for x in ['Debts','Owed to you','Accounts','Settings','Show all options (Advanced)']))
+    ok('Simple menu keeps Debts, Owed to you, Accounts, Settings and offers Advanced', all(x.lower() in t.lower() for x in ['Debts','Owed to you','Bottom bar tabs','Settings','Show all options (Advanced)']))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.click('[data-act=add]'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300); ok('Simple entry form hides the Merchant row', not pg.is_visible('#merchrow'))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)

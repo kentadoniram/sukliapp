@@ -16,10 +16,10 @@ with sync_playwright() as p:
     pg.click('.fab'); pg.wait_for_selector('#entry')
     seg=pg.inner_text('#seg'); ok('entry types renamed: '+seg.replace('\n',' '), all(w in seg for w in ['Expense','Income','Transfer']) and 'Spent' not in seg)
     # 11 suggestions: type "c"
-    pg.fill('#f-name','c'); pg.dispatch_event('#f-name','input'); pg.wait_for_timeout(200)
+    pg.fill('#f-what','c'); pg.dispatch_event('#f-what','input'); pg.wait_for_timeout(200)
     sug=pg.locator('#sugg button').all_inner_texts(); print('  suggestions for "c":',[x.replace('\n',' ') for x in sug])
     ok('typing c suggests names with their account', len(sug)>=2 and all(x.lower().find('c')>=0 for x in sug))
-    pg.fill('#f-name','craft'); pg.dispatch_event('#f-name','input'); pg.wait_for_timeout(200)
+    pg.fill('#f-what','craft'); pg.dispatch_event('#f-what','input'); pg.wait_for_timeout(200)
     ok('account suggested + highlighted', pg.locator('.field.suggested').count()==1 and 'suggested' in pg.inner_text('#acctrow').lower())
     acct_before=pg.input_value('#f-acct')
     pg.select_option('#f-acct', index=2); pg.wait_for_timeout(100)
@@ -36,7 +36,7 @@ with sync_playwright() as p:
     ok('peso -> rate: '+pg.input_value('#f-fx'), abs(float(pg.input_value('#f-fx'))-0.385)<1e-6)
     pg.fill('#f-amount','20000'); pg.dispatch_event('#f-amount','input'); pg.wait_for_timeout(50)
     ok('peso kept, rate follows amount: '+pg.input_value('#f-fx'), abs(float(pg.input_value('#f-fx'))-0.1925)<1e-6)
-    pg.fill('#f-name','Test yen bill'); pg.click('[data-e=save]'); pg.wait_for_timeout(300)
+    pg.fill('#f-what','Test yen bill'); pg.click('[data-e=save]'); pg.wait_for_timeout(300)
     tx=pg.evaluate("window.sukli.get().txs.find(t=>t.name==='Test yen bill')")
     ok('saved entry has exact rate from peso value: '+str(tx['fx']), abs(tx['fx']*tx['amount']-3850)<0.001)
     # settings inverse rates
@@ -48,7 +48,7 @@ with sync_playwright() as p:
     # 7 burger drawer
     pg.goto('http://localhost:8123/index.html#/home'); pg.wait_for_selector('.strip')
     ok('no gear in header, burger present', pg.locator('header [aria-label=Settings]').count()==0 and pg.locator('header [data-act=menu]').count()==1)
-    pg.click('header [data-act=menu]'); pg.wait_for_selector('.drawer')
+    pg.click('header [data-act=menu]'); pg.wait_for_selector('.drawer'); pg.click('.drawer [data-key=sukli-menu-bar]'); pg.wait_for_timeout(200)
     items=pg.locator('.drawer a').all_inner_texts(); print('  menu:',[i.strip().replace('\n',' ') for i in items])
     for w in ['Home','Entries','Calendar','Budget','Cash flow','Analytics','Accounts','Expense categories','Income categories','Settings']:
         ok('menu has '+w, any(w in i for i in items))

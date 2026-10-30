@@ -31,7 +31,7 @@ with sync_playwright() as p:
     # lend (add a person)
     pg.click('[data-act=add]'); pg.wait_for_selector('#entry'); pg.click('[data-e=kind][data-v=lent]'); pg.wait_for_timeout(300); t=pg.inner_text('#entry')
     ok('Lent offers lent / paid back', 'I lent money' in pg.inner_text('.segsub') and 'They paid me back' in pg.inner_text('.segsub') and 'Who did you lend to?' in t)
-    pg.click('[data-e=addperson]'); pg.wait_for_selector('input[name=v]'); pg.fill('input[name=v]','Ana'); pg.keyboard.press('Enter'); pg.wait_for_timeout(700)
+    pg.click('[data-e=acctpick][data-which=to]'); pg.wait_for_selector('#aclist'); pg.click('[data-addnew]'); pg.wait_for_selector('input[name=v]'); pg.fill('input[name=v]','Ana'); pg.keyboard.press('Enter'); pg.wait_for_timeout(700)
     ok('person added and chosen', 'Ana' in pg.inner_text('#acctrow'))
     pg.click('[data-e=acctpick][data-which=acct]'); pg.wait_for_selector('#aclist'); pg.click('#aclist [data-id=pw]'); pg.wait_for_timeout(300)
     pg.fill('#f-amount','2000'); save(pg)

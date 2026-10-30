@@ -7,14 +7,14 @@ import { typeNames } from './accpage.js';
 import { sheet, esc } from './ui.js';
 import { isLiability, isOwed } from './finance.js';
 
-export function openAccountPicker({ selected = '', skip = '', cur = '', only = '', title = 'Account' }, onPick) {
+export function openAccountPicker({ selected = '', skip = '', cur = '', only = '', title = 'Account', add = null }, onPick) {
   const db = get(), bal = balances(db);
   const list = db.accounts.filter((a) => !a.deleted && (!a.archived || a.id === selected) && (!only || (only === 'debt' ? isLiability(a) : only === 'owed' ? isOwed(a) : !isLiability(a) && !isOwed(a))));   // the account on the other side stays in the list (greyed), so it never looks missing
   const curs = [...new Set(list.map((a) => a.cur))];
   let chip = cur && curs.includes(cur) ? cur : '';
   const s = sheet(`<input type="search" id="acq" class="search" data-noclear="1" placeholder="Search account, type or currency" autocomplete="off" autofocus>
     <div class="seg sm scrollx acchips" role="group" aria-label="Currency">${['', ...curs].map((c) => `<button type="button" data-chip="${esc(c)}">${c || 'All'}</button>`).join('')}</div>
-    <div id="aclist"></div>`, { title, cls: 'pickfix' });
+    ${add ? `<button type="button" class="btn ghost wide addnew" data-addnew>+ ${esc(add.label)}</button>` : ''}<div id="aclist"></div>`, { title, cls: 'pickfix' });
   const draw = () => {
     const q = s.el.querySelector('#acq').value.trim().toLowerCase();
     s.el.querySelectorAll('[data-chip]').forEach((b) => { const on = b.dataset.chip === (q ? '' : chip); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
@@ -30,6 +30,7 @@ export function openAccountPicker({ selected = '', skip = '', cur = '', only = '
   };
   s.el.querySelector('#acq').addEventListener('input', draw);
   s.el.addEventListener('click', (e) => {
+    if (e.target.closest('[data-addnew]')) { s.close(); add.run(); return; }
     const c = e.target.closest('[data-chip]'); if (c) { chip = c.dataset.chip; draw(); return; }
     const r = e.target.closest('[data-id]'); if (r) { s.close(); onPick(r.dataset.id); }
   });

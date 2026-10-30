@@ -6,7 +6,7 @@ import {
   reviewCount, catMap, accountMap, groupColor, groupLetter, sortedTxs,
 } from './core.js';
 import { pace, totals, trend, baselineMonths } from './insights.js';
-import { ui, hdr, monthNav, strip, money, row, gbar, coll, trendChart, budgetOf, pieLabels } from './screens.js';
+import { tabIds, ui, hdr, monthNav, strip, money, row, gbar, coll, trendChart, budgetOf, pieLabels } from './screens.js';
 import { openEntry, openCategoryForm } from './entry.js';
 import { forecastNext, behaviorNotes, detectRecurring } from './finance.js';
 import { reminderBanner } from './accpage.js';
@@ -22,6 +22,7 @@ const monthStat = (db, ym) => { const i = totals(db, ym, 'income').total, o = to
 // Menu drawer (burger)
 // =====================================================================
 let drawerOpen = null;
+const barOpen = () => { try { return localStorage.getItem('sukli-menu-bar') === '1'; } catch { return false; } };
 const catOpen = () => { try { return localStorage.getItem('sukli-menu-cats') === '1'; } catch { return false; } };
 ACT.menu = () => {
   if (drawerOpen) { drawerOpen(); return; }
@@ -31,7 +32,8 @@ ACT.menu = () => {
   const wrap = document.createElement('div');
   wrap.className = 'drawer-scrim';
   wrap.innerHTML = `<nav class="drawer" aria-label="Menu"><div class="drawer-head"><b>Sukli</b><button type="button" class="iconbtn" data-x aria-label="Close menu">${ic('x')}</button></div>
-    <ul>${item('home', 'Home', 'home')}${item('ledger', 'Entries', 'list')}${item('calendar', 'Calendar', 'calendar')}${item('budget', 'Budget', 'pie')}${simple ? '' : item('invest', 'Investments', 'spark')}${item('debts', 'Debts', 'calc')}${item('owed', 'Owed to you', 'wallet')}${simple ? '' : item('cashflow', 'Cash flow', 'flow') + item('outlook', 'Outlook', 'spark') + item('analytics', 'Analytics', 'chart')}${item('accounts', 'Accounts', 'wallet')}${item('review', 'Review', 'check', n)}</ul>
+    ${(() => { const tb = tabIds(get()), inBar = (h) => tb.includes(h), main = [['home', 'Home', 'home'], ['ledger', 'Entries', 'list'], ['calendar', 'Calendar', 'calendar'], ['accounts', 'Accounts', 'wallet'], ['budget', 'Budget', 'pie'], ['invest', 'Investments', 'spark'], ['debts', 'Debts', 'calc'], ['owed', 'Owed to you', 'wallet'], ['cashflow', 'Cash flow', 'flow'], ['outlook', 'Outlook', 'spark'], ['analytics', 'Analytics', 'chart']].filter(([h]) => !simple || !['invest', 'cashflow', 'outlook', 'analytics'].includes(h)), inB = main.filter(([h]) => inBar(h)), rest = main.filter(([h]) => !inBar(h)), open = barOpen();
+      return `${inB.length ? `<button type="button" class="dhead" data-dtoggle data-key="sukli-menu-bar" aria-expanded="${open}"><span>Bottom bar tabs</span>${ic('down', 'chev')}</button><ul class="dsub" ${open ? '' : 'hidden'}>${inB.map(([h, l, i]) => item(h, l, i)).join('')}</ul>` : ''}<ul>${rest.map(([h, l, i]) => item(h, l, i)).join('')}${item('review', 'Review', 'check', n)}</ul>`; })()}
     <button type="button" class="dhead" data-dtoggle aria-expanded="${catOpen()}"><span>Categories</span>${ic('down', 'chev')}</button>
     <ul class="dsub" ${catOpen() ? '' : 'hidden'}>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
     <ul>${'<li><a href="#" data-act="scan">'}${ic('camera')}<span>Scan a receipt</span></a></li>${simple ? '' : `<li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan planner</span></a></li>`}</ul>
@@ -45,7 +47,7 @@ ACT.menu = () => {
   document.addEventListener('keydown', onKey);
   wrap.addEventListener('click', (e) => {
     const tg = e.target.closest('[data-dtoggle]');
-    if (tg) { const ul = tg.nextElementSibling, open = ul.hidden; ul.hidden = !open; tg.setAttribute('aria-expanded', open); try { localStorage.setItem('sukli-menu-cats', open ? '1' : '0'); } catch { /* blocked */ } return; }
+    if (tg) { const ul = tg.nextElementSibling, open = ul.hidden; ul.hidden = !open; tg.setAttribute('aria-expanded', open); try { localStorage.setItem(tg.dataset.key || 'sukli-menu-cats', open ? '1' : '0'); } catch { /* blocked */ } return; }
     if (e.target === wrap || e.target.closest('[data-x]') || e.target.closest('a, [data-act]')) close(); });
   const first = wrap.querySelector('a'); if (first && matchMedia('(pointer:fine)').matches) first.focus();
 };

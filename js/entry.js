@@ -283,9 +283,9 @@ export function openEntry(opts = {}) {
       else if (same && owed > 0.004 && f.flow === 'back') q = `<div class="chips debtq"><button type="button" class="chip" data-e="debtamt" data-v="${owed}">All they owe <small>${fm(owed, pa.cur)}</small></button></div>`;
       const sel = (key, other, third) => `<select id="${key === 'toAcct' ? 'f-to' : 'f-acct'}" hidden aria-hidden="true">${third === undefined ? acctOptions(f[key], other) : acctOptions(f[key], other, third)}</select>`, which = (k) => (k === 'toAcct' ? 'to' : 'acct');
       const owedNote = pa ? `<small class="acctbal ${fl.only === 'debt' ? 'neg' : ''}">${fl.only === 'debt' ? 'You owe ' : 'Owes you '}${fm(owed, pa.cur)}</small>` : '';
-      const pBtn = `<div class="field"><span>${fl.pLabel}</span><button type="button" class="acctbtn" data-e="acctpick" data-which="${which(pk)}">${esc(accLabel(pa) || fl.pEmpty)} ▾${owedNote}</button>${sel(pk, f[mk], pk === 'acct' ? '' : undefined)}${f.flow === 'lend' ? '<button type="button" class="linkbtn" data-e="addperson">Add a new person</button>' : ''}</div>`;
+      const pBtn = `<div class="field"><span>${fl.pLabel}</span><button type="button" class="acctbtn" data-e="acctpick" data-which="${which(pk)}">${esc(accLabel(pa) || fl.pEmpty)} ▾${owedNote}</button>${sel(pk, f[mk], pk === 'acct' ? '' : undefined)}</div>`;
       const mBtn = `<div class="field"><span>${fl.mLabel}</span><button type="button" class="acctbtn" data-e="acctpick" data-which="${which(mk)}">${esc(accLabel(ma) || 'Choose')} ▾${balLine(f[mk])}</button>${sel(mk, f[pk], mk === 'acct' ? '' : undefined)}</div>`;
-      el.innerHTML = `${pBtn}${mBtn}${q}<p class="hint">${fl.hint}</p>`;
+      el.innerHTML = `<div class="two dbtpair">${pBtn}${mBtn}</div>${q}<p class="hint">${fl.hint}</p>`;
     } else {
       if (!f.toAcct) { const o = get().accounts.find((x) => !x.deleted && !x.archived && x.id !== f.acct); f.toAcct = o ? o.id : ''; }
       el.innerHTML = `<div class="two sw"><div class="field"><span>From</span><button type="button" class="acctbtn" data-e="acctpick" data-which="acct">${esc(accLabel(acctOf(f.acct)) || 'Choose')} ▾${balLine(f.acct)}</button><select id="f-acct" hidden aria-hidden="true">${acctOptions(f.acct, f.toAcct, '')}</select></div>
@@ -727,7 +727,7 @@ export function openEntry(opts = {}) {
       case 'qtab': f.qtab = v; f.qtabManual = true; renderFreq(); break;
       case 'pick': if (Date.now() - sgDone > 700) applyPick(v); break;
       case 'acctpick': { const to = b.dataset.which === 'to', sel = $f(to ? 'f-to' : 'f-acct'), a = acctOf(f.acct);
-        openAccountPicker({ selected: sel.value, skip: to ? f.acct : (f.kind === 'transfer' ? f.toAcct : ''), cur: to ? '' : (a && a.cur) || '', only: f.debt ? (isPersonSide(to) ? FLOWS[f.flow].only : 'pay') : '', title: f.debt ? (isPersonSide(to) ? FLOWS[f.flow].pLabel : FLOWS[f.flow].mLabel) : to ? 'To account' : f.kind === 'transfer' ? 'From account' : 'Account' }, (id) => { sel.value = id; sel.dispatchEvent(new Event('change', { bubbles: true })); }); break; }
+        openAccountPicker({ selected: sel.value, skip: to ? f.acct : (f.kind === 'transfer' ? f.toAcct : ''), cur: to ? '' : (a && a.cur) || '', only: f.debt ? (isPersonSide(to) ? FLOWS[f.flow].only : 'pay') : '', add: f.debt && f.flow === 'lend' && isPersonSide(to) ? { label: 'Add a new person', run: addPerson } : null, title: f.debt ? (isPersonSide(to) ? FLOWS[f.flow].pLabel : FLOWS[f.flow].mLabel) : to ? 'To account' : f.kind === 'transfer' ? 'From account' : 'Account' }, (id) => { sel.value = id; sel.dispatchEvent(new Event('change', { bubbles: true })); }); break; }
       case 'curpick': openCurrencyPicker((c) => { const sel = $f('f-cur'); if (![...sel.options].some((o) => o.value === c)) sel.add(new Option(c, c)); sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); }, { title: 'Currency' }); break;
       case 'route': pickRoute(b.dataset.from, b.dataset.to); break;
       case 'calc': f.calc = !f.calc; renderKeypad(); break;

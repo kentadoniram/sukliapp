@@ -19,10 +19,10 @@ with sync_playwright() as p:
     ok('week rows do not overlap', pg.evaluate("""()=>[...document.querySelectorAll('.week .wk')].every(r=>{const d=r.querySelector('.wd').getBoundingClientRect(),t=r.querySelector('.wtrack').getBoundingClientRect(),v=r.querySelector('.wv').getBoundingClientRect();return d.right<=t.left+1&&t.right<=v.left+1})"""))
     # burger categories fold
     pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer')
-    h=pg.locator('.drawer [data-dtoggle]'); first=h.get_attribute('aria-expanded')
-    h.click(); second=h.get_attribute('aria-expanded'); vis=pg.locator('.drawer .dsub').is_visible()
+    h=pg.locator('.drawer [data-dtoggle]:not([data-key])'); first=h.get_attribute('aria-expanded')
+    h.click(); second=h.get_attribute('aria-expanded'); vis=pg.locator('.drawer .dhead:not([data-key]) + .dsub').is_visible()
     ok('burger Categories folds and unfolds', first!=second and vis==(second=='true'))
-    h.click(); ok('burger Categories folds back', pg.locator('.drawer .dsub').is_visible()==(h.get_attribute('aria-expanded')=='true'))
+    h.click(); ok('burger Categories folds back', pg.locator('.drawer .dhead:not([data-key]) + .dsub').is_visible()==(h.get_attribute('aria-expanded')=='true'))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # tab re-tap scrolls to top
     pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_timeout(700)

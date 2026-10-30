@@ -1081,3 +1081,11 @@ img.rcpt[data-act] { cursor: zoom-in; } img.rcpt.big { max-height: none; cursor:
 .ssub > summary::after { content: '▾'; color: var(--ink2); transition: transform .15s; }
 .ssub[open] > summary::after { transform: rotate(180deg); }
 body.simple .adv-only:not(.keep) { display: none !important; }
+
+/* 13.9: tidier debt/lent rows, centered flow chips, grouped menu, long names in Owed to you */
+.dbtpair { gap: 10px; align-items: start; } .dbtpair > .field { min-width: 0; margin: 0; } .dbtpair .acctbtn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 46px; } .dbtpair .acctbtn .acctbal { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.segsub .chip { display: flex; align-items: center; justify-content: center; text-align: center; }
+.drawer .dhead small { text-transform: none; letter-spacing: 0; font-weight: 400; opacity: .7; margin-left: 4px; }
+.oname { overflow-wrap: anywhere; } .owedpage .dr-head > div { flex: 1 1 auto; } .owedpage .dr-owed { flex: 0 0 auto; white-space: nowrap; }
+.orow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--rule); } .orow:first-child { border-top: 0; } .orow .rmain { flex: 1 1 auto; min-width: 0; } .orow .rmain strong { display: block; overflow-wrap: anywhere; } .orow .obtns { display: flex; gap: 6px; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; }
+.addnew { margin: 6px 0 8px; }
