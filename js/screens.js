@@ -18,6 +18,7 @@ import { tipBtn } from './interest.js';
 import { parseTags, hasTag, tagCounts } from './tags.js';
 import { feedbackCfg, testBuzz, iosVersion } from './feedback.js';
 import './glossary.js';
+import { helpBtn } from './tabhelp.js';
 import { merchantsSection } from './merchantset.js';
 import { undoSection } from './undoui.js';
 import { openBulkEdit } from './bulkedit.js';
@@ -66,10 +67,10 @@ export function monthNav(title) {
   return `<header class="top"><div class="hl">${burger()}<div class="monthbox"><button class="iconbtn" data-act="month" data-d="-1" aria-label="Previous month">${ic('left')}</button>
     <h1>${esc(title || monthLabel(ui.month))}</h1>
     <button class="iconbtn" data-act="month" data-d="1" aria-label="Next month" ${isNow ? 'disabled' : ''}>${ic('right')}</button></div></div>
-    <div class="hact">${eyeBtn()}</div></header>`;
+    <div class="hact">${helpBtn()}${eyeBtn()}</div></header>`;
 }
 const burger = () => { const n = reviewCount(get()); return `<button class="iconbtn burger" data-act="menu" aria-label="Open menu">${ic('menu')}${n ? '<em class="dot" aria-label="items to check"></em>' : ''}</button>`; };
-export const hdr = (title, right = '') => `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${right}${eyeBtn()}</div></header>`;
+export const hdr = (title, right = '') => `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${right}${helpBtn()}${eyeBtn()}</div></header>`;
 const eyeBtn = () => `<button class="iconbtn" data-act="eye" aria-pressed="${priv.on}" aria-label="${priv.on ? 'Show amounts' : 'Hide amounts'}">${ic(priv.on ? 'eyeoff' : 'eye')}</button>`;
 ACT.eye = () => { priv.set(!priv.on); applyHide(); window.dispatchEvent(new Event('sukli-render')); };
 ACT.month = (el) => {

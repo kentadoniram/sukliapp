@@ -3,5 +3,5 @@
 //   change  unmerged or new changes since that version (set to 0 after you merge them, add 1 for each new change)
 //   base    the default / base build number (keep 1, or the number you use for your default setup)
 //   date    the day of this build as MMDD (1021 = 21 October)
-export const VERSION = { major: 13, change: 9, base: 1, date: '1030' };
+export const VERSION = { major: 13, change: 10, base: 1, date: '1030' };
 export const versionText = () => `${VERSION.major}.${VERSION.change}.${VERSION.base}.${VERSION.date}`;
