@@ -29,7 +29,8 @@ export function openReclass(id) {
   s.el.querySelectorAll('[data-t]').forEach((b) => { b.onclick = () => { const t = b.dataset.t; s.close(); if (t === a0.type) return;
     const before = { type: a0.type, include: a0.include, invtab: a0.invtab, guessed: a0.guessed, apy: a0.apy };
     commit((d) => { const x = d.accounts.find((q) => q.id === id); if (!x) return; const was = x.type; x.type = t; x.guessed = false; x.include = SPEND.includes(t);
-      x.invtab = INVT.includes(t) ? true : (INVT.includes(was) ? false : !!x.invtab); if (isLiability({ type: t })) x.apy = 0; stamp(x); });
+      x.invtab = INVT.includes(t) ? true : (INVT.includes(was) ? false : !!x.invtab); if (isLiability({ type: t })) x.apy = 0; stamp(x);
+      if (t === 'owed') for (const tx of d.txs) if (!tx.deleted && tx.kind === 'transfer' && !tx.lent && !tx.lentBack && !tx.debtPay && !tx.debtBorrow && !tx.trade) { if (tx.toAcct === id) { tx.lent = true; stamp(tx); } else if (tx.acct === id) { tx.lentBack = true; stamp(tx); } } });
     toast(`${a0.name} is now ${typeNames[t]}. ${typeWhere[t]}`, { undo: () => commit((d) => { const x = d.accounts.find((q) => q.id === id); if (x) { Object.assign(x, before); stamp(x); } }) }); }; });
 }
 export const typeNames = { cash: 'Cash', bank: 'Bank', ewallet: 'E-wallet / card balance', card: 'Credit card', crypto: 'Crypto', invest: 'Investment', asset: 'Asset (property, vehicle…)', owed: 'Money owed to me', loan: 'Loan or money owed', other: 'Other' };
@@ -115,7 +116,7 @@ export function accounts(db) {
       if (isLiability(a)) return a.type === 'card' ? 'Credit cards' : (a.type === 'loan' || a.loan) ? 'Loans and money owed' : 'Other debts';
       return ['invest', 'crypto'].includes(a.type) ? 'Investments and crypto' : a.type === 'asset' ? 'Property and other assets' : a.type === 'owed' ? 'Money owed to me' : 'Cash and bank';
     };
-    const order = [['Assets', ['Cash and bank', 'Investments and crypto', 'Property and other assets']], ['Liabilities', ['Credit cards', 'Loans and money owed', 'Other debts']]];
+    const order = [['Assets', ['Cash and bank', 'Investments and crypto', 'Property and other assets', 'Money owed to me']], ['Liabilities', ['Credit cards', 'Loans and money owed', 'Other debts']]];
     const m = new Map(order.flatMap(([, ks]) => ks).map((k) => [k, []])); for (const a of shown) m.get(cls(a)).push(a);
     groups = []; for (const [top, ks] of order) for (const k of ks) { const list = m.get(k); if (list.length) groups.push({ key: 'cls-' + k, title: k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)), top }); }
   } else if (grp === 'type') {

@@ -19,7 +19,7 @@ export function owedList(db) {
   for (const a of live(db.accounts)) {
     if (a.archived || !isOwed(a)) continue;
     const owedCur = bal.get(a.id) || 0, fx = homeFx(db, a.cur) || 1;
-    const lent = db.txs.filter((t) => !t.deleted && t.kind === 'transfer' && t.toAcct === a.id && t.lent), back = db.txs.filter((t) => !t.deleted && t.kind === 'transfer' && t.acct === a.id && t.lentBack);
+    const lent = db.txs.filter((t) => !t.deleted && t.kind === 'transfer' && t.toAcct === a.id && !t.lentBack), back = db.txs.filter((t) => !t.deleted && t.kind === 'transfer' && t.acct === a.id && !t.lent);
     const since = lent.map((t) => String(t.date).slice(0, 10)).sort()[0] || '';
     out.push({ id: a.id, name: a.name, cur: a.cur, owedCur, owed: owedCur * fx, open: owedCur > 0.004, since, waited: since ? Math.max(0, tdy - dayNum(since)) : null,
       due: a.owedDue || '', dueIn: a.owedDue ? dayNum(a.owedDue) - tdy : null, backN: back.length, backSum: back.reduce((q, t) => q + t.amount, 0) * fx, lastBack: back.map((t) => String(t.date).slice(0, 10)).sort().pop() || '' });
