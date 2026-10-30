@@ -66,7 +66,7 @@ with sync_playwright() as p:
     bg=pg.evaluate("getComputedStyle(document.body).backgroundColor")
     ok('dark theme forced: '+bg, bg=='rgb(14, 20, 26)')
     pg.click('[data-act=look][data-k=theme][data-v=light]'); pg.wait_for_timeout(200)
-    ok('light theme forced', pg.evaluate("getComputedStyle(document.body).backgroundColor")=='rgb(243, 245, 242)')
+    ok('light theme forced', pg.evaluate("getComputedStyle(document.body).backgroundColor")=='rgb(237, 240, 245)')
     pg.reload(); pg.wait_for_selector('.swatches', state='attached'); pg.evaluate("document.querySelectorAll('details.sgroup,details.ssub').forEach(d=>d.open=true)"); pg.wait_for_timeout(150); 
     ok('look survives reload', pg.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--line').trim()")=='#B03A5B')
     pg.click('[data-act=look][data-k=accent][data-v=blue]'); pg.click('[data-act=look][data-k=theme][data-v=auto]'); pg.click('[data-act=look][data-k=size][data-v=s]')

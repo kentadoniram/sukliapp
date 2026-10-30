@@ -23,7 +23,8 @@ import { merchantsSection } from './merchantset.js';
 import { undoSection } from './undoui.js';
 import { openBulkEdit } from './bulkedit.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
-import { applyHide, look, setLook, ACCENTS, SIZES } from './appearance.js';
+import { applyHide, look, setLook, ACCENTS, SIZES, setLookMode } from './appearance.js';
+export { setLookMode };
 import { lossCard } from './loans.js';
 import { typeNames, accounts, openAccount, reminderBanner, openInterestDetail } from './accpage.js';
 import { outlookCard } from './views.js';
@@ -730,7 +731,7 @@ export function settings(db) {
       <label class="check"><input type="checkbox" data-act="commas" ${localStorage.getItem('sukli.commas') === '0' ? '' : 'checked'}> Show thousands separators when typing (119,000)</label>
       <p class="hint">These are kept on this device only.</p>
       <div class="field"><span>Theme</span>${segBtns('look', 'theme', [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']], lk.theme)}</div>
-      <div class="field"><span>Colour</span><div class="swatches" role="group" aria-label="Accent colour">${Object.entries(ACCENTS).map(([k, v]) => `<button type="button" class="swatch ${lk.accent === k ? 'on' : ''}" data-act="look" data-k="accent" data-v="${k}" style="background:${v.l[0]}" aria-label="${v.n}" aria-pressed="${lk.accent === k}"></button>`).join('')}</div></div>
+      <div class="field"><span>Colour</span><div class="swatches" role="group" aria-label="Accent colour"><button type="button" class="swatch auto ${lk.accent === 'auto' ? 'on' : ''}" data-act="look" data-k="accent" data-v="auto" aria-label="Match the mode (teal in Simple, blue in Advanced)" aria-pressed="${lk.accent === 'auto'}" title="Match the mode"></button>${Object.entries(ACCENTS).map(([k, v]) => `<button type="button" class="swatch ${lk.accent === k ? 'on' : ''}" data-act="look" data-k="accent" data-v="${k}" style="background:${v.l[0]}" aria-label="${v.n}" aria-pressed="${lk.accent === k}"></button>`).join('')}</div></div>
       <div class="field"><span>“Spent each day” chart on Home</span><div class="seg two small" role="group" aria-label="Chart direction">${[['v', 'Vertical bars'], ['h', 'Horizontal bars']].map(([v, l]) => `<button type="button" data-act="week-mode" data-v="${v}" class="${weekMode() === v ? 'on' : ''}" aria-pressed="${weekMode() === v}">${l}</button>`).join('')}</div></div>
       <div class="field"><span>Tap feedback</span>${(() => { const c = feedbackCfg(); return `<label class="check"><input type="checkbox" data-fb="haptic" ${c.haptic ? 'checked' : ''}> Vibrate a little when I tap</label><label class="check"><input type="checkbox" data-fb="visual" ${c.visual ? 'checked' : ''}> Flash the button I tapped</label><label class="check"><input type="checkbox" data-fb="sound" ${c.sound ? 'checked' : ''}> Soft click sound</label><button type="button" class="btn sm ghost" data-act="fb-test">Test the buzz</button><label class="check realsw"><input type="checkbox" switch id="fb-realsw" aria-label="Real switch test"> <span>Tap this real switch. You should feel a small tick. If you do, your phone and its System Haptics are fine.</span></label>`; })()}
         <small class="hint">Some iPhones and browsers cannot vibrate, so the flash (and the click, if you turn it on) tells you the tap worked.</small></div>
@@ -1113,4 +1114,14 @@ export function confirmImport(pv) {
   });
 }
 
-ACT['set-mode'] = (el) => { const v = el.dataset.v === 'simple' ? 'simple' : 'advanced'; commit((d) => { d.settings.mode = v; }); toast(v === 'simple' ? 'Simple mode.' : 'Advanced mode. Everything is shown.'); };
+ACT['set-mode'] = (el) => {
+  const v = el.dataset.v === 'simple' ? 'simple' : 'advanced', done = () => { commit((d) => { d.settings.mode = v; }); };
+  if (appMode(get()) === v) return;
+  let slow = false; try { slow = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* old browser */ }
+  if (slow) { done(); toast(v === 'simple' ? 'Simple mode.' : 'Advanced mode. Everything is shown.'); return; }
+  // a short curtain slides across, the page changes behind it, then it slides away
+  const adv = v === 'advanced', c = document.createElement('div'); c.className = `modeswitch ${adv ? 'adv' : 'smp'}`; c.setAttribute('role', 'status');
+  c.innerHTML = `<div class="ms-in"><b>${adv ? 'Advanced mode' : 'Simple mode'}</b><span>${adv ? 'Everything is shown: interest, loans, investments, tools.' : 'Just the basics. Nothing you entered is removed.'}</span></div>`;
+  document.body.appendChild(c); requestAnimationFrame(() => c.classList.add('in'));
+  setTimeout(done, 420); setTimeout(() => c.classList.add('out'), 1100); setTimeout(() => c.remove(), 1600);
+};

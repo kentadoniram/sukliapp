@@ -1094,3 +1094,14 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 .hact .helpbtn { width: 32px; } .hact { gap: 2px; flex-wrap: nowrap; }
 
 .bintabs { margin: 4px 0 10px; } .bintabs a { text-align: center; text-decoration: none; padding: 10px 6px; border-radius: 10px; color: var(--ink2); font-weight: 600; min-height: 44px; display: grid; place-items: center; } .bintabs a.on { background: var(--line); color: var(--line-ink); }
+
+/* 13.13: each mode has its own feel. Simple: warm and calm. Advanced: cooler and crisper. Dark theme keeps its own colours. */
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) body.simple { --paper: #F7F3EA; --rule: #E3DCCB; --ink2: #6A6354; } :root:not([data-theme="dark"]) body:not(.simple) { --paper: #EDF0F5; --rule: #CDD5DF; --ink2: #4D5A68; } }
+:root[data-theme="light"] body.simple { --paper: #F7F3EA; --rule: #E3DCCB; --ink2: #6A6354; } :root[data-theme="light"] body:not(.simple) { --paper: #EDF0F5; --rule: #CDD5DF; --ink2: #4D5A68; }
+
+.swatch.auto { background: linear-gradient(135deg, #0F6E6E 50%, #1D4E89 50%); }
+.modeswitch { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; text-align: center; padding: 24px; color: #fff; transform: translateX(100%); transition: transform .38s cubic-bezier(.2,.8,.2,1); pointer-events: all; }
+.modeswitch.smp { background: linear-gradient(160deg, #0F6E6E, #3E9C8F); } .modeswitch.adv { background: linear-gradient(160deg, #14325A, #1D4E89 60%, #3A2A7A); }
+.modeswitch.in { transform: translateX(0); } .modeswitch.out { transform: translateX(-100%); transition-duration: .45s; }
+.modeswitch .ms-in { display: grid; gap: 8px; max-width: 320px; } .modeswitch b { font-size: 1.7rem; letter-spacing: .01em; } .modeswitch span { opacity: .9; line-height: 1.35; }
+@media (prefers-reduced-motion: reduce) { .modeswitch { transition: none; } }

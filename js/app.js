@@ -7,7 +7,7 @@ import { importBluecoins } from './importer.js';
 import { scheduleSync, onStatus } from './drive.js';
 import './feedback.js';
 import { cloudSchedule, cloudInit, onCloudStatus, handleOAuthReturn } from './cloud.js';
-import { home, ledger, review, accounts, reports, settings, bindLedger, bindSettings, openAccountSetup, ui, fillDeferred, tabIds, TAB_DEFS } from './screens.js';
+import { home, ledger, review, accounts, reports, settings, bindLedger, bindSettings, openAccountSetup, ui, fillDeferred, tabIds, TAB_DEFS, setLookMode } from './screens.js';
 import { openEntry } from './entry.js';
 import { calendar, budget, cashflow, categories, outlook } from './views.js';
 import { ACT, ic, toast, $ } from './ui.js';
@@ -67,7 +67,7 @@ function render() {
   pending = false;
   applyHide();
   const db = get();
-  document.body.classList.toggle('simple', appMode(db) === 'simple');
+  document.body.classList.toggle('simple', appMode(db) === 'simple'); setLookMode(appMode(db) === 'simple');
   const route = (location.hash.replace(/^#\/?/, '') || 'home').split('?')[0];
   const fn = routes[route] || home;
   const empty = !db.accounts.length && !db.txs.length;
