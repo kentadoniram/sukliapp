@@ -1,5 +1,5 @@
 // Recycle bin: review, restore or permanently delete accounts, expense groups, categories and entries.
-import { get, commit, fmt, restoreRec, purgeRec, binItems, purgeExpired, catMap, accountMap } from './core.js';
+import { undoHistory, undoSteps, redoLast, undoWipe, get, commit, fmt, restoreRec, purgeRec, binItems, purgeExpired, catMap, accountMap } from './core.js';
 import { esc, ic, ACT, toast, confirmDialog } from './ui.js';
 import { hdr } from './screens.js';
 
@@ -38,10 +38,23 @@ export function binRows(db) {
   return rows.sort((a, b) => b.at - a.at);
 }
 
+const ago = (at) => { const m = Math.round((Date.now() - at) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
+const stamp = (at) => { try { return new Date(at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
+const binTabs = (hist, nb, nh) => `<div class="seg two bintabs" role="group" aria-label="Recycle bin or undo history"><a class="${hist ? '' : 'on'}" href="#/bin">Deleted${nb ? ` (${nb})` : ''}</a><a class="${hist ? 'on' : ''}" href="#/bin?v=history">Undo history${nh ? ` (${nh})` : ''}</a></div>`;
+function history(nb) {
+  const h = undoHistory(), kb = h.undo.reduce((q, x) => q + x.kb, 0);
+  return `${hdr('Undo history')}${binTabs(true, nb, h.undo.length)}
+  <section class="card"><p class="hint">Your last changes to entries, accounts, categories and budgets, newest first. Tap <b>Undo to here</b> to go back to just before that change. History is kept when you close the app, up to 10 changes, and older ones drop off. It is cleared if your data was changed from another device or restored from a backup. Entries you added go to the Recycle bin.</p>
+    ${h.redo.length ? `<div class="btnrow left"><button type="button" class="btn ghost sm" data-act="hist-redo">Redo: ${esc(h.redo[0].label)}</button></div>` : ''}</section>
+  ${h.undo.length ? `<ul class="binlist">${h.undo.map((x, k) => `<li class="binrow"><div class="binmain"><b>${esc(x.label)}</b><small class="muted">${esc(stamp(x.at))} · ${esc(ago(x.at))}</small></div><div class="binbtn"><button class="btn sm ${k ? 'ghost' : ''}" data-act="hist-to" data-n="${k + 1}">${k ? 'Undo to here' : 'Undo'}</button></div></li>`).join('')}</ul>
+  <div class="binhead"><small class="muted">${h.undo.length} of 10 changes kept · about ${Math.max(1, Math.round(kb / 1024))} MB</small><button class="btn ghost danger sm" data-act="hist-clear">Clear history</button></div>` : '<p class="empty">No changes to undo yet.</p>'}`;
+}
 export function bin(db) {
   const rows = binRows(db), s = db.settings;
+  if (/[?&]v=history/.test(location.hash)) return history(rows.length);
+  const nh = undoHistory().undo.length;
   const days = [7, 14, 30, 60, 90, 0];
-  return `${hdr('Recycle bin')}
+  return `${hdr('Recycle bin')}${binTabs(false, rows.length, nh)}
   <section class="card"><p class="hint">Deleted items wait here, so a slip is never final. Restore anything until its time runs out. After that it is removed for good (on every device).</p>
     <label class="field"><span>Keep deleted items for</span><select data-act-change="bin-days">${days.map((d) => `<option value="${d}" ${(+s.binDays || 0) === d ? 'selected' : ''}>${d ? d + ' days' : 'Until I delete them'}</option>`).join('')}</select></label></section>
   ${rows.length ? `<div class="binhead"><b>${rows.length} ${rows.length === 1 ? 'item' : 'items'}</b><button class="btn ghost danger sm" data-act="bin-empty">Empty bin</button></div>
@@ -82,3 +95,7 @@ document.addEventListener('change', (e) => {
   if (t) commit((d) => { d.settings.binDays = +t.value; });
 });
 export function autoPurge() { const db = get(); if (db.settings.binDays > 0 && binItems(db).some((x) => x.at < Date.now() - db.settings.binDays * DAY)) commit((d) => { purgeExpired(d); }); }
+
+ACT['hist-to'] = (el) => { const l = undoSteps(+el.dataset.n); toast(l ? `Went back ${el.dataset.n} step${+el.dataset.n === 1 ? '' : 's'}.` : 'Nothing to undo.'); };
+ACT['hist-redo'] = () => { const l = redoLast(); toast(l ? `Redone: ${l}.` : 'Nothing to redo.'); };
+ACT['hist-clear'] = async () => { if (!(await confirmDialog('Clear the undo history? Your data is not changed.', 'Clear history', true))) return; undoWipe(); toast('History cleared.'); };

@@ -1092,3 +1092,5 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 
 .helpbtn { font-weight: 700; font-size: 1.1rem; } .helplist { margin: 6px 0 10px; padding-left: 20px; display: grid; gap: 6px; }
 .hact .helpbtn { width: 32px; } .hact { gap: 2px; flex-wrap: nowrap; }
+
+.bintabs { margin: 4px 0 10px; } .bintabs a { text-align: center; text-decoration: none; padding: 10px 6px; border-radius: 10px; color: var(--ink2); font-weight: 600; min-height: 44px; display: grid; place-items: center; } .bintabs a.on { background: var(--line); color: var(--line-ink); }

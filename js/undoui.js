@@ -11,9 +11,9 @@ export function undoMenuHtml() {
 }
 export function undoSection() {
   const u = undoInfo();
-  return `<section id="undo-set"><h2>Undo</h2><p class="hint">Takes back your last changes to entries, accounts, categories and budgets, one at a time (up to 10). It is kept only until you close the app. Entries you added go to the Recycle bin.</p>
+  return `<section id="undo-set"><h2>Undo</h2><p class="hint">Takes back your last changes to entries, accounts, categories and budgets, one at a time (up to 10). It is kept when you close the app (see Undo history under the Recycle bin). Entries you added go to the Recycle bin.</p>
     ${u.undo ? `<p class="hint"><b>Last change:</b> ${esc(u.undo.label)} · ${esc(ago(u.undo.at))} · ${u.undo.count} step${u.undo.count === 1 ? '' : 's'} available</p>` : '<p class="hint">Nothing to undo yet.</p>'}
-    <div class="btnrow left"><button type="button" class="btn ghost" data-act="undo-last" ${u.undo ? '' : 'disabled'}>Undo</button><button type="button" class="btn ghost" data-act="redo-last" ${u.redo ? '' : 'disabled'}>Redo</button></div></section>`;
+    <div class="btnrow left"><button type="button" class="btn ghost" data-act="undo-last" ${u.undo ? '' : 'disabled'}>Undo</button><button type="button" class="btn ghost" data-act="redo-last" ${u.redo ? '' : 'disabled'}>Redo</button><a class="btn ghost" href="#/bin?v=history">History</a></div></section>`;
 }
 ACT['undo-last'] = () => { const l = undoLast(); toast(l ? `Undone: ${l}.` : 'Nothing to undo.'); };
 ACT['redo-last'] = () => { const l = redoLast(); toast(l ? `Redone: ${l}.` : 'Nothing to redo.'); };

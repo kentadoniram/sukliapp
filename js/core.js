@@ -155,29 +155,30 @@ function idb() {
     r.onerror = () => rej(r.error);
   });
 }
-async function readRaw() {
+async function readRaw(key = KEY) {
   try {
     const db = await idb();
     return await new Promise((res, rej) => {
-      const q = db.transaction(STORE).objectStore(STORE).get(KEY);
+      const q = db.transaction(STORE).objectStore(STORE).get(key);
       q.onsuccess = () => res(q.result);
       q.onerror = () => rej(q.error);
     });
   } catch (e) {
+    if (key !== KEY) return null;
     try { return JSON.parse(localStorage.getItem('sukli-db') || 'null'); } catch { return null; }
   }
 }
-async function writeRaw(obj) {
+async function writeRaw(obj, key = KEY) {
   try {
     const db = await idb();
     await new Promise((res, rej) => {
       const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).put(obj, KEY);
+      tx.objectStore(STORE).put(obj, key);
       tx.oncomplete = res;
       tx.onerror = () => rej(tx.error);
     });
   } catch (e) {
-    try { localStorage.setItem('sukli-db', JSON.stringify(obj)); } catch { /* storage full or blocked */ }
+    if (key === KEY) try { localStorage.setItem('sukli-db', JSON.stringify(obj)); } catch { /* storage full or blocked */ }
   }
 }
 
@@ -249,7 +250,26 @@ function undoLabel(t0, nTx) {
 }
 function trimUndo() { let bytes = undoStack.reduce((q, s) => q + s.snap.length, 0); while (undoStack.length > UNDO_MAX || (undoStack.length > 1 && bytes > UNDO_BYTES)) bytes -= undoStack.shift().snap.length; }
 export const undoInfo = () => ({ undo: undoStack.length ? { label: undoStack[undoStack.length - 1].label, at: undoStack[undoStack.length - 1].at, count: undoStack.length } : null, redo: redoStack.length ? { label: redoStack[redoStack.length - 1].label } : null });
-export const undoClear = () => { undoStack.length = 0; redoStack.length = 0; };
+// ---- undo history kept across restarts (IndexedDB key 'undo'). Only trusted when the data is exactly as it was when it was saved; capped at 6 MB (oldest steps drop first). ----
+const UNDO_KEEP_BYTES = 6e6; let undoSaveTimer = 0;
+const sigOf = (d) => { let h = 5381; const add = (str) => { for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; };
+  for (const k of ['txs', 'accounts', 'categories']) for (const r of d[k]) if (!r.deleted) add(r.id + '@' + r.updatedAt + ';'); add(JSON.stringify(d.budgets || []).length + '|' + JSON.stringify(d.settings.merchants || null) + JSON.stringify(d.settings.customTypes || null) + JSON.stringify(d.settings.typeLabels || null)); return h; };
+function saveUndoNow() {
+  clearTimeout(undoSaveTimer); if (!state) return;
+  const cap = (list) => { const out = []; let bytes = 0; for (let i = list.length - 1; i >= 0; i--) { bytes += list[i].snap.length; if (out.length && bytes > UNDO_KEEP_BYTES) break; out.unshift(list[i]); } return out; };
+  writeRaw({ sig: sigOf(state), undo: cap(undoStack), redo: cap(redoStack) }, 'undo');
+}
+const saveUndoSoon = () => { clearTimeout(undoSaveTimer); undoSaveTimer = setTimeout(saveUndoNow, 1200); };
+export async function undoLoad() {
+  undoStack.length = 0; redoStack.length = 0;
+  try { const o = await readRaw('undo'); if (o && state && !undoStack.length && o.sig === sigOf(state)) { undoStack.push(...(o.undo || [])); redoStack.push(...(o.redo || [])); trimUndo(); } } catch { /* no history */ }
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveUndoNow(); });
+}
+export const undoClear = () => { undoStack.length = 0; redoStack.length = 0; saveUndoNow(); };
+// the list shown on the history page: newest first
+export const undoWipe = () => { undoClear(); subs.forEach((f) => f(state)); };
+export const undoHistory = () => ({ undo: undoStack.map((x, i) => ({ i, label: x.label, at: x.at, kb: Math.round(x.snap.length / 1024) })).reverse(), redo: redoStack.map((x, i) => ({ i, label: x.label, at: x.at })).reverse() });
+export function undoSteps(n) { let last = null; for (let i = 0; i < n; i++) { const l = undoLast(); if (!l) break; last = l; } return last; }
 function applyParts(json) {
   const t = JSON.parse(json), now = Date.now();
   for (const k of ['txs', 'accounts', 'categories']) {
@@ -265,8 +285,8 @@ function applyParts(json) {
   for (const k of ['merchants', 'customTypes', 'typeLabels']) { if (t[k] == null) delete state.settings[k]; else state.settings[k] = t[k]; }
   fixRouteNames(state); syncHome(); clearTimeout(saveTimer); saveTimer = setTimeout(() => writeRaw(state), 150); subs.forEach((f) => f(state));
 }
-export function undoLast() { const s = undoStack.pop(); if (!s) return null; undoAt = 0; redoStack.push({ label: s.label, at: Date.now(), snap: undoPartsOf(state) }); applyParts(s.snap); return s.label; }
-export function redoLast() { const s = redoStack.pop(); if (!s) return null; undoAt = 0; undoStack.push({ label: s.label, at: Date.now(), snap: undoPartsOf(state) }); applyParts(s.snap); return s.label; }
+export function undoLast() { const s = undoStack.pop(); if (!s) return null; undoAt = 0; redoStack.push({ label: s.label, at: Date.now(), snap: undoPartsOf(state) }); applyParts(s.snap); saveUndoSoon(); return s.label; }
+export function redoLast() { const s = redoStack.pop(); if (!s) return null; undoAt = 0; undoStack.push({ label: s.label, at: Date.now(), snap: undoPartsOf(state) }); applyParts(s.snap); saveUndoSoon(); return s.label; }
 export function commit(mutator) {
   const track = !!state && (!undoStack.length || Date.now() - undoAt > 800); let before = null; const t0 = Date.now(), nTx = state ? state.txs.length : 0;
   if (track) before = undoPartsOf(state);
@@ -274,7 +294,7 @@ export function commit(mutator) {
   syncHome();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => writeRaw(state), 150);
-  if (before !== null && undoPartsOf(state) !== before) { undoStack.push({ label: undoLabel(t0, nTx), at: t0, snap: before }); undoAt = Date.now(); redoStack.length = 0; trimUndo(); }
+  if (before !== null && undoPartsOf(state) !== before) { undoStack.push({ label: undoLabel(t0, nTx), at: t0, snap: before }); undoAt = Date.now(); redoStack.length = 0; trimUndo(); saveUndoSoon(); }
   subs.forEach((f) => f(state));
 }
 // saves without redrawing: for text boxes, where a redraw would steal focus from the next box

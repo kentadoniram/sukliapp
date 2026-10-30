@@ -37,7 +37,7 @@ ACT.menu = () => {
     <button type="button" class="dhead" data-dtoggle aria-expanded="${catOpen()}"><span>Categories</span>${ic('down', 'chev')}</button>
     <ul class="dsub" ${catOpen() ? '' : 'hidden'}>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
     <ul>${'<li><a href="#" data-act="scan">'}${ic('camera')}<span>Scan a receipt</span></a></li>${simple ? '' : `<li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan planner</span></a></li>`}</ul>
-    ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle bin', 'trash')}${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
+    ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle bin', 'trash')}<li><a href="#/bin?v=history">${ic('undo')}<span>Undo history</span></a></li>${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
   document.body.appendChild(wrap);
   document.body.classList.add('noscroll');
   const onKey = (e) => { if (e.key === 'Escape') close(); };

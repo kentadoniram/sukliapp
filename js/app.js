@@ -2,7 +2,7 @@
 import { applyTypes } from './accpage.js';
 import { setNameRules } from './merchants.js';
 import { initBackup } from './backup.js';
-import { load, get, subscribe, commit, seedCategories, balances, reviewCount, latestMonth, thisMonth, monthOf, priv, undoClear, appMode } from './core.js';
+import { load, get, subscribe, commit, seedCategories, balances, reviewCount, latestMonth, thisMonth, monthOf, priv, undoLoad, appMode } from './core.js';
 import { importBluecoins } from './importer.js';
 import { scheduleSync, onStatus } from './drive.js';
 import './feedback.js';
@@ -153,7 +153,7 @@ const queue = () => { if (!pending) { pending = true; requestAnimationFrame(rend
   render();
   if (oauthMsg) toast(oauthMsg, { ms: 9000 });
   cloudInit();
-  ratesInit(); initGestures(); autoPurge(); undoClear();
+  ratesInit(); initGestures(); autoPurge(); undoLoad();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && runInterest()) queue(); });
   setInterval(() => { try { if (document.visibilityState === 'visible' && new Date().getHours() === 23 && new Date().getMinutes() >= 55 && runInterest()) queue(); } catch { /* try again next minute */ } }, 60000);
   window.sukli = { get, commit, openEntry, ui, balancesNow: () => balances(get()) };
