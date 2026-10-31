@@ -420,7 +420,9 @@ export function openGroupDetail(g, kind, ym) {
 function ledgerRows(db) {
   const accts = accountMap(db), cats = catMap(db);
   const q = ui.q.trim().toLowerCase();
-  let list = sortedTxs(db);
+  // interest and crypto earn that came to nothing (0, or too small to show) are not worth a row: they stay saved but are not listed
+  const earnCat = new Set(db.categories.filter((c) => !c.deleted && c.group === 'Earn').map((c) => c.id));
+  let list = sortedTxs(db).filter((t) => !(t.kind === 'income' && (t.auto || t.invIncome || earnCat.has(t.cat)) && !/[1-9]/.test(fmt(t.amount, t.cur, { force: true }))));
   const ranged = !!(ui.from || ui.to);
   if (ranged) list = list.filter((t) => (!ui.from || t.date.slice(0, 10) >= ui.from) && (!ui.to || t.date.slice(0, 10) <= ui.to));
   else if (!q && !ui.tag) list = list.filter((t) => t.date.startsWith(ui.month));

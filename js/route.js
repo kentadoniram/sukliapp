@@ -123,4 +123,5 @@ export const tripLabel = (mode, from, to) => {
   return from && to ? `${m}: ${routeName(from, to)}` : `${m} Commute`;
 };
 // a label that only names the vehicle ("bus", "Train", "Bus Commute") says nothing yet about the trip
-export const bareMode = (text) => { const t = String(text || '').trim().toLowerCase().replace(/\s+commute$/, ''); return !!t && t.split(/\s+/).length <= 2 && !/[-–→>:]/.test(t) && !!modeOf(t) && Object.keys(MODES).some((k) => k === t || MODES[k].toLowerCase() === t); };
+// a card's name (Pasmo, Suica...) is what the user typed: keep it, never rename it
+export const bareMode = (text) => { const t = String(text || '').trim().toLowerCase().replace(/\s+commute$/, ''); if (/^(suica|pasmo|icoca|ic card|スイカ|パスモ)$/.test(t)) return false; return !!t && t.split(/\s+/).length <= 2 && !/[-–→>:]/.test(t) && !!modeOf(t) && Object.keys(MODES).some((k) => k === t || MODES[k].toLowerCase() === t); };

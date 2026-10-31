@@ -501,9 +501,9 @@ export function openEntry(opts = {}) {
     if (f.kind === 'transfer') {
       const q = f.name.trim().toLowerCase();
       const am = accountMap(get());
-      list = q ? transferHints(get()).names.filter((x) => x.name.toLowerCase().includes(q) && x.name.toLowerCase() !== q).sort((a, b) => b.n - a.n).slice(0, 5)
+      list = q ? transferHints(get()).names.filter((x) => x.name.toLowerCase().includes(q) && x.name !== f.name.trim()).sort((a, b) => b.n - a.n).slice(0, 5)
         .map((x) => ({ name: x.name, n: x.n, route: `${(am.get(x.from) || {}).name || '?'} → ${(am.get(x.to) || {}).name || '?'}` })) : [];
-    } else list = suggest(modelFor(f.kind), f.name, 5).filter((x) => x.name.toLowerCase() !== f.name.trim().toLowerCase());
+    } else list = suggest(modelFor(f.kind), f.name, 5).filter((x) => x.name !== f.name.trim());   // only hide a suggestion that is exactly what is typed: "Gu" still offers "GU"
     el.hidden = !list.length; const wf = $f('f-what'); if (wf) wf.setAttribute('aria-expanded', String(!!list.length));
     const an = (id) => (acctOf(id) || {}).name || '';
     el.innerHTML = list.map((x) => `<button type="button" data-e="pick" data-v="${esc(x.name)}">${esc(x.name)} <small>${x.route ? esc(x.route) + ' · ' : (an(x.acct) ? esc(an(x.acct)) + ' · ' : '')}${x.n}×</small></button>`).join('');
