@@ -118,7 +118,7 @@ export function importBluecoins(db, text, opts = {}) {
   }
   const label = (nm, cu) => (curs.get(nm).size > 1 ? `${nm} (${cu})` : nm);
 
-  const stats = { added: 0, skipped: 0, accounts: 0, categories: 0, noOpening: 0, openingFilled: 0 };
+  const stats = { added: 0, skipped: 0, accounts: 0, categories: 0, noOpening: 0, openingFilled: 0, trades: 0 }, txStart = db.txs.length;
   const catsBefore = db.categories.length;
   const newAcct = new Set();
   const accts = new Map(db.accounts.filter((a) => !a.deleted).map((a) => [a.name + '|' + a.cur, a]));
@@ -187,17 +187,39 @@ export function importBluecoins(db, text, opts = {}) {
     stats.added++;
   }
 
+  // Bluecoins keeps no "trade" mark, so a re-import brings buys, sells and converts back as plain transfers and the gain/loss figures are lost.
+  // A transfer is rebuilt as a trade only when it clearly touches a holding (crypto platform / investment account) AND the units differ
+  // or the name starts with Buy / Sell / Convert. Moving the same coin between two of your wallets stays a plain transfer.
+  const isHold = (a) => a.type === 'crypto' || !!a.invtab || !!a.exchange;
+  const homeOf = (r, cu, amt) => { const v = Math.abs(amt) * (cu === BASE ? 1 : fxOf(r, cu)); return v > 0 && isFinite(v) ? v : 0; };
+  const rebuildTrade = (tx, o, i) => {
+    if (tx.trade || tx.debtPay || tx.debtBorrow || tx.lent || tx.lentBack) return;
+    const ho = isHold(o.a), hi = isHold(i.a); if (!ho && !hi) return;
+    const named = /^\s*(buy|sell|convert)\b/i.test(tx.name || '');
+    if (o.cu === i.cu && !named) return;
+    let x;
+    if (!ho && hi) { const v = homeOf(o.r, o.cu, o.amt) || homeOf(i.r, i.cu, i.amt); if (!v) return; x = { side: 'buy', asset: i.a.id, qty: Math.abs(i.amt), valueHome: v }; }
+    else if (ho && !hi) { const v = homeOf(i.r, i.cu, i.amt) || homeOf(o.r, o.cu, o.amt); if (!v) return; x = { side: 'sell', asset: o.a.id, qty: Math.abs(o.amt), valueHome: v }; }
+    else { const v = homeOf(i.r, i.cu, i.amt) || homeOf(o.r, o.cu, o.amt); if (!v) return; x = { side: 'convert', asset: o.a.id, qty: Math.abs(o.amt), asset2: i.a.id, qty2: Math.abs(i.amt), valueHome: v }; }
+    // the fee the export wrote as its own expense (same time, on one of the two accounts) is tied to the trade
+    const fee = db.txs.slice(txStart).find((f) => f.kind === 'expense' && !f.tradeOf && f.date === tx.date && (f.acct === o.a.id || f.acct === i.a.id) && (f.notes === 'Transfer fee' || /^trading fee/i.test(f.name || '')));
+    if (fee) { fee.tradeOf = tx.id; x.feeHome = Math.abs(fee.amount) * (fee.cur === BASE ? 1 : (fee.fx > 0 ? fee.fx : 0)); }
+    tx.trade = x; stats.trades++;
+  };
+
   for (const [key, list] of transfers) {
     const outs = list.filter((x) => x.amt < 0), ins = list.filter((x) => x.amt >= 0);
     while (outs.length && ins.length) {
-      const o = outs.shift(), i = ins.shift();
+      const o = outs.shift(), i = ins.shift(), i_ = i;
       const src = claim(['T', key, o.amt, o.a.name, i.a.name].join('|'));
       if (!src) { stats.skipped++; continue; }
-      db.txs.push(stamp({
+      const made = stamp({
         id: uid(), kind: 'transfer', date: col(o.r, 'Date'), name: col(o.r, 'Name'),
         amount: Math.abs(o.amt), cur: o.cu, fx: fxOf(o.r, o.cu), acct: o.a.id,
         autoRoute: /^(.+?)\s*(→|->|\sto\s)\s*(.+)$/i.test(col(o.r, 'Name')) && col(o.r, 'Name').toLowerCase().includes(o.a.name.toLowerCase()) && col(o.r, 'Name').toLowerCase().includes(i.a.name.toLowerCase()) || undefined, toAcct: i.a.id, toAmount: i.amt, toFx: fxOf(i.r, i.cu), notes: col(o.r, 'Notes'), labels: col(o.r, 'Labels'), src,
-      }));
+      });
+      db.txs.push(made);
+      if (opts.trades !== false) rebuildTrade(made, o, i_);
       stats.added++;
     }
     // a lone half of a transfer is kept as plain income/expense so balances still add up

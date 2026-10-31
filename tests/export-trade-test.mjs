@@ -68,4 +68,22 @@ ok(exportCSV(back).split('\r\n').length === csv.split('\r\n').length, 'second ex
   ok(names.size === 2, 'same-named accounts in two wallets leave with different account names (' + [...names].join(' | ') + ')');
   const w2 = emptyDb(); importBluecoins(w2, exportCSV(w)); const bb = balances(w2);
   ok(w2.accounts.filter((a) => !a.deleted).length === 2 && [...bb.values()].sort((a, b) => a - b).join() === '100,300' || [...bb.values()].sort((a, b) => a - b).join() === '300,400', 'both wallets come back with their own balance (' + [...bb.values()].join(', ') + ')'); }
+// re-import rebuilds the trades (Bluecoins has no trade mark), so gains and average cost are not lost
+{
+  const { tradeBook } = await import('../js/tradecalc.js');
+  const tr = back.txs.filter((t) => !t.deleted && t.trade), by = (n) => tr.find((t) => t.name === n);
+  ok(tr.length === 3, 'three trades rebuilt from the file (buy, sell, convert); got ' + tr.length);
+  const nm = (id) => (back.accounts.find((a) => a.id === id) || {}).name;
+  const b = by('Buy 0.02 BTC'); ok(b && b.trade.side === 'buy' && nm(b.trade.asset) === 'Binance BTC' && b.trade.qty === 0.02 && Math.abs(b.trade.valueHome - 100000) < 1, 'buy: BTC bought, cost 100,000');
+  const sl = by('Sell 0.005 BTC'); ok(sl && ['sell', 'convert'].includes(sl.trade.side) && nm(sl.trade.asset) === 'Binance BTC' && sl.trade.qty === 0.005 && sl.trade.valueHome > 0, 'sell: BTC given up for USDT (two holdings, so it comes back as a convert), value known');
+  const cv = by('Convert 370 USDT to 0.5 BNB'); ok(cv && cv.trade.side === 'convert' && nm(cv.trade.asset) === 'Binance USDT' && nm(cv.trade.asset2) === 'Binance BNB' && cv.trade.qty2 === 0.5, 'convert: USDT given, BNB received');
+  ok(back.txs.filter((t) => t.tradeOf).length === 3 && b.trade.feeHome === 50, 'trading fees tied to their trades (buy fee 50)');
+  const A = tradeBook(db.txs), B = tradeBook(back.txs), pos = (bk, n, d) => bk.pos.get((d.accounts.find((a) => a.name === n) || {}).id);
+  ok(Math.abs(pos(A, 'Binance BTC', db).qty - pos(B, 'Binance BTC', back).qty) < 1e-9, 'average-cost position of BTC is the same after re-import');
+  // a plain move of the same coin between your own wallets stays a transfer, and importing the same file again adds nothing
+  const again = importBluecoins(back, csv); ok(again.added === 0 && back.txs.filter((t) => !t.deleted && t.trade).length === 3, 'importing the same file again adds nothing and keeps three trades');
+  const plain = emptyDb(); plain.accounts.push(stamp({ id: 'u1', name: 'Binance USDT', cur: 'USDT', type: 'crypto', open: 100, exchange: 'Binance' }), stamp({ id: 'u2', name: 'Binance USDT (Earn)', cur: 'USDT', type: 'crypto', open: 0, exchange: 'Binance' }));
+  plain.txs.push(stamp({ id: 'm1', kind: 'transfer', date: '2026-03-01 10:00:00', name: 'To Earn', acct: 'u1', toAcct: 'u2', amount: 50, toAmount: 50, cur: 'USDT', fx: 56 }));
+  const p2 = emptyDb(); importBluecoins(p2, exportCSV(plain)); ok(p2.txs.filter((t) => !t.deleted && t.kind === 'transfer' && !t.trade).length === 1 && !p2.txs.some((t) => t.trade), 'same coin moved between your wallets is not a trade');
+}
 process.exit(bad ? 1 : 0);

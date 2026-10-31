@@ -844,7 +844,7 @@ export function bindSettings() {
       let st;
       commit((d) => { st = importBluecoins(d, text, choice); });
       window.dispatchEvent(new Event('sukli-latest'));
-      toast(`Imported ${st.added} entries, skipped ${st.skipped} already here. ${st.accounts} new accounts. Existing accounts were not changed.${st.openingFilled ? ` Filled ${st.openingFilled} empty opening balance${st.openingFilled > 1 ? 's' : ''}.` : ''}${st.noOpening ? ` ${st.noOpening} accounts have no opening balance in this file; set it in the account if their balance looks off.` : ''}`, { ms: 12000 });
+      toast(`Imported ${st.added} entries, skipped ${st.skipped} already here. ${st.accounts} new accounts. Existing accounts were not changed.${st.trades ? ` ${st.trades} buy/sell/convert ${st.trades > 1 ? 'entries were' : 'entry was'} set up as trades again.` : ''}${st.openingFilled ? ` Filled ${st.openingFilled} empty opening balance${st.openingFilled > 1 ? 's' : ''}.` : ''}${st.noOpening ? ` ${st.noOpening} accounts have no opening balance in this file; set it in the account if their balance looks off.` : ''}`, { ms: 12000 });
       if (st.accounts) openAccountSetup();
     } catch (e) { toast(e.message, { ms: 9000 }); }
     bc.value = '';

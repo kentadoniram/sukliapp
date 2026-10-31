@@ -24,7 +24,7 @@ with sync_playwright() as p:
     ok('no "Financial loss" label in Entries', 'Financial loss' not in t)
     ok('purpose line on rows', 'Expense recorded' in t or 'Income recorded' in t or 'not counted as spending' in t)
     # fee reaches the balances: cash account paid 30,000 + 100
-    tx=pg.evaluate("(async()=>{const m=await import('/js/core.js');const d=m.get();const t=d.txs.find(x=>x.trade);return {fee:t.fee,by:t.feeBy,amount:t.amount}})()"); print(tx)
+    tx=pg.evaluate("(async()=>{const m=await import('/js/core.js');const d=m.get();const t=d.txs.find(x=>x.trade && /ZZZ/.test(x.name));return {fee:t.fee,by:t.feeBy,amount:t.amount}})()"); print(tx)
     ok('fee stored on the trade', tx['fee']==100 and tx['by'] in ('from','to'))
     # filters: equal width, centred
     boxes=pg.evaluate("[...document.querySelectorAll('.filters .chip')].map(e=>{const r=e.getBoundingClientRect();return [Math.round(r.width), getComputedStyle(e).justifyContent]})"); print(boxes)
