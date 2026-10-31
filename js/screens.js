@@ -200,10 +200,11 @@ export const HOME_SECTIONS = [
   ['rolling', 'Daily average, rolling 7 days', false], ['outlook', 'Next month outlook', true], ['went', 'Where it went', false], ['came', 'Where it came from', false],
   ['loss', 'Money lost to fees and interest', false], ['six', 'Last 6 months', false], ['latest', 'Latest entries', false],
 ];
+const DEFAULT_HIDDEN = ['rolling'];
 export function homeLayout(db) {
   const L = (db.settings && db.settings.homeLayout) || {}, ids = HOME_SECTIONS.map((x) => x[0]);
   const order = [...(L.order || []).filter((x) => ids.includes(x)), ...ids.filter((x) => !(L.order || []).includes(x))];
-  return { order, hidden: (L.hidden || []).filter((x) => ids.includes(x)) };
+  return { order, hidden: (L.hidden || DEFAULT_HIDDEN).filter((x) => ids.includes(x)) };   // until you choose, the rolling daily average stays off Home (the 7 daily bars remain)
 }
 export function fillDeferred(db, done) {
   const ctxOf = () => { const st = monthStats(db, ui.month); return { db, st, accts: accountMap(db), cats: catMap(db) }; };
@@ -326,7 +327,6 @@ function paceCard(db) {
     <p class="hint pacecap"><b>Pace</b> is how fast you are spending. The line shows what you have spent so far this month, day by day, next to last month. If your line is above last month’s, you are spending faster than last month.</p>
     <p class="legend"><i class="k lineb"></i>${esc(monthLabel(ui.month).split(' ')[0])} <i class="k bar"></i>${esc(monthLabel(p.prevYm).split(' ')[0])}${p.live ? ' <i class="k dash"></i>at this pace' : ''}</p>
     <div class="facts">
-      <div><span>Daily average, last 7 days</span><b>${R(rollEnd(p).now)}</b></div>
       <div><span>${p.live ? 'By month end' : 'Month total'}</span><b>${R(p.live ? p.projected : p.spent)}</b></div>
       ${cmp || `<div><span>Same day last month</span><b>${R(p.prevSame)}</b></div>`}
     </div>`);
@@ -733,7 +733,7 @@ export function settings(db) {
       <div class="field"><span>Theme</span>${segBtns('look', 'theme', [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']], lk.theme)}</div>
       <div class="field"><span>Colour</span><div class="swatches" role="group" aria-label="Accent colour"><button type="button" class="swatch auto ${lk.accent === 'auto' ? 'on' : ''}" data-act="look" data-k="accent" data-v="auto" aria-label="Match the mode (teal in Simple, blue in Advanced)" aria-pressed="${lk.accent === 'auto'}" title="Match the mode"></button>${Object.entries(ACCENTS).map(([k, v]) => `<button type="button" class="swatch ${lk.accent === k ? 'on' : ''}" data-act="look" data-k="accent" data-v="${k}" style="background:${v.l[0]}" aria-label="${v.n}" aria-pressed="${lk.accent === k}"></button>`).join('')}</div></div>
       <div class="field"><span>“Spent each day” chart on Home</span><div class="seg two small" role="group" aria-label="Chart direction">${[['v', 'Vertical bars'], ['h', 'Horizontal bars']].map(([v, l]) => `<button type="button" data-act="week-mode" data-v="${v}" class="${weekMode() === v ? 'on' : ''}" aria-pressed="${weekMode() === v}">${l}</button>`).join('')}</div></div>
-      <div class="field"><span>Tap feedback</span>${(() => { const c = feedbackCfg(); return `<label class="check"><input type="checkbox" data-fb="haptic" ${c.haptic ? 'checked' : ''}> Vibrate a little when I tap</label><label class="check"><input type="checkbox" data-fb="visual" ${c.visual ? 'checked' : ''}> Flash the button I tapped</label><label class="check"><input type="checkbox" data-fb="sound" ${c.sound ? 'checked' : ''}> Soft click sound</label><button type="button" class="btn sm ghost" data-act="fb-test">Test the buzz</button><label class="check realsw"><input type="checkbox" switch id="fb-realsw" aria-label="Real switch test"> <span>Tap this real switch. You should feel a small tick. If you do, your phone and its System Haptics are fine.</span></label>`; })()}
+      <div class="field"><span>Tap feedback</span>${(() => { const c = feedbackCfg(); return `<label class="check"><input type="checkbox" data-fb="haptic" ${c.haptic ? 'checked' : ''}> Vibrate a little when I tap</label><label class="check"><input type="checkbox" data-fb="visual" ${c.visual ? 'checked' : ''}> Flash the button I tapped</label><label class="check"><input type="checkbox" data-fb="sound" ${c.sound ? 'checked' : ''}> Soft click sound</label><label class="check"><input type="checkbox" data-fb="overlay" ${c.overlay !== false ? 'checked' : ''}> Real switch on keys, Save and + (iPhone)</label><button type="button" class="btn sm ghost" data-act="fb-test">Test the buzz</button><label class="check realsw"><input type="checkbox" switch id="fb-realsw" aria-label="Real switch test"> <span>Tap this real switch. You should feel a small tick. If you do, your phone and its System Haptics are fine.</span></label>`; })()}
         <small class="hint">Some iPhones and browsers cannot vibrate, so the flash (and the click, if you turn it on) tells you the tap worked.</small></div>
       <div class="field"><span>Text size</span>${segBtns('look', 'size', SIZES.map((x) => [x[0], x[1]]), lk.size)}
         <small class="hint">Smaller text leaves more room above the on-screen keyboard.</small></div>
@@ -1121,7 +1121,8 @@ ACT['set-mode'] = (el) => {
   if (slow) { done(); toast(v === 'simple' ? 'Simple mode.' : 'Advanced mode. Everything is shown.'); return; }
   // a short curtain slides across, the page changes behind it, then it slides away
   const adv = v === 'advanced', c = document.createElement('div'); c.className = `modeswitch ${adv ? 'adv' : 'smp'}`; c.setAttribute('role', 'status');
-  c.innerHTML = `<div class="ms-in"><b>${adv ? 'Advanced mode' : 'Simple mode'}</b><span>${adv ? 'Everything is shown: interest, loans, investments, tools.' : 'Just the basics. Nothing you entered is removed.'}</span></div>`;
+  const word = adv ? 'Advanced mode' : 'Simple mode', letters = [...word].map((ch, i) => `<i style="--d:${(0.42 + i * 0.045).toFixed(3)}s">${ch === ' ' ? '&nbsp;' : esc(ch)}</i>`).join('');
+  c.innerHTML = `<div class="ms-bg" aria-hidden="true">${'<u></u>'.repeat(adv ? 6 : 7)}<s></s></div><div class="ms-in"><b aria-label="${word}">${letters}</b><span>${adv ? 'Everything is shown: interest, loans, investments, tools.' : 'Just the basics. Nothing you entered is removed.'}</span></div>`;
   document.body.appendChild(c); requestAnimationFrame(() => c.classList.add('in'));
-  setTimeout(done, 420); setTimeout(() => c.classList.add('out'), 1100); setTimeout(() => c.remove(), 1600);
+  setTimeout(done, 420); setTimeout(() => c.classList.add('out'), 1700); setTimeout(() => c.remove(), 2250);
 };

@@ -4,7 +4,7 @@ errs=[]; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 U='http://localhost:8123/index.html'
 with sync_playwright() as p:
-    b=p.chromium.launch(); ctx=b.new_context(viewport={'width':390,'height':844},locale='en-US',service_workers='block'); pg=ctx.new_page()
+    b=p.chromium.launch(); ctx=b.new_context(viewport={'width':390,'height':844},locale='en-US',service_workers='block'); pg=ctx.new_page(); pg.add_init_script("try{var c=JSON.parse(localStorage.getItem('sukli-coll')||'{}');if(c['i-crypto']===undefined){c['i-crypto']=false;localStorage.setItem('sukli-coll',JSON.stringify(c))}}catch(e){}"); 
     pg.on('pageerror',lambda e: errs.append(str(e)))
     pg.on('console',lambda m: errs.append(m.text) if m.type=='error' and 'ERR_TUNNEL' not in m.text else None)
     pg.goto(U); pg.wait_for_selector('#first-file',state='attached')
@@ -21,7 +21,7 @@ with sync_playwright() as p:
     pg.click('[data-act=inv-new]'); pg.click('[data-k=acct]'); pg.wait_for_selector('#acct-form'); pg.fill('[name=name]','MP2 Pag-IBIG'); pg.fill('[name=open]','50000')
     ok('invtab ticked for investment type', pg.is_checked('[name=invtab]'))
     pg.click('#acct-form button:text-is("Save")'); pg.wait_for_timeout(700)
-    t=pg.inner_text('#view'); ok('MP2 in other products', 'MP2 Pag-IBIG' in t and 'Investments and other products' in t)
+    t=pg.inner_text('#view'); ok('MP2 in other products', 'MP2 Pag-IBIG' in t and 'Bonds, savings and other investments' in t)
     pg.goto(U+'#/settings'); pg.wait_for_selector('#arrange'); pg.evaluate("document.querySelectorAll('details.sgroup,details.ssub').forEach(d=>d.open=true)"); pg.wait_for_timeout(150); pg.click('#arrange [data-act=arr-tab-off][data-id=calendar]'); pg.click('#arrange [data-act=arr-tab-on][data-id=invest]'); pg.wait_for_timeout(400)
     ok('Invest tab can be put in the bar', 'Invest' in pg.inner_text('#tabs'))
     ok('no errors', not errs); print(errs[:5])

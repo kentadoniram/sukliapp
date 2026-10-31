@@ -89,7 +89,7 @@ with sync_playwright() as p:
     # 4 budget
     pg.evaluate("window.sukli.ui.month='2026-08'")
     pg.goto('http://localhost:8123/index.html#/budget'); pg.wait_for_selector('.donut')
-    ok('donut drawn with slices', pg.locator('.donut circle.slice').count()>=3)
+    pg.wait_for_timeout(700); ok('donut drawn with slices', pg.locator('.donut circle.slice').count()>=3)
     first=pg.locator('.pierow').first.inner_text()
     ok('rows show percentage', '%' in first)
     pg.locator('.donut circle.slice').first.dispatch_event('click'); pg.wait_for_timeout(200)

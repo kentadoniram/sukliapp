@@ -1,11 +1,11 @@
 // Tap feedback: a short buzz where the phone allows it, a quick flash on whatever you touched, and an optional soft click.
 // Safari on iPhone has no vibrate(); it gets a tiny haptic through a hidden switch control when the system supports it, and the flash and click always work.
 const KEY = 'sukli-fb';
-const DEF = { haptic: true, visual: true, sound: false };
+const DEF = { haptic: true, visual: true, sound: false, overlay: true };
 const read = () => { try { return { ...DEF, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { ...DEF }; } };
 let cfg = read();
 export const feedbackCfg = () => cfg;
-export const setFeedback = (k, v) => { cfg = { ...cfg, [k]: v }; try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch { /* blocked */ } };
+export const setFeedback = (k, v) => { cfg = { ...cfg, [k]: v }; try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch { /* blocked */ } if (k === 'overlay' || k === 'haptic') applyOverlay(); };
 
 let ac = null, sw = null;
 function buzz(strong) {
@@ -42,7 +42,30 @@ document.addEventListener('pointerdown', (e) => {
 document.addEventListener('click', (e) => {
   if (!HAPTIC_ON_CLICK || !e.isTrusted) return;
   const t = e.target.closest && e.target.closest(TARGET);
-  if (!t || t.disabled || t.getAttribute('aria-disabled') === 'true' || t.classList.contains('clearx') || t.closest('.fbswitch')) return;
+  if (!t || t.disabled || t.getAttribute('aria-disabled') === 'true' || t.classList.contains('clearx') || t.closest('.fbswitch') || (e.target.classList && e.target.classList.contains('hsw'))) return;   // a tap on the real switch has already ticked
   buzz(!!t.closest('.keypad') || t.classList.contains('btn'));
 }, { passive: true, capture: true });
 document.addEventListener('change', (e) => { const k = e.target && e.target.dataset && e.target.dataset.fb; if (k) { setFeedback(k, e.target.checked); if (e.target.checked) { buzz(true); click(); } } });
+
+// Real switches over the keypad keys, Save and the round + (iPhone only). From iOS 26.5 only a real tap on a switch control ticks, so a transparent switch sits inside each of these buttons:
+// the finger lands on the switch (it ticks), and the click still bubbles up to the button, so the button works as before. Turn it off in Settings if it ever gets in the way.
+const HSW_SEL = '.keypad button, #btns .btn, .fab';
+const overlayOn = () => cfg.haptic && cfg.overlay !== false && !!iosVersion();
+function dress(root) {
+  if (!overlayOn() || !root || root.nodeType !== 1) return;
+  const list = [...(root.matches && root.matches(HSW_SEL) ? [root] : []), ...root.querySelectorAll(HSW_SEL)];
+  for (const b of list) {
+    if (b.querySelector(':scope > .hsw')) continue;
+    const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); i.className = 'hsw'; i.tabIndex = -1; i.setAttribute('aria-hidden', 'true');
+    i.addEventListener('change', () => { i.checked = false; });
+    b.classList.add('hsw-host'); b.appendChild(i);
+  }
+}
+export function applyOverlay() {
+  if (!overlayOn()) { document.querySelectorAll('.hsw').forEach((i) => { i.parentElement && i.parentElement.classList.remove('hsw-host'); i.remove(); }); return; }
+  dress(document.body);
+}
+try {
+  new MutationObserver((muts) => { if (!overlayOn()) return; for (const m of muts) for (const n of m.addedNodes) dress(n); }).observe(document.documentElement, { childList: true, subtree: true });
+  if (document.body) applyOverlay(); else document.addEventListener('DOMContentLoaded', applyOverlay);
+} catch { /* no observer */ }

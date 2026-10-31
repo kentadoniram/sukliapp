@@ -5,7 +5,7 @@ CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 URL='http://localhost:8123/'
 with sync_playwright() as p:
-    b=p.chromium.launch(); ctx=b.new_context(viewport={'width':402,'height':874},service_workers='block'); pg=ctx.new_page(); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
+    b=p.chromium.launch(); ctx=b.new_context(viewport={'width':402,'height':874},service_workers='block'); pg=ctx.new_page(); pg.add_init_script("try{var c=JSON.parse(localStorage.getItem('sukli-coll')||'{}');if(c['i-crypto']===undefined){c['i-crypto']=false;localStorage.setItem('sukli-coll',JSON.stringify(c))}}catch(e){}"); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto(URL); pg.wait_for_selector('.welcome'); pg.click('[data-act=wz-old]'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
     pg.goto(URL+'#/invest'); pg.wait_for_selector('[data-act=inv-new]'); pg.wait_for_timeout(300)

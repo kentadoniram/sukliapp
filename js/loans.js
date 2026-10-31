@@ -24,7 +24,7 @@ export function openLoanPlanner(pre = {}) {
       <label class="field"><span>Interest % a year ${tipBtn('rate')}${tipBtn('effective')}${tipBtn('addon')}</span><input name="rate" inputmode="decimal" value="${pre.rate || ''}" placeholder="e.g. 8.5"></label></div>
     <div class="two"><label class="field"><span>Length (months) ${tipBtn('term')}</span><input name="months" inputmode="numeric" value="${pre.months || ''}" placeholder="e.g. 60"></label>
       <label class="field"><span>Due day of month</span><input name="dueDay" inputmode="numeric" value="${pre.dueDay || ''}" placeholder="1–31"></label></div>
-    <div class="two"><label class="field"><span>Taken upfront (processing and other fees)</span><input name="fees" inputmode="decimal" value="${pre.fees || ''}" placeholder="0"></label>
+    <div class="two"><label class="field"><span>Upfront fees</span><input name="fees" inputmode="decimal" value="${pre.fees || ''}" placeholder="processing, other"></label>
       <label class="field"><span>Late fee % of the payment</span><input name="lateFee" inputmode="decimal" value="${pre.lateFee || ''}" placeholder="e.g. 3"></label></div>
     ${calcHtml('monthly')}
     <div id="lp-out" class="lpout" aria-live="polite"></div>

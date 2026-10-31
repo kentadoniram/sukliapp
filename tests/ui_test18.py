@@ -10,6 +10,7 @@ with sync_playwright() as p:
     pg.goto(U); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
     pg.goto(U+'#/home'); pg.wait_for_timeout(1200)
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.homeLayout={order:[],hidden:[]}})})()"); pg.wait_for_timeout(1000)
     ok('home cards drawn (deferred filled)', pg.locator('[data-defer]').count()==0 and pg.locator('#view section, #view details').count()>=5)
     ok('daily bars', pg.locator('svg.chart rect[data-tip]').count()>=30)
     ok('where it went bars default', pg.locator('.wentpie').count()==1)

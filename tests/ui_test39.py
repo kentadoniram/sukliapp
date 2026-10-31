@@ -16,7 +16,7 @@ with sync_playwright() as p:
         pad=pg.evaluate("parseFloat(getComputedStyle(document.querySelector('.sgroup > section')).paddingLeft)")
         ok(f'[{vw}] settings text keeps a side margin', pad>=12)
         ok(f'[{vw}] week chart switch lives in Settings', pg.locator('[data-act=week-mode]').count()==2)
-        ok(f'[{vw}] tap feedback options', pg.locator('[data-fb]').count()==3)
+        ok(f'[{vw}] tap feedback options', pg.locator('[data-fb]').count()==4)
         ok(f'[{vw}] remind me and at on one row', pg.evaluate("(()=>{const a=document.querySelector('[data-bk=mode]'),c=document.querySelector('[data-bk=time]');if(!a||!c)return false;return Math.abs(a.getBoundingClientRect().top-c.getBoundingClientRect().top)<8})()"))
         # home
         pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(700)
@@ -34,7 +34,7 @@ with sync_playwright() as p:
         # entry: amount select + x, keypad size, feedback flash
         pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_timeout(400)
         pg.evaluate("(async()=>{const m=await import('/js/entry.js');m.openEntry()})()"); pg.wait_for_selector('#f-amount')
-        pg.fill('#f-amount','123'); pg.click('#f-name'); pg.click('#f-amount'); pg.wait_for_timeout(300)
+        pg.fill('#f-amount','123'); pg.click('#f-what'); pg.click('#f-amount'); pg.wait_for_timeout(300)
         sel=pg.evaluate("(()=>{const e=document.getElementById('f-amount');return e.selectionStart===0&&e.selectionEnd===e.value.length&&e.value.length>0})()")
         ok(f'[{vw}] amount is selected on tap', sel)
         ok(f'[{vw}] clear button on the amount', pg.locator('.amtx:visible').count()==1)
