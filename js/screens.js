@@ -169,7 +169,8 @@ const homeTitles = (h) => h.replace(/(<button class="collhead"[^>]*><h2>)([^<]*)
 export function home(db) {
   const st = monthStats(db, ui.month);
   const lay = homeLayout(db);
-  const body = lay.order.filter((id) => !lay.hidden.includes(id)).map((id) => { const sec = HOME_SECTIONS.find((x) => x[0] === id); if (!sec) return ''; return sec[2] ? `<div class="defer" data-defer="${id}" aria-busy="true"></div>` : homeSection(id, { db }); }).join('');
+  const off = appMode(db) === 'simple' ? [...lay.hidden, ...SIMPLE_HIDDEN] : lay.hidden;
+  const body = lay.order.filter((id) => !off.includes(id)).map((id) => { const sec = HOME_SECTIONS.find((x) => x[0] === id); if (!sec) return ''; return sec[2] ? `<div class="defer" data-defer="${id}" aria-busy="true"></div>` : homeSection(id, { db }); }).join('');
   const firstEntry = !db.txs.some((t) => !t.deleted) ? `<section class="nextstep"><b>Next step: write down your first spending.</b> ${tipBtn('firstentry')}</section>` : '';
   return `${monthNav()}
     ${firstEntry}${strip(st)}${homeTitles(weekBars(db) + body)}`;
@@ -200,11 +201,12 @@ export const HOME_SECTIONS = [
   ['rolling', 'Daily average, rolling 7 days', false], ['outlook', 'Next month outlook', true], ['went', 'Where it went', false], ['came', 'Where it came from', false],
   ['loss', 'Money lost to fees and interest', false], ['six', 'Last 6 months', false], ['latest', 'Latest entries', false],
 ];
-const DEFAULT_HIDDEN = ['rolling'];
+// cards that analyse your spending (trends, pace, forecasts, fee losses): Simple mode keeps them off Home; Advanced shows them unless you turn them off
+export const SIMPLE_HIDDEN = ['insights', 'pace', 'projpie', 'rolling', 'outlook', 'loss', 'six'];
 export function homeLayout(db) {
   const L = (db.settings && db.settings.homeLayout) || {}, ids = HOME_SECTIONS.map((x) => x[0]);
   const order = [...(L.order || []).filter((x) => ids.includes(x)), ...ids.filter((x) => !(L.order || []).includes(x))];
-  return { order, hidden: (L.hidden || DEFAULT_HIDDEN).filter((x) => ids.includes(x)) };   // until you choose, the rolling daily average stays off Home (the 7 daily bars remain)
+  return { order, hidden: (L.hidden || []).filter((x) => ids.includes(x)) };
 }
 export function fillDeferred(db, done) {
   const ctxOf = () => { const st = monthStats(db, ui.month); return { db, st, accts: accountMap(db), cats: catMap(db) }; };
@@ -327,6 +329,7 @@ function paceCard(db) {
     <p class="hint pacecap"><b>Pace</b> is how fast you are spending. The line shows what you have spent so far this month, day by day, next to last month. If your line is above last month’s, you are spending faster than last month.</p>
     <p class="legend"><i class="k lineb"></i>${esc(monthLabel(ui.month).split(' ')[0])} <i class="k bar"></i>${esc(monthLabel(p.prevYm).split(' ')[0])}${p.live ? ' <i class="k dash"></i>at this pace' : ''}</p>
     <div class="facts">
+      <div><span>Daily average, last 7 days</span><b>${R(rollEnd(p).now)}</b></div>
       <div><span>${p.live ? 'By month end' : 'Month total'}</span><b>${R(p.live ? p.projected : p.spent)}</b></div>
       ${cmp || `<div><span>Same day last month</span><b>${R(p.prevSame)}</b></div>`}
     </div>`);
@@ -706,7 +709,7 @@ export function settings(db) {
   const me = signedIn() ? (session() || {}).user : null;
   return settingsGrouped(`${hdr('Settings')}
     <section><h2>Mode</h2><p class="hint">Simple shows just the basics. Advanced shows everything. Switching never deletes anything you entered.</p>
-      ${appMode(db) === 'simple' ? '<p class="hint" id="simplelist"><b>Hidden in Simple mode:</b> Investments, Cash flow, Outlook and Analytics in the menu; Loan planner; the Merchant row on new entries; interest settings on new accounts; Name matching, Coins and tokens and Cloud sync in Settings. Anything you already set up stays visible. Choose Advanced to see them all.</p>' : ''}
+      ${appMode(db) === 'simple' ? '<p class="hint" id="simplelist"><b>Hidden in Simple mode:</b> Investments, Cash flow, Outlook and Analytics in the menu; Loan planner; the Home cards that analyse your spending (Worth knowing, Pace, Spending vs expected income, Daily average, Next month outlook, Money lost to fees and interest, Last 6 months); the Merchant row on new entries; interest settings on new accounts; Name matching, Coins and tokens and Cloud sync in Settings. Anything you already set up stays visible. Choose Advanced to see them all.</p>' : ''}
       <div class="seg two" role="group" aria-label="Mode"><button type="button" data-act="set-mode" data-v="simple" class="${appMode(db) === 'simple' ? 'on' : ''}" aria-pressed="${appMode(db) === 'simple'}">Simple</button><button type="button" data-act="set-mode" data-v="advanced" class="${appMode(db) === 'advanced' ? 'on' : ''}" aria-pressed="${appMode(db) === 'advanced'}">Advanced</button></div></section>
     ${merchantsSection(db)}
     ${undoSection()}
@@ -1040,7 +1043,7 @@ function arrangeSection(db) {
     ${more.length ? `<p class="hint">Add to the bar${tb.length >= 4 ? ' (remove one first)' : ''}:</p><div class="btnrow left">${more.map((id) => `<button type="button" class="btn sm ghost" data-act="arr-tab-on" data-id="${id}" ${tb.length >= 4 ? 'disabled' : ''}>+ ${TAB_DEFS[id][0]}</button>`).join('')}</div>` : ''}
     <h3>Home cards, top to bottom</h3>
     ${lay.order.map((id, i) => { const nm = (HOME_SECTIONS.find((x) => x[0] === id) || [])[1], off = lay.hidden.includes(id);
-      return `<div class="arow ${off ? 'off' : ''}"><label class="check"><input type="checkbox" data-act="arr-show" data-id="${id}" ${off ? '' : 'checked'}> ${esc(nm)}</label>${mv('home', id, i, lay.order.length)}</div>`; }).join('')}
+      return `<div class="arow ${off ? 'off' : ''}"><label class="check"><input type="checkbox" data-act="arr-show" data-id="${id}" ${off ? '' : 'checked'}> ${esc(nm)}${SIMPLE_HIDDEN.includes(id) ? ' <small class="muted">(not shown in Simple mode)</small>' : ''}</label>${mv('home', id, i, lay.order.length)}</div>`; }).join('')}
     <button type="button" class="btn ghost wide" data-act="arr-reset">Put tabs and cards back to normal</button></section>`;
 }
 const moveIn = (arr, id, dir) => { const i = arr.indexOf(id), j = i + dir; if (i < 0 || j < 0 || j >= arr.length) return arr; const a = [...arr]; [a[i], a[j]] = [a[j], a[i]]; return a; };
@@ -1121,8 +1124,8 @@ ACT['set-mode'] = (el) => {
   if (slow) { done(); toast(v === 'simple' ? 'Simple mode.' : 'Advanced mode. Everything is shown.'); return; }
   // a short curtain slides across, the page changes behind it, then it slides away
   const adv = v === 'advanced', c = document.createElement('div'); c.className = `modeswitch ${adv ? 'adv' : 'smp'}`; c.setAttribute('role', 'status');
-  const word = adv ? 'Advanced mode' : 'Simple mode', letters = [...word].map((ch, i) => `<i style="--d:${(0.42 + i * 0.045).toFixed(3)}s">${ch === ' ' ? '&nbsp;' : esc(ch)}</i>`).join('');
+  const word = adv ? 'Advanced mode' : 'Simple mode', letters = [...word].map((ch, i) => `<i style="--d:${(0.2 + i * 0.03).toFixed(3)}s">${ch === ' ' ? '&nbsp;' : esc(ch)}</i>`).join('');
   c.innerHTML = `<div class="ms-bg" aria-hidden="true">${'<u></u>'.repeat(adv ? 6 : 7)}<s></s></div><div class="ms-in"><b aria-label="${word}">${letters}</b><span>${adv ? 'Everything is shown: interest, loans, investments, tools.' : 'Just the basics. Nothing you entered is removed.'}</span></div>`;
   document.body.appendChild(c); requestAnimationFrame(() => c.classList.add('in'));
-  setTimeout(done, 420); setTimeout(() => c.classList.add('out'), 1700); setTimeout(() => c.remove(), 2250);
+  setTimeout(done, 230); setTimeout(() => c.classList.add('out'), 900); setTimeout(() => c.remove(), 1250);
 };
