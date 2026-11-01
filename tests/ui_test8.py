@@ -33,7 +33,7 @@ with sync_playwright() as p:
     pg.click('[data-act=nw]'); pg.wait_for_selector('#nw svg'); 
     ok('net worth sheet: 12 bars + kinds', pg.locator('#nw svg g[data-tip]').count()==12 and pg.locator('#nw .gbar').count()>=2)
     pg.hover('#nw svg g[data-tip]:nth-of-type(12)'); pg.wait_for_timeout(250)
-    ok('hover shows tooltip', pg.locator('.tip.show').count()==1 and 'Oct' in pg.inner_text('.tip.show'))
+    ok('hover shows tooltip', pg.locator('.tip.show').count()==1 and pg.evaluate("new Date().toLocaleString('en-US',{month:'short'})") in pg.inner_text('.tip.show'))
     pg.screenshot(path=S+'v5-networth.png'); pg.click('.scrim [data-close]')
     # account detail
     pg.click('section.coll .row.acct >> nth=0'); pg.wait_for_selector('#ad svg.scrub'); pg.wait_for_timeout(300)

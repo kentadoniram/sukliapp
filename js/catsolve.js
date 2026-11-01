@@ -106,15 +106,16 @@ export function estimateSpending(purchases, opts = {}) {
     }
     return sp;
   };
-  const base = spendOf(main, rows);
+  const rep = opts.report ? rows.filter((r) => opts.report(r)) : rows;          // spend is reported for these receipts; every receipt still teaches the prices
+  const base = spendOf(main, rep);
   const gp = Object.fromEntries(cats.map((c) => [c, []])), sp = Object.fromEntries(cats.map((c) => [c, []]));
   for (let b = 0; b < B && fitRows.length >= 3; b++) {
     const s = fitRows.map(() => fitRows[Math.floor(rand() * fitRows.length)]);
-    const pl = pipeline(s, cats, guess, main.tau), sd = spendOf(pl, rows);
+    const pl = pipeline(s, cats, guess, main.tau), sd = spendOf(pl, rep);
     for (const c of cats) { gp[c].push(pl.global[c]); sp[c].push(sd[c]); }
   }
   const resid = fitRows.length ? Math.sqrt(fitRows.reduce((s, r) => s + ((predict(main.global, r.n) - r.y) / r.y) ** 2, 0) / fitRows.length) : 0;
-  const total = rows.reduce((s, r) => s + r.total, 0), prices = {}, spend = {}, hints = [];
+  const total = rep.reduce((s, r) => s + r.total, 0), prices = {}, spend = {}, hints = [];
   for (const c of cats) {
     const recs = rows.filter((r) => r.n[c]).length, price = main.global[c];
     const lo = gp[c].length ? pct(gp[c], 0.1) : NaN, hi = gp[c].length ? pct(gp[c], 0.9) : NaN;
@@ -123,7 +124,7 @@ export function estimateSpending(purchases, opts = {}) {
     prices[c] = { price, low: lo, high: hi, receipts: recs, quality };
     // the range has two parts: how unsure the prices are (bootstrap) and how unevenly each receipt splits between categories (from the misfit)
     const bl = sp[c].length ? base[c] - pct(sp[c], 0.1) : 0, bh = sp[c].length ? pct(sp[c], 0.9) - base[c] : 0;
-    const split = 1.28 * resid * Math.sqrt(rows.reduce((s, r) => { const v = (r.n[c] || 0) * main.global[c]; return s + v * v; }, 0));
+    const split = 1.28 * resid * Math.sqrt(rep.reduce((s, r) => { const v = (r.n[c] || 0) * main.global[c]; return s + v * v; }, 0));
     spend[c] = { amount: base[c], low: Math.max(0, base[c] - Math.hypot(Math.max(0, bl), split)), high: base[c] + Math.hypot(Math.max(0, bh), split), share: total ? base[c] / total : 0 };
     if (quality === 'rough' || quality === 'very rough') hints.push(`A receipt with mostly ${c} would help pin down their price.`);
   }

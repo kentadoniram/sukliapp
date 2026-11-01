@@ -25,6 +25,7 @@ import { openAccountPicker } from './acctpicker.js';
 import { pickerList, enhanceSelect } from './picker.js';
 import { similarNames } from './merchants.js';
 import { openMerchantPicker, canonMerchant, guessMerchant } from './merchantpick.js';
+import { groupsOf, unitOf, addGroup, countLines } from './spendgroups.js';
 
 // ---- models are rebuilt only when the data changed ----
 const cache = {};
@@ -59,7 +60,7 @@ function blank() {
   const accts = db.accounts.filter((a) => !a.deleted && !a.archived);
   const last = accts.find((a) => a.id === db.settings.lastAcct) || accts.find((a) => a.include) || accts[0];
   return { kind: 'expense', debt: false, flow: '', merchant: '', merchTouched: false, merchSuggested: false, amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
-    catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), posted: '', postedOn: false, notes: '', labels: '', items: [], flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
+    catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), posted: '', postedOn: false, notes: '', labels: '', items: [], counts: [], showCounts: false, flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
     fee: '', feeCat: '', feeBy: 'from', feeTouched: false, calc: false, convert: false, cRate: '', qtab: '', qtabManual: false };
 }
 function fromTx(t) {
@@ -71,7 +72,7 @@ function fromTx(t) {
     fee: t.fee > 0 ? String(t.fee) : '', feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
     convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
     catTouched: true, acctTouched: true, date: t.date, posted: t.posted || '', postedOn: !!t.posted, notes: t.notes || '', labels: t.labels || '', flag: t.flag || null, id: t.id, pred: null,
-    items: (t.items || []).map((i) => ({ n: i.n, amt: String(i.amt), cat: i.cat || '' })), showItems: !!(t.items && t.items.length), from: t.from || '', to: t.to || '' };
+    items: (t.items || []).map((i) => ({ n: i.n, amt: String(i.amt), cat: i.cat || '' })), showItems: !!(t.items && t.items.length), counts: (t.counts || []).map((c) => ({ g: c.g, n: String(c.n) })), showCounts: !!(t.counts && t.counts.length), from: t.from || '', to: t.to || '' };
 }
 
 // accounts grouped by kind (Banks, E-wallets, Crypto…), most recently used first inside each group
@@ -163,6 +164,7 @@ export function openEntry(opts = {}) {
     <div id="catrow"></div>
     <div id="triprow"></div>
     <div id="itemsrow"></div>
+    <div class="adv-only" id="countsrow"></div>
     <div class="field" id="tagsrow"></div>
     <label class="field" id="notesrow"><span>Notes</span><textarea id="f-notes" rows="2" placeholder="Optional">${esc(f.notes)}</textarea></label>
     <div id="safety" class="safety" aria-live="polite"></div>
@@ -173,7 +175,7 @@ export function openEntry(opts = {}) {
   const focusKeep = (el) => { if (el && document.activeElement !== el) el.focus(); };
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
-    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'itemsrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
+    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'itemsrow', 'countsrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
     transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
   };
   function arrange() {
@@ -443,6 +445,23 @@ export function openEntry(opts = {}) {
     el.className = Math.abs(left) < 0.005 ? 'ok' : 'off';
     el.textContent = Math.abs(left) < 0.005 ? 'Items add up to the total' : (left > 0 ? `${fmt(left, cur)} not assigned yet` : `Items are ${fmt(-left, cur)} over the total`);
   }
+  // Count by group (Advanced): how many drinks, snacks... no names, no prices. Sukli works out roughly what each group costs from many receipts.
+  function renderCounts() {
+    const el = $f('countsrow');
+    if (f.kind !== 'expense') { el.innerHTML = ''; return; }
+    if (!f.showCounts) { el.innerHTML = `<button type="button" class="linkbtn split" data-e="counts-on">${ic('split')} Count by group (drinks, snacks...)</button>`; return; }
+    const db3 = get(), gs = Object.keys(groupsOf(db3));
+    el.innerHTML = `<div class="field items"><span>Count by group <small class="hint">no names or prices, just how many</small></span>
+      <div id="countlist">${f.counts.map((c, i) => `<div class="cnt" data-i="${i}">
+        <select class="cnt-g" aria-label="Group"><option value="">Choose group</option>${gs.map((g) => `<option value="${esc(g)}" ${c.g === g ? 'selected' : ''}>${esc(g)}${unitOf(db3, g) === 'kg' ? ' (kg)' : ''}</option>`).join('')}</select>
+        <input class="cnt-n" inputmode="decimal" placeholder="${c.g && unitOf(db3, c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'}" value="${esc(c.n)}" aria-label="How many">
+        <button type="button" class="iconbtn" data-e="count-del" data-v="${i}" aria-label="Remove row">${ic('x')}</button></div>`).join('')}</div>
+      <div class="itemfoot"><button type="button" class="linkbtn" data-e="count-add">+ Add group</button></div></div>`;
+    el.querySelectorAll('select.cnt-g').forEach((sel) => enhanceSelect(sel, { title: 'Group', addLabel: 'Add a new group', onAdd: async () => {
+      const nm = await promptDialog('New group', '', { okLabel: 'Next', hint: 'Group by price level, for example "drinks" and "ready meals" apart.' }); if (!nm || !nm.trim()) return;
+      const kg = await confirmDialog('Is it counted by weight (kg)?', 'Yes, by weight', false, 'No, by pieces');
+      const g = addGroup(nm, kg ? 'kg' : 'pc'); if (!g) return; sel.add(new Option(g, g)); sel.value = g; sel.dispatchEvent(new Event('change', { bubbles: true })); } }));
+  }
   // optional "posted" date for a card entry: it counts in the statement of that day (for a charge made on the statement day that the bank posts the next day)
   function renderPosted() {
     const el = $f('postedrow'), a = acctOf(f.acct), show = f.kind !== 'transfer' && a && a.type === 'card' && a.stmtDay > 0;
@@ -648,6 +667,7 @@ export function openEntry(opts = {}) {
     else if (id === 'f-crate') { f.cRate = e.target.value; syncCross('rate'); }
     else if (id === 'f-toamt') { f.toAmount = e.target.value; syncCross('to'); const dn = $f('diffnote'); if (dn && f.sameDiff) dn.textContent = diffNote(f, acctOf(f.acct)); }
     else if (id === 'f-notes') f.notes = e.target.value;
+    else if (e.target.classList.contains('cnt-n')) f.counts[+e.target.closest('.cnt').dataset.i].n = e.target.value;
     else if (e.target.closest('.item')) {
       const row = e.target.closest('.item'), i = +row.dataset.i, it = f.items[i];
       if (e.target.classList.contains('in-n')) {
@@ -692,6 +712,7 @@ export function openEntry(opts = {}) {
     }
     else if (id === 'f-feecat') { f.feeCat = e.target.value; f.feeTouched = true; f.feeSuggested = false; renderFee(); }
     else if (e.target.classList.contains('in-c')) { const it = f.items[+e.target.closest('.item').dataset.i]; it.cat = e.target.value; it.catTouched = true; }
+    else if (e.target.classList.contains('cnt-g')) { const c = f.counts[+e.target.closest('.cnt').dataset.i]; c.g = e.target.value; const inp = e.target.closest('.cnt').querySelector('.cnt-n'); if (inp) inp.placeholder = c.g && unitOf(get(), c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'; }
   });
   form.addEventListener('focusout', (e) => {
     if (e.target.id === 'f-amount' && isExpr(f.amount) && !f.calc) { const v = num(f.amount); if (v > 0) { f.amount = tidy(v); e.target.value = f.amount; showCalcRes(); updateFxVal(); } }
@@ -717,7 +738,7 @@ export function openEntry(opts = {}) {
         f.qtab = ''; f.qtabManual = false;
         if (!f.catTouched || f.kind === 'transfer') { f.cat = ''; f.catTouched = false; }
         else { const c = catMap(get()).get(f.cat); if (c && !(c.kind === f.kind || c.kind === 'both')) { f.cat = ''; f.catTouched = false; } }
-        arrange(); renderSeg(); renderMerch(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderSugg(); renderSafety(); break;
+        arrange(); renderSeg(); renderMerch(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderCounts(); renderSugg(); renderSafety(); break;
       case 'flow': { setFlow(f, v); debtFix(f); f.feeTouched = true; f.fee = ''; f.convert = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; renderSeg(); renderFreq(); renderAccts(); renderFx(); renderSugg(); renderSafety(); break; }
       case 'addperson': addPerson(); break;
       case 'debtamt': { f.amount = String(+(+v).toFixed(6)); const fa = $f('f-amount'); fa.value = commasOn() ? withCommas(f.amount) : f.amount; fa.dispatchEvent(new Event('input', { bubbles: true })); break; }
@@ -760,6 +781,9 @@ export function openEntry(opts = {}) {
       case 'items-on': f.showItems = true; if (!f.items.length) f.items.push({ n: '', amt: '', cat: '' }); renderItems(); break;
       case 'item-add': f.items.push({ n: '', amt: '', cat: '' }); renderItems(); form.querySelectorAll('.item .in-n')[f.items.length - 1].focus(); break;
       case 'item-del': f.items.splice(+v, 1); renderItems(); break;
+      case 'counts-on': f.showCounts = true; if (!f.counts.length) f.counts.push({ g: '', n: '' }); renderCounts(); break;
+      case 'count-add': f.counts.push({ g: '', n: '' }); renderCounts(); break;
+      case 'count-del': f.counts.splice(+v, 1); renderCounts(); break;
       case 'save': save(false); break;
       case 'save-again': save(true); break;
       case 'del': {
@@ -868,6 +892,8 @@ export function openEntry(opts = {}) {
       items = f.items.filter((i) => i.n.trim() || num(i.amt)).map((i) => ({ n: i.n.trim(), amt: num(i.amt) || 0, cat: i.cat || '' }));
       if (items.length && Math.abs(items.reduce((s2, i) => s2 + i.amt, 0) - amount) >= 0.01) flag = 'review';
     }
+    let counts = [];
+    if (f.kind === 'expense') { const cl = countLines(db2, f.counts); if (cl.error) return fail(cl.error); counts = cl.lines; }
     // a blank label is filled in: a transfer gets "from - to", other entries get the usual label for this category and amount, and go to Review
     let label = f.name.trim(), autoName = false;
     if (f.kind === 'expense' && tripCat() && label && bareMode(label)) {      // only "bus" was typed: name the trip
@@ -882,7 +908,7 @@ export function openEntry(opts = {}) {
       else { label = guessLabel(db2, { kind: f.kind, cat, amount, acct: a.id, hour: hourOf(f.date) }).name; flag = 'review'; }
     }
     const rec = { kind: f.kind, amount, cur: a.cur, fx, date: f.date, name: label, autoName, cat, acct: a.id,
-      toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), labels: joinTags(parseTags(f.labels)), items: items && items.length ? items : [], flag,
+      toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), labels: joinTags(parseTags(f.labels)), items: items && items.length ? items : [], counts, flag,
       posted: (f.kind !== 'transfer' && f.postedOn && a.type === 'card' && a.stmtDay > 0 && f.posted > String(f.date).slice(0, 10)) ? f.posted : '' };
     if (f.debt && f.kind === 'transfer') rec[FLOWS[f.flow].flag] = true;
     { const mc = f.kind === 'expense' ? canonMerchant(db2, f.merchant) : ''; if (mc) rec.merchant = mc; }
@@ -910,7 +936,7 @@ export function openEntry(opts = {}) {
     if (again) openEntry({ preset: { acct: a.id } });
   }
 
-  arrange(); renderSeg(); renderMerch(); renderFreq(); renderAccts(); renderFx(); renderItems(); renderWhen(); renderBtns(); renderSafety();
+  arrange(); renderSeg(); renderMerch(); renderFreq(); renderAccts(); renderFx(); renderItems(); renderCounts(); renderWhen(); renderBtns(); renderSafety();
   if (existing) { refreshPred(); f.cat = existing.cat || ''; renderCats(); } else renderCats();
   renderTrip(); renderTags();
   updateFxVal();

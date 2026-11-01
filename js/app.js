@@ -22,13 +22,14 @@ import { analytics } from './analytics.js';
 import { investments } from './invest.js';
 import { debts } from './debts.js';
 import { owed } from './owed.js';
+import { spend } from './spendgroups.js';
 import './scan.js';
 import './compare.js';
 import './loans.js';
 import './trades.js';
 import { commitQuiet } from './core.js';
 
-const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook, bin, analytics, invest: investments, debts, owed };
+const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook, bin, analytics, invest: investments, debts, owed, spend };
 let lastRoute = null, pending = false;
 // remember where you were on each screen so Back returns there instead of the top
 const seen = new Map(), stack = []; let curKey = '', backTo = null;

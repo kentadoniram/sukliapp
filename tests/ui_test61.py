@@ -38,7 +38,7 @@ with sync_playwright() as p:
     ok('month card shows income, usual spending and what is left', 'Income you usually get' in t and '₱50,000.00' in t and 'Your usual spending' in t and '₱30,000.00' in t and 'Left after your usual spending' in t)
     pc=total_pct(pg); ok('plan total is within 30%% of income, cushion kept (%s)'%pc, pc is not None and 0<pc<=30 and 'Kept as a safety cushion' in t)
     names=pg.eval_on_selector_all('.payorder li .po-b .dn','b=>b.map(x=>x.textContent)'); ok('pay order has three rows, nearest due first: %s'%names, len(names)==3 and names[0]=='Test Loan')
-    ok('due date shown with a warning about late payment', 'Paying late can add interest or fees' in t)
+    ok('due date shown: overdue gets a late-payment warning, a due-soon debt says Pay now', ('Paying late can add interest or fees' in t) or ('Pay now' in t))   # which one depends on today's date
     card=pg.locator('.payorder li', has_text='Test Card').inner_text(); ok('card follows your habit (usually pays about 6,000)', 'You usually pay about ₱6,000.00' in card and '3 of the last 6 months' in card)
     amts=[float(re.search(r'Pay ₱([\d,\.]+)',pg.locator('.payorder li').nth(i).inner_text()).group(1).replace(',','')) for i in range(3)]; ok('amounts differ per debt %s'%amts, len(set(amts))==3)
     ok('card warning for missing rate', 'No interest rate is set for Test Card' in t); ok('add-on warning', 'uses add-on interest' in t)
