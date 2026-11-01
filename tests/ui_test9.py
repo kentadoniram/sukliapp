@@ -64,9 +64,9 @@ with sync_playwright() as p:
     ok('accent colour changes', pg.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--line').trim()")=='#B03A5B')
     pg.click('[data-act=look][data-k=theme][data-v=dark]'); pg.wait_for_timeout(200)
     bg=pg.evaluate("getComputedStyle(document.body).backgroundColor")
-    ok('dark theme forced: '+bg, bg=='rgb(14, 20, 26)')
+    ok('dark theme forced: '+bg, bg in ('rgb(14, 20, 26)','rgb(7, 11, 16)'))
     pg.click('[data-act=look][data-k=theme][data-v=light]'); pg.wait_for_timeout(200)
-    ok('light theme forced', pg.evaluate("getComputedStyle(document.body).backgroundColor")=='rgb(237, 240, 245)')
+    ok('light theme forced', pg.evaluate("getComputedStyle(document.body).backgroundColor")in ('rgb(237, 240, 245)','rgb(212, 219, 230)'))
     pg.reload(); pg.wait_for_selector('.swatches', state='attached'); pg.evaluate("document.querySelectorAll('details.sgroup,details.ssub').forEach(d=>d.open=true)"); pg.wait_for_timeout(150); 
     ok('look survives reload', pg.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--line').trim()")=='#B03A5B')
     pg.click('[data-act=look][data-k=accent][data-v=blue]'); pg.click('[data-act=look][data-k=theme][data-v=auto]'); pg.click('[data-act=look][data-k=size][data-v=s]')

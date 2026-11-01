@@ -63,7 +63,12 @@ const showHome = () => get().settings.showHome !== false;
 // small "≈ ₱…" line for money in another currency, using the rate stored on the entry
 export const eq = (amount, cur, fx, date) => (showHome() && cur !== HOME && fx > 0 ? `≈ ${money(amount * fx / homeRate(get(), date || nowStamp()))}` : '');
 
+// an app left open overnight (or over a month end) follows the calendar: the month on screen moves on if it was the current one
+let seenMonth = thisMonth();
+export function syncMonth() { const m = thisMonth(); if (m !== seenMonth) { if (ui.month === seenMonth) ui.month = m; seenMonth = m; } }
+try { document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const was = seenMonth; syncMonth(); if (was !== seenMonth) window.dispatchEvent(new Event('sukli-render')); } }); } catch { /* no document */ }
 export function monthNav(title) {
+  syncMonth();
   const isNow = ui.month === thisMonth();
   return `<header class="top"><div class="hl">${burger()}<div class="monthbox"><button class="iconbtn" data-act="month" data-d="-1" aria-label="Previous month">${ic('left')}</button>
     <h1>${esc(title || monthLabel(ui.month))}</h1>
@@ -425,7 +430,6 @@ function ledgerRows(db) {
   let list = sortedTxs(db).filter((t) => !(t.kind === 'income' && (t.auto || t.invIncome || earnCat.has(t.cat)) && !/[1-9]/.test(fmt(t.amount, t.cur, { force: true }))));
   const ranged = !!(ui.from || ui.to);
   if (ranged) list = list.filter((t) => (!ui.from || t.date.slice(0, 10) >= ui.from) && (!ui.to || t.date.slice(0, 10) <= ui.to));
-  else if (!q && !ui.tag) list = list.filter((t) => t.date.startsWith(ui.month));
   if (ui.tag) list = list.filter((t) => hasTag(t, ui.tag));
   const feeSource = ui.filter === 'expense' ? list.filter((t) => t.kind === 'transfer' && t.fee > 0) : [];   // fees saved on transfers, trades and loans are expenses too
   if (ui.filter === 'review') list = list.filter((t) => t.flag === 'review');
@@ -447,7 +451,9 @@ function ledgerRows(db) {
   if (hiddenFees.length) { const hs = new Set(hiddenFees.map((t) => t.id)); list = list.filter((t) => !hs.has(t.id)); }
   const total = list.length, trail = balanceTrail(db);
   const sumHtml = filterSummary(db, list, hiddenFees, kidMap);
-  list = list.slice(0, ui.limit);
+  // one continuous history, newest first, across months; always at least the last 30 days
+  const from30 = (() => { const d = new Date(); d.setDate(d.getDate() - 29); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  list = list.slice(0, Math.max(ui.limit, list.filter((t) => t.date.slice(0, 10) >= from30).length));
   let html = '', day = '', dayTotal = 0, buf = '', byCur = new Map(), n = 0; const shown = []; ui.shown = shown;
   const flush = () => { if (buf) { const off = ui.daysOff.has(day), col = '', curs = [...byCur.entries()].sort((a, b) => (a[0] === HOME ? 1 : b[0] === HOME ? -1 : 0)), foreign = curs.some(([c]) => c !== HOME);
     const lines = curs.map(([c, v]) => `<span class="dline">${money(-v, c)}</span>`).join('');
@@ -488,7 +494,7 @@ function filterSummary(db, list, hiddenFees, kidMap) {
   const catName = ui.cat ? (ui.cat.startsWith('g:') ? ui.cat.slice(2) : ((cats.get(ui.cat) || {}).name || '')) : '';
   const range = ui.from || ui.to ? `${ui.from || 'start'} to ${ui.to || 'today'}` : '';
   // which dates the totals cover: the chosen range, otherwise the month shown (a search looks at every date)
-  const period = ui.from || ui.to ? `${ui.from ? fshort(ui.from) : 'the first entry'} to ${ui.to ? fshort(ui.to) : 'today'}` : (ui.q.trim() || ui.tag ? 'all dates' : monthLabel(ui.month));
+  const period = ui.from || ui.to ? `${ui.from ? fshort(ui.from) : 'the first entry'} to ${ui.to ? fshort(ui.to) : 'today'}` : 'all dates';
   const title = [ui.tag ? `#${ui.tag}` : '', catName, range, ui.filter !== 'all' ? (ui.filter === 'review' ? 'Check' : ui.filter[0].toUpperCase() + ui.filter.slice(1)) : ''].filter(Boolean).join(' · ') || 'This selection';
   const line = (label, k) => { if (!cnt[k]) return ''; const cur = [...acc[k].entries()].map(([c, v]) => money(v, c)).join(' · '); return `<div class="sumrow"><span>${label} <small class="muted">${cnt[k]} ${cnt[k] === 1 ? 'entry' : 'entries'}</small></span><b>${money(hm[k])}</b>${acc[k].size > 1 || ![...acc[k].keys()].every((c) => c === HOME) ? `<small class="muted">${cur}</small>` : ''}</div>`; };
   const inner = line('Total spent', 'expense') + line('Income received', 'income') + line('Moved between accounts', 'transfer');
@@ -516,8 +522,9 @@ function tagBar(db) {
   return `<div class="tagbar" role="group" aria-label="Tags and events">${tags.map((x) => `<button type="button" class="chip ${ui.tag && x.tag.toLowerCase() === ui.tag.toLowerCase() ? 'on' : ''}" data-act="tag-filter" data-v="${esc(x.tag)}" aria-pressed="${!!ui.tag && x.tag.toLowerCase() === ui.tag.toLowerCase()}">#${esc(x.tag)}</button>`).join('')}</div>`;
 }
 export function ledger(db) {
+  syncMonth();
   const f = [['all', 'All'], ['review', 'Check'], ['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']];
-  return `${monthNav()}
+  return `${hdr('Entries')}
     <div class="searchbar">${ic('search')}<input id="q" type="search" placeholder="Search entries, items, notes" value="${esc(ui.q)}" aria-label="Search entries"></div>
     <div class="filters" role="group" aria-label="Filter">${f.map(([v, l]) => `<button class="chip ${ui.filter === v ? 'on' : ''}" data-act="filter" data-v="${v}" ${v === 'review' ? 'title="Entries with a guessed category or label that you have not confirmed yet"' : ''}>${l}</button>`).join('')}</div>
     <div class="frow2">
@@ -1126,8 +1133,8 @@ ACT['set-mode'] = (el) => {
   if (slow) { done(); toast(v === 'simple' ? 'Simple mode.' : 'Advanced mode. Everything is shown.'); return; }
   // a short curtain slides across, the page changes behind it, then it slides away
   const adv = v === 'advanced', c = document.createElement('div'); c.className = `modeswitch ${adv ? 'adv' : 'smp'}`; c.setAttribute('role', 'status');
-  const word = adv ? 'Advanced mode' : 'Simple mode', letters = [...word].map((ch, i) => `<i style="--d:${(0.2 + i * 0.03).toFixed(3)}s">${ch === ' ' ? '&nbsp;' : esc(ch)}</i>`).join('');
+  const word = adv ? 'Advanced mode' : 'Simple mode', letters = [...word].map((ch, i) => `<i style="--d:${(0.3 + i * 0.045).toFixed(3)}s">${ch === ' ' ? '&nbsp;' : esc(ch)}</i>`).join('');
   c.innerHTML = `<div class="ms-bg" aria-hidden="true">${'<u></u>'.repeat(adv ? 6 : 7)}<s></s></div><div class="ms-in"><b aria-label="${word}">${letters}</b><span>${adv ? 'Everything is shown: interest, loans, investments, tools.' : 'Just the basics. Nothing you entered is removed.'}</span></div>`;
   document.body.appendChild(c); requestAnimationFrame(() => c.classList.add('in'));
-  setTimeout(done, 230); setTimeout(() => c.classList.add('out'), 900); setTimeout(() => c.remove(), 1250);
+  setTimeout(done, 340); setTimeout(() => c.classList.add('out'), 1300); setTimeout(() => c.remove(), 1800);
 };

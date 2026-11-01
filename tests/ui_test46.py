@@ -49,7 +49,7 @@ with sync_playwright() as p:
         ok(f'[{vw}] summary shows an amount, not only a count', re.search(r'[₱¥$]\s?[\d,]+',t) is not None)
         pg.click('[data-act=f-clear]'); pg.click('[data-act=filter][data-v=expense]'); pg.wait_for_timeout(300)
         t=pg.inner_text('#lsum') if pg.locator('#lsum').count() else ''
-        ok(f'[{vw}] with no range it names the month shown: {t[:100]!r}', 'Dates covered:' in t and re.search(r'20\d\d',t))
+        ok(f'[{vw}] with no range it says all dates: {t[:100]!r}', 'Dates covered: all dates' in t)
         ok(f'[{vw}] no script errors', not errs)
         ctx.close()
     # ---- export file names

@@ -1,6 +1,6 @@
 // Recycle bin: review, restore or permanently delete accounts, expense groups, categories and entries.
 import { undoHistory, undoSteps, redoLast, undoWipe, get, commit, fmt, restoreRec, purgeRec, binItems, purgeExpired, catMap, accountMap } from './core.js';
-import { esc, ic, ACT, toast, confirmDialog } from './ui.js';
+import { esc, ic, ACT, toast, confirmDialog, sheet } from './ui.js';
 import { hdr } from './screens.js';
 
 const DAY = 864e5;
@@ -44,9 +44,9 @@ const binTabs = (hist, nb, nh) => `<div class="seg two bintabs" role="group" ari
 function history(nb) {
   const h = undoHistory(), kb = h.undo.reduce((q, x) => q + x.kb, 0);
   return `${hdr('Undo history')}${binTabs(true, nb, h.undo.length)}
-  <section class="card"><p class="hint">Your last changes to entries, accounts, categories and budgets, newest first. Tap <b>Undo to here</b> to go back to just before that change. History is kept when you close the app, up to 10 changes, and older ones drop off. It is cleared if your data was changed from another device or restored from a backup. Entries you added go to the Recycle bin.</p>
+  <section class="card"><p class="hint">Your last changes to entries, accounts, categories and budgets, newest first. Tap <b>Undo to here</b> to go back to just before that change; you will see every change that gets undone before you confirm. History is kept when you close the app, up to 10 changes, and older ones drop off. It is cleared if your data was changed from another device or restored from a backup. Entries you added go to the Recycle bin.</p>
     ${h.redo.length ? `<div class="btnrow left"><button type="button" class="btn ghost sm" data-act="hist-redo">Redo: ${esc(h.redo[0].label)}</button></div>` : ''}</section>
-  ${h.undo.length ? `<ul class="binlist">${h.undo.map((x, k) => `<li class="binrow"><div class="binmain"><b>${esc(x.label)}</b><small class="muted">${esc(stamp(x.at))} · ${esc(ago(x.at))}</small></div><div class="binbtn"><button class="btn sm ${k ? 'ghost' : ''}" data-act="hist-to" data-n="${k + 1}">${k ? 'Undo to here' : 'Undo'}</button></div></li>`).join('')}</ul>
+  ${h.undo.length ? `<ul class="binlist">${h.undo.map((x, k) => `<li class="binrow"><div class="binmain"><b>${esc(x.label)}</b><small class="muted">${esc(stamp(x.at))} · ${esc(ago(x.at))}</small>${(x.detail || []).map((l) => `<small class="hdet">${esc(l)}</small>`).join('')}</div><div class="binbtn"><button class="btn sm ${k ? 'ghost' : ''}" data-act="hist-to" data-n="${k + 1}">${k ? 'Undo to here' : 'Undo'}</button></div></li>`).join('')}</ul>
   <div class="binhead"><small class="muted">${h.undo.length} of 10 changes kept · about ${Math.max(1, Math.round(kb / 1024))} MB</small><button class="btn ghost danger sm" data-act="hist-clear">Clear history</button></div>` : '<p class="empty">No changes to undo yet.</p>'}`;
 }
 export function bin(db) {
@@ -96,6 +96,15 @@ document.addEventListener('change', (e) => {
 });
 export function autoPurge() { const db = get(); if (db.settings.binDays > 0 && binItems(db).some((x) => x.at < Date.now() - db.settings.binDays * DAY)) commit((d) => { purgeExpired(d); }); }
 
-ACT['hist-to'] = (el) => { const l = undoSteps(+el.dataset.n); toast(l ? `Went back ${el.dataset.n} step${+el.dataset.n === 1 ? '' : 's'}.` : 'Nothing to undo.'); };
+// going back to a chosen step also undoes every newer step, so list them all before the person confirms
+ACT['hist-to'] = (el) => {
+  const n = +el.dataset.n, steps = undoHistory().undo.slice(0, n); if (!steps.length) return toast('Nothing to undo.');
+  const list = steps.map((x) => `<li><b>${esc(x.label)}</b> <small class="muted">${esc(ago(x.at))}</small>${(x.detail || []).map((l) => `<small class="hdet">${esc(l)}</small>`).join('')}</li>`).join('');
+  const s = sheet(`<p class="confirm-text">${n === 1 ? 'This change will be undone:' : `These ${n} changes will be undone, newest first:`}</p><ul class="undolist">${list}</ul>
+    <p class="hint">Your data goes back to how it was before the oldest one. You can use Redo afterwards. Entries you added go to the Recycle bin.</p>
+    <div class="btnrow"><button type="button" class="btn ghost" data-no>Keep my data as it is</button><button type="button" class="btn" data-yes>Undo ${n === 1 ? 'this change' : `all ${n}`}</button></div>`, { title: 'What will be undone' });
+  s.el.querySelector('[data-no]').onclick = () => s.close();
+  s.el.querySelector('[data-yes]').onclick = () => { s.silent = true; s.dispose(); const l = undoSteps(n); toast(l ? `Went back ${n} change${n === 1 ? '' : 's'}.` : 'Nothing to undo.'); };
+};
 ACT['hist-redo'] = () => { const l = redoLast(); toast(l ? `Redone: ${l}.` : 'Nothing to redo.'); };
 ACT['hist-clear'] = async () => { if (!(await confirmDialog('Clear the undo history? Your data is not changed.', 'Clear history', true))) return; undoWipe(); toast('History cleared.'); };
