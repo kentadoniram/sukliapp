@@ -15,7 +15,7 @@ const mad = (a) => { const m = median(a); return median(a.map((v) => Math.abs(v 
 const dayNum = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); };
 const dayStr = (n) => new Date(n * 864e5).toISOString().slice(0, 10);
 const TRAVELISH = /travel|flight|airline|airfare|plane|hotel|accommodation|lodging|hostel|visa|klook|booking|agoda|airbnb|e-?sim|passport|luggage/i;
-const WEIGHTS = { tag: 2.5, cur: 2.0, travel: 1.2, novel: 1.0, high: 0.6 };
+export const WEIGHTS = { tag: 2.5, cur: 2.0, travel: 1.2, novel: 1.0, high: 0.6 };
 const THRESHOLD = 1.5, MOVE_DAYS = 21;
 
 // rows: [{ id, date, amount (home currency), cur, cat, group, catName, name, labels }]  expenses only

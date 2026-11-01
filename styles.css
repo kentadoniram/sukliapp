@@ -1146,3 +1146,5 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 .sgbar { height: 8px; border-radius: 4px; background: rgba(128,128,128,.18); margin: 6px 0; overflow: hidden; }
 .sgbar i { display: block; height: 100%; background: var(--accent, #2a7); border-radius: 4px; }
 .sgrow small { display: block; opacity: .75; }
+.tripcard { margin-bottom: 12px; }
+.tripcard .btnrow { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
