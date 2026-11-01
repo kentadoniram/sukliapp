@@ -22,7 +22,7 @@ const THRESHOLD = 1.5, MOVE_DAYS = 21;
 export function analyzeHabits(rows, opts = {}) {
   const W = { ...WEIGHTS, ...(opts.weights || {}) }, thr = opts.threshold ?? THRESHOLD, moveDays = opts.moveDays ?? MOVE_DAYS;
   const ex = (rows || []).filter((r) => r && r.amount > 0 && r.date).map((r) => ({ ...r, d: dayNum(r.date), shop: String(r.name || '').toLowerCase().replace(/\s+/g, ' ').trim() })).sort((a, b) => a.d - b.d);
-  if (!ex.length) return { regimes: [], days: [], trips: [], baseline: {}, notes: ['No expenses yet.'] };
+  if (!ex.length) return { regimes: [], days: [], trips: [], moves: [], planned: [], baseline: {}, notes: ['No expenses yet.'] };
   const byDay = new Map(); for (const r of ex) { if (!byDay.has(r.d)) byDay.set(r.d, []); byDay.get(r.d).push(r); }
   const dayList = [...byDay.keys()].sort((a, b) => a - b);
   const domCur = (es, prefer) => { const c = {}; for (const e of es) c[e.cur] = (c[e.cur] || 0) + 1; const best = Object.entries(c).sort((a, b) => b[1] - a[1]); return best.length > 1 && best[0][1] === best[1][1] && c[prefer] === best[0][1] ? prefer : best[0][0]; };
@@ -33,7 +33,10 @@ export function analyzeHabits(rows, opts = {}) {
     const dc = domCur(byDay.get(d), home);
     if (dc !== home) { if (!run) run = { cur: dc, start: d, last: d, n: 0 }; if (run.cur === dc) { run.last = d; run.n++; } else run = { cur: dc, start: d, last: d, n: 1 }; }
     else if (run && d - run.last > 2 && run.cur !== dc) run = null;                // back home for a couple of days: it was a trip
-    if (run && run.last - run.start >= moveDays - 1 && run.n >= 5) { home = run.cur; regimes.push({ cur: home, from: run.start }); run = null; }
+    if (run && run.last - run.start >= moveDays - 1 && run.n >= 5) {
+      const early = dayList.find((x) => x >= run.start - 30 && x < run.start && domCur(byDay.get(x), home) === run.cur);   // the first days there (arrival) belong to the move
+      home = run.cur; regimes.push({ cur: home, from: early ?? run.start }); run = null;
+    }
   }
   const regimeAt = (d) => { let c = regimes[0].cur; for (const r of regimes) if (d >= r.from) c = r.cur; return c; };
 
@@ -47,7 +50,8 @@ export function analyzeHabits(rows, opts = {}) {
   // Those never count as a trip clue, whatever their name or group says (your "Travel > Food Expenses" is daily life if you use it daily).
   const activeDays = dayList.length, catDays = new Map();
   for (const r of ex) { const k = r.catName || r.cat; if (!catDays.has(k)) catDays.set(k, new Set()); catDays.get(k).add(r.d); }
-  const dailyCat = (k) => (catDays.get(k) ? catDays.get(k).size : 0) / activeDays >= (opts.dailyShare ?? 0.06);
+  const gapOf = (k) => { const ds = [...(catDays.get(k) || [])].sort((a, b) => a - b); return ds.length > 1 ? median(ds.slice(1).map((x, i) => x - ds[i])) : 999; };
+  const dailyCat = (k) => (catDays.get(k) ? catDays.get(k).size : 0) / activeDays >= (opts.dailyShare ?? 0.06) && gapOf(k) <= (opts.dailyGap ?? 4);   // used often AND regularly close together; a monthly allowance is not daily life
   const fixedCat = new Map();                                                         // same amount again and again (rent, allowance): not "daily spending"
   { const by = new Map(); for (const r of ex) { const k = r.catName || r.cat; if (!by.has(k)) by.set(k, []); by.get(k).push(r.amount); }
     for (const [k, a] of by) fixedCat.set(k, a.length >= 3 && mad(a) / (median(a) || 1) < 0.05); }
@@ -61,12 +65,13 @@ export function analyzeHabits(rows, opts = {}) {
   const dMed = median(dayTotals), dMad = Math.max(mad(dayTotals), dMed * 0.25, 1);
   for (const d of dayList) {
     const es = byDay.get(d), n = es.length, rc = regimeAt(d), total = dayTotals[dayList.indexOf(d)];   // total = everyday spending of the day
-    const foreign = es.filter((e) => e.cur !== rc && !habitual.has(e.shop)).length / n;
+    const cs = es.filter((e) => !travelClue(e) && !fixedCat.get(e.catName || e.cat)), foreign = cs.length ? cs.filter((e) => e.cur !== rc && !habitual.has(e.shop)).length / cs.length : 0;   // paying a flight or an allowance in another currency does not mean you are there
     const tagged = es.some((e) => String(e.labels || '').trim());
     const travel = es.some(travelClue);
     const novel = es.filter((e) => firstSeen.get(e.shop) === d && !habitual.has(e.shop)).length / n;
     const z = Math.max(0, Math.min(1, ((total - dMed) / dMad) / 6));
-    const parts = { tag: tagged ? 1 : 0, cur: foreign, travel: travel ? 1 : 0, novel: n >= 2 ? novel : novel * 0.5, high: z };
+    const settling = regimes.some((rg, i) => i > 0 && d >= rg.from && d < rg.from + 14);       // first two weeks in a new home: every shop is new
+    const parts = { tag: tagged ? 1 : 0, cur: foreign, travel: travel ? 1 : 0, novel: settling ? 0 : (n >= 2 ? novel : novel * 0.5), high: settling ? 0 : z };
     const score = Object.entries(parts).reduce((s, [k, v]) => s + W[k] * v, 0);
     const why = []; if (parts.tag) why.push('you tagged it'); if (foreign >= 0.5) why.push('other currency than home'); if (parts.travel) why.push('travel spending'); if (novel >= 0.6 && n >= 2) why.push('mostly new places'); if (z >= 0.5) why.push('far above a usual day');
     days.push({ d, date: dayStr(d), score, out: score >= thr, why, total, n });
@@ -78,12 +83,15 @@ export function analyzeHabits(rows, opts = {}) {
     if (!x.out) continue;
     if (cur && x.d - cur.to <= 3) { cur.to = x.d; cur.why.push(...x.why); cur.n++; } else { cur = { from: x.d, to: x.d, why: [...x.why], n: 1 }; win.push(cur); }
   }
-  // 4. trips: windows with 2+ outside days, or one outside day that holds travel/tag evidence. Bookings (flights, hotels) made up to 90 days before join the next trip.
-  const keep = win.filter((w) => w.n >= 2 || w.why.some((y) => y === 'you tagged it' || y === 'travel spending'));
+  // 4. trips: windows with 2+ outside days, or one outside day that holds travel/tag evidence. Bookings (flights, hotels) made up to 8 months before join the next trip.
+  // a window that is only the day you PAID for a flight or hotel (little everyday spending around it) is a booking, not a trip: it waits for its trip
+  const bookingOnly = (w) => { const es = ex.filter((e) => e.d >= w.from && e.d <= w.to), bk = es.filter(travelClue), rest = es.filter((e) => !travelClue(e) && living(e));
+    return bk.length > 0 && rest.reduce((a, e) => a + e.amount, 0) <= 0.5 * bk.reduce((a, e) => a + e.amount, 0); };
+  const keep = win.filter((w) => w.n >= 2 || w.why.some((y) => y === 'you tagged it')).filter((w) => !bookingOnly(w));
   const dayScore = new Map(days.map((x) => [x.d, x]));
   const trips = keep.map((w, i) => {
     const entries = ex.filter((e) => e.d >= w.from && e.d <= w.to && !fixedCat.get(e.catName || e.cat));   // rent and other fixed payments are not part of a trip
-    const bookings = ex.filter((e) => e.d < w.from && w.from - e.d <= 90 && travelClue(e) && !keep.some((o, j) => j < i && e.d >= o.from && e.d <= o.to) && e.cur !== 'x');
+    const bookings = ex.filter((e) => e.d < w.from && w.from - e.d <= (opts.bookAhead ?? 240) && travelClue(e) && !keep.some((o) => e.d >= o.from && e.d <= o.to) && !keep.some((o) => o.from > e.d && o.from < w.from));   // booked ahead: belongs to the next trip
     const all = [...bookings, ...entries];
     const tags = [...new Set(all.flatMap((e) => String(e.labels || '').split(/[,;#]/).map((x) => x.trim()).filter(Boolean)))];
     const reasons = [...new Set(w.why)];
@@ -111,7 +119,26 @@ export function analyzeHabits(rows, opts = {}) {
     }).sort((a, b) => b.actual - a.actual);
     t.living = compared; t.compared = compared; t.expected = expectedAll; t.extra = extra; delete t._all;     // only daily-life categories are compared: food, transport and the like
   }
-  return { regimes: regimes.map((r) => ({ cur: r.cur, from: dayStr(r.from) })), days, trips, baseline, notes: [] };
+  // what a trip really cost: bookings paid ahead (whole amount) + what daily-life categories cost ABOVE the usual rate + anything with no baseline (whole amount).
+  // Food you would have eaten anyway stays in daily needs at its usual level; only the surplus belongs to the trip.
+  for (const t of trips) {
+    const book = new Set(t.bookings), onTrip = t.entries.filter((id) => !book.has(id)).map((id) => ex.find((e) => e.id === id)).filter(Boolean);
+    t.prepaid = t.bookings.reduce((a, id) => a + ((ex.find((e) => e.id === id) || {}).amount || 0), 0);
+    t.onTrip = onTrip.reduce((a, e) => a + e.amount, 0);
+    t.trueCost = t.prepaid + Math.max(0, t.extra) + (t.onTrip - t.compared);
+    const cc = {}; for (const e of onTrip) cc[e.cur] = (cc[e.cur] || 0) + 1; t.cur = Object.entries(cc).sort((a, b) => b[1] - a[1]).map((x) => x[0])[0] || '';
+  }
+  // arriving in a new country is part of the move, not a trip: a window in the new currency shortly before the new home begins
+  const moves = [];
+  for (const rg of regimes.slice(1)) {                                                // only the FIRST stretch in the new currency (the arrival); a window you tagged is always yours
+    const cand = trips.filter((t) => t.cur === rg.cur && !t.tags.length && dayNum(t.from) < rg.from && rg.from - dayNum(t.from) <= 60).sort((x, y) => (x.from < y.from ? -1 : 1))[0];
+    if (cand) { cand.kind = 'move'; cand.why = ['arrival in the new home currency', ...cand.why.filter((w) => w !== 'other currency than home')]; moves.push(cand); trips.splice(trips.indexOf(cand), 1); }
+  }
+  for (const t of trips) t.kind = 'trip';
+  // travel bookings that belong to no trip yet: a trip you have paid for but not taken (or not entered)
+  const attached = new Set(trips.flatMap((t) => t.bookings).concat(moves.flatMap((t) => t.bookings)));
+  const planned = ex.filter((e) => travelClue(e) && !attached.has(e.id) && !keep.some((w) => e.d >= w.from && e.d <= w.to)).map((e) => ({ id: e.id, date: dayStr(e.d), name: e.name, amount: e.amount }));
+  return { regimes: regimes.map((r) => ({ cur: r.cur, from: dayStr(r.from) })), days, trips, moves, planned, baseline, notes: [] };
 }
 
 // rows from the database (expenses only, amounts in the home currency)

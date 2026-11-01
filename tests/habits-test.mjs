@@ -39,6 +39,28 @@ ok(C.regimes.length === 2 && C.regimes[1].cur === 'JPY' && C.regimes[1].from >= 
 ok(!C.days.some((d) => d.d >= 135 + 0 && d.date >= iso(135) && d.out), 'days well after the move are daily life, not a trip');
 const jpFood = C.baseline['JPY|Food']; ok(jpFood && jpFood.entry === 600, 'the baseline restarts in the new currency (JPY food 600 per entry)');
 
+
+// a trip booked months ago: the flight is paid 150 days earlier, the food happens on the trip
+{
+  const R = rows.filter((x) => x.cur !== 'JPY' && !/Skyline|Hotel/.test(x.name)); R.push(E(2, 'Skyline Airlines', 'Plane tickets', 12000, 'PHP'));
+  for (let d = 100; d < 103; d++) { R.push(E(d, 'Hike Lunch ' + d, 'Food', 650, 'PHP', { labels: 'Hike' })); R.push(E(d, 'Trail Cafe ' + d, 'Food', 500, 'PHP', { labels: 'Hike' })); }
+  const H = analyzeHabits(R), th = H.trips.find((x) => x.tags.includes('Hike'));
+  ok(!!th && th.bookings.length === 1 && Math.abs(th.prepaid - 12000) < 1, 'a flight paid 150 days before is attached to the trip as prepaid (' + (th && Math.round(th.prepaid)) + ')');
+  ok(!H.days.filter((d) => d.d >= 1 && d.d <= 3).some((d) => d.out) || H.trips.every((x) => x.from >= iso(99)), 'the booking day itself is not a trip day');
+  const food = th.byCat.find((c) => c.name === 'Food'); ok(food && food.extra > 2500, 'food on the hike days costs more than usual: extra about ' + (food && Math.round(food.extra)));
+  ok(Math.abs(th.trueCost - (th.prepaid + Math.max(0, th.extra) + (th.onTrip - th.compared))) < 1e-6 && th.trueCost > th.prepaid, 'true cost = prepaid + extra over daily + anything without a baseline');
+  const F = analyzeHabits(R.filter((x) => !/Hike|Trail/.test(x.name))); ok(F.planned.length === 1 && F.planned[0].name === 'Skyline Airlines', 'a booking with no trip yet waits as planned');
+}
+// arrival in a new country is part of the move, not a trip
+{
+  const R = rows.filter((x) => x.cur !== 'JPY' && !/Skyline|Hotel/.test(x.name) && x.date < iso(112));       // from day 112 the person is in Japan and stops logging pesos
+  for (let d = 112; d < 118; d++) { R.push(E(d, 'Konbini ' + d, 'Food', 500, 'JPY')); R.push(E(d, 'Ramen ' + d, 'Food', 900, 'JPY')); }
+  for (let d = 118; d < 121; d++) R.push(E(d, 'Jollibee', 'Food', 120, 'PHP'));
+  for (let d = 121; d < 165; d++) { R.push(E(d, 'Lawson ' + (d % 4), 'Food', 600, 'JPY')); R.push(E(d, 'Station ' + (d % 3), 'Transport', 200, 'JPY')); }
+  const M = analyzeHabits(R); ok(M.regimes.length === 2 && M.regimes[1].from <= iso(113), 'the new home starts at the first days there (' + (M.regimes[1] && M.regimes[1].from) + ')');
+  ok(!M.trips.some((x) => x.from >= iso(110) && x.from <= iso(120)), 'the arrival days are not called a trip');
+}
+
 ok(analyzeHabits([]).trips.length === 0 && analyzeHabits(null).trips.length === 0, 'no entries: nothing found');
 const few = analyzeHabits(rows.slice(0, 6)); ok(Array.isArray(few.trips), 'very few entries do not break it');
 
@@ -51,6 +73,7 @@ if (csv) {
   const inside = tagged.filter((d) => real.trips.some((tr) => d >= tr.from && d <= tr.to || tr.entries.some((e) => (R.find((x) => x.id === e) || {}).date.slice(0, 10) === d)));
   ok(tagged.length === 0 || inside.length / tagged.length >= 0.9, 'real data: ' + inside.length + ' of ' + tagged.length + ' days you tagged Vacation sit inside a found trip');
   ok(real.days.filter((d) => d.out).length < real.days.length * 0.2, 'real data: under 20% of days flagged (' + real.days.filter((d) => d.out).length + ' of ' + real.days.length + ')');
-  ok(real.regimes.some((x) => x.cur === 'JPY'), 'real data: the move to Japan is found as a new home');
+  const jp = real.regimes.find((x) => x.cur === 'JPY'); ok(jp && jp.from <= '2026-07-03', 'real data: the move to Japan is found, home from ' + (jp && jp.from));
+  ok(!real.trips.some((x) => x.from <= '2026-07-06' && x.to >= '2026-07-01'), 'real data: 1 to 6 July is the move, not a trip');
 }
 process.exit(bad ? 1 : 0);
