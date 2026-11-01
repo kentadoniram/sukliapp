@@ -25,7 +25,7 @@ import { openAccountPicker } from './acctpicker.js';
 import { pickerList, enhanceSelect } from './picker.js';
 import { similarNames } from './merchants.js';
 import { openMerchantPicker, canonMerchant, guessMerchant } from './merchantpick.js';
-import { groupsOf, unitOf, addGroup, countLines } from './spendgroups.js';
+import { groupsOf, unitOf, addGroup, countLines, splitParts, countsFromParts } from './spendgroups.js';
 
 // ---- models are rebuilt only when the data changed ----
 const cache = {};
@@ -60,7 +60,7 @@ function blank() {
   const accts = db.accounts.filter((a) => !a.deleted && !a.archived);
   const last = accts.find((a) => a.id === db.settings.lastAcct) || accts.find((a) => a.include) || accts[0];
   return { kind: 'expense', debt: false, flow: '', merchant: '', merchTouched: false, merchSuggested: false, amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
-    catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), posted: '', postedOn: false, notes: '', labels: '', items: [], counts: [], showCounts: false, flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
+    catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), posted: '', postedOn: false, notes: '', labels: '', items: [], counts: [], parts: [], partsOff: '', showCounts: false, flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
     fee: '', feeCat: '', feeBy: 'from', feeTouched: false, calc: false, convert: false, cRate: '', qtab: '', qtabManual: false };
 }
 function fromTx(t) {
@@ -72,7 +72,7 @@ function fromTx(t) {
     fee: t.fee > 0 ? String(t.fee) : '', feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
     convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
     catTouched: true, acctTouched: true, date: t.date, posted: t.posted || '', postedOn: !!t.posted, notes: t.notes || '', labels: t.labels || '', flag: t.flag || null, id: t.id, pred: null,
-    items: (t.items || []).map((i) => ({ n: i.n, amt: String(i.amt), cat: i.cat || '' })), showItems: !!(t.items && t.items.length), counts: (t.counts || []).map((c) => ({ g: c.g, n: String(c.n) })), showCounts: !!(t.counts && t.counts.length), from: t.from || '', to: t.to || '' };
+    items: (t.items || []).map((i) => ({ n: i.n, amt: String(i.amt), cat: i.cat || '' })), showItems: !!(t.items && t.items.length), counts: (t.counts || []).map((c) => ({ g: c.g, n: String(c.n) })), showCounts: !!(t.counts && t.counts.length), parts: (t.parts || []).map((x) => ({ ...x })), partsOff: '', from: t.from || '', to: t.to || '' };
 }
 
 // accounts grouped by kind (Banks, E-wallets, Crypto…), most recently used first inside each group
@@ -446,12 +446,18 @@ export function openEntry(opts = {}) {
     el.textContent = Math.abs(left) < 0.005 ? 'Items add up to the total' : (left > 0 ? `${fmt(left, cur)} not assigned yet` : `Items are ${fmt(-left, cur)} over the total`);
   }
   // Count by group (Advanced): how many drinks, snacks... no names, no prices. Sukli works out roughly what each group costs from many receipts.
+  function partsHint() {
+    const pts = f.kind === 'expense' && !document.body.classList.contains('simple') && f.name !== f.partsOff ? splitParts(f.name) : null;
+    const listHint = pts && !parseRoute(f.name) ? `<p class="relhint partshint">Looks like one receipt with ${pts.length} things (${esc(pts.map((x) => (x.k > 1 ? x.k + ' ' : '') + x.n).join(', '))}). The total is split between them. <button type="button" class="linkbtn" data-e="parts-use">Count them by group</button> <button type="button" class="linkbtn muted" data-e="parts-off">Not a list</button></p>` : '';
+    return listHint;
+  }
   function renderCounts() {
     const el = $f('countsrow');
     if (f.kind !== 'expense') { el.innerHTML = ''; return; }
-    if (!f.showCounts) { el.innerHTML = `<button type="button" class="linkbtn split" data-e="counts-on">${ic('split')} Count by group (drinks, snacks...)</button>`; return; }
+    const ph = partsHint();      // below the keypad on purpose: a row appearing above it would move the keys while typing
+    if (!f.showCounts) { el.innerHTML = ph + `<button type="button" class="linkbtn split" data-e="counts-on">${ic('split')} Count by group (drinks, snacks...)</button>`; return; }
     const db3 = get(), gs = Object.keys(groupsOf(db3));
-    el.innerHTML = `<div class="field items"><span>Count by group <small class="hint">no names or prices, just how many</small></span>
+    el.innerHTML = ph + `<div class="field items"><span>Count by group <small class="hint">no names or prices, just how many</small></span>
       <div id="countlist">${f.counts.map((c, i) => `<div class="cnt" data-i="${i}">
         <select class="cnt-g" aria-label="Group"><option value="">Choose group</option>${gs.map((g) => `<option value="${esc(g)}" ${c.g === g ? 'selected' : ''}>${esc(g)}${unitOf(db3, g) === 'kg' ? ' (kg)' : ''}</option>`).join('')}</select>
         <input class="cnt-n" inputmode="decimal" placeholder="${c.g && unitOf(db3, c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'}" value="${esc(c.n)}" aria-label="How many">
@@ -661,7 +667,7 @@ export function openEntry(opts = {}) {
     }
     else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
     else if (id === 'f-from' || id === 'f-to') { if (id === 'f-from') f.from = e.target.value; else f.to = e.target.value; tripName(); tripChips(); }
-    else if (id === 'f-what') { f.name = e.target.value; renderNameHelp(); suggestAcct(); suggestMerchant(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
+    else if (id === 'f-what') { f.name = e.target.value; renderNameHelp(); if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('#countsrow')) renderCounts(); suggestAcct(); suggestMerchant(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
     else if (id === 'f-fx') { f.fx = e.target.value; f.fxMode = 'rate'; updateFxVal(); }
     else if (id === 'f-peso') { f.peso = e.target.value; f.fxMode = 'peso'; updateFxVal(); }
     else if (id === 'f-crate') { f.cRate = e.target.value; syncCross('rate'); }
@@ -781,6 +787,8 @@ export function openEntry(opts = {}) {
       case 'items-on': f.showItems = true; if (!f.items.length) f.items.push({ n: '', amt: '', cat: '' }); renderItems(); break;
       case 'item-add': f.items.push({ n: '', amt: '', cat: '' }); renderItems(); form.querySelectorAll('.item .in-n')[f.items.length - 1].focus(); break;
       case 'item-del': f.items.splice(+v, 1); renderItems(); break;
+      case 'parts-use': { const pts = splitParts(f.name) || []; f.parts = pts; f.counts = countsFromParts(get(), pts); f.showCounts = true; renderCounts(); const open = f.counts.filter((c) => !c.g).length; toast(open ? `Pick a group for ${open} of them.` : 'Counted by group. Check it, then save.'); break; }
+      case 'parts-off': f.partsOff = f.name; f.parts = []; renderCounts(); break;
       case 'counts-on': f.showCounts = true; if (!f.counts.length) f.counts.push({ g: '', n: '' }); renderCounts(); break;
       case 'count-add': f.counts.push({ g: '', n: '' }); renderCounts(); break;
       case 'count-del': f.counts.splice(+v, 1); renderCounts(); break;
@@ -910,6 +918,7 @@ export function openEntry(opts = {}) {
     const rec = { kind: f.kind, amount, cur: a.cur, fx, date: f.date, name: label, autoName, cat, acct: a.id,
       toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), labels: joinTags(parseTags(f.labels)), items: items && items.length ? items : [], counts, flag,
       posted: (f.kind !== 'transfer' && f.postedOn && a.type === 'card' && a.stmtDay > 0 && f.posted > String(f.date).slice(0, 10)) ? f.posted : '' };
+    if (f.kind === 'expense' && counts.length && f.parts && f.parts.length && splitParts(f.name)) rec.parts = f.parts.map((x) => ({ n: x.n, k: x.k }));   // the things the total is made of, kept so item prices can be worked out later
     if (f.debt && f.kind === 'transfer') rec[FLOWS[f.flow].flag] = true;
     { const mc = f.kind === 'expense' ? canonMerchant(db2, f.merchant) : ''; if (mc) rec.merchant = mc; }
     if (f.kind !== 'transfer' && cat && ((f.catTouched && f.guessed && f.guessed !== cat) || (existing && existing.cat && existing.cat !== cat) || (existing && existing.corrected))) rec.corrected = true;

@@ -23,7 +23,7 @@ export function releaseEngine() { const w = worker; worker = null; loading = nul
 function loadScript(src) {
   return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('load ' + src)); document.head.appendChild(s); });
 }
-async function engine(onStatus) {
+export async function engine(onStatus) {
   if (worker) return worker;
   if (loading) return loading;
   loading = (async () => {

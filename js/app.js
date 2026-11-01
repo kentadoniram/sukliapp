@@ -24,6 +24,7 @@ import { debts } from './debts.js';
 import { owed } from './owed.js';
 import { spend } from './spendgroups.js';
 import { trips } from './trips.js';
+import './walletscan.js';
 import './scan.js';
 import './compare.js';
 import './loans.js';

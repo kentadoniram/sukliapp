@@ -106,3 +106,42 @@ Object.assign(ACT, {
     toast('Group removed.'); window.dispatchEvent(new Event('sukli-render'));
   },
 });
+
+// ---- "What was it?" typed as a list: "coke, 2 bread, soap" means ONE receipt made of these things ----
+// pieces: [{ n: name, k: how many }] (k from "2 bread" or "bread x2"); null when it does not look like a list
+export function splitParts(text) {
+  const raw = String(text || '').split(/[,，、]/).map((x) => x.trim()).filter(Boolean);
+  if (raw.length < 2 || raw.length > 20 || raw.some((x) => x.length > 40)) return null;
+  const parts = raw.map((x) => {
+    let m = x.match(/^(\d+(?:\.\d+)?)\s*(?:x|×|pcs?)?\s+(.+)$/i); if (m) return { n: m[2].trim(), k: +m[1] };
+    m = x.match(/^(.+?)\s*(?:x|×|\*)\s*(\d+)$/i); if (m) return { n: m[1].trim(), k: +m[2] };
+    return { n: x, k: 1 };
+  });
+  return parts.every((x) => x.n && /[A-Za-z\u3040-\u30ff\u4e00-\u9fff]/.test(x.n)) ? parts : null;
+}
+// a rough first guess of the group, by words and only among the groups the person has; '' when unsure (the person chooses)
+const WORDS = [
+  ['drinks', /tea|coffee|coke|cola|pepsi|soda|juice|water|pocari|aquarius|beer|chuhai|latte|drink|ポカリ|お茶|コーヒー|水|ジュース|ビール|炭酸/i],
+  ['snacks', /chip|choco|candy|gum|cookie|biscuit|snack|gummy|pocky|cracker|ice cream|onigiri|rice ball|お菓子|チョコ|ガム|アイス|おにぎり|クッキー/i],
+  ['ready meals', /bento|sandwich|burger|sushi|ramen|noodle|pasta|pizza|salad|meal|karaage|弁当|サンド|カップ麺|寿司|惣菜|パスタ/i],
+  ['produce', /vegetable|fruit|apple|banana|tomato|onion|potato|cabbage|lettuce|carrot|野菜|果物|りんご|バナナ|トマト/i],
+  ['meat and fish', /meat|chicken|pork|beef|fish|salmon|shrimp|肉|魚|鶏|豚|牛/i],
+  ['toiletries', /soap|shampoo|toothpaste|conditioner|razor|lotion|deodorant|シャンプー|歯磨|石鹸|ボディ/i],
+  ['household', /detergent|trash bag|sponge|battery|foil|plastic wrap|tissue|toilet paper|洗剤|ゴミ袋|スポンジ|電池|ティッシュ/i],
+  ['groceries', /bread|egg|rice|milk|tofu|natto|flour|sugar|salt|oil|sauce|butter|cheese|yogurt|パン|卵|米|牛乳|豆腐|納豆|調味料/i],
+];
+export function guessGroup(db, piece) {
+  const have = Object.keys(groupsOf(db)), sing = (x) => x.replace(/s$/, '');
+  for (const [g, re] of WORDS) if (re.test(piece)) { const hit = have.find((h) => h === g || sing(h) === sing(g)); if (hit) return hit; }
+  return '';
+}
+// pieces -> the rows of Count by group: the same group adds up; a weight group is left for the person to weigh
+export function countsFromParts(db, parts) {
+  const rows = [];
+  for (const p of parts) {
+    const g = guessGroup(db, p.n), row = g && rows.find((r) => r.g === g && unitOf(db, g) !== 'kg');
+    if (row) row.n = String(+row.n + p.k); else rows.push({ g, n: g && unitOf(db, g) === 'kg' ? '' : String(p.k) });
+  }
+  return rows;
+}
+
