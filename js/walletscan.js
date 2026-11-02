@@ -1,6 +1,6 @@
 // Read a screenshot of a transit card in Apple Wallet (Pasmo, Suica...): there is no CSV to export, so the picture is read on the phone
 // (nothing is uploaded), each ride becomes an entry with its two stations, and a "Purchase" row stays a purchase, not a ride.
-import { get, commit, stamp, uid, nowStamp, homeFx } from './core.js';
+import { get, commit, stamp, uid, nowStamp, homeFx, balances } from './core.js';
 import { esc, ACT, sheet, toast } from './ui.js';
 import { transferLabel } from './label.js';
 import { fmt } from './core.js';
@@ -16,6 +16,15 @@ const stampOf = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDat
 const yen = (n) => fmt(n, 'JPY');
 const cardAccts = (db) => live(db.accounts).filter((a) => !a.archived && a.cur === 'JPY');
 const isCard = (a) => /pasmo|suica|icoca|ic card|パスモ|スイカ/i.test(a.name);
+
+// the card balance printed in the screenshot is the truth at that moment. What the card would show in Sukli after adding the ticked rows, at that moment:
+// the difference is what the starting balance has to be changed by, so older rides are just history and the card ends at the wallet's figure.
+function balanceGap(db) {
+  if (!S || S.balance == null || !S.acct) return 0;
+  const at = stampOf(S.ref || new Date()), now = (balances(db, at).get(S.acct)) || 0;
+  const add = S.rows.filter((r) => r.on).reduce((q, r) => q + (r.kind === 'topup' ? r.amount : -r.amount), 0);
+  const gap = Math.round((S.balance - (now + add)) * 100) / 100; return Math.abs(gap) >= 1 ? gap : 0;
+}
 
 // a dark screenshot (white text on black) is turned round to dark text on white, which the reader handles much better
 async function readPicture(file, status) {
@@ -66,8 +75,11 @@ function render() {
       ${r.kind === 'topup' ? `<select class="wssrc" data-i="${i}" aria-label="Where the money came from">${live(db.accounts).filter((a) => !a.archived && a.id !== S.acct).map((a) => `<option value="${a.id}" ${a.id === r.src ? 'selected' : ''}>From ${esc(a.name)}</option>`).join('')}</select>` : ''}
       ${r.kind === 'purchase' ? `<select class="wscat" data-i="${i}" aria-label="Category for ${esc(r.place)}">${cats.map((c) => `<option value="${c.id}" ${c.id === r.cat ? 'selected' : ''}>${esc(c.group ? c.group + ' · ' + c.name : c.name)}</option>`).join('')}</select>` : ''}</li>`).join('')}</ul>
     ${S.skipped ? `<p class="hint">${S.skipped} row${S.skipped === 1 ? '' : 's'} at the edge of the screenshot could not be read fully and ${S.skipped === 1 ? 'was' : 'were'} skipped. Scroll the Wallet a little and take another screenshot to get them.</p>` : ''}
+    ${(() => { const g = balanceGap(db); S.gap = g; if (!g) return S.balance != null ? `<p class="hint">The card balance in Sukli will match the wallet (${yen(S.balance)}).</p>` : ''; const a = accts.find((x) => x.id === S.acct), o = ((a && a.open) || 0) + g;
+      return `<label class="check wsbal"><input type="checkbox" id="ws-bal" ${S.fixBal !== false ? 'checked' : ''}> <span>Set the starting balance of ${esc(a ? a.name : 'the card')} to <b>${yen(o)}</b> so it shows <b>${yen(S.balance)}</b> as in the wallet. Everything read here is then history; nothing double counts.</span></label>`; })()}
     <div class="btnrow"><button type="button" class="btn ghost" data-act="ws-again">Another screenshot</button><button type="button" class="btn" data-act="ws-add">Add ${rows.filter((r) => r.on).length} ${rows.filter((r) => r.on).length === 1 ? 'entry' : 'entries'}</button></div>`;
-  body.querySelector('#ws-acct').onchange = (e) => { S.acct = e.target.value; };
+  body.querySelector('#ws-acct').onchange = (e) => { S.acct = e.target.value; render(); };
+  const wb = body.querySelector('#ws-bal'); if (wb) wb.onchange = () => { S.fixBal = wb.checked; };
   body.querySelectorAll('.wsl input').forEach((x) => { x.onchange = () => { S.rows[+x.dataset.i].on = x.checked; render(); }; });
   body.querySelectorAll('.wssrc').forEach((x) => { x.onchange = () => { S.rows[+x.dataset.i].src = x.value; }; });
   body.querySelectorAll('.wscat').forEach((x) => { x.onchange = () => { S.rows[+x.dataset.i].cat = x.value; }; });
@@ -99,7 +111,7 @@ function start() {
       const accts = cardAccts(db), acct = (accts.find(isCard) || accts[0] || {}).id || '';
       const src = topupSource(db, acct);
       for (const r of p.rows) { r.on = !r.known; r.cat = r.kind === 'topup' ? '' : catFor(db, r); r.src = src; }
-      S = { ...p, acct };
+      S = { ...p, acct, ref: new Date(Math.max(0, ...files.map((f) => (f.lastModified && Date.now() - f.lastModified < 6 * 864e5 && f.lastModified <= Date.now()) ? f.lastModified : 0)) || Date.now()) };
       if (!acct) { stat('Add a card account in yen first (for example "Pasmo"), then try again.'); S = null; return; }
       render();
     } catch (err) { stat('Could not read that picture. ' + (err && err.message ? err.message : '')); }
@@ -110,8 +122,9 @@ export function openWalletScan() { cur = sheet('', { title: 'Read a Pasmo or Sui
 ACT['wallet-scan'] = () => setTimeout(openWalletScan, 90);
 ACT['ws-again'] = () => { if (cur) start(); };
 ACT['ws-add'] = () => {
-  if (!cur || !S) return; const picked = S.rows.filter((r) => r.on); if (!picked.length) { toast('Nothing ticked.'); return; }
+  if (!cur || !S) return; const picked = S.rows.filter((r) => r.on), gap = S.fixBal !== false ? (S.gap || 0) : 0; if (!picked.length && !gap) { toast('Nothing ticked.'); return; }
   commit((d) => {
+    if (gap) { const i = d.accounts.findIndex((x) => x.id === S.acct); if (i >= 0) d.accounts[i] = stamp({ ...d.accounts[i], open: Math.round((((d.accounts[i].open) || 0) + gap) * 100) / 100 }); }
     const fx = homeFx(d, 'JPY') || 1; d.settings.walletCats = { ...(d.settings.walletCats || {}) };
     for (const r of picked) {
       const base = { id: uid(), kind: 'expense', amount: r.amount, cur: 'JPY', fx, date: stampOf(r.when), cat: r.cat, acct: S.acct, notes: 'From a Wallet screenshot', labels: '', items: [], counts: [] };
