@@ -23,6 +23,7 @@ const monthStat = (db, ym) => { const i = totals(db, ym, 'income').total, o = to
 // =====================================================================
 let drawerOpen = null;
 const barOpen = () => { try { return localStorage.getItem('sukli-menu-bar') === '1'; } catch { return false; } };
+const scanOpen = () => { try { return localStorage.getItem('sukli-menu-scan') === '1'; } catch { return false; } };
 const catOpen = () => { try { return localStorage.getItem('sukli-menu-cats') === '1'; } catch { return false; } };
 ACT.menu = () => {
   if (drawerOpen) { drawerOpen(); return; }
@@ -36,8 +37,10 @@ ACT.menu = () => {
       return `${inB.length ? `<button type="button" class="dhead" data-dtoggle data-key="sukli-menu-bar" aria-expanded="${open}"><span>Bottom bar tabs</span>${ic('down', 'chev')}</button><ul class="dsub" ${open ? '' : 'hidden'}>${inB.map(([h, l, i]) => item(h, l, i)).join('')}</ul>` : ''}<ul>${rest.map(([h, l, i]) => item(h, l, i)).join('')}${item('review', 'Review', 'check', n)}</ul>`; })()}
     <button type="button" class="dhead" data-dtoggle aria-expanded="${catOpen()}"><span>Categories</span>${ic('down', 'chev')}</button>
     <ul class="dsub" ${catOpen() ? '' : 'hidden'}>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
-    <ul>${'<li><a href="#" data-act="scan">'}${ic('camera')}<span>Scan a receipt</span></a></li><li><a href="#" data-act="wallet-scan">${ic('camera')}<span>Read a Pasmo screenshot</span></a></li>${simple ? '' : `<li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan planner</span></a></li>`}</ul>
-    ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle bin', 'trash')}<li><a href="#/bin?v=history">${ic('undo')}<span>Undo history</span></a></li>${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
+    <button type="button" class="dhead" data-dtoggle data-key="sukli-menu-scan" aria-expanded="${scanOpen()}"><span>Scanner</span>${ic('down', 'chev')}</button>
+    <ul class="dsub" ${scanOpen() ? '' : 'hidden'}><li><a href="#" data-act="scan">${ic('camera')}<span>Scan a receipt</span></a></li><li><a href="#" data-act="wallet-scan">${ic('camera')}<span>Read a Pasmo screenshot</span></a></li></ul>
+    ${simple ? '' : `<ul><li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan planner</span></a></li></ul>`}
+    ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle bin and undo history', 'trash')}${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
   document.body.appendChild(wrap);
   document.body.classList.add('noscroll');
   const onKey = (e) => { if (e.key === 'Escape') close(); };

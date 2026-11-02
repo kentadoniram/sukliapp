@@ -44,10 +44,10 @@ const binTabs = (hist, nb, nh) => `<div class="seg two bintabs" role="group" ari
 function history(nb) {
   const h = undoHistory(), kb = h.undo.reduce((q, x) => q + x.kb, 0);
   return `${hdr('Undo history')}${binTabs(true, nb, h.undo.length)}
-  <section class="card"><p class="hint">Your last changes to entries, accounts, categories and budgets, newest first. Tap <b>Undo to here</b> to go back to just before that change; you will see every change that gets undone before you confirm. History is kept when you close the app, up to 10 changes, and older ones drop off. It is cleared if your data was changed from another device or restored from a backup. Entries you added go to the Recycle bin.</p>
+  <section class="card"><p class="hint">Your last changes to entries, accounts, categories and budgets, newest first. Tap <b>Undo to here</b> to go back to just before that change; you will see every change that gets undone before you confirm. History is kept when you close the app, up to 25 changes, and older ones drop off. It is cleared if your data was changed from another device or restored from a backup. Entries you added go to the Recycle bin.</p>
     ${h.redo.length ? `<div class="btnrow left"><button type="button" class="btn ghost sm" data-act="hist-redo">Redo: ${esc(h.redo[0].label)}</button></div>` : ''}</section>
   ${h.undo.length ? `<ul class="binlist">${h.undo.map((x, k) => `<li class="binrow"><div class="binmain"><b>${esc(x.label)}</b><small class="muted">${esc(stamp(x.at))} · ${esc(ago(x.at))}</small>${(x.detail || []).map((l) => `<small class="hdet">${esc(l)}</small>`).join('')}</div><div class="binbtn"><button class="btn sm ${k ? 'ghost' : ''}" data-act="hist-to" data-n="${k + 1}">${k ? 'Undo to here' : 'Undo'}</button></div></li>`).join('')}</ul>
-  <div class="binhead"><small class="muted">${h.undo.length} of 10 changes kept · about ${Math.max(1, Math.round(kb / 1024))} MB</small><button class="btn ghost danger sm" data-act="hist-clear">Clear history</button></div>` : '<p class="empty">No changes to undo yet.</p>'}`;
+  <div class="binhead"><small class="muted">${h.undo.length} of 25 changes kept · about ${Math.max(1, Math.round(kb / 1024))} MB</small><button class="btn ghost danger sm" data-act="hist-clear">Clear history</button></div>` : '<p class="empty">No changes to undo yet.</p>'}`;
 }
 export function bin(db) {
   const rows = binRows(db), s = db.settings;

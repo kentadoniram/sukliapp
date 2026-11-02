@@ -1,7 +1,7 @@
 // Trips and events (Advanced): what Sukli has learned about the times your spending left daily life (js/habits.js).
 // Everything here is a suggestion with the reason shown. Yes / No teaches Sukli: it never changes an entry, a category or a budget.
 import { get, commit, fmt, HOME, homeFx, nowStamp } from './core.js';
-import { ACT, esc, toast, promptDialog } from './ui.js';
+import { ACT, esc, toast, promptDialog, sheet } from './ui.js';
 import { hdr } from './screens.js';
 import { analyzeHabits, habitRows, WEIGHTS } from './habits.js';
 
@@ -29,7 +29,7 @@ function card(t) {
   const cats = t.byCat.filter((c) => c.expected != null && Math.abs(c.extra) >= 1).slice(0, 4), reasons = [...new Set(t.why.map((w) => WHY[w]).filter(Boolean))];
   const asked = t.note && t.note.s === 'yes';
   return `<article class="card tripcard" data-from="${t.from}"><div class="sgtop"><b>${esc(title(t))}</b><span>${money(t.trueCost)}</span></div>
-    <small>${niceDate(t.from)}${t.days > 1 ? ' to ' + niceDate(t.to) : ''} · ${t.days} day${t.days === 1 ? '' : 's'} · ${asked ? 'you confirmed this' : 'Sukli thinks: ' + esc(reasons.join(', ') || 'looks different from daily life')}</small>
+    <small><button type="button" class="linkbtn tripdates" data-act="trip-days" data-from="${t.from}">${niceDate(t.from)}${t.days > 1 ? ' to ' + niceDate(t.to) : ''}</button> · ${t.days} day${t.days === 1 ? '' : 's'} · ${asked ? 'you confirmed this' : 'Sukli thinks: ' + esc(reasons.join(', ') || 'looks different from daily life')}</small>
     <ul class="calfacts">
       ${t.prepaid > 0 ? `<li><span>Paid ahead (flights, hotel)</span><b>${money(t.prepaid)}</b></li>` : ''}
       <li><span>Spent during it</span><b>${money(t.onTrip)}</b></li>
@@ -60,7 +60,20 @@ function teach(from, yes) {
     if (t) { const w = { ...(d.settings.habitW || {}) }; for (const why of new Set(t.why)) { const k = CLUE[why]; if (k) w[k] = Math.min(1.6, Math.max(0.4, (w[k] || 1) * (yes ? 1.05 : 0.9))); } d.settings.habitW = w; }
   });
 }
+// the entries behind a trip card: which ones Sukli counted as the trip, which were paid ahead, and which are normal payments
+function dayList(from) {
+  const db = get(), t = tripReport(db).res.trips.find((x) => x.from === from); if (!t) return;
+  const inTrip = new Set(t.entries), ahead = new Set(t.bookings), cats = new Map((db.categories || []).map((c) => [c.id, c.name]));
+  const rows = (db.txs || []).filter((x) => !x.deleted && x.kind === 'expense' && (ahead.has(x.id) || (String(x.date).slice(0, 10) >= t.from && String(x.date).slice(0, 10) <= t.to)))
+    .sort((a, b) => (String(a.date) < String(b.date) ? -1 : 1));
+  const kind = (x) => (ahead.has(x.id) ? ['Paid ahead', 'ahead'] : inTrip.has(x.id) ? ['Trip', 'trip'] : ['Normal payment', 'normal']);
+  const n = (k) => rows.filter((x) => kind(x)[1] === k).length;
+  const html = `<p class="hint">${n('trip')} counted as the trip, ${n('ahead')} paid ahead, ${n('normal')} normal payments (rent and other everyday or fixed things stay out of the trip).</p>
+    <ul class="tripdays">${rows.map((x) => { const [lab, k] = kind(x); return `<li class="tdr ${k}"><span><b>${esc(x.name || cats.get(x.cat) || 'Entry')}</b><small>${niceDate(x.date)} · ${esc(cats.get(x.cat) || '')}</small></span><span class="tdr-r"><b>${fmt(x.amount, x.cur, { round: true })}</b><em class="tdtag ${k}">${lab}</em></span></li>`; }).join('') || '<li class="empty">No entries in these dates.</li>'}</ul>`;
+  sheet(html, { title: title(t) + ' · ' + niceDate(t.from) + (t.days > 1 ? ' to ' + niceDate(t.to) : '') });
+}
 Object.assign(ACT, {
+  'trip-days': (el) => dayList(el.dataset.from),
   'trip-yes': (el) => { teach(el.dataset.from, true); toast('Thanks, Sukli will remember.'); window.dispatchEvent(new Event('sukli-render')); },
   'trip-no': (el) => { teach(el.dataset.from, false); toast('Hidden. Sukli will be less eager next time.'); window.dispatchEvent(new Event('sukli-render')); },
   'trip-name': async (el) => {

@@ -40,7 +40,7 @@ export function openMerchantPicker({ selected = '', title = 'Merchant' } = {}, o
     <div id="mlist"></div>`, { title, cls: 'pickfix' });
   const draw = () => {
     const q = s.el.querySelector('#mq').value, k = norm(q), has = (n) => !k || norm(n).includes(k);
-    const row = (name, small, cls = '') => `<button type="button" class="row cur ${cls}" data-m="${esc(name)}"><span class="rmain"><strong>${esc(name)}</strong>${small ? `<small>${esc(small)}</small>` : ''}</span>${norm(name) === norm(selected) ? '<span class="ramt">✓</span>' : ''}</button>`;
+    const row = (name, small, cls = '') => `<button type="button" class="row cur mpr ${cls}" data-m="${esc(name)}"><span class="rmain"><strong>${esc(name)}</strong>${small ? `<small>${esc(small)}</small>` : ''}</span>${norm(name) === norm(selected) ? '<span class="ramt">✓</span>' : ''}</button>`;
     const u = used.filter((m) => has(m.name)), g = sugg.filter(has);
     const add = clean(q) && !used.some((m) => norm(m.name) === k) && !STARTERS.some((x) => norm(x) === k) ? `<h3>New</h3><div class="rows plain">${row(clean(q), 'Add as a new merchant', 'addnew')}</div>` : '';
     s.el.querySelector('#mlist').innerHTML = `${selected ? '<div class="rows plain"><button type="button" class="row cur" data-m=""><span class="rmain"><strong>No merchant</strong><small>Clear it for this entry</small></span></button></div>' : ''}

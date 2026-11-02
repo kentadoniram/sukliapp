@@ -232,11 +232,11 @@ export function fixRouteNames(d) {
       const sep = m[2].trim() === 'to' ? ' to ' : ` ${m[2].trim()} `; t.name = `${fn}${sep}${tn}`; t.autoRoute = true; stamp(t); }
   }
 }
-// ---- general undo (this session only, last 10 changes, never for imports/restores/sync) ----
+// ---- general undo (this session only, last 25 changes, never for imports/restores/sync) ----
 // Before each commit the data (entries, accounts, categories, budgets, merchant list, custom account types) is kept as text; if the commit changed any of it, that
 // text becomes one undo step. Quick commits within 0.8 s are one step. Undoing puts the old records back with a new "updated" time so sync carries the change,
 // and entries that were added are moved to the Recycle bin instead of being erased.
-const UNDO_MAX = 10, UNDO_BYTES = 14e6, undoStack = [], redoStack = []; let undoAt = 0;
+const UNDO_MAX = 25, UNDO_BYTES = 30e6, undoStack = [], redoStack = []; let undoAt = 0;
 const undoPartsOf = (d) => JSON.stringify({ txs: d.txs, accounts: d.accounts, categories: d.categories, budgets: d.budgets, merchants: d.settings.merchants || null, customTypes: d.settings.customTypes || null, typeLabels: d.settings.typeLabels || null });
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 function undoLabel(t0, nTx) {
@@ -278,8 +278,8 @@ function describeChange(beforeJson, d) {
 }
 function trimUndo() { let bytes = undoStack.reduce((q, s) => q + s.snap.length, 0); while (undoStack.length > UNDO_MAX || (undoStack.length > 1 && bytes > UNDO_BYTES)) bytes -= undoStack.shift().snap.length; }
 export const undoInfo = () => ({ undo: undoStack.length ? { label: undoStack[undoStack.length - 1].label, at: undoStack[undoStack.length - 1].at, count: undoStack.length } : null, redo: redoStack.length ? { label: redoStack[redoStack.length - 1].label } : null });
-// ---- undo history kept across restarts (IndexedDB key 'undo'). Only trusted when the data is exactly as it was when it was saved; capped at 6 MB (oldest steps drop first). ----
-const UNDO_KEEP_BYTES = 6e6; let undoSaveTimer = 0;
+// ---- undo history kept across restarts (IndexedDB key 'undo'). Only trusted when the data is exactly as it was when it was saved; capped at 16 MB (oldest steps drop first). ----
+const UNDO_KEEP_BYTES = 16e6; let undoSaveTimer = 0;
 const sigOf = (d) => { let h = 5381; const add = (str) => { for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; };
   for (const k of ['txs', 'accounts', 'categories']) for (const r of d[k]) if (!r.deleted) add(r.id + '@' + r.updatedAt + ';'); add(JSON.stringify(d.budgets || []).length + '|' + JSON.stringify(d.settings.merchants || null) + JSON.stringify(d.settings.customTypes || null) + JSON.stringify(d.settings.typeLabels || null)); return h; };
 function saveUndoNow() {
