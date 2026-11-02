@@ -70,7 +70,7 @@ export function reminderBanner(db) {
   return `<section class="remind" aria-label="Credit card reminders">${list.map((r) => {
     const due = r.due && r.dueAmount > 0.005 && (r.days <= (db.settings.remindDays || 3));
     const when = r.overdue ? `was due ${dayLabel(r.due + ' 00:00:00')}` : r.days === 0 ? 'is due today, until midnight' : r.days === 1 ? 'is due tomorrow' : `is due in ${r.days} days`;
-    return `<button class="rem ${due ? (r.days <= 1 ? 'urgent' : '') : 'high'}" data-act="acct" data-id="${r.a.id}">
+    return `<button class="rem ${due ? (r.days <= 1 ? 'urgent' : '') : 'high'}" data-act="${due ? 'card-pay' : 'acct'}" data-id="${r.a.id}">
       <i>${ic('wallet')}</i><span><strong>${esc(r.a.name)} ${due ? when : `is ${r.used}% of its limit`}</strong>
       <small>${due ? `Pay ${money(r.dueAmount, r.a.cur)}${r.dueAmount < r.owed - 0.005 ? ` (total owed ${money(r.owed, r.a.cur)})` : ''}` : `Owed ${money(r.owed, r.a.cur)} of ${money(r.limit, r.a.cur)}`}</small></span>${ic('right')}</button>`;
   }).join('')}</section>`;
@@ -228,6 +228,9 @@ function openNetWorth() {
 
 // ---------- account detail ----------
 ACT.acct = (el) => openAccountDetail(el.dataset.id);
+// a card reminder goes straight to the payment window (a debt payment: lowers what you owe, never counted as spending)
+ACT['card-pay'] = (el) => { const db = get(), a = db.accounts.find((x) => x.id === el.dataset.id); if (!a) return; const c = cardInfo(db, a, balances(db).get(a.id)), other = db.accounts.find((x) => !x.deleted && !x.archived && x.type !== 'card' && x.cur === a.cur) || db.accounts.find((x) => !x.deleted && !x.archived && x.type !== 'card');
+  openEntry({ preset: { kind: 'transfer', debt: true, toAcct: a.id, acct: other ? other.id : '', amount: String(Math.round((c.dueAmount > 0.005 ? c.dueAmount : c.owed) * 100) / 100) } }); };
 ACT['acct-new'] = () => openAccount(null);
 
 // a new transfer from an account page: this account on its usual side, the usual other account on the other side.
@@ -389,7 +392,7 @@ export function openAccountDetail(id) {
       case 'pay': {
         const other = db.accounts.find((x) => !x.deleted && !x.archived && x.type !== 'card' && x.cur === a.cur) || db.accounts.find((x) => !x.deleted && !x.archived && x.type !== 'card');
         const c2 = cardInfo(db, a, balances(db).get(id));
-        openEntry({ preset: { kind: 'transfer', toAcct: id, acct: other ? other.id : '', name: 'Card payment', amount: String(Math.round((c2.dueAmount > 0.005 ? c2.dueAmount : c2.owed) * 100) / 100) } }); break;
+        openEntry({ preset: { kind: 'transfer', debt: true, toAcct: id, acct: other ? other.id : '', amount: String(Math.round((c2.dueAmount > 0.005 ? c2.dueAmount : c2.owed) * 100) / 100) } }); break;
       }
       case 'ics': { const t = cardIcs(db); if (t) { download('sukli-card-reminders.ics', t, 'text/calendar'); toast('Open the file to add the reminders to your calendar app.'); } break; }
       case 'reval': {

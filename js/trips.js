@@ -6,7 +6,7 @@ import { hdr } from './screens.js';
 import { analyzeHabits, habitRows, WEIGHTS } from './habits.js';
 
 const money = (n) => fmt(n, HOME, { round: true });
-const niceDate = (s) => new Date(s + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const niceDate = (s) => new Date(String(s).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 const WHY = { 'you tagged it': 'you tagged it', 'other currency than home': 'spent in another currency', 'travel spending': 'a flight, hotel or similar', 'mostly new places': 'mostly new places', 'far above a usual day': 'a much bigger day than usual', 'arrival in the new home currency': 'arriving in your new home' };
 const CLUE = { 'you tagged it': 'tag', 'other currency than home': 'cur', 'travel spending': 'travel', 'mostly new places': 'novel', 'far above a usual day': 'high' };
 
@@ -16,10 +16,25 @@ export const learnedWeights = (db) => {
   for (const k of Object.keys(w)) w[k] = WEIGHTS[k] * Math.min(1.6, Math.max(0.4, adj[k] || 1));
   return w;
 };
+// what the person decided by hand: per entry, and per shop name (first word) so that Sukli learns from names
+export const brandOf = (name) => { const w = String(name || '').toLowerCase().split(/[\s・,\-/]+/)[0] || ''; return w.length >= 3 ? w : ''; };
+export const pickOf = (db, tx) => { const st = db.settings || {}; return (st.tripPick || {})[tx.id] || ((tx.kind === 'expense' && brandOf(tx.name)) ? (st.tripShop || {})[brandOf(tx.name)] : '') || ''; };
 export function tripReport(db) {
-  const notes = (db.settings && db.settings.tripNotes) || {}, rows = habitRows(db, homeFx);
+  const notes = (db.settings && db.settings.tripNotes) || {}, txm = new Map((db.txs || []).map((t) => [t.id, t]));
+  const rows = habitRows(db, homeFx).filter((r) => pickOf(db, txm.get(r.id) || r) !== 'out');   // "not a trip" entries are left out of the maths
   const res = analyzeHabits(rows, { weights: learnedWeights(db) });
   const trips = res.trips.filter((t) => !(notes[t.from] && notes[t.from].s === 'no')).map((t) => ({ ...t, note: notes[t.from] || null }));
+  // "part of this trip" entries the person added by hand (also transfers): their whole amount joins the trip cost
+  for (const t of trips) {
+    t.forced = []; t.usual = t.usual || [];
+    for (const x of db.txs || []) {
+      if (x.deleted || x.trade || pickOf(db, x) !== 'in' || String(x.date).slice(0, 10) < t.from || String(x.date).slice(0, 10) > t.to) continue;
+      t.usual = t.usual.filter((id) => id !== x.id);
+      if (t.entries.includes(x.id)) continue;
+      const amt = x.amount * (homeFx(db, x.cur) || x.fx || 1);
+      t.entries.push(x.id); t.forced.push(x.id); t.trueCost += amt; t.onTrip += amt;
+    }
+  }
   const active = new Set(rows.map((r) => String(r.date).slice(0, 10))).size;
   return { res, trips, rejected: res.trips.length - trips.length, learning: active < 21 || rows.length < 40, planned: res.planned.filter((p) => p.amount >= 1000) };
 }
@@ -60,19 +75,33 @@ function teach(from, yes) {
     if (t) { const w = { ...(d.settings.habitW || {}) }; for (const why of new Set(t.why)) { const k = CLUE[why]; if (k) w[k] = Math.min(1.6, Math.max(0.4, (w[k] || 1) * (yes ? 1.05 : 0.9))); } d.settings.habitW = w; }
   });
 }
-// the entries behind a trip card: which ones Sukli counted as the trip, which were paid ahead, and which are normal payments
-function dayList(from) {
-  const db = get(), t = tripReport(db).res.trips.find((x) => x.from === from); if (!t) return;
-  const inTrip = new Set(t.entries), ahead = new Set(t.bookings), cats = new Map((db.categories || []).map((c) => [c.id, c.name]));
-  const rows = (db.txs || []).filter((x) => !x.deleted && x.kind === 'expense' && (ahead.has(x.id) || (String(x.date).slice(0, 10) >= t.from && String(x.date).slice(0, 10) <= t.to)))
+// the entries behind a trip card: which ones Sukli counted as the trip, which were paid ahead, and which are normal payments. The person can overrule each one.
+let daySheet = null;
+function dayBody(from) {
+  const db = get(), t = tripReport(db).trips.find((x) => x.from === from); if (!t) return '<p class="empty">This trip is no longer listed.</p>';
+  const inTrip = new Set(t.entries), ahead = new Set(t.bookings), usual = new Set(t.usual || []), cats = new Map((db.categories || []).map((c) => [c.id, c.name]));
+  const d10 = (x) => String(x.date).slice(0, 10);
+  const rows = (db.txs || []).filter((x) => !x.deleted && !x.trade && ((x.kind === 'expense' && (ahead.has(x.id) || (d10(x) >= t.from && d10(x) <= t.to))) || (x.kind === 'transfer' && d10(x) >= t.from && d10(x) <= t.to)))
     .sort((a, b) => (String(a.date) < String(b.date) ? -1 : 1));
-  const kind = (x) => (ahead.has(x.id) ? ['Paid ahead', 'ahead'] : inTrip.has(x.id) ? ['Trip', 'trip'] : ['Normal payment', 'normal']);
+  const kind = (x) => (ahead.has(x.id) ? ['Paid ahead', 'ahead'] : (inTrip.has(x.id) && !usual.has(x.id) && pickOf(db, x) !== 'out') ? [pickOf(db, x) === 'in' ? 'Trip (you chose)' : 'Trip', 'trip'] : usual.has(x.id) ? ['Normal payment (usual shop)', 'normal'] : x.kind === 'transfer' ? ['Transfer, not counted', 'normal'] : [pickOf(db, x) === 'out' ? 'Normal (you chose)' : 'Normal payment', 'normal']);
   const n = (k) => rows.filter((x) => kind(x)[1] === k).length;
-  const html = `<p class="hint">${n('trip')} counted as the trip, ${n('ahead')} paid ahead, ${n('normal')} normal payments (rent and other everyday or fixed things stay out of the trip).</p>
-    <ul class="tripdays">${rows.map((x) => { const [lab, k] = kind(x); return `<li class="tdr ${k}"><span><b>${esc(x.name || cats.get(x.cat) || 'Entry')}</b><small>${niceDate(x.date)} · ${esc(cats.get(x.cat) || '')}</small></span><span class="tdr-r"><b>${fmt(x.amount, x.cur, { round: true })}</b><em class="tdtag ${k}">${lab}</em></span></li>`; }).join('') || '<li class="empty">No entries in these dates.</li>'}</ul>`;
-  sheet(html, { title: title(t) + ' · ' + niceDate(t.from) + (t.days > 1 ? ' to ' + niceDate(t.to) : '') });
+  return `<p class="hint">${n('trip')} counted as the trip, ${n('ahead')} paid ahead, ${n('normal')} normal. You decide: tap the button on any row. Sukli remembers the shop name, so similar shops follow your choice.</p>
+    <ul class="tripdays">${rows.map((x) => { const [lab, k] = kind(x), isTrip = k !== 'normal'; return `<li class="tdr ${k}"><span><b>${esc(x.name || cats.get(x.cat) || 'Entry')}</b><small>${niceDate(x.date)} · ${esc(x.kind === 'transfer' ? 'Transfer' : cats.get(x.cat) || '')}</small></span><span class="tdr-r"><b>${fmt(x.amount, x.cur, { round: true })}</b><em class="tdtag ${k}">${lab}</em><button type="button" class="linkbtn" data-act="trip-pick" data-id="${x.id}" data-from="${t.from}" data-v="${isTrip ? 'out' : 'in'}">${isTrip ? 'Not part of the trip' : 'Part of the trip'}</button></span></li>`; }).join('') || '<li class="empty">No entries in these dates.</li>'}</ul>`;
+}
+function dayList(from) {
+  const t = tripReport(get()).trips.find((x) => x.from === from); if (!t) return;
+  daySheet = sheet(dayBody(from), { title: title(t) + ' · ' + niceDate(t.from) + (t.days > 1 ? ' to ' + niceDate(t.to) : ''), onClose: () => { daySheet = null; } });
 }
 Object.assign(ACT, {
+  'trip-pick': (el) => {
+    const id = el.dataset.id, v = el.dataset.v, from = el.dataset.from, x = get().txs.find((q) => q.id === id); if (!x) return;
+    commit((d) => {
+      const pk = { ...(d.settings.tripPick || {}) }; pk[id] = v; d.settings.tripPick = pk;
+      const b = x.kind === 'expense' ? brandOf(x.name) : ''; if (b) { const sh = { ...(d.settings.tripShop || {}) }; sh[b] = v; d.settings.tripShop = sh; }
+    });
+    if (daySheet) daySheet.el.innerHTML = dayBody(from);
+    window.dispatchEvent(new Event('sukli-render'));
+  },
   'trip-days': (el) => dayList(el.dataset.from),
   'trip-yes': (el) => { teach(el.dataset.from, true); toast('Thanks, Sukli will remember.'); window.dispatchEvent(new Event('sukli-render')); },
   'trip-no': (el) => { teach(el.dataset.from, false); toast('Hidden. Sukli will be less eager next time.'); window.dispatchEvent(new Event('sukli-render')); },

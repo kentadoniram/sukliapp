@@ -43,7 +43,10 @@ export function analyzeHabits(rows, opts = {}) {
   // 2. baseline: per regime and category, the usual entry and the usual day, learned only from days that look like daily life
   const habitual = new Set(), seen = new Map();
   for (const r of ex) { const k = r.shop; if (!seen.has(k)) seen.set(k, new Set()); seen.get(k).add(r.d); }
-  for (const [k, ds] of seen) if (ds.size >= 3) habitual.add(k);                    // a shop you use often is part of daily life, wherever it is
+  const brandOf = (shop) => { const w = String(shop || '').split(/[\s・,\-/]+/)[0] || ''; return w.length >= 3 ? w : ''; };
+  const brandDays = new Map(); for (const r of ex) { const b = brandOf(r.shop); if (!b) continue; if (!brandDays.has(b)) brandDays.set(b, new Set()); brandDays.get(b).add(r.d); }
+  const usualBrand = (shop) => { const b = brandOf(shop); return !!b && (brandDays.get(b) || new Set()).size >= 6; };   // "Life Tsukagoshi" counts as "Life" when you shop at Life often
+  for (const [k, ds] of seen) if (ds.size >= 3 || usualBrand(k)) habitual.add(k);                    // a shop you use often is part of daily life, wherever it is
   const firstSeen = new Map(); for (const r of ex) if (!firstSeen.has(r.shop)) firstSeen.set(r.shop, r.d);
 
   // learn which categories are part of everyday life: used on many different days (food, transport, groceries).
@@ -95,7 +98,8 @@ export function analyzeHabits(rows, opts = {}) {
     const all = [...bookings, ...entries];
     const tags = [...new Set(all.flatMap((e) => String(e.labels || '').split(/[,;#]/).map((x) => x.trim()).filter(Boolean)))];
     const reasons = [...new Set(w.why)];
-    return { id: 't' + (i + 1), from: dayStr(w.from), to: dayStr(w.to), days: w.to - w.from + 1, tags, why: reasons, entries: all.map((e) => e.id), bookings: bookings.map((e) => e.id), total: all.reduce((s, e) => s + e.amount, 0), _all: all };
+    const usual = all.filter((e) => !bookings.includes(e) && dailyCat(e.catName || e.cat) && habitual.has(e.shop)).map((e) => e.id);   // everyday food or transport at a shop you use all the time: normal payments, not trip spending
+    return { usual, id: 't' + (i + 1), from: dayStr(w.from), to: dayStr(w.to), days: w.to - w.from + 1, tags, why: reasons, entries: all.map((e) => e.id), bookings: bookings.map((e) => e.id), total: all.reduce((s, e) => s + e.amount, 0), _all: all };
   });
 
   // baseline from days that are not inside any trip: usual entry price and usual daily total per category
