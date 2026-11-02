@@ -6,7 +6,7 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 const plain = (s) => String(s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[|_]+/g, ' ').replace(/\s+/g, ' ').trim();
 const Y = '[¥￥\\\\]';                                                // the reader often turns the yen sign into a backslash
 const yen = (s) => { const m = String(s).match(new RegExp(Y + '\\s?([\\d][\\d,\\.]*)')); return m ? Math.round(parseFloat(m[1].replace(/,/g, ''))) : null; };
-const station = (s) => plain(s).replace(/\s*station\s*$/i, '').replace(/[>›»\s]+$/, '').trim();
+const station = (s) => plain(s).replace(/\s+stat(i(on?)?)?\.{0,3}\s*$/i, '').replace(/[>›»\s]+$/, '').trim();
 
 // "2 hours ago", "17 hours ago", "Yesterday", "3 days ago", "Oct 28", "Oct 28, 2026", "Just now"
 export function parseWhen(text, now = new Date()) {
@@ -15,6 +15,10 @@ export function parseWhen(text, now = new Date()) {
   if (m) { const n = +m[1], ms = /day/.test(m[2]) ? 864e5 : /hour|hr/.test(m[2]) ? 36e5 : 6e4; return { at: new Date(now.getTime() - n * ms), exactTime: !/day/.test(m[2]) }; }
   if (/^(just now|now|a moment ago)$/.test(t)) return { at: new Date(now), exactTime: true };
   if (/^(an?|one)\s+hour ago$/.test(t)) return { at: new Date(now.getTime() - 36e5), exactTime: true };
+  if (/^today/.test(t)) { const d = new Date(now); d.setHours(12, 0, 0, 0); return { at: d, exactTime: false }; }
+  // older rows show the weekday ("Saturday"): the most recent such day before the screenshot
+  m = t.match(/^(sun|mon|tue|wed|thu|fri|sat)[a-z]*$/);
+  if (m) { const want = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].indexOf(m[1]), d = new Date(now); d.setHours(12, 0, 0, 0); let back = (now.getDay() - want + 7) % 7; if (back === 0) back = 7; d.setDate(d.getDate() - back); return { at: d, exactTime: false }; }
   if (/^yesterday/.test(t)) { const d = new Date(now); d.setDate(d.getDate() - 1); d.setHours(12, 0, 0, 0); return { at: d, exactTime: false }; }
   m = t.match(/^([a-z]{3})[a-z]*\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?$/);
   if (m && MONTHS.includes(m[1])) { const d = new Date(m[3] ? +m[3] : now.getFullYear(), MONTHS.indexOf(m[1]), +m[2], 12, 0, 0); if (!m[3] && d > now) d.setFullYear(d.getFullYear() - 1); return { at: d, exactTime: false }; }
@@ -38,13 +42,13 @@ export function parseWalletText(text, now = new Date()) {
     const amount = yen(lines[i]), title = lines[i].replace(new RegExp(Y + '\\s?[\\d,\\.]+.*$'), '').replace(/^[^A-Za-z぀-ヿ一-鿿]+/, '').trim();
     const sub = lines[i + 1] || '', when = lines[i + 2] || '';
     if (amount == null || !title) continue;
-    const fm = plain(sub).match(/^from\s+(.+?)\s*(?:[-–—]\s*(?:tran\w*|tr\W*)?)?\.{0,3}\s*$/i), pu = /^(purchase|payment|charge)/i.test(plain(sub)), tu = /^(add money|top.?up|charge)/i.test(plain(sub)) || /^(add money|top.?up)/i.test(plain(title));
+    const fm = plain(sub).match(/^from\s+(.+?)\s*(?:[-–—]+\s*(?:tran\w*|tr\W*)?)?\.{0,3}\s*$/i), pu = /^(purchase|payment|charge)/i.test(plain(sub)), tu = /^(add money|top.?up|credit|added)/i.test(plain(sub)) || /\+\s?[¥￥\\]/.test(lines[i]) || /^(add money|top.?up)/i.test(plain(title));
     const w = parseWhen(when, now);
     if (!w || (!fm && !pu && !tu)) { out.skipped++; continue; }           // a row cut off at the bottom of the screenshot, or something unknown
     const row = { amount, when: w.at, exactTime: w.exactTime, ago: plain(when) };
     if (tu) Object.assign(row, { kind: 'topup', place: plain(title) });
     else if (pu) Object.assign(row, { kind: 'purchase', place: plain(title) });
-    else Object.assign(row, { kind: 'transit', to: station(title), from: station(fm[1].replace(/\s*[-–—]\s*tran\w*.*$/i, '')) });
+    else Object.assign(row, { kind: 'transit', to: station(title), from: station(fm[1].replace(/\s*[-–—]+\s*tr.*$/i, '')) });
     out.rows.push(row); i += 2;
   }
   return out;

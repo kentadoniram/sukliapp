@@ -2,6 +2,7 @@
 // (nothing is uploaded), each ride becomes an entry with its two stations, and a "Purchase" row stays a purchase, not a ride.
 import { get, commit, stamp, uid, nowStamp, homeFx } from './core.js';
 import { esc, ACT, sheet, toast } from './ui.js';
+import { transferLabel } from './label.js';
 import { fmt } from './core.js';
 import { parseWalletText } from './walletparse.js';
 import { isTransportCat, tripLabel } from './route.js';
@@ -34,9 +35,16 @@ async function readPicture(file, status) {
 function markKnown(db, rows) {
   const used = new Set();
   for (const r of rows) {
-    const hit = live(db.txs).find((t) => t.kind === 'expense' && !used.has(t.id) && t.cur === 'JPY' && Math.abs(t.amount - r.amount) < 0.5 && Math.abs(new Date(String(t.date).replace(' ', 'T')) - r.when) <= 36e5 * 36);
+    const hit = live(db.txs).find((t) => (r.kind === 'topup' ? t.kind === 'transfer' : t.kind === 'expense') && !used.has(t.id) && (r.kind === 'topup' ? (Math.abs((t.toAmount || t.amount) - r.amount) < 0.5) : (t.cur === 'JPY' && Math.abs(t.amount - r.amount) < 0.5)) && Math.abs(new Date(String(t.date).replace(' ', 'T')) - r.when) <= 36e5 * 36);
     r.known = !!hit; if (hit) used.add(hit.id);
   }
+}
+// a top-up is money moving from a bank, wallet or cash into the card: the account it came from last time is offered first
+function topupSource(db, card) {
+  const last = [...live(db.txs)].filter((t) => t.kind === 'transfer' && t.toAcct === card && t.acct !== card).sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+  if (last) return last.acct;
+  const other = live(db.accounts).find((a) => !a.archived && a.id !== card && a.cur === 'JPY' && /bank|cash|wallet|ewallet|paypay/i.test(a.type + ' ' + a.name));
+  return (other || live(db.accounts).find((a) => !a.archived && a.id !== card) || {}).id || '';
 }
 const expenseCats = (db) => live(db.categories).filter((c) => c.kind === 'expense' && !c.archived);
 function catFor(db, r) {
@@ -51,34 +59,46 @@ function render() {
   if (!S) return;
   const accts = cardAccts(db), rows = S.rows, cats = expenseCats(db);
   const shown = (r) => `${r.exactTime ? 'about ' + p2(r.when.getHours()) + ':' + p2(r.when.getMinutes()) + ' · ' : ''}${r.when.getMonth() + 1}/${r.when.getDate()}${r.exactTime ? '' : ' (time not shown)'}`;
-  body.innerHTML = `<p class="hint">Read from your screenshot${S.balance != null ? `. Wallet balance: <b>${yen(S.balance)}</b>` : ''}. Rides become <b>Train</b> entries with both stations. A <b>Purchase</b> is not a ride: pick what it was for. Entries you already have are left unticked.</p>
+  body.innerHTML = `<p class="hint">Read from your screenshot${S.balance != null ? `. Wallet balance: <b>${yen(S.balance)}</b>` : ''}. Rides become <b>Train</b> entries with both stations. A <b>Purchase</b> is not a ride: pick what it was for. A <b>top-up</b> is a transfer into the card from the account you choose. Entries you already have are left unticked.</p>
     <label class="field"><span>Card account</span><select id="ws-acct">${accts.map((a) => `<option value="${a.id}" ${a.id === S.acct ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
-    <ul class="wslist">${rows.map((r, i) => `<li class="wsrow ${r.known ? 'known' : ''}"><label class="wsl"><input type="checkbox" data-i="${i}" ${r.on ? 'checked' : ''} ${r.kind === 'topup' ? 'disabled' : ''}>
-      <span class="wst"><b>${r.kind === 'transit' ? `${esc(r.from)} to ${esc(r.to)}` : r.kind === 'topup' ? 'Top-up (not added: it is money moving, not spending)' : `Purchase: ${esc(r.place)}`}</b><small class="muted">${yen(r.amount)} · ${esc(shown(r))}${r.known ? ' · already in your entries' : ''}</small></span></label>
+    <ul class="wslist">${rows.map((r, i) => `<li class="wsrow ${r.known ? 'known' : ''}"><label class="wsl"><input type="checkbox" data-i="${i}" ${r.on ? 'checked' : ''}>
+      <span class="wst"><b>${r.kind === 'transit' ? `${esc(r.from)} to ${esc(r.to)}` : r.kind === 'topup' ? `Top-up of the card (a transfer, not spending)` : `Purchase: ${esc(r.place)}`}</b><small class="muted">${yen(r.amount)} · ${esc(shown(r))}${r.known ? ' · already in your entries' : ''}</small></span></label>
+      ${r.kind === 'topup' ? `<select class="wssrc" data-i="${i}" aria-label="Where the money came from">${live(db.accounts).filter((a) => !a.archived && a.id !== S.acct).map((a) => `<option value="${a.id}" ${a.id === r.src ? 'selected' : ''}>From ${esc(a.name)}</option>`).join('')}</select>` : ''}
       ${r.kind === 'purchase' ? `<select class="wscat" data-i="${i}" aria-label="Category for ${esc(r.place)}">${cats.map((c) => `<option value="${c.id}" ${c.id === r.cat ? 'selected' : ''}>${esc(c.group ? c.group + ' · ' + c.name : c.name)}</option>`).join('')}</select>` : ''}</li>`).join('')}</ul>
     ${S.skipped ? `<p class="hint">${S.skipped} row${S.skipped === 1 ? '' : 's'} at the edge of the screenshot could not be read fully and ${S.skipped === 1 ? 'was' : 'were'} skipped. Scroll the Wallet a little and take another screenshot to get them.</p>` : ''}
     <div class="btnrow"><button type="button" class="btn ghost" data-act="ws-again">Another screenshot</button><button type="button" class="btn" data-act="ws-add">Add ${rows.filter((r) => r.on).length} ${rows.filter((r) => r.on).length === 1 ? 'entry' : 'entries'}</button></div>`;
   body.querySelector('#ws-acct').onchange = (e) => { S.acct = e.target.value; };
   body.querySelectorAll('.wsl input').forEach((x) => { x.onchange = () => { S.rows[+x.dataset.i].on = x.checked; render(); }; });
+  body.querySelectorAll('.wssrc').forEach((x) => { x.onchange = () => { S.rows[+x.dataset.i].src = x.value; }; });
   body.querySelectorAll('.wscat').forEach((x) => { x.onchange = () => { S.rows[+x.dataset.i].cat = x.value; }; });
 }
 function start() {
   S = null; const body = cur.el;
-  body.innerHTML = `<p class="hint">Apple Wallet cannot export a transit card, so take a screenshot of the card's <b>Latest Transactions</b> and choose it here. It is read on your phone; nothing is uploaded. Dates come from "2 hours ago" and "Yesterday", so do this soon after the rides.</p>
-    <label class="btn wide" for="ws-file">Choose the screenshot</label><input id="ws-file" type="file" accept="image/*" hidden><p class="hint" id="ws-stat" role="status"></p>`;
+  body.innerHTML = `<p class="hint">Apple Wallet cannot export a transit card, so take a screenshot of the card's <b>Latest Transactions</b> and choose it here. For a longer history, scroll and take more screenshots, then choose them all together; rides that appear in two of them are counted once. It is read on your phone; nothing is uploaded. Dates come from "2 hours ago" and "Yesterday", so do this soon after the rides.</p>
+    <label class="btn wide" for="ws-file">Choose the screenshot(s)</label><input id="ws-file" type="file" accept="image/*" multiple hidden><p class="hint" id="ws-stat" role="status"></p>`;
   const stat = (t) => { const e = cur && cur.el.querySelector('#ws-stat'); if (e) e.textContent = t; };
   body.querySelector('#ws-file').onchange = async (e) => {
-    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const files = [...(e.target.files || [])]; if (!files.length) return;
     try {
-      const text = typeof window !== 'undefined' && window.__walletText != null ? window.__walletText : await readPicture(f, stat);
+      const all = []; let skipped = 0, balance = null, clock = null;
+      for (const [fi, f] of files.entries()) {
+        const note = files.length > 1 ? (t) => stat(`Picture ${fi + 1} of ${files.length}: ${t}`) : stat;
+        const text = typeof window !== 'undefined' && window.__walletText != null ? window.__walletText : await readPicture(f, note);
       // when it was taken: the file's own time if the phone gives one, else the clock printed at the top of the screenshot (today, or yesterday if that is still ahead), else now
       let ref = f.lastModified && Date.now() - f.lastModified < 6 * 864e5 && f.lastModified <= Date.now() ? new Date(f.lastModified) : null;
       if (!ref) { const ck = parseWalletText(text).clock; ref = new Date(); if (ck) { ref.setHours(ck.h, ck.m, 0, 0); if (ref > new Date()) ref.setDate(ref.getDate() - 1); } }
-      const p = parseWalletText(text, ref), db = get();
-      if (!p.rows.length) { stat('No rides found. Is it the Wallet card page showing "Latest Transactions"?'); return; }
+        const one = parseWalletText(text, ref); skipped += one.skipped; if (balance == null && one.balance != null) balance = one.balance; all.push(...one.rows.map((r) => ({ ...r, pic: fi })));
+      }
+      // pictures that overlap show the same row twice ("17 hours ago" in one, "Yesterday" in the next): keep one, the one with a time
+      const rows = [];
+      for (const r of all) { const key = (x) => `${x.kind}|${x.amount}|${x.from || ''}|${x.to || ''}|${x.place || ''}`, dup = rows.find((x) => x.pic !== r.pic && key(x) === key(r) && Math.abs(x.when - r.when) <= 36e5 * 36); if (!dup) rows.push(r); else if (!dup.exactTime && r.exactTime) Object.assign(dup, r); }
+      rows.sort((a, b) => b.when - a.when);
+      const p = { rows, skipped, balance }, db = get();
+      if (!p.rows.length) { stat('No rides found. Is it the Wallet card page showing the list of transactions?'); return; }
       markKnown(db, p.rows);
       const accts = cardAccts(db), acct = (accts.find(isCard) || accts[0] || {}).id || '';
-      for (const r of p.rows) { r.on = !r.known && r.kind !== 'topup'; r.cat = catFor(db, r); }
+      const src = topupSource(db, acct);
+      for (const r of p.rows) { r.on = !r.known; r.cat = r.kind === 'topup' ? '' : catFor(db, r); r.src = src; }
       S = { ...p, acct };
       if (!acct) { stat('Add a card account in yen first (for example "Pasmo"), then try again.'); S = null; return; }
       render();
@@ -95,6 +115,7 @@ ACT['ws-add'] = () => {
     const fx = homeFx(d, 'JPY') || 1; d.settings.walletCats = { ...(d.settings.walletCats || {}) };
     for (const r of picked) {
       const base = { id: uid(), kind: 'expense', amount: r.amount, cur: 'JPY', fx, date: stampOf(r.when), cat: r.cat, acct: S.acct, notes: 'From a Wallet screenshot', labels: '', items: [], counts: [] };
+      if (r.kind === 'topup') { const a = d.accounts.find((x) => x.id === r.src), c = d.accounts.find((x) => x.id === S.acct); d.txs.push(stamp({ id: uid(), kind: 'transfer', amount: r.amount, cur: (a && a.cur) || 'JPY', fx, date: stampOf(r.when), name: transferLabel(a, c), autoName: true, cat: '', acct: r.src, toAcct: S.acct, toAmount: r.amount, fee: 0, feeBy: '', notes: 'From a Wallet screenshot', labels: '', items: [], counts: [] })); continue; }
       if (r.kind === 'transit') d.txs.push(stamp({ ...base, name: tripLabel('Train', r.from, r.to), autoName: true, from: r.from, to: r.to }));
       else { d.txs.push(stamp({ ...base, name: `Purchase: ${r.place}`, flag: 'review' })); d.settings.walletCats[r.place] = r.cat; }
     }

@@ -16,6 +16,9 @@ From Tobu-nikko Station — Tr...
 Kawasaki, Kanagawa ¥494 >
 Purchase
 Yesterday
+Shibuya, Tokyo +¥5,000 >
+Credit
+Saturday
 Kawasaki Station ¥341 >"""
 with sync_playwright() as p:
     b=p.chromium.launch(); ctx=b.new_context(viewport={'width':390,'height':844},service_workers='block'); pg=ctx.new_page(); errs=[]
@@ -29,10 +32,10 @@ with sync_playwright() as p:
     pg.click('.drawer [data-act=wallet-scan]'); pg.wait_for_timeout(600); pg.wait_for_selector('#ws-file',state='attached',timeout=5000); pg.set_input_files('#ws-file','/tmp/blank.png'); pg.wait_for_selector('.wslist',timeout=8000)
     t=pg.inner_text('.sheet'); ok('rows listed with stations', 'Kita-Senju to Kawasaki' in t and 'Tobu-nikko to Kita-Senju' in t and 'Purchase: Kawasaki, Kanagawa' in t)
     ok('balance shown', '809' in t); ok('cut-off row reported', '1 row' in t)
-    ok('three rows ticked', pg.locator('.wsl input:checked').count()==3)
+    ok('four rows ticked (top-up included)', pg.locator('.wsl input:checked').count()==4 and pg.locator('.wssrc').count()==1)
     pg.click('[data-act=ws-add]'); pg.wait_for_timeout(700)
-    tx=pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.get().txs.filter(t=>!t.deleted&&t.notes==='From a Wallet screenshot').map(t=>[t.name,t.amount,t.from||'',t.to||'',t.flag||'',t.acct])})()")
-    ok('three entries saved %s'%tx, len(tx)==3 and ['Train: Kita-Senju - Kawasaki',528,'Kita-Senju','Kawasaki','','pm1'] in tx and any(x[0]=='Purchase: Kawasaki, Kanagawa' and x[4]=='review' for x in tx))
+    tx=pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.get().txs.filter(t=>!t.deleted&&t.notes==='From a Wallet screenshot').map(t=>[t.name,t.amount,t.from||'',t.to||'',t.flag||'',t.acct,t.kind,t.toAcct||''])})()")
+    ok('four entries saved %s'%tx, len(tx)==4 and any(x[0].startswith('Pasmo') or '- Pasmo' in x[0] for x in tx) and ['Train: Kita-Senju - Kawasaki',528,'Kita-Senju','Kawasaki','','pm1','expense',''] in tx and any(x[0]=='Purchase: Kawasaki, Kanagawa' and x[4]=='review' for x in tx))
     # a second screenshot of the same rides adds nothing: they are known now
     pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer'); pg.click('.drawer [data-act=wallet-scan]'); pg.wait_for_timeout(600); pg.wait_for_selector('#ws-file',state='attached',timeout=5000); pg.set_input_files('#ws-file','/tmp/blank.png'); pg.wait_for_selector('.wslist',timeout=8000)
     ok('same rides are not offered again', pg.locator('.wsl input:checked').count()==0 and 'already in your entries' in pg.inner_text('.sheet'))
