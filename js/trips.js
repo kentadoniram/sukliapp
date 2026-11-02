@@ -3,12 +3,13 @@
 import { get, commit, fmt, HOME, homeFx, nowStamp } from './core.js';
 import { ACT, esc, toast, promptDialog, sheet } from './ui.js';
 import { hdr } from './screens.js';
+import { placesOf, farKm } from './loc.js';
 import { analyzeHabits, habitRows, WEIGHTS } from './habits.js';
 
 const money = (n) => fmt(n, HOME, { round: true });
 const niceDate = (s) => new Date(String(s).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-const WHY = { 'you tagged it': 'you tagged it', 'other currency than home': 'spent in another currency', 'travel spending': 'a flight, hotel or similar', 'mostly new places': 'mostly new places', 'far above a usual day': 'a much bigger day than usual', 'arrival in the new home currency': 'arriving in your new home' };
-const CLUE = { 'you tagged it': 'tag', 'other currency than home': 'cur', 'travel spending': 'travel', 'mostly new places': 'novel', 'far above a usual day': 'high' };
+const WHY = { 'you tagged it': 'you tagged it', 'other currency than home': 'spent in another currency', 'travel spending': 'a flight, hotel or similar', 'mostly new places': 'mostly new places', 'far above a usual day': 'a much bigger day than usual', 'arrival in the new home currency': 'arriving in your new home', 'far from home': 'far from home or work' };
+const CLUE = { 'you tagged it': 'tag', 'other currency than home': 'cur', 'travel spending': 'travel', 'mostly new places': 'novel', 'far above a usual day': 'high', 'far from home': 'far' };
 
 // what Sukli has learned about how much each clue counts: Yes nudges it up, No nudges it down (kept between 0.4x and 1.6x of the start)
 export const learnedWeights = (db) => {
@@ -22,7 +23,7 @@ export const pickOf = (db, tx) => { const st = db.settings || {}; return (st.tri
 export function tripReport(db) {
   const notes = (db.settings && db.settings.tripNotes) || {}, txm = new Map((db.txs || []).map((t) => [t.id, t]));
   const rows = habitRows(db, homeFx).filter((r) => pickOf(db, txm.get(r.id) || r) !== 'out');   // "not a trip" entries are left out of the maths
-  const res = analyzeHabits(rows, { weights: learnedWeights(db) });
+  const pl = placesOf(db), res = analyzeHabits(rows, { weights: learnedWeights(db), farKm: (loc) => farKm(pl, loc) });
   const trips = res.trips.filter((t) => !(notes[t.from] && notes[t.from].s === 'no')).map((t) => ({ ...t, note: notes[t.from] || null }));
   // "part of this trip" entries the person added by hand (also transfers): their whole amount joins the trip cost
   for (const t of trips) {

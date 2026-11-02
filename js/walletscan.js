@@ -17,6 +17,27 @@ const yen = (n) => fmt(n, 'JPY');
 const cardAccts = (db) => live(db.accounts).filter((a) => !a.archived && a.cur === 'JPY');
 const isCard = (a) => /pasmo|suica|icoca|ic card|パスモ|スイカ/i.test(a.name);
 
+// what a ride between two stations has cost you before (a suggestion only: JR fares follow the distance of the shortest route, other railways add their own, and fares change)
+const pairKey = (a, b) => [String(a || '').trim().toLowerCase(), String(b || '').trim().toLowerCase()].sort().join('|');
+export function fareStats(db) {
+  const m = new Map(), cut = new Date(Date.now() - 3 * 365 * 864e5).toISOString().slice(0, 10);
+  for (const t of db.txs || []) {
+    if (t.deleted || t.kind !== 'expense' || t.cur !== 'JPY' || !t.from || !t.to || !(t.amount > 0) || String(t.date).slice(0, 10) < cut) continue;
+    const k = pairKey(t.from, t.to), o = m.get(k) || { n: 0, prices: new Map(), last: '' };
+    o.n++; o.prices.set(t.amount, (o.prices.get(t.amount) || 0) + 1); if (String(t.date) > o.last) o.last = String(t.date); m.set(k, o);
+  }
+  return m;
+}
+// a short note for one ride row, or null when there is nothing to say
+export function fareNote(stats, r) {
+  const o = stats.get(pairKey(r.from, r.to)); if (!o) return null;
+  const list = [...o.prices.entries()].sort((a, b) => b[1] - a[1]), usual = list[0][0], steady = list.length === 1;
+  const old = o.last && Date.now() - new Date(o.last.slice(0, 10) + 'T12:00:00') > 365 * 864e5;
+  if (r.amount === usual && steady) return null;
+  const conf = steady ? (o.n >= 3 && !old ? 'always the same' : o.n === 1 ? 'only one earlier ride' : 'few or old rides') : `mixed: ${list.slice(0, 3).map(([v, c]) => yen(v) + ' x' + c).join(', ')}`;
+  return { usual, text: `Usually ${yen(usual)} (${o.n} earlier ride${o.n === 1 ? '' : 's'}, ${conf}). ${r.amount === usual ? 'This one matches.' : `The picture says ${yen(r.amount)}. Worth a check.`}`, differs: r.amount !== usual };
+}
+
 // the card balance printed in the screenshot is the truth at that moment. What the card would show in Sukli after adding the ticked rows, at that moment:
 // the difference is what the starting balance has to be changed by, so older rides are just history and the card ends at the wallet's figure.
 function balanceGap(db) {
@@ -72,6 +93,7 @@ function render() {
     <label class="field"><span>Card account</span><select id="ws-acct">${accts.map((a) => `<option value="${a.id}" ${a.id === S.acct ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
     <ul class="wslist">${rows.map((r, i) => `<li class="wsrow ${r.known ? 'known' : ''}"><label class="wsl"><input type="checkbox" data-i="${i}" ${r.on ? 'checked' : ''}>
       <span class="wst"><b>${r.kind === 'transit' ? `${esc(r.from)} to ${esc(r.to)}` : r.kind === 'topup' ? `Top-up of the card (a transfer, not spending)` : `Purchase: ${esc(r.place)}`}</b><small class="muted">${yen(r.amount)} · ${esc(shown(r))}${r.known ? ' · already in your entries' : ''}</small></span></label>
+      ${(() => { if (r.kind !== 'transit') return ''; const n = fareNote(S.fares, r); return n ? `<p class="hint wsfare">${esc(n.text)}${n.differs ? ` <button type="button" class="linkbtn" data-act="ws-fare" data-i="${i}" data-v="${n.usual}">Use ${yen(n.usual)}</button>` : ''}</p>` : ''; })()}
       ${r.kind === 'topup' ? `<select class="wssrc" data-i="${i}" aria-label="Where the money came from">${live(db.accounts).filter((a) => !a.archived && a.id !== S.acct).map((a) => `<option value="${a.id}" ${a.id === r.src ? 'selected' : ''}>From ${esc(a.name)}</option>`).join('')}</select>` : ''}
       ${r.kind === 'purchase' ? `<select class="wscat" data-i="${i}" aria-label="Category for ${esc(r.place)}">${cats.map((c) => `<option value="${c.id}" ${c.id === r.cat ? 'selected' : ''}>${esc(c.group ? c.group + ' · ' + c.name : c.name)}</option>`).join('')}</select>` : ''}</li>`).join('')}</ul>
     ${S.skipped ? `<p class="hint">${S.skipped} row${S.skipped === 1 ? '' : 's'} at the edge of the screenshot could not be read fully and ${S.skipped === 1 ? 'was' : 'were'} skipped. Scroll the Wallet a little and take another screenshot to get them.</p>` : ''}
@@ -111,7 +133,7 @@ function start() {
       const accts = cardAccts(db), acct = (accts.find(isCard) || accts[0] || {}).id || '';
       const src = topupSource(db, acct);
       for (const r of p.rows) { r.on = !r.known; r.cat = r.kind === 'topup' ? '' : catFor(db, r); r.src = src; }
-      S = { ...p, acct, ref: new Date(Math.max(0, ...files.map((f) => (f.lastModified && Date.now() - f.lastModified < 6 * 864e5 && f.lastModified <= Date.now()) ? f.lastModified : 0)) || Date.now()) };
+      S = { ...p, fares: fareStats(db), acct, ref: new Date(Math.max(0, ...files.map((f) => (f.lastModified && Date.now() - f.lastModified < 6 * 864e5 && f.lastModified <= Date.now()) ? f.lastModified : 0)) || Date.now()) };
       if (!acct) { stat('Add a card account in yen first (for example "Pasmo"), then try again.'); S = null; return; }
       render();
     } catch (err) { stat('Could not read that picture. ' + (err && err.message ? err.message : '')); }
@@ -120,6 +142,7 @@ function start() {
 }
 export function openWalletScan() { cur = sheet('', { title: 'Read a Pasmo or Suica screenshot', wide: true, onClose: () => { cur = null; S = null; releaseEngine(); } }); start(); }
 ACT['wallet-scan'] = () => setTimeout(openWalletScan, 90);
+ACT['ws-fare'] = (el) => { if (!S) return; const r = S.rows[+el.dataset.i]; if (r) { r.amount = +el.dataset.v; render(); } };
 ACT['ws-again'] = () => { if (cur) start(); };
 ACT['ws-add'] = () => {
   if (!cur || !S) return; const picked = S.rows.filter((r) => r.on), gap = S.fixBal !== false ? (S.gap || 0) : 0; if (!picked.length && !gap) { toast('Nothing ticked.'); return; }

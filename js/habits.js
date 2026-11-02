@@ -15,7 +15,7 @@ const mad = (a) => { const m = median(a); return median(a.map((v) => Math.abs(v 
 const dayNum = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); };
 const dayStr = (n) => new Date(n * 864e5).toISOString().slice(0, 10);
 const TRAVELISH = /travel|flight|airline|airfare|plane|hotel|accommodation|lodging|hostel|visa|klook|booking|agoda|airbnb|e-?sim|passport|luggage/i;
-export const WEIGHTS = { tag: 2.5, cur: 2.0, travel: 1.2, novel: 1.0, high: 0.6 };
+export const WEIGHTS = { tag: 2.5, cur: 2.0, travel: 1.2, novel: 1.0, high: 0.6, far: 1.0 };
 const THRESHOLD = 1.5, MOVE_DAYS = 21;
 
 // rows: [{ id, date, amount (home currency), cur, cat, group, catName, name, labels }]  expenses only
@@ -74,9 +74,11 @@ export function analyzeHabits(rows, opts = {}) {
     const novel = es.filter((e) => firstSeen.get(e.shop) === d && !habitual.has(e.shop)).length / n;
     const z = Math.max(0, Math.min(1, ((total - dMed) / dMad) / 6));
     const settling = regimes.some((rg, i) => i > 0 && d >= rg.from && d < rg.from + 14);       // first two weeks in a new home: every shop is new
-    const parts = { tag: tagged ? 1 : 0, cur: foreign, travel: travel ? 1 : 0, novel: settling ? 0 : (n >= 2 ? novel : novel * 0.5), high: settling ? 0 : z };
+    const farD = Math.max(0, ...es.filter((e) => e.loc && !habitual.has(e.shop)).map((e) => (opts.farKm ? opts.farKm(e.loc) : null) ?? 0));   // how far from home or work, only for places that are not your usual shops
+    const far = farD >= 60 ? 1 : farD >= 25 ? 0.6 : farD >= 12 ? 0.2 : 0;                                  // a mall nearby is 0; far alone never flags a day, it needs a second clue
+    const parts = { tag: tagged ? 1 : 0, cur: foreign, travel: travel ? 1 : 0, novel: settling ? 0 : (n >= 2 ? novel : novel * 0.5), high: settling ? 0 : z, far };
     const score = Object.entries(parts).reduce((s, [k, v]) => s + W[k] * v, 0);
-    const why = []; if (parts.tag) why.push('you tagged it'); if (foreign >= 0.5) why.push('other currency than home'); if (parts.travel) why.push('travel spending'); if (novel >= 0.6 && n >= 2) why.push('mostly new places'); if (z >= 0.5) why.push('far above a usual day');
+    const why = []; if (parts.tag) why.push('you tagged it'); if (foreign >= 0.5) why.push('other currency than home'); if (parts.travel) why.push('travel spending'); if (novel >= 0.6 && n >= 2) why.push('mostly new places'); if (z >= 0.5) why.push('far above a usual day'); if (far >= 0.6) why.push('far from home');
     days.push({ d, date: dayStr(d), score, out: score >= thr, why, total, n });
   }
   // fill small holes: a quiet day between two outside days (or a day with no entries) belongs to the same trip
@@ -148,5 +150,5 @@ export function analyzeHabits(rows, opts = {}) {
 // rows from the database (expenses only, amounts in the home currency)
 export function habitRows(db, homeFx) {
   const cm = new Map((db.categories || []).map((c) => [c.id, c]));
-  return (db.txs || []).filter((t) => !t.deleted && t.kind === 'expense').map((t) => { const c = cm.get(t.cat) || {}; return { id: t.id, date: t.date, amount: t.amount * (homeFx ? homeFx(db, t.cur) || 1 : t.fx || 1), cur: t.cur, cat: t.cat, group: c.group || '', catName: c.name || '', name: t.name, labels: t.labels || '' }; });
+  return (db.txs || []).filter((t) => !t.deleted && t.kind === 'expense').map((t) => { const c = cm.get(t.cat) || {}; return { id: t.id, date: t.date, amount: t.amount * (homeFx ? homeFx(db, t.cur) || 1 : t.fx || 1), cur: t.cur, cat: t.cat, group: c.group || '', catName: c.name || '', name: t.name, labels: t.labels || '', loc: t.loc || null }; });
 }

@@ -10,6 +10,7 @@ import { smartKind, openLoanPlanner } from './loans.js';
 import { fxBlockHtml, fxBlockUpdate, openConverter } from './fxview.js';
 import { parseTags, joinTags, tagCounts } from './tags.js';
 import { tipBtn } from './interest.js';
+import { captureLoc } from './loc.js';
 import { isLiability, isOwed, lockInfo, periodFor, addDay } from './finance.js';
 import { budgetAlerts, newAlertsSince } from './budgetsetup.js';
 import { guessLabel, transferLabel } from './label.js';
@@ -451,18 +452,42 @@ export function openEntry(opts = {}) {
     const listHint = pts && !parseRoute(f.name) ? `<p class="relhint partshint">Looks like one receipt with ${pts.length} things (${esc(pts.map((x) => (x.k > 1 ? x.k + ' ' : '') + x.n).join(', '))}). The total is split between them. <button type="button" class="linkbtn" data-e="parts-use">Count them by group</button> <button type="button" class="linkbtn muted" data-e="parts-off">Not a list</button></p>` : '';
     return listHint;
   }
+  // "Paid for others": you paid the whole bill, part of it is somebody else's. Their part is saved as money owed to you (a Lent transfer, never spending) and only your part is an expense.
+  const owedPeople = () => get().accounts.filter((x) => !x.deleted && !x.archived && isOwed(x));
+  const othParts = () => { const total = num(f.amount) || 0, o = f.others || {}, th = Math.max(0, Math.min(num(o.amt) || 0, total)); return { total, theirs: th, mine: Math.max(0, +(total - th).toFixed(6)) }; };
+  function othSum() {
+    const el = $f('oth-sum'); if (!el) return; const a = acctOf(f.acct), { total, theirs, mine } = othParts(), c = (a && a.cur) || HOME;
+    el.innerHTML = total > 0 ? `Your part (spending): <b>${esc(fmt(mine, c, { force: true }))}</b> · Their part (they owe you): <b>${esc(fmt(theirs, c, { force: true }))}</b>` : 'Type the total first.';
+  }
+  function othersHtml() {
+    if (f.kind !== 'expense' || existing) return '';
+    if (!f.others || !f.others.on) return `<button type="button" class="linkbtn split" data-e="oth-on">${ic('split')} Paid for others? (they pay you back later)</button>`;
+    const o = f.others, ppl = owedPeople();
+    return `<div class="field items othbox" id="othbox"><span>Paid for others <small class="hint">Their part is not your spending. It waits under Owed to you until they pay you back.</small></span>
+      <select class="oth-who" aria-label="Who owes you"><option value="">Choose a person</option>${ppl.map((x) => `<option value="${x.id}" ${o.who === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}<option value="__new">+ Add a new person</option></select>
+      <div class="cnt"><input class="oth-n" inputmode="decimal" placeholder="Their part" value="${esc(o.amt || '')}" aria-label="Their part of the bill"></div>
+      <div class="chips"><button type="button" class="chip" data-e="oth-half">Half</button><button type="button" class="chip" data-e="oth-all">All of it</button></div>
+      <p class="hint" id="oth-sum"></p>
+      <div class="itemfoot"><button type="button" class="linkbtn" data-e="oth-off">Not paid for others</button></div></div>`;
+  }
+  async function othNew() {
+    const n = (await promptDialog('Who did you pay for?', '', { okLabel: 'Add', hint: 'A name is enough, for example Ana or Kuya Ben.' }))?.trim(); if (!n) { f.others.who = ''; renderCounts(); return; }
+    const ex = get().accounts.find((x) => !x.deleted && isOwed(x) && x.name.toLowerCase() === n.toLowerCase()); const id = ex ? ex.id : uid();
+    if (!ex) commit((d) => { d.accounts.push(stamp({ id, name: n, cur: HOME, type: 'owed', open: 0, include: true, archived: false })); });
+    f.others.who = id; renderCounts();
+  }
   function renderCounts() {
     const el = $f('countsrow');
     if (f.kind !== 'expense') { el.innerHTML = ''; return; }
     const ph = partsHint();      // below the keypad on purpose: a row appearing above it would move the keys while typing
-    if (!f.showCounts) { el.innerHTML = ph + `<button type="button" class="linkbtn split" data-e="counts-on">${ic('split')} Count by group (drinks, snacks...)</button>`; return; }
+    if (!f.showCounts) { el.innerHTML = ph + `<button type="button" class="linkbtn split" data-e="counts-on">${ic('split')} Count by group (drinks, snacks...)</button>` + othersHtml(); othSum(); return; }
     const db3 = get(), gs = Object.keys(groupsOf(db3));
     el.innerHTML = ph + `<div class="field items"><span>Count by group <small class="hint">no names or prices, just how many</small></span>
       <div id="countlist">${f.counts.map((c, i) => `<div class="cnt" data-i="${i}">
         <select class="cnt-g" aria-label="Group"><option value="">Choose group</option>${gs.map((g) => `<option value="${esc(g)}" ${c.g === g ? 'selected' : ''}>${esc(g)}${unitOf(db3, g) === 'kg' ? ' (kg)' : ''}</option>`).join('')}</select>
         <input class="cnt-n" inputmode="decimal" placeholder="${c.g && unitOf(db3, c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'}" value="${esc(c.n)}" aria-label="How many">
         <button type="button" class="iconbtn" data-e="count-del" data-v="${i}" aria-label="Remove row">${ic('x')}</button></div>`).join('')}</div>
-      <div class="itemfoot"><button type="button" class="linkbtn" data-e="count-add">+ Add group</button></div></div>`;
+      <div class="itemfoot"><button type="button" class="linkbtn" data-e="count-add">+ Add group</button></div></div>` + othersHtml(); othSum();
     el.querySelectorAll('select.cnt-g').forEach((sel) => enhanceSelect(sel, { title: 'Group', addLabel: 'Add a new group', onAdd: async () => {
       const nm = await promptDialog('New group', '', { okLabel: 'Next', hint: 'Group by price level, for example "drinks" and "ready meals" apart.' }); if (!nm || !nm.trim()) return;
       const kg = await confirmDialog('Is it counted by weight (kg)?', 'Yes, by weight', false, 'No, by pieces');
@@ -663,8 +688,9 @@ export function openEntry(opts = {}) {
   form.addEventListener('input', (e) => {
     const id = e.target.id;
     if (id === 'f-amount') {
-      formatAmountInput(e.target); f.amount = e.target.value; showCalcRes(); syncX(); updateFxVal(); heavy();
+      formatAmountInput(e.target); f.amount = e.target.value; showCalcRes(); syncX(); updateFxVal(); heavy(); othSum();
     }
+    else if (e.target.classList.contains('oth-n')) { f.others.amt = e.target.value; othSum(); }
     else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
     else if (id === 'f-from' || id === 'f-to') { if (id === 'f-from') f.from = e.target.value; else f.to = e.target.value; tripName(); tripChips(); }
     else if (id === 'f-what') { f.name = e.target.value; renderNameHelp(); if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('#countsrow')) renderCounts(); suggestAcct(); suggestMerchant(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
@@ -718,6 +744,7 @@ export function openEntry(opts = {}) {
     }
     else if (id === 'f-feecat') { f.feeCat = e.target.value; f.feeTouched = true; f.feeSuggested = false; renderFee(); }
     else if (e.target.classList.contains('in-c')) { const it = f.items[+e.target.closest('.item').dataset.i]; it.cat = e.target.value; it.catTouched = true; }
+    else if (e.target.classList.contains('oth-who')) { if (e.target.value === '__new') othNew(); else f.others.who = e.target.value; }
     else if (e.target.classList.contains('cnt-g')) { const c = f.counts[+e.target.closest('.cnt').dataset.i]; c.g = e.target.value; const inp = e.target.closest('.cnt').querySelector('.cnt-n'); if (inp) inp.placeholder = c.g && unitOf(get(), c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'; }
   });
   form.addEventListener('focusout', (e) => {
@@ -789,6 +816,10 @@ export function openEntry(opts = {}) {
       case 'item-del': f.items.splice(+v, 1); renderItems(); break;
       case 'parts-use': { const pts = splitParts(f.name) || []; f.parts = pts; f.counts = countsFromParts(get(), pts); f.showCounts = true; renderCounts(); const open = f.counts.filter((c) => !c.g).length; toast(open ? `Pick a group for ${open} of them.` : 'Counted by group. Check it, then save.'); break; }
       case 'parts-off': f.partsOff = f.name; f.parts = []; renderCounts(); break;
+      case 'oth-on': f.others = { on: true, who: (owedPeople()[0] || {}).id || '', amt: '' }; renderCounts(); break;
+      case 'oth-off': f.others = { on: false, who: '', amt: '' }; renderCounts(); break;
+      case 'oth-half': { const t = num(f.amount) || 0; f.others.amt = String(+(t / 2).toFixed(2)); renderCounts(); break; }
+      case 'oth-all': { const t = num(f.amount) || 0; f.others.amt = String(+t.toFixed(2)); renderCounts(); break; }
       case 'counts-on': f.showCounts = true; if (!f.counts.length) f.counts.push({ g: '', n: '' }); renderCounts(); break;
       case 'count-add': f.counts.push({ g: '', n: '' }); renderCounts(); break;
       case 'count-del': f.counts.splice(+v, 1); renderCounts(); break;
@@ -923,6 +954,18 @@ export function openEntry(opts = {}) {
     { const mc = f.kind === 'expense' ? canonMerchant(db2, f.merchant) : ''; if (mc) rec.merchant = mc; }
     if (f.kind !== 'transfer' && cat && ((f.catTouched && f.guessed && f.guessed !== cat) || (existing && existing.cat && existing.cat !== cat) || (existing && existing.corrected))) rec.corrected = true;
     if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) { rec.from = f.from.trim(); rec.to = f.to.trim(); } else if (existing && (existing.from || existing.to)) { rec.from = ''; rec.to = ''; }
+    // paid for others: your part is the expense, their part moves to "money owed to you"
+    let oth = null;
+    if (!existing && f.kind === 'expense' && f.others && f.others.on && (num(f.others.amt) > 0 || f.others.who)) {
+      const pp = acctOf(f.others.who), { theirs, mine } = othParts();
+      if (!pp || !isOwed(pp)) return fail('Choose who you paid for, or tap "Not paid for others".');
+      if (!(theirs > 0)) return fail('Type their part of the bill.');
+      if (num(f.others.amt) > amount0 + 0.004) return fail('Their part is more than the whole bill.');
+      oth = { pp, theirs, mine, eid: uid(), lid: uid() };
+      rec.amount = mine > 0 ? mine : amount0; rec.paidFor = { total: amount0, theirs, who: pp.name };
+      if (mine > 0) rec.splitWith = oth.lid;
+      if (rec.counts && rec.counts.length) { rec.counts = []; delete rec.parts; }          // the groups were counted on the whole bill; they would not add up to your part
+    }
     let savedAs; const alertsBefore = budgetAlerts(get(), rec.date.slice(0, 7));
     commit((d) => {
       if (fee) {
@@ -934,12 +977,19 @@ export function openEntry(opts = {}) {
         const before = {}; for (const k of ['kind', 'date', 'name', 'amount', 'cur', 'fx', 'acct', 'toAcct', 'toAmount', 'cat', 'notes', 'fee', 'feeCat', 'feeBy']) if (t[k] !== undefined) before[k] = t[k];
         t.rev = [{ at: Date.now(), ...before }, ...(t.rev || [])].slice(0, 5);
         Object.assign(t, rec); for (const k of FLOW_FLAGS) if (!rec[k]) delete t[k]; if (!rec.merchant) delete t.merchant; stamp(t); savedAs = t; }
+      else if (oth) {
+        const hx = (c) => homeFx(d, c) || 1, toAmt = pp0 => (pp0.cur === a.cur ? oth.theirs : +(oth.theirs * hx(a.cur) / hx(pp0.cur)).toFixed(2));
+        const lent = stamp({ id: oth.lid, kind: 'transfer', amount: oth.theirs, cur: a.cur, fx, date: rec.date, name: `Paid for ${oth.pp.name}${label ? ': ' + label : ''}`, autoName: false, cat: '', acct: a.id, toAcct: oth.pp.id, toAmount: toAmt(oth.pp), fee: 0, feeBy: '', notes: '', labels: '', items: [], counts: [], flag: null, lent: true, splitWith: oth.mine > 0 ? oth.eid : '', createdAt: Date.now() });
+        if (oth.mine > 0) { savedAs = stamp({ id: oth.eid, ...rec, createdAt: Date.now() }); d.txs.push(savedAs); } else savedAs = lent;
+        d.txs.push(lent);
+      }
       else { savedAs = stamp({ id: uid(), ...rec, createdAt: Date.now() }); d.txs.push(savedAs);
         if (extraAmt > 0) d.txs.push(stamp({ id: uid(), kind: 'income', date: rec.date, name: `${f.extraKind} from ${a.name}`, amount: extraAmt, cur: a.cur, fx, cat: findOrAddCategory(d, 'Income', f.extraKind, 'income').id, acct: f.toAcct, toAcct: '', toAmount: null, fee: 0, notes: '', labels: '', items: [], flag: null, createdAt: Date.now() })); }
       d.settings.lastAcct = a.id;
     });
     // say so when this entry pushed a budget past the warning line (once per budget per month)
     try { const fresh = newAlertsSince(alertsBefore, budgetAlerts(get(), rec.date.slice(0, 7))); if (fresh.length && rec.kind === 'expense') setTimeout(() => toast(fresh[0].text, { ms: 7000 }), 900); } catch { /* alerts are a bonus */ }
+    if (!existing && savedAs) captureLoc(get(), savedAs.id, rec.date);
     s.close();
     toast(rec.flag === 'review' ? 'Saved. It is in Review so you can confirm the category later.' : 'Saved', { undo: () => undoLast() });
     if (again) openEntry({ preset: { acct: a.id } });
