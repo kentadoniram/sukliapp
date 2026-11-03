@@ -452,29 +452,51 @@ export function openEntry(opts = {}) {
     const listHint = pts && !parseRoute(f.name) ? `<p class="relhint partshint">Looks like one receipt with ${pts.length} things (${esc(pts.map((x) => (x.k > 1 ? x.k + ' ' : '') + x.n).join(', '))}). The total is split between them. <button type="button" class="linkbtn" data-e="parts-use">Count them by group</button> <button type="button" class="linkbtn muted" data-e="parts-off">Not a list</button></p>` : '';
     return listHint;
   }
-  // "Paid for others": you paid the whole bill, part of it is somebody else's. Their part is saved as money owed to you (a Lent transfer, never spending) and only your part is an expense.
+  // "Paid for others": you paid the whole bill and part of it belongs to other people (one or many, equal / amounts / percent, with or without your own share).
+  // Your part is the expense; each person's part is a Lent transfer to their line under Owed to you. Nothing of theirs counts as your spending.
   const owedPeople = () => get().accounts.filter((x) => !x.deleted && !x.archived && isOwed(x));
-  const othParts = () => { const total = num(f.amount) || 0, o = f.others || {}, th = Math.max(0, Math.min(num(o.amt) || 0, total)); return { total, theirs: th, mine: Math.max(0, +(total - th).toFixed(6)) }; };
+  const r2c = (x) => Math.round(x * 100) / 100;
+  const newOth = () => ({ on: true, mode: 'equal', me: true, rows: [{ who: (owedPeople()[0] || {}).id || '', v: '' }] });
+  function othParts() {
+    const o = f.others || newOth(), T = num(f.amount) || 0, rows = o.rows.filter((r) => r.who), n = rows.length; let list = [], mine = 0, err = '';
+    if (new Set(rows.map((r) => r.who)).size !== n) err = 'Choose each person only once.';
+    if (o.mode === 'equal') {
+      const parts = n + (o.me ? 1 : 0), sh = parts ? r2c(T / parts) : 0; list = rows.map((r) => ({ who: r.who, amt: sh }));
+      const diff = r2c(T - sh * n); if (o.me) mine = Math.max(0, diff); else if (list.length) list[list.length - 1].amt = r2c(sh + diff);
+    } else if (o.mode === 'amount') {
+      list = rows.map((r) => ({ who: r.who, amt: r2c(num(r.v) || 0) })); const sum = list.reduce((q, x) => q + x.amt, 0); mine = r2c(T - sum);
+      if (T > 0 && mine < -0.004) err = err || 'Their parts add up to more than the bill.';
+      if (T > 0 && !o.me && Math.abs(mine) > 0.004) err = err || 'Their parts must add up to the whole bill when you are not part of it.';
+      if (o.me) mine = Math.max(0, mine); else mine = 0;
+    } else {
+      const P = rows.reduce((q, r) => q + (num(r.v) || 0), 0); list = rows.map((r) => ({ who: r.who, amt: r2c(T * (num(r.v) || 0) / 100) }));
+      if (P > 100.004) err = err || 'The percentages add up to more than 100.';
+      if (!o.me && Math.abs(P - 100) > 0.004) err = err || 'The percentages must add up to 100 when you are not part of the bill.';
+      const sum = list.reduce((q, x) => q + x.amt, 0); if (o.me) mine = Math.max(0, r2c(T - sum)); else { mine = 0; const d = r2c(T - sum); if (list.length && Math.abs(d) < 0.05) list[list.length - 1].amt = r2c(list[list.length - 1].amt + d); }
+    }
+    return { total: T, list, mine, err };
+  }
   function othSum() {
-    const el = $f('oth-sum'); if (!el) return; const a = acctOf(f.acct), { total, theirs, mine } = othParts(), c = (a && a.cur) || HOME;
-    el.innerHTML = total > 0 ? `Your part (spending): <b>${esc(fmt(mine, c, { force: true }))}</b> · Their part (they owe you): <b>${esc(fmt(theirs, c, { force: true }))}</b>` : 'Type the total first.';
+    const el = $f('oth-sum'); if (!el) return; const a = acctOf(f.acct), c = (a && a.cur) || HOME, P = othParts(), nm = (id) => { const x = acctOf(id); return x ? x.name : '?'; }, m = (n) => esc(fmt(n, c, { force: true }));
+    el.innerHTML = P.total > 0 ? `${f.others.me ? `You (spending): <b>${m(P.mine)}</b> · ` : 'You paid it all and are not part of it · '}${P.list.map((x) => `${esc(nm(x.who))}: <b>${m(x.amt)}</b>`).join(' · ') || 'choose who you paid for'}${P.err ? `<br><span class="oth-err">${esc(P.err)}</span>` : ''}` : 'Type the total first.';
   }
   function othersHtml() {
     if (f.kind !== 'expense' || existing) return '';
     if (!f.others || !f.others.on) return `<button type="button" class="linkbtn split" data-e="oth-on">${ic('split')} Paid for others? (they pay you back later)</button>`;
-    const o = f.others, ppl = owedPeople();
-    return `<div class="field items othbox" id="othbox"><span>Paid for others <small class="hint">Their part is not your spending. It waits under Owed to you until they pay you back.</small></span>
-      <select class="oth-who" aria-label="Who owes you"><option value="">Choose a person</option>${ppl.map((x) => `<option value="${x.id}" ${o.who === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}<option value="__new">+ Add a new person</option></select>
-      <div class="cnt"><input class="oth-n" inputmode="decimal" placeholder="Their part" value="${esc(o.amt || '')}" aria-label="Their part of the bill"></div>
-      <div class="chips"><button type="button" class="chip" data-e="oth-half">Half</button><button type="button" class="chip" data-e="oth-all">All of it</button></div>
+    const o = f.others, ppl = owedPeople(), mode = o.mode, ph = mode === 'pct' ? '%' : 'Amount';
+    return `<div class="field items othbox" id="othbox"><span>Paid for others <small class="hint">Their parts are not your spending. Each waits under Owed to You until that person pays you back.</small></span>
+      <div class="chips othmode">${[['equal', 'Split Equally'], ['amount', 'Set Each Amount'], ['pct', 'Percentages']].map(([k, l]) => `<button type="button" class="chip ${mode === k ? 'on' : ''}" data-e="oth-mode" data-v="${k}">${l}</button>`).join('')}</div>
+      <div id="othrows">${o.rows.map((r, i) => `<div class="cnt othrow" data-i="${i}"><select class="oth-who" aria-label="Who owes you"><option value="">Choose a person</option>${ppl.map((x) => `<option value="${x.id}" ${r.who === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}<option value="__new">+ Add a new person</option></select>${mode === 'equal' ? '' : `<input class="oth-n" inputmode="decimal" placeholder="${ph}" value="${esc(r.v || '')}" aria-label="${mode === 'pct' ? 'Percent they owe' : 'Amount they owe'}">`}${o.rows.length > 1 ? `<button type="button" class="iconbtn" data-e="oth-del" data-v="${i}" aria-label="Remove person">${ic('x')}</button>` : ''}</div>`).join('')}</div>
+      <div class="itemfoot"><button type="button" class="linkbtn" data-e="oth-add">+ Add another person</button></div>
+      <label class="check"><input type="checkbox" class="oth-me" ${o.me ? '' : 'checked'}> <span>I paid the bill but I am not part of it (I did not use any of it)</span></label>
       <p class="hint" id="oth-sum"></p>
       <div class="itemfoot"><button type="button" class="linkbtn" data-e="oth-off">Not paid for others</button></div></div>`;
   }
-  async function othNew() {
-    const n = (await promptDialog('Who did you pay for?', '', { okLabel: 'Add', hint: 'A name is enough, for example Ana or Kuya Ben.' }))?.trim(); if (!n) { f.others.who = ''; renderCounts(); return; }
+  async function othNew(i) {
+    const n = (await promptDialog('Who did you pay for?', '', { okLabel: 'Add', hint: 'A name is enough, for example Ana or Kuya Ben.' }))?.trim(); if (!n) { f.others.rows[i].who = ''; renderCounts(); return; }
     const ex = get().accounts.find((x) => !x.deleted && isOwed(x) && x.name.toLowerCase() === n.toLowerCase()); const id = ex ? ex.id : uid();
     if (!ex) commit((d) => { d.accounts.push(stamp({ id, name: n, cur: HOME, type: 'owed', open: 0, include: true, archived: false })); });
-    f.others.who = id; renderCounts();
+    f.others.rows[i].who = id; renderCounts();
   }
   function renderCounts() {
     const el = $f('countsrow');
@@ -690,7 +712,7 @@ export function openEntry(opts = {}) {
     if (id === 'f-amount') {
       formatAmountInput(e.target); f.amount = e.target.value; showCalcRes(); syncX(); updateFxVal(); heavy(); othSum();
     }
-    else if (e.target.classList.contains('oth-n')) { f.others.amt = e.target.value; othSum(); }
+    else if (e.target.classList.contains('oth-n')) { f.others.rows[+e.target.closest('.othrow').dataset.i].v = e.target.value; othSum(); }
     else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
     else if (id === 'f-from' || id === 'f-to') { if (id === 'f-from') f.from = e.target.value; else f.to = e.target.value; tripName(); tripChips(); }
     else if (id === 'f-what') { f.name = e.target.value; renderNameHelp(); if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('#countsrow')) renderCounts(); suggestAcct(); suggestMerchant(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
@@ -744,7 +766,8 @@ export function openEntry(opts = {}) {
     }
     else if (id === 'f-feecat') { f.feeCat = e.target.value; f.feeTouched = true; f.feeSuggested = false; renderFee(); }
     else if (e.target.classList.contains('in-c')) { const it = f.items[+e.target.closest('.item').dataset.i]; it.cat = e.target.value; it.catTouched = true; }
-    else if (e.target.classList.contains('oth-who')) { if (e.target.value === '__new') othNew(); else f.others.who = e.target.value; }
+    else if (e.target.classList.contains('oth-who')) { const i = +e.target.closest('.othrow').dataset.i; if (e.target.value === '__new') othNew(i); else { f.others.rows[i].who = e.target.value; othSum(); } }
+    else if (e.target.classList.contains('oth-me')) { f.others.me = !e.target.checked; othSum(); }
     else if (e.target.classList.contains('cnt-g')) { const c = f.counts[+e.target.closest('.cnt').dataset.i]; c.g = e.target.value; const inp = e.target.closest('.cnt').querySelector('.cnt-n'); if (inp) inp.placeholder = c.g && unitOf(get(), c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'; }
   });
   form.addEventListener('focusout', (e) => {
@@ -816,10 +839,11 @@ export function openEntry(opts = {}) {
       case 'item-del': f.items.splice(+v, 1); renderItems(); break;
       case 'parts-use': { const pts = splitParts(f.name) || []; f.parts = pts; f.counts = countsFromParts(get(), pts); f.showCounts = true; renderCounts(); const open = f.counts.filter((c) => !c.g).length; toast(open ? `Pick a group for ${open} of them.` : 'Counted by group. Check it, then save.'); break; }
       case 'parts-off': f.partsOff = f.name; f.parts = []; renderCounts(); break;
-      case 'oth-on': f.others = { on: true, who: (owedPeople()[0] || {}).id || '', amt: '' }; renderCounts(); break;
-      case 'oth-off': f.others = { on: false, who: '', amt: '' }; renderCounts(); break;
-      case 'oth-half': { const t = num(f.amount) || 0; f.others.amt = String(+(t / 2).toFixed(2)); renderCounts(); break; }
-      case 'oth-all': { const t = num(f.amount) || 0; f.others.amt = String(+t.toFixed(2)); renderCounts(); break; }
+      case 'oth-on': f.others = newOth(); renderCounts(); break;
+      case 'oth-off': f.others = { on: false, mode: 'equal', me: true, rows: [] }; renderCounts(); break;
+      case 'oth-mode': f.others.mode = v; renderCounts(); break;
+      case 'oth-add': f.others.rows.push({ who: '', v: '' }); renderCounts(); break;
+      case 'oth-del': f.others.rows.splice(+v, 1); renderCounts(); break;
       case 'counts-on': f.showCounts = true; if (!f.counts.length) f.counts.push({ g: '', n: '' }); renderCounts(); break;
       case 'count-add': f.counts.push({ g: '', n: '' }); renderCounts(); break;
       case 'count-del': f.counts.splice(+v, 1); renderCounts(); break;
@@ -954,16 +978,16 @@ export function openEntry(opts = {}) {
     { const mc = f.kind === 'expense' ? canonMerchant(db2, f.merchant) : ''; if (mc) rec.merchant = mc; }
     if (f.kind !== 'transfer' && cat && ((f.catTouched && f.guessed && f.guessed !== cat) || (existing && existing.cat && existing.cat !== cat) || (existing && existing.corrected))) rec.corrected = true;
     if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) { rec.from = f.from.trim(); rec.to = f.to.trim(); } else if (existing && (existing.from || existing.to)) { rec.from = ''; rec.to = ''; }
-    // paid for others: your part is the expense, their part moves to "money owed to you"
+    // paid for others: your part is the expense, each person's part moves to "money owed to you"
     let oth = null;
-    if (!existing && f.kind === 'expense' && f.others && f.others.on && (num(f.others.amt) > 0 || f.others.who)) {
-      const pp = acctOf(f.others.who), { theirs, mine } = othParts();
-      if (!pp || !isOwed(pp)) return fail('Choose who you paid for, or tap "Not paid for others".');
-      if (!(theirs > 0)) return fail('Type their part of the bill.');
-      if (num(f.others.amt) > amount0 + 0.004) return fail('Their part is more than the whole bill.');
-      oth = { pp, theirs, mine, eid: uid(), lid: uid() };
-      rec.amount = mine > 0 ? mine : amount0; rec.paidFor = { total: amount0, theirs, who: pp.name };
-      if (mine > 0) rec.splitWith = oth.lid;
+    if (!existing && f.kind === 'expense' && f.others && f.others.on) {
+      const P = othParts(); if (P.err) return fail(P.err);
+      if (!P.list.length) return fail('Choose who you paid for, or tap "Not paid for others".');
+      const list = []; for (const x of P.list) { const pp = acctOf(x.who); if (!pp || !isOwed(pp)) return fail('Choose who you paid for, or tap "Not paid for others".'); if (!(x.amt > 0)) return fail(`Type ${pp.name}'s part of the bill.`); list.push({ pp, theirs: x.amt, lid: uid() }); }
+      const theirsAll = list.reduce((q, x) => q + x.theirs, 0); if (theirsAll > amount0 + 0.005) return fail('Their parts are more than the whole bill.');
+      oth = { list, mine: P.mine, eid: uid(), gid: uid() };
+      rec.amount = P.mine > 0 ? P.mine : amount0; rec.paidFor = { total: amount0, who: list.map((x) => x.pp.name).join(', '), me: P.mine > 0 };
+      rec.splitId = oth.gid;
       if (rec.counts && rec.counts.length) { rec.counts = []; delete rec.parts; }          // the groups were counted on the whole bill; they would not add up to your part
     }
     let savedAs; const alertsBefore = budgetAlerts(get(), rec.date.slice(0, 7));
@@ -978,10 +1002,9 @@ export function openEntry(opts = {}) {
         t.rev = [{ at: Date.now(), ...before }, ...(t.rev || [])].slice(0, 5);
         Object.assign(t, rec); for (const k of FLOW_FLAGS) if (!rec[k]) delete t[k]; if (!rec.merchant) delete t.merchant; stamp(t); savedAs = t; }
       else if (oth) {
-        const hx = (c) => homeFx(d, c) || 1, toAmt = pp0 => (pp0.cur === a.cur ? oth.theirs : +(oth.theirs * hx(a.cur) / hx(pp0.cur)).toFixed(2));
-        const lent = stamp({ id: oth.lid, kind: 'transfer', amount: oth.theirs, cur: a.cur, fx, date: rec.date, name: `Paid for ${oth.pp.name}${label ? ': ' + label : ''}`, autoName: false, cat: '', acct: a.id, toAcct: oth.pp.id, toAmount: toAmt(oth.pp), fee: 0, feeBy: '', notes: '', labels: '', items: [], counts: [], flag: null, lent: true, splitWith: oth.mine > 0 ? oth.eid : '', createdAt: Date.now() });
-        if (oth.mine > 0) { savedAs = stamp({ id: oth.eid, ...rec, createdAt: Date.now() }); d.txs.push(savedAs); } else savedAs = lent;
-        d.txs.push(lent);
+        const hx = (c) => homeFx(d, c) || 1, toAmt = (pp0, v) => (pp0.cur === a.cur ? v : +(v * hx(a.cur) / hx(pp0.cur)).toFixed(2));
+        if (oth.mine > 0) { savedAs = stamp({ id: oth.eid, ...rec, createdAt: Date.now() }); d.txs.push(savedAs); }
+        for (const x of oth.list) { const lent = stamp({ id: x.lid, kind: 'transfer', amount: x.theirs, cur: a.cur, fx, date: rec.date, name: `Paid for ${x.pp.name}${label ? ': ' + label : ''}`, autoName: false, cat: '', acct: a.id, toAcct: x.pp.id, toAmount: toAmt(x.pp, x.theirs), fee: 0, feeBy: '', notes: '', labels: '', items: [], counts: [], flag: null, lent: true, splitId: oth.gid, createdAt: Date.now() }); d.txs.push(lent); if (!savedAs) savedAs = lent; }
       }
       else { savedAs = stamp({ id: uid(), ...rec, createdAt: Date.now() }); d.txs.push(savedAs);
         if (extraAmt > 0) d.txs.push(stamp({ id: uid(), kind: 'income', date: rec.date, name: `${f.extraKind} from ${a.name}`, amount: extraAmt, cur: a.cur, fx, cat: findOrAddCategory(d, 'Income', f.extraKind, 'income').id, acct: f.toAcct, toAcct: '', toAmount: null, fee: 0, notes: '', labels: '', items: [], flag: null, createdAt: Date.now() })); }

@@ -31,13 +31,13 @@ export function owed(db) {
   const list = owedList(db), open = list.filter((p) => p.open), done = list.filter((p) => !p.open), total = open.reduce((q, p) => q + p.owed, 0);
   const add = '<button type="button" class="btn" data-act="owed-add">Add a person</button>';
   if (!list.length) return `<div class="debtpage owedpage">${hdr('Owed to You')}<section class="cardbox"><h3>Nobody owes you yet</h3><p class="hint">When you lend money to a friend or family member, record it with <b>Lent</b> in the add button (the round +). It is not counted as spending, and it shows here until they pay you back.</p><div class="btnrow left">${add}</div></section></div>`;
-  const row = (p) => `<div class="debtrow"><div class="dr-head"><div><b class="oname">${esc(p.name)}</b><small class="muted">${p.since ? `Waiting since ${niceDate(p.since)} (${daysText(p.waited)})` : 'No lending entry yet'}${p.cur !== HOME ? ` · ${fmt(p.owedCur, p.cur)}` : ''}</small></div><b class="dr-owed">${money(p.owed)}</b></div>
+  const row = (p) => `<div class="debtrow"><div class="dr-head"><div><button type="button" class="linkbtn oname" data-act="owed-hist" data-id="${p.id}"><b>${esc(p.name)}</b> ›</button><small class="muted">${p.since ? `Waiting since ${niceDate(p.since)} (${daysText(p.waited)})` : 'No lending entry yet'}${p.cur !== HOME ? ` · ${fmt(p.owedCur, p.cur)}` : ''}</small></div><b class="dr-owed">${money(p.owed)}</b></div>
     <ul class="calfacts">${p.due ? `<li><span>Expected back by</span><b>${niceDate(p.due)}${p.dueIn >= 0 ? ` (${daysText(p.dueIn)})` : ''}</b>${p.dueIn < 0 ? ' <small class="muted">date has passed</small>' : ''}</li>` : ''}<li><span>Paid back so far</span>${p.backN ? `<b>${money(p.backSum)} in ${p.backN} payment${p.backN === 1 ? '' : 's'}</b>${p.lastBack ? ` <small class="muted">last ${niceDate(p.lastBack)}</small>` : ''}` : '<span class="muted">nothing yet</span>'}</li></ul>
     <div class="btnrow tight"><button type="button" class="btn sm" data-act="owed-back" data-id="${p.id}">They paid me back</button><button type="button" class="btn sm ghost" data-act="owed-more" data-id="${p.id}">Lend more</button><button type="button" class="btn sm ghost" data-act="owed-edit" data-id="${p.id}">Change</button></div></div>`;
-  const settled = done.length ? coll('o-done', `Paid back (${done.length})`, `<div class="rows plain">${done.map((p) => `<div class="orow"><span class="rmain"><strong>${esc(p.name)}</strong><small>${p.backN ? `Paid back ${money(p.backSum)}` : 'Nothing owed'}</small></span><span class="obtns"><button type="button" class="btn sm ghost" data-act="owed-more" data-id="${p.id}">Lend again</button><button type="button" class="btn sm ghost" data-act="owed-edit" data-id="${p.id}">Change</button></span></div>`).join('')}</div>`) : '';
+  const settled = done.length ? coll('o-done', `Paid back (${done.length})`, `<div class="rows plain">${done.map((p) => `<div class="orow"><span class="rmain"><button type="button" class="linkbtn oname" data-act="owed-hist" data-id="${p.id}"><strong>${esc(p.name)}</strong> ›</button><small>${p.backN ? `Paid back ${money(p.backSum)}` : 'Nothing owed'}</small></span><span class="obtns"><button type="button" class="btn sm ghost" data-act="owed-more" data-id="${p.id}">Lend again</button><button type="button" class="btn sm ghost" data-act="owed-edit" data-id="${p.id}">Change</button></span></div>`).join('')}</div>`) : '';
   return `<div class="debtpage owedpage">${hdr('Owed to You')}
     <section class="cardbox"><h3>What others owe you</h3><div class="debtsum"><div class="dsrow"><span>Total owed to you</span><b>${money(total)}</b></div><div class="dsrow"><span>People</span><b>${open.length}</b></div></div>
-      <p class="hint">Money you lent is not counted as spending, and it is not part of your Spendable money until it is paid back.</p><div class="btnrow left">${add}<button type="button" class="btn ghost" data-act="owed-new">I lent money</button></div></section>
+      <p class="hint">Money you lent is not counted as spending, and it is not part of your Spendable money until it is paid back. Tap a name to see the whole history.</p><div class="btnrow left">${add}<button type="button" class="btn ghost" data-act="owed-new">I lent money</button></div></section>
     ${open.length ? `<h2 class="subh">Who owes you (${open.length})</h2>${open.map(row).join('')}` : '<section class="cardbox"><p class="hint">Everyone has paid you back.</p></section>'}${settled}</div>`;
 }
 
@@ -76,4 +76,35 @@ ACT['owed-edit'] = (el) => {
     e.preventDefault(); const nm = e.target.n.value.trim() || a.name; s.dispose();
     commit((d) => { const x = d.accounts.find((z) => z.id === a.id); if (!x) return; x.name = nm; if (due) x.owedDue = due; else delete x.owedDue; stamp(x); }); toast('Saved.');
   };
+};
+
+// the whole history with one person: every time you lent or paid for them, every payment back, write-offs, with a running balance and the details of each entry
+export function historyOf(db, id) {
+  const a = db.accounts.find((x) => x.id === id); if (!a) return null;
+  const nameOf = (i) => { const x = db.accounts.find((q) => q.id === i); return x ? x.name : ''; };
+  const rows = [];
+  for (const t of db.txs) {
+    if (t.deleted || (t.acct !== id && t.toAcct !== id)) continue;
+    let delta = 0, kind = '', other = '';
+    if (t.kind === 'transfer' && t.toAcct === id) { delta = t.toAmount != null ? t.toAmount : t.amount; kind = t.lentBack ? 'Paid back' : 'Lent'; other = nameOf(t.acct); }
+    else if (t.kind === 'transfer' && t.acct === id) { delta = -t.amount; kind = t.lent ? 'Lent (reversed)' : 'Paid back'; other = nameOf(t.toAcct); }
+    else if (t.kind === 'expense' && t.acct === id) { delta = -t.amount; kind = 'Written off'; }
+    else if (t.kind === 'income' && t.acct === id) { delta = t.amount; kind = 'Added'; }
+    else continue;
+    const bill = t.splitId ? db.txs.find((x) => !x.deleted && x.splitId === t.splitId && x.id !== t.id && x.paidFor) : null;
+    rows.push({ t, delta, kind, other, bill });
+  }
+  rows.sort((x, y) => (String(x.t.date) < String(y.t.date) ? -1 : String(x.t.date) > String(y.t.date) ? 1 : 0));
+  let run = a.open || 0; for (const r of rows) { run += r.delta; r.after = run; }
+  const lent = rows.filter((r) => r.delta > 0).reduce((q, r) => q + r.delta, 0), back = rows.filter((r) => r.kind === 'Paid back').reduce((q, r) => q - r.delta, 0), off = rows.filter((r) => r.kind === 'Written off').reduce((q, r) => q - r.delta, 0);
+  return { a, rows, lent, back, off, owed: run };
+}
+ACT['owed-hist'] = (el) => {
+  const db = get(), h = historyOf(db, el.dataset.id); if (!h) return; const a = h.a, m = (n) => fmt(n, a.cur);
+  const li = (r) => { const t = r.t, inn = r.delta > 0;
+    const why = r.bill ? `Part of: ${esc(r.bill.name)} (bill ${fmt(r.bill.paidFor.total, r.bill.cur)}, your own part ${fmt(r.bill.amount, r.bill.cur)})` : (t.splitId ? 'Paid for them as part of a shared bill' : '');
+    const det = [r.other ? `${inn && r.kind === 'Lent' ? 'From' : 'To/from'} ${esc(r.other)}` : '', why, t.notes ? esc(t.notes) : ''].filter(Boolean).join(' · ');
+    return `<li class="ohr"><button type="button" class="ohbtn" data-act="edit" data-id="${t.id}"><span class="ohl"><b>${esc(r.kind)}</b><small>${esc(niceDate(t.date))}${t.name ? ' · ' + esc(t.name) : ''}</small>${det ? `<small>${det}</small>` : ''}</span><span class="ohr-r"><b class="${inn ? 'oh-up' : 'oh-down'}">${inn ? '+' : '-'}${m(Math.abs(r.delta))}</b><small>owed after: ${m(r.after)}</small></span></button></li>`; };
+  sheet(`<ul class="calfacts"><li><span>Lent or paid for them</span><b>${m(h.lent)}</b></li><li><span>Paid back so far</span><b>${m(h.back)}</b></li>${h.off > 0.004 ? `<li><span>Written off</span><b>${m(h.off)}</b></li>` : ''}<li><span><b>Still owed</b></span><b>${m(h.owed)}</b></li></ul>
+    ${h.rows.length ? `<ul class="ohist">${h.rows.slice().reverse().map(li).join('')}</ul><p class="hint">Newest first. Tap a line to see or change that entry.</p>` : '<p class="empty">Nothing recorded with this person yet.</p>'}`, { title: `${a.name}: History` });
 };

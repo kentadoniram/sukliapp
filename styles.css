@@ -1177,3 +1177,14 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 
 .pairline { margin: 2px 0 8px; font-weight: 600; letter-spacing: .01em; }
 .pairline:empty { display: none; }
+
+.oname { text-align: left; font: inherit; padding: 0; }
+.ohist { list-style: none; margin: 8px 0; padding: 0; }
+.ohist .ohbtn { display: flex; justify-content: space-between; gap: 10px; width: 100%; padding: 10px 0; border: 0; border-bottom: 1px solid var(--rule); background: transparent; color: inherit; font: inherit; text-align: left; }
+.ohist .ohl small, .ohist .ohr-r small { display: block; opacity: .72; overflow-wrap: anywhere; }
+.ohist .ohr-r { text-align: right; flex: none; }
+.oh-up { color: var(--accent, #1a7f5a); } .oh-down { color: #b36b00; }
+
+.othmode .chip.on { background: var(--accent, #1a7f5a); color: #fff; }
+.oth-err { color: #b3261e; }
+.othrow { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; } .othrow select { flex: 1 1 auto; min-width: 0; } .othrow .oth-n { width: 96px; flex: none; }
