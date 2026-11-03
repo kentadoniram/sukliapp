@@ -12,6 +12,7 @@ import { openEntry } from './entry.js';
 import { calendar, budget, cashflow, categories, outlook } from './views.js';
 import { ACT, ic, toast, $ } from './ui.js';
 import { initAppearance, applyHide, applyLook } from './appearance.js';
+import { runEarn, earnDue } from './earn.js';
 import { postInterest, postDebtInterest, hasDebtInt } from './finance.js';
 import { hasRate } from './interest.js';
 import { ratesInit } from './rates.js';
@@ -110,9 +111,10 @@ export function showLatest() {
 }
 // post any interest days that have passed (no-op unless an account has a rate)
 function runInterest() {
-  if (!get().accounts.some((a) => !a.deleted && (hasRate(a) || hasDebtInt(a)))) return;
   let n = 0;
-  commitQuiet((d) => { n = postInterest(d).length + postDebtInterest(d).length; });
+  if (earnDue(get())) commitQuiet((d) => { const m = runEarn(d); n += m.subs + m.hours + m.days; });
+  if (!get().accounts.some((a) => !a.deleted && (hasRate(a) || hasDebtInt(a)))) return n;
+  commitQuiet((d) => { n += postInterest(d).length + postDebtInterest(d).length; });
   return n;
 }
 const queue = () => { if (!pending) { pending = true; requestAnimationFrame(render); } };
@@ -158,6 +160,7 @@ const queue = () => { if (!pending) { pending = true; requestAnimationFrame(rend
   cloudInit();
   ratesInit(); initGestures(); autoPurge(); undoLoad();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && runInterest()) queue(); });
+  setInterval(() => { try { if (document.visibilityState === 'visible' && earnDue(get()) && runInterest()) queue(); } catch { /* next minute */ } }, 60000);
   setInterval(() => { try { if (document.visibilityState === 'visible' && new Date().getHours() === 23 && new Date().getMinutes() >= 55 && runInterest()) queue(); } catch { /* try again next minute */ } }, 60000);
   window.sukli = { get, commit, openEntry, ui, balancesNow: () => balances(get()) };
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {

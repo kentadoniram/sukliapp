@@ -814,7 +814,9 @@ export function openEntry(opts = {}) {
       case 'posted': openDatePicker(f.posted + ' 00:00:00', (val) => { const v = val.slice(0, 10), day = String(f.date).slice(0, 10); if (v <= day) { f.posted = addDay(day, 1); toast('The posted date must be after the entry date.'); } else f.posted = v; renderPosted(); }, { title: 'Posted Date', time: false }); break;
       case 'when': openDatePicker(f.date, (val) => { f.date = val; renderPosted(); renderWhen(); refreshPred(); renderSafety(); }, { title: 'When Was It?' }); break;
       case 'allamt': { const a0 = acctOf(f.acct); if (!a0) { toast('Choose the From account first.'); break; }
-        let v = balances(get()).get(f.acct) || 0; const fee = parseFloat(String(f.fee || '').replace(/,/g, '')) || 0; if (f.feeBy !== 'to' && fee > 0) v -= fee;   // a fee taken from the sender comes out of the same balance
+        let v = Math.round((balances(get()).get(f.acct) || 0) * 1e8) / 1e8; let fee = parseFloat(String(f.fee || '').replace(/,/g, '')) || 0;
+        if (fee > 0 && f.feeSuggested && !f.feeTouched) { f.fee = ''; f.feeSuggested = false; f.feeTouched = true; fee = 0; const fe = $f('f-fee'); if (fe) fe.value = ''; toast('Moving the whole balance. The guessed fee was cleared. Type a fee if there is one.'); }
+        if (f.feeBy !== 'to' && fee > 0) v = Math.round((v - fee) * 1e8) / 1e8;   // a fee taken from the sender comes out of the same balance
         if (!(v > 0)) { toast('There is nothing to move from this account.'); break; }
         const am = $f('f-amount'); am.value = exactAmt(v); am.dispatchEvent(new Event('input', { bubbles: true })); break; }
       case 'amtclear': { f.amount = ''; const am = $f('f-amount'); am.value = ''; showCalcRes(); syncX(); heavy(); if (!f.calc) am.focus(); break; }

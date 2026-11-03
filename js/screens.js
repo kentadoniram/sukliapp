@@ -131,6 +131,8 @@ export function effectLine(t, accts) {
   if (t.lent) return 'Money you lent: not counted as spending';
   if (t.lentBack) return 'Paid back to you: not counted as income';
   if (t.kind === 'transfer') return `Moved between accounts, not counted as spending${feeTxt}`;
+  if (t.earnDay) return `Earn total for ${t.earnDay} (UTC+8), added up from the hourly payouts`;
+  if (t.earnAuto) return 'Automatic Earn subscription: moved between accounts, not counted as spending';
   if (t.invIncome) return 'Investment income recorded';
   if (t.autoDebt) return 'Interest on a debt, added automatically';
   if (t.auto && t.kind === 'income') return 'Interest posted automatically';
@@ -150,8 +152,8 @@ export function row(t, accts, cats, sel, trail) {
   const sub = tr ? `${t.trade ? 'Trade · ' : t.debtPay ? 'Pay debt · ' : t.debtBorrow ? 'Borrowed · ' : t.lent ? 'Lent · ' : t.lentBack ? 'Paid back · ' : 'Transfer · '}${esc(a ? a.name : '?')} → ${esc((accts.get(t.toAcct) || {}).name || '?')}`
     : `${esc(c ? c.name : 'No category')}${t.merchant ? ` · ${esc(t.merchant)}` : ''} · ${esc(a ? a.name : '')}${t.items && t.items.length ? ` · ${t.items.length} items` : ''}`;
   const tg = parseTags(t.labels).map((x) => `#${esc(x)}`).join(' '), sub2 = tg ? `${sub} · <span class="rtags">${tg}</span>` : sub;
-  const bb = tr ? accts.get(t.toAcct) : null, arr = tr && t.toAmount != null && bb && Math.abs(t.toAmount - t.amount) > 1e-9 && !t.trade ? `<small class="arrived">arrived ${money(t.toAmount, bb.cur)}</small>` : '';
-  const signed = tr ? money(t.amount, t.cur) : money(t.kind === 'income' ? t.amount : -t.amount, t.cur);
+  const bb = tr ? accts.get(t.toAcct) : null, arr = tr && t.toAmount != null && bb && Math.abs(t.toAmount - t.amount) > 1e-9 && !t.trade ? `<small class="arrived">arrived ${fmt(t.toAmount, bb.cur, { cut2: true })}</small>` : '';
+  const signed = tr ? fmt(t.amount, t.cur, { cut2: true }) : fmt(t.kind === 'income' ? t.amount : -t.amount, t.cur, { cut2: true });
   const base = !tr && eq(t.amount, t.cur, t.fx, t.date) ? `<small>${eq(t.amount, t.cur, t.fx, t.date)}</small>` : '';
   const on = sel && ui.sel.has(t.id);
   return `<button class="row ${sel ? 'selrow' : ''} ${on ? 'picked' : ''}" data-act="${sel ? 'sel-toggle' : 'edit'}" data-id="${t.id}" ${sel ? `role="checkbox" aria-checked="${!!on}"` : ''}>

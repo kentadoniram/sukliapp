@@ -146,7 +146,7 @@ export function postInterest(db, upTo = today()) {
   upTo = postDay(upTo);
   const cats = live(db.categories);
   for (const a of live(db.accounts)) {
-    if (!hasRate(a) || a.archived || isLiability(a)) continue;
+    if (!hasRate(a) || a.archived || isLiability(a) || (a.earn && a.earn.on)) continue;
     const dec = (CUR[a.cur] || { dec: 2 }).dec;
     const places = a.type === 'crypto' ? Math.max(dec, 6) : dec;
     const comp = a.compound || 'daily';

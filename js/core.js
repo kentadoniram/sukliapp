@@ -76,7 +76,8 @@ export function fmt(n, cur = BASE, opts = {}) {
   if (hide && priv.style !== 'blur') return c.sym + '•••••';
   if (hide) return '\u2063' + fmt(n, cur, { ...opts, force: true }) + '\u2063';
   const dec = opts.round ? 0 : c.dec;
-  const abs = Math.abs(n || 0);
+  let abs = Math.abs(n || 0);
+  if (opts.cut2 && dec >= 2) abs = Math.trunc(abs * 100 + 1e-7) / 100;   // list view only: show at most 2 decimals (cut, not rounded); stored value is untouched
   const s = abs.toLocaleString('en-US', { minimumFractionDigits: Math.min(dec, 2), maximumFractionDigits: dec });   // coins keep up to 8 decimals, no trailing zeros past 2
   const sign = n < 0 && abs >= Math.pow(10, -dec) / 2 ? '−' : (opts.sign && n > 0 ? '+' : '');
   return sign + c.sym + s;
