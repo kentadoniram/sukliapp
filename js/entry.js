@@ -10,7 +10,7 @@ import { smartKind, openLoanPlanner } from './loans.js';
 import { fxBlockHtml, fxBlockUpdate, openConverter } from './fxview.js';
 import { parseTags, joinTags, tagCounts } from './tags.js';
 import { tipBtn } from './interest.js';
-import { captureLoc } from './loc.js';
+import { captureLoc, hereWhy, permState, parsePt } from './loc.js';
 import { isLiability, isOwed, lockInfo, periodFor, addDay } from './finance.js';
 import { budgetAlerts, newAlertsSince } from './budgetsetup.js';
 import { guessLabel, transferLabel } from './label.js';
@@ -60,7 +60,7 @@ function blank() {
   const db = get();
   const accts = db.accounts.filter((a) => !a.deleted && !a.archived);
   const last = accts.find((a) => a.id === db.settings.lastAcct) || accts.find((a) => a.include) || accts[0];
-  return { kind: 'expense', debt: false, flow: '', merchant: '', merchTouched: false, merchSuggested: false, amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
+  return { cb: { on: false, mode: 'pct', v: '' }, kind: 'expense', debt: false, flow: '', merchant: '', merchTouched: false, merchSuggested: false, amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
     catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), posted: '', postedOn: false, notes: '', labels: '', items: [], counts: [], parts: [], partsOff: '', showCounts: false, flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
     fee: '', feeCat: '', feeBy: 'from', feeTouched: false, calc: false, convert: false, cRate: '', qtab: '', qtabManual: false };
 }
@@ -68,7 +68,7 @@ function fromTx(t) {
   const db = get();
   const cross = t.kind === 'transfer' && t.toAmount != null && Math.abs(t.toAmount - t.amount) > 1e-9;
   const flow = t.kind !== 'transfer' ? '' : t.debtPay ? 'pay' : t.debtBorrow ? 'borrow' : t.lent ? 'lend' : t.lentBack ? 'back' : '';
-  return { kind: t.kind, debt: !!flow, flow, merchant: t.merchant || '', merchTouched: true, merchSuggested: false, amount: String(t.amount), name: t.name || '', acct: t.acct, toAcct: t.toAcct || '',
+  return { cb: t.cashback ? { on: true, mode: t.cashback.mode, v: String(t.cashback.v) } : { on: false, mode: 'pct', v: '' }, branch: t.branch || '', loc: t.loc || null, kind: t.kind, debt: !!flow, flow, merchant: t.merchant || '', merchTouched: true, merchSuggested: false, amount: String(t.amount), name: t.name || '', acct: t.acct, toAcct: t.toAcct || '',
     toAmount: t.toAmount != null ? String(t.toAmount) : '', fx: t.fx ? prec(t.fx / homeRate(db, t.date)) : '', cat: t.cat || '',
     fee: t.fee > 0 ? String(t.fee) : '', feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
     convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
@@ -167,6 +167,9 @@ export function openEntry(opts = {}) {
     <div id="itemsrow"></div>
     <div class="adv-only" id="countsrow"></div>
     <div class="field" id="tagsrow"></div>
+    <div class="field" id="locrow"></div>
+    <div class="field" id="branchrow"></div>
+    <div class="field" id="cbrow"></div>
     <label class="field" id="notesrow"><span>Notes</span><textarea id="f-notes" rows="2" placeholder="Optional">${esc(f.notes)}</textarea></label>
     <div id="safety" class="safety" aria-live="polite"></div>
     <p class="err" id="err" role="alert" hidden></p>
@@ -176,8 +179,8 @@ export function openEntry(opts = {}) {
   const focusKeep = (el) => { if (el && document.activeElement !== el) el.focus(); };
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
-    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'itemsrow', 'countsrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
-    transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'safety', 'err', 'btns'],
+    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'itemsrow', 'countsrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'cbrow', 'safety', 'err', 'btns'],
+    transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'safety', 'err', 'btns'],
   };
   function arrange() {
     const ids = f.kind === 'transfer' ? ORDER.transfer : ORDER.flow;
@@ -195,7 +198,7 @@ export function openEntry(opts = {}) {
   function suggestMerchant() {
     if (f.merchTouched || existing) return;
     const g = guessMerchant(get(), f.name);
-    if (g && g !== f.merchant) { f.merchant = g; f.merchSuggested = true; renderMerch(); } else if (!g && f.merchSuggested) { f.merchant = ''; f.merchSuggested = false; renderMerch(); }
+    if (g && g !== f.merchant) { f.merchant = g; f.merchSuggested = true; renderMerch(); renderBranch(); } else if (!g && f.merchSuggested) { f.merchant = ''; f.merchSuggested = false; renderMerch(); renderBranch(); }
   }
   const isPersonSide = (to) => (to ? FLOWS[f.flow].person === 'to' : FLOWS[f.flow].person === 'from');
   async function addPerson() {
@@ -633,6 +636,43 @@ export function openEntry(opts = {}) {
     el.innerHTML = list.length ? `<small class="muted">${f.from.trim() ? 'Where to from ' + esc(f.from.trim()) + '?' : 'Likely trips now'}</small><div class="chips">${list.map((x, i) => `<button type="button" class="chip" data-e="trip" data-v="${i}">${esc(x.from)} → ${esc(x.to)} <small>${esc((cm.get(x.cat) || {}).name || '')} · ${Math.round(x.p * 100)}%</small></button>`).join('')}</div>` : '';
   }
   // tag or event: pick one you used before, or add a new one (several are fine)
+  // Cashback: a percentage or a fixed amount, saved as its own linked income entry
+  const cbAmount = () => { const am = num(f.amount) || 0, v = num(f.cb.v) || 0, dec = (CUR[(acctOf(f.acct) || {}).cur] || { dec: 2 }).dec; const x = f.cb.mode === 'pct' ? am * v / 100 : v; return +Math.min(Math.max(x, 0), am || x).toFixed(dec); };
+  function cbText() { const a = acctOf(f.acct), cur = a ? a.cur : HOME, v = cbAmount(); return v > 0 ? `Cashback: ${fmt(v, cur)}${f.cb.mode === 'pct' ? ` (${f.cb.v}% of ${fmt(num(f.amount) || 0, cur)})` : ''}` : 'Type the cashback you get.'; }
+  function renderCb() {
+    const el = $f('cbrow'); if (!el) return; el.hidden = f.kind !== 'expense' || f.debt; if (el.hidden) return;
+    if (!f.cb.on) { el.innerHTML = '<button type="button" class="linkbtn" data-e="cb-on">+ Cashback</button>'; return; }
+    el.innerHTML = `<span>Cashback</span><div class="seg sm" role="group" aria-label="Cashback type"><button type="button" class="${f.cb.mode === 'pct' ? 'on' : ''}" data-e="cb-mode" data-v="pct">Percentage</button><button type="button" class="${f.cb.mode === 'fixed' ? 'on' : ''}" data-e="cb-mode" data-v="fixed">Fixed Amount</button></div>
+      <div class="two"><input id="f-cbv" inputmode="decimal" autocomplete="off" aria-label="${f.cb.mode === 'pct' ? 'Cashback percent' : 'Cashback amount'}" placeholder="${f.cb.mode === 'pct' ? 'e.g. 5' : 'e.g. 50'}" value="${esc(f.cb.v)}"><button type="button" class="chip" data-e="cb-off">Remove</button></div><small class="muted" id="cbcalc">${esc(cbText())}</small>`;
+  }
+  const updCb = () => { const c = $f('cbcalc'); if (c) c.textContent = cbText(); };
+  // Branch of the merchant (Life > Tsukagoshi): below the keypad, shown once a merchant is chosen
+  function renderBranch() {
+    const el = $f('branchrow'); if (!el) return; el.hidden = f.kind !== 'expense' || !f.merchant; if (el.hidden) return;
+    el.innerHTML = `<span>Branch of ${esc(f.merchant)} (optional)</span><button type="button" class="acctbtn" data-e="branchpick">${f.branch ? esc(f.branch) : '<span class="muted">Which branch?</span>'} ▾</button>`;
+  }
+  async function pickBranch() {
+    const { branchesOf } = await import('./merchantset.js'); const list = branchesOf(get(), f.merchant);
+    const s = sheet(`<div class="rows plain"><button type="button" class="row cur" data-b=""><span class="rmain"><strong>No branch</strong></span></button>${list.map((b) => `<button type="button" class="row cur" data-b="${esc(b.name)}"><span class="rmain"><strong>${esc(b.name)}</strong><small>${b.n} ${b.n === 1 ? 'entry' : 'entries'}</small></span></button>`).join('')}</div><div class="btnrow left"><button type="button" class="btn ghost" data-new>Add a New Branch</button></div>`, { title: `${f.merchant}: Branch` });
+    s.el.addEventListener('click', async (e) => { const r = e.target.closest('[data-b]'); if (r) { s.close(); f.branch = r.dataset.b; renderBranch(); return; }
+      if (e.target.closest('[data-new]')) { s.dispose(); const v = ((await promptDialog('New branch', '', { okLabel: 'Add', hint: `A place of ${f.merchant}, for example Kawasaki Station.` })) || '').replace(/\s+/g, ' ').trim(); if (!v) return; f.branch = v; f.newBranch = v; renderBranch(); } });
+  }
+  // Current Location: below the keypad, so nothing above it moves
+  function renderLoc() {
+    const el = $f('locrow'); if (!el) return; const L = f.locUi || (f.locUi = { perm: 'unknown', msg: '', edit: false });
+    const pt = f.loc, permTxt = { granted: 'Location permission: allowed', denied: 'Location permission: blocked. Allow it in your phone’s settings for this app, or type a place below.', prompt: 'Location permission: will ask when you tap', unknown: 'Location permission: not known yet (your phone asks when you tap)' }[L.perm];
+    el.innerHTML = `<span>Location (optional)</span><div class="locbox"><button type="button" class="acctbtn" data-e="loc-get">${pt ? `📍 ${pt.la.toFixed(2)}, ${pt.lo.toFixed(2)}` : 'Current Location'}</button>
+      <div class="chips">${pt ? '<button type="button" class="chip" data-e="loc-clear">Remove</button>' : ''}<button type="button" class="chip" data-e="loc-edit">${L.edit ? 'Close' : 'Type It'}</button></div></div>
+      ${L.edit ? `<input id="f-loc" inputmode="decimal" placeholder="Latitude, longitude (e.g. 35.53, 139.69)" value="${pt ? `${pt.la}, ${pt.lo}` : ''}" aria-label="Location as latitude and longitude">` : ''}
+      <small class="muted">${esc(permTxt)}</small>${L.msg ? `<small class="locmsg">${esc(L.msg)}</small>` : ''}`;
+  }
+  async function getLoc() {
+    const L = f.locUi || (f.locUi = { perm: 'unknown', msg: '', edit: false }); L.msg = 'Finding where you are…'; renderLoc();
+    const r = await hereWhy(); L.perm = await permState();
+    if (r.p) { f.loc = r.p; L.msg = 'Saved with this entry (about 1 km accuracy). Tap Remove to drop it.'; if (L.perm === 'unknown') L.perm = 'granted'; }
+    else { L.msg = r.err === 'denied' ? 'Location is blocked for this app. Allow it in your phone’s settings, or type a place with Type It.' : r.err === 'timeout' ? 'Could not find you in time. Try again, or type it.' : 'Location is not available on this device. You can type it.'; if (r.err === 'denied') L.perm = 'denied'; }
+    renderLoc();
+  }
   function renderTags() {
     const el = $f('tagsrow'); if (!el) return;
     const on = parseTags(f.labels), onSet = new Set(on.map((x) => x.toLowerCase())), more = tagCounts(get()).filter((x) => !onSet.has(x.tag.toLowerCase())).slice(0, 8);
@@ -710,11 +750,13 @@ export function openEntry(opts = {}) {
   form.addEventListener('input', (e) => {
     const id = e.target.id;
     if (id === 'f-amount') {
-      formatAmountInput(e.target); f.amount = e.target.value; showCalcRes(); syncX(); updateFxVal(); heavy(); othSum();
+      formatAmountInput(e.target); f.amount = e.target.value; showCalcRes(); syncX(); updateFxVal(); heavy(); othSum(); updCb();
     }
     else if (e.target.classList.contains('oth-n')) { f.others.rows[+e.target.closest('.othrow').dataset.i].v = e.target.value; othSum(); }
+    else if (id === 'f-cbv') { f.cb.v = e.target.value; updCb(); }
     else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
     else if (id === 'f-from' || id === 'f-to') { if (id === 'f-from') f.from = e.target.value; else f.to = e.target.value; tripName(); tripChips(); }
+    else if (id === 'f-loc') { const q = parsePt(e.target.value); if (q) { f.loc = q; f.locUi.msg = 'Saved with this entry.'; } else if (!e.target.value.trim()) { f.loc = null; f.locUi.msg = 'Location removed.'; } else f.locUi.msg = 'Type latitude and longitude, like 35.53, 139.69.'; renderLoc(); }
     else if (id === 'f-what') { f.name = e.target.value; renderNameHelp(); if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('#countsrow')) renderCounts(); suggestAcct(); suggestMerchant(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
     else if (id === 'f-fx') { f.fx = e.target.value; f.fxMode = 'rate'; updateFxVal(); }
     else if (id === 'f-peso') { f.peso = e.target.value; f.fxMode = 'peso'; updateFxVal(); }
@@ -794,11 +836,11 @@ export function openEntry(opts = {}) {
         f.qtab = ''; f.qtabManual = false;
         if (!f.catTouched || f.kind === 'transfer') { f.cat = ''; f.catTouched = false; }
         else { const c = catMap(get()).get(f.cat); if (c && !(c.kind === f.kind || c.kind === 'both')) { f.cat = ''; f.catTouched = false; } }
-        arrange(); renderSeg(); renderMerch(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderCounts(); renderSugg(); renderSafety(); break;
+        arrange(); renderSeg(); renderMerch(); renderBranch(); renderCb(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderCounts(); renderSugg(); renderSafety(); break;
       case 'flow': { setFlow(f, v); debtFix(f); f.feeTouched = true; f.fee = ''; f.convert = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; renderSeg(); renderFreq(); renderAccts(); renderFx(); renderSugg(); renderSafety(); break; }
       case 'addperson': addPerson(); break;
       case 'debtamt': { f.amount = String(+(+v).toFixed(6)); const fa = $f('f-amount'); fa.value = commasOn() ? withCommas(f.amount) : f.amount; fa.dispatchEvent(new Event('input', { bubbles: true })); break; }
-      case 'merchpick': openMerchantPicker({ selected: f.merchant }, (v) => { f.merchant = v; f.merchTouched = true; f.merchSuggested = false; renderMerch(); }); break;
+      case 'merchpick': openMerchantPicker({ selected: f.merchant }, (v) => { if (v !== f.merchant) { f.branch = ''; } f.merchant = v; f.merchTouched = true; f.merchSuggested = false; renderMerch(); renderBranch(); }); break;
       case 'swapacct': { const t = f.acct; f.acct = f.toAcct; f.toAcct = t; f.acctTouched = true; f.acctSuggested = false; f.feeTouched = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; f.cRate = ''; renderAccts(); renderFx(); syncCross(); renderSugg(); break; }
       case 'smart': smartAct(v); break;
       case 'qtab': f.qtab = v; f.qtabManual = true; renderFreq(); break;
@@ -846,6 +888,13 @@ export function openEntry(opts = {}) {
       case 'oth-mode': f.others.mode = v; renderCounts(); break;
       case 'oth-add': f.others.rows.push({ who: '', v: '' }); renderCounts(); break;
       case 'oth-del': f.others.rows.splice(+v, 1); renderCounts(); break;
+      case 'cb-on': f.cb.on = true; renderCb(); break;
+      case 'cb-off': f.cb = { on: false, mode: 'pct', v: '' }; renderCb(); break;
+      case 'cb-mode': f.cb.mode = b.dataset.v; renderCb(); break;
+      case 'branchpick': pickBranch(); break;
+      case 'loc-get': getLoc(); break;
+      case 'loc-clear': f.loc = null; f.locUi.msg = 'Location removed from this entry.'; renderLoc(); break;
+      case 'loc-edit': f.locUi.edit = !f.locUi.edit; renderLoc(); break;
       case 'counts-on': f.showCounts = true; if (!f.counts.length) f.counts.push({ g: '', n: '' }); renderCounts(); break;
       case 'count-add': f.counts.push({ g: '', n: '' }); renderCounts(); break;
       case 'count-del': f.counts.splice(+v, 1); renderCounts(); break;
@@ -853,9 +902,10 @@ export function openEntry(opts = {}) {
       case 'save-again': save(true); break;
       case 'del': {
         const t = get().txs.find((x) => x.id === f.id);
-        commit(() => { softDelete(t); });
+        const cbs = get().txs.filter((x) => !x.deleted && x.cashbackOf === t.id);
+        commit(() => { softDelete(t); for (const c of cbs) softDelete(c); });
         s.close();
-        toast('Moved to the recycle bin', { undo: () => commit(() => { t.deleted = false; delete t.deletedAt; stamp(t); }) });
+        toast('Moved to the recycle bin', { undo: () => commit(() => { for (const x of [t, ...cbs]) { x.deleted = false; delete x.deletedAt; stamp(x); } }) });
         break;
       }
     }
@@ -977,7 +1027,8 @@ export function openEntry(opts = {}) {
       posted: (f.kind !== 'transfer' && f.postedOn && a.type === 'card' && a.stmtDay > 0 && f.posted > String(f.date).slice(0, 10)) ? f.posted : '' };
     if (f.kind === 'expense' && counts.length && f.parts && f.parts.length && splitParts(f.name)) rec.parts = f.parts.map((x) => ({ n: x.n, k: x.k }));   // the things the total is made of, kept so item prices can be worked out later
     if (f.debt && f.kind === 'transfer') rec[FLOWS[f.flow].flag] = true;
-    { const mc = f.kind === 'expense' ? canonMerchant(db2, f.merchant) : ''; if (mc) rec.merchant = mc; }
+    if (f.loc) rec.loc = f.loc; else if (existing && existing.loc) rec.loc = null;
+    { const mc = f.kind === 'expense' ? canonMerchant(db2, f.merchant) : ''; if (mc) { rec.merchant = mc; if (f.branch) rec.branch = f.branch; } }
     if (f.kind !== 'transfer' && cat && ((f.catTouched && f.guessed && f.guessed !== cat) || (existing && existing.cat && existing.cat !== cat) || (existing && existing.corrected))) rec.corrected = true;
     if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) { rec.from = f.from.trim(); rec.to = f.to.trim(); } else if (existing && (existing.from || existing.to)) { rec.from = ''; rec.to = ''; }
     // paid for others: your part is the expense, each person's part moves to "money owed to you"
@@ -992,6 +1043,10 @@ export function openEntry(opts = {}) {
       rec.splitId = oth.gid;
       if (rec.counts && rec.counts.length) { rec.counts = []; delete rec.parts; }          // the groups were counted on the whole bill; they would not add up to your part
     }
+    // cashback: its own income entry, linked to this expense and kept in step when the expense changes
+    const cbAmt = f.kind === 'expense' && !f.debt && f.cb.on ? (() => { const v = num(f.cb.v) || 0, x = f.cb.mode === 'pct' ? rec.amount * v / 100 : v, dec = (CUR[a.cur] || { dec: 2 }).dec; return +Math.min(Math.max(x, 0), rec.amount).toFixed(dec); })() : 0;
+    const cbId = existing && existing.cashback ? existing.cashback.id : uid();
+    if (cbAmt > 0) rec.cashback = { mode: f.cb.mode, v: num(f.cb.v) || 0, id: cbId }; else rec.cashback = null;
     let savedAs; const alertsBefore = budgetAlerts(get(), rec.date.slice(0, 7));
     commit((d) => {
       if (fee) {
@@ -1002,7 +1057,7 @@ export function openEntry(opts = {}) {
         // keep what it was before this change, so the Input history can put it back (the last 5 versions)
         const before = {}; for (const k of ['kind', 'date', 'name', 'amount', 'cur', 'fx', 'acct', 'toAcct', 'toAmount', 'cat', 'notes', 'fee', 'feeCat', 'feeBy']) if (t[k] !== undefined) before[k] = t[k];
         t.rev = [{ at: Date.now(), ...before }, ...(t.rev || [])].slice(0, 5);
-        Object.assign(t, rec); for (const k of FLOW_FLAGS) if (!rec[k]) delete t[k]; if (!rec.merchant) delete t.merchant; stamp(t); savedAs = t; }
+        Object.assign(t, rec); for (const k of FLOW_FLAGS) if (!rec[k]) delete t[k]; if (!rec.merchant) delete t.merchant; if (!rec.branch) delete t.branch; if (!rec.cashback) delete t.cashback; if (!t.loc) delete t.loc; stamp(t); savedAs = t; }
       else if (oth) {
         const hx = (c) => homeFx(d, c) || 1, toAmt = (pp0, v) => (pp0.cur === a.cur ? v : +(v * hx(a.cur) / hx(pp0.cur)).toFixed(2));
         if (oth.mine > 0) { savedAs = stamp({ id: oth.eid, ...rec, createdAt: Date.now() }); d.txs.push(savedAs); }
@@ -1010,11 +1065,15 @@ export function openEntry(opts = {}) {
       }
       else { savedAs = stamp({ id: uid(), ...rec, createdAt: Date.now() }); d.txs.push(savedAs);
         if (extraAmt > 0) d.txs.push(stamp({ id: uid(), kind: 'income', date: rec.date, name: `${f.extraKind} from ${a.name}`, amount: extraAmt, cur: a.cur, fx, cat: findOrAddCategory(d, 'Income', f.extraKind, 'income').id, acct: f.toAcct, toAcct: '', toAmount: null, fee: 0, notes: '', labels: '', items: [], flag: null, createdAt: Date.now() })); }
+      if (savedAs) { const sa = d.txs.find((q) => q.id === savedAs.id) || savedAs, old = d.txs.find((q) => q.id === cbId);
+        if (!rec.cashback) { delete sa.cashback; if (old && !old.deleted) softDelete(old); }
+        else { const base = { kind: 'income', date: sa.date, acct: sa.acct, cur: sa.cur, amount: cbAmt, fx: sa.fx, cat: findOrAddCategory(d, 'Earn', 'Cashback', 'income').id, name: `Cashback: ${sa.name || 'purchase'}`, cashbackOf: sa.id, auto: false };
+          if (old) { Object.assign(old, base, { deleted: false }); delete old.deletedAt; stamp(old); } else d.txs.push(stamp({ id: cbId, ...base, createdAt: Date.now() })); } }
       d.settings.lastAcct = a.id;
     });
     // say so when this entry pushed a budget past the warning line (once per budget per month)
     try { const fresh = newAlertsSince(alertsBefore, budgetAlerts(get(), rec.date.slice(0, 7))); if (fresh.length && rec.kind === 'expense') setTimeout(() => toast(fresh[0].text, { ms: 7000 }), 900); } catch { /* alerts are a bonus */ }
-    if (!existing && savedAs) captureLoc(get(), savedAs.id, rec.date);
+    if (!existing && savedAs && !f.loc) captureLoc(get(), savedAs.id, rec.date);
     s.close();
     toast(rec.flag === 'review' ? 'Saved. It is in Review so you can confirm the category later.' : 'Saved', { undo: () => undoLast() });
     if (again) openEntry({ preset: { acct: a.id } });
@@ -1022,7 +1081,7 @@ export function openEntry(opts = {}) {
 
   arrange(); renderSeg(); renderMerch(); renderFreq(); renderAccts(); renderFx(); renderItems(); renderCounts(); renderWhen(); renderBtns(); renderSafety();
   if (existing) { refreshPred(); f.cat = existing.cat || ''; renderCats(); } else renderCats();
-  renderTrip(); renderTags();
+  renderTrip(); renderTags(); renderBranch(); renderCb(); renderLoc(); permState().then((st) => { (f.locUi || (f.locUi = { msg: '', edit: false })).perm = st; renderLoc(); });
   updateFxVal();
 }
 

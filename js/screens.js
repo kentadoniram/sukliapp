@@ -22,6 +22,7 @@ import { helpBtn } from './tabhelp.js';
 import { merchantsSection } from './merchantset.js';
 import { undoSection } from './undoui.js';
 import { locSection } from './loc.js';
+import { splitGroups, splitExtra, openSplit } from './splitbill.js';
 import { openBulkEdit } from './bulkedit.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES, setLookMode } from './appearance.js';
@@ -122,6 +123,7 @@ export function effectLine(t, accts) {
   let feeTxt = '';
   if (t.kind === 'transfer' && t.fee > 0) feeTxt = ` · fee ${money(t.fee, t.feeCur || t.cur)} recorded as an expense`;
   const kids = kidsOf.get(t.id) || []; for (const k of kids) feeTxt += ` · fee ${money(k.amount, k.cur)} recorded as an expense`;
+  if (t._eff) return t._eff;
   if (t._feeOf) return `Fee of “${esc(t._feeOf)}”, saved with it. Tap to open the whole entry`;
   if (parentOf.has(t.id)) return `Fee of “${esc(parentOf.get(t.id).name)}” recorded as an expense`;
   if (t.loanNet) return `Loan: borrowed ${money(t.loanNet.principal, t.cur)}${t.loanNet.fees > 0 ? `, fees ${money(t.loanNet.fees, t.cur)} deducted` : ''}, received ${money(t.loanNet.net, t.cur)}`;
@@ -131,11 +133,13 @@ export function effectLine(t, accts) {
   if (t.lent) return 'Money you lent: not counted as spending';
   if (t.lentBack) return 'Paid back to you: not counted as income';
   if (t.kind === 'transfer') return `Moved between accounts, not counted as spending${feeTxt}`;
-  if (t.earnDay) return `Earn total for ${t.earnDay} (UTC+8), added up from the hourly payouts`;
+  if (t.earnDay) return `Earn total for ${t.earnDay} (platform clock), added up from the hourly payouts`;
   if (t.earnAuto) return 'Automatic Earn subscription: moved between accounts, not counted as spending';
   if (t.invIncome) return 'Investment income recorded';
   if (t.autoDebt) return 'Interest on a debt, added automatically';
   if (t.auto && t.kind === 'income') return 'Interest posted automatically';
+  if (t.cashbackOf) return 'Cashback from a purchase, counted as income';
+  { const cb = t.cashback && db.txs.find((x) => x.id === t.cashback.id && !x.deleted); if (cb && t.kind === 'expense') return `Expense recorded · cashback ${money(cb.amount, cb.cur)} saved as its own income`; }
   return t.kind === 'income' ? 'Income recorded' : 'Expense recorded';
 }
 // "balance after": what each affected account holds right after this entry, with an arrow and colour for up or down
@@ -149,8 +153,9 @@ export function row(t, accts, cats, sel, trail) {
   const a = accts.get(t.acct), c = cats.get(t.cat), tr = t.kind === 'transfer';
   const group = tr ? 'Transfer' : (c ? c.group : 'Uncategorized');
   const title = t.name || (c ? c.name : 'Untitled');
-  const sub = tr ? `${t.trade ? 'Trade · ' : t.debtPay ? 'Pay debt · ' : t.debtBorrow ? 'Borrowed · ' : t.lent ? 'Lent · ' : t.lentBack ? 'Paid back · ' : 'Transfer · '}${esc(a ? a.name : '?')} → ${esc((accts.get(t.toAcct) || {}).name || '?')}`
-    : `${esc(c ? c.name : 'No category')}${t.merchant ? ` · ${esc(t.merchant)}` : ''} · ${esc(a ? a.name : '')}${t.items && t.items.length ? ` · ${t.items.length} items` : ''}`;
+  const sub0 = tr ? `${t.trade ? 'Trade · ' : t.debtPay ? 'Pay debt · ' : t.debtBorrow ? 'Borrowed · ' : t.lent ? 'Lent · ' : t.lentBack ? 'Paid back · ' : 'Transfer · '}${esc(a ? a.name : '?')} → ${esc((accts.get(t.toAcct) || {}).name || '?')}`
+    : `${esc(c ? c.name : 'No category')}${t.merchant ? ` · ${esc(t.merchant)}${t.branch ? ' ' + esc(t.branch) : ''}` : ''} · ${esc(a ? a.name : '')}${t.items && t.items.length ? ` · ${t.items.length} items` : ''}`;
+  const sub = t._sub || sub0;
   const tg = parseTags(t.labels).map((x) => `#${esc(x)}`).join(' '), sub2 = tg ? `${sub} · <span class="rtags">${tg}</span>` : sub;
   const bb = tr ? accts.get(t.toAcct) : null, arr = tr && t.toAmount != null && bb && Math.abs(t.toAmount - t.amount) > 1e-9 && !t.trade ? `<small class="arrived">arrived ${fmt(t.toAmount, bb.cur, { cut2: true })}</small>` : '';
   const signed = tr ? fmt(t.amount, t.cur, { cut2: true }) : fmt(t.kind === 'income' ? t.amount : -t.amount, t.cur, { cut2: true });
@@ -162,7 +167,7 @@ export function row(t, accts, cats, sel, trail) {
     <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub2}</small><small class="eff">${effectLine(t, accts)}</small>${balLines(t, accts, trail)}</span>
     <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}${arr}</span></button>`;
 }
-ACT.edit = (el) => { const t = get().txs.find((x) => x.id === el.dataset.id); if (t && t.auto && t.kind === 'income' && openInterestDetail(t)) return; openEntry({ id: el.dataset.id }); };
+ACT.edit = (el) => { const t = get().txs.find((x) => x.id === el.dataset.id); if (t && t.splitId && openSplit(t.id)) return; if (t && t.auto && t.kind === 'income' && openInterestDetail(t)) return; openEntry({ id: el.dataset.id }); };
 ACT.add = async () => {
   // on the Investments tab the + button asks which account and what kind of entry
   if ((location.hash.replace(/^#\/?/, '').split('?')[0]) === 'invest') { (await import('./invest.js')).invEntryMenu(); return; }
@@ -447,12 +452,17 @@ function ledgerRows(db) {
   }
   if (q) list = list.filter((t) => {
     const c = cats.get(t.cat), a = accts.get(t.acct);
-    return [t.name, t.merchant, t.notes, t.labels, c && c.name, c && c.group, a && a.name, (t.items || []).map((i) => i.n).join(' ')].join(' ').toLowerCase().includes(q);
+    return [t.name, t.merchant, t.branch, t.notes, t.labels, c && c.name, c && c.group, a && a.name, (t.items || []).map((i) => i.n).join(' ')].join(' ').toLowerCase().includes(q);
   });
   // a fee that belongs to a trade is shown inside the trade's row, not as a separate entry (still searchable, and in the Expense filter)
   const kidMap = tradeKids(db).parentOf, hideKids = !q && ui.filter !== 'expense';
   const hiddenFees = hideKids ? list.filter((t) => kidMap.has(t.id) && list.some((p) => p.id === kidMap.get(t.id).id)) : [];
   if (hiddenFees.length) { const hs = new Set(hiddenFees.map((t) => t.id)); list = list.filter((t) => !hs.has(t.id)); }
+  // a shared bill shows once: its other parts are tucked under it (not when searching a part's own name or filtering to transfers)
+  const sg = splitGroups(db), sgHead = new Map(), sgHide = new Set();
+  if (ui.filter !== 'transfer') for (const g of sg.values()) { if (!g.head || !list.some((t) => t.id === g.head.id)) continue; sgHead.set(g.head.id, g); for (const id of g.byId) if (id !== g.head.id) sgHide.add(id); }
+  if (sgHide.size) list = list.filter((t) => !sgHide.has(t.id));
+  { const ids = new Set(list.map((t) => t.id)), cbh = new Set(list.filter((t) => t.cashbackOf && ids.has(t.cashbackOf)).map((t) => t.id)); if (cbh.size && !q) list = list.filter((t) => !cbh.has(t.id)); }
   const total = list.length, trail = balanceTrail(db);
   const sumHtml = filterSummary(db, list, hiddenFees, kidMap);
   // one continuous history, newest first, across months; always at least the last 30 days
@@ -465,7 +475,11 @@ function ledgerRows(db) {
   for (const t of list) {
     const d = t.date.slice(0, 10);
     if (d !== day) { flush(); day = d; }
-    buf += row(t, accts, cats, ui.selecting, trail); shown.push(t.id); n++;
+    { const g = sgHead.get(t.id);
+      if (g) { const syn = { ...t, name: g.name, amount: g.total, kind: 'expense', lent: false, paidFor: null, _eff: `Whole bill ${fmt(g.total, g.cur)}${t.paidFor ? `, your part ${fmt(t.amount, g.cur)}` : ', you paid for others'}: not all of it is your spending`, _sub: g.people.map((p) => esc(p.who)).join(', ') };
+        buf += row(syn, accts, cats, ui.selecting, trail) + splitExtra(g); }
+      else buf += row(t, accts, cats, ui.selecting, trail); }
+    shown.push(t.id); n++;
     if (t.kind === 'expense') { dayTotal += t.amount * factorFor(db, t); byCur.set(t.cur, (byCur.get(t.cur) || 0) + t.amount); }
     for (const k of hiddenFees) if (kidMap.get(k.id).id === t.id) { dayTotal += k.amount * factorFor(db, k); byCur.set(k.cur, (byCur.get(k.cur) || 0) + k.amount); }
   }

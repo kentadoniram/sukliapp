@@ -15,6 +15,7 @@ import { applyHide } from './appearance.js';
 import { money, eq, hdr, coll, ui, tradeKids, effectLine } from './screens.js';
 import { openEntry } from './entry.js';
 import './earnui.js';
+
 import { loanBox } from './loans.js';
 import { favCurs, openCurrencyPicker, flagOf } from './curpicker.js';
 import { openDatePicker } from './datepicker.js';
@@ -314,7 +315,7 @@ export function openAccountDetail(id) {
         ${['asset', 'invest', 'other'].includes(a.type) ? '<button class="btn sm ghost" data-ad="reval">Update value</button>' : ''}
         <button class="btn sm ghost" data-ad="edit">Edit</button></div>
       ${a.exchange && a.type === 'crypto' ? `<div class="wmove"><span class="muted">${esc(walletOf(a))} wallet on ${esc(a.exchange)}: move coins between wallets as a transfer</span><div class="chips">${walletOf(a) !== 'Earn' ? `<button type="button" class="btn sm" data-act="wallet-xfer" data-id="${a.id}" data-w="Earn">Move to Earn</button>` : ''}${walletOf(a) !== 'Spot' ? `<button type="button" class="btn sm ghost" data-act="wallet-xfer" data-id="${a.id}" data-w="Spot">Move to Spot</button>` : ''}</div></div>` : ''}
-      ${a.exchange && a.type === 'crypto' && walletOf(a) === 'Earn' ? `<div class="btnrow tight"><button class="btn sm ghost" data-act="earn-open" data-id="${a.id}">Earn schedule (UTC+8)${a.earn && a.earn.on ? ' · on' : ''}</button></div>` : ''}
+      ${a.exchange && a.type === 'crypto' && walletOf(a) === 'Earn' ? `<div class="btnrow tight"><button class="btn sm ghost" data-act="earn-open" data-id="${a.id}">Earn schedule${a.earn && a.earn.on ? ' · on' : ''}</button></div>` : ''}
       ${a.exchange ? `<details class="wmove"><summary class="muted">Wrong wallet on ${esc(a.exchange)}? Change this account’s wallet</summary><div class="chips">${[...new Set([...WALLETS, ...db.accounts.filter((x) => !x.deleted && x.exchange === a.exchange).map(walletOf)])].map((w) => `<button type="button" class="chip ${walletOf(a) === w ? 'on' : ''}" data-act="wallet-move" data-id="${a.id}" data-w="${esc(w)}" aria-pressed="${walletOf(a) === w}">${esc(w)}</button>`).join('')}<button type="button" class="chip" data-act="wallet-move" data-id="${a.id}" data-w="__new">+ New wallet</button></div></details>` : ''}
       <div class="rangebar seg sm" role="group" aria-label="Chart range">${[[30, '30 days'], [90, '90 days'], [365, '1 year'], [0, 'All']].map(([v, l]) => `<button type="button" data-ad="range" data-v="${v}" class="${st.range === v ? 'on' : ''}" aria-pressed="${st.range === v}">${l}</button>`).join('')}</div>
       <svg class="chart scrub" data-pts="${esc(JSON.stringify(pts))}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Balance over time. Touch and drag to read each day.">

@@ -21,6 +21,16 @@ export function here(ms = 6000) {
     try { navigator.geolocation.getCurrentPosition((p) => { clearTimeout(t); res({ la: r2(p.coords.latitude), lo: r2(p.coords.longitude) }); }, () => { clearTimeout(t); res(null); }, { enableHighAccuracy: false, timeout: ms, maximumAge: 10 * 60 * 1000 }); } catch { clearTimeout(t); res(null); }
   });
 }
+// like here(), but says why it failed: { p } or { err: 'denied' | 'unavailable' | 'timeout' }
+export function hereWhy(ms = 8000) {
+  return new Promise((res) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return res({ err: 'unavailable' });
+    try { navigator.geolocation.getCurrentPosition((p) => res({ p: { la: r2(p.coords.latitude), lo: r2(p.coords.longitude) } }), (e) => res({ err: e && e.code === 1 ? 'denied' : e && e.code === 3 ? 'timeout' : 'unavailable' }), { enableHighAccuracy: false, timeout: ms, maximumAge: 10000 }); } catch { res({ err: 'unavailable' }); }
+  });
+}
+// 'granted' | 'denied' | 'prompt' | 'unknown' (some phones cannot tell until you ask)
+export async function permState() { try { return (await navigator.permissions.query({ name: 'geolocation' })).state; } catch { return 'unknown'; } }
+export const parsePt = (t) => { const m = String(t).match(/(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)/); if (!m) return null; const la = +m[1], lo = +m[2]; return Math.abs(la) <= 90 && Math.abs(lo) <= 180 ? { la: r2(la), lo: r2(lo) } : null; };
 const hourOf = (d) => +String(d).slice(11, 13) || 0;
 const dowOf = (d) => new Date(String(d).slice(0, 10) + 'T12:00:00').getDay();
 const withLoc = (db) => (db.txs || []).filter((t) => !t.deleted && t.loc && isFinite(t.loc.la) && isFinite(t.loc.lo));

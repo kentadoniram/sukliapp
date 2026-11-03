@@ -1188,3 +1188,5 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 .othmode .chip.on { background: var(--accent, #1a7f5a); color: #fff; }
 .oth-err { color: #b3261e; }
 .othrow { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; } .othrow select { flex: 1 1 auto; min-width: 0; } .othrow .oth-n { width: 96px; flex: none; }
+.splitbar{display:block;width:100%;text-align:left;background:none;border:0;padding:4px 14px 8px;color:var(--muted);font-size:.85rem}
+.splitkids{padding:0 14px 8px 28px}.splitkid{display:flex;justify-content:space-between;width:100%;background:none;border:0;border-top:1px solid var(--line);padding:8px 0;color:inherit;font:inherit}

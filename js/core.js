@@ -238,7 +238,7 @@ export function fixRouteNames(d) {
 // text becomes one undo step. Quick commits within 0.8 s are one step. Undoing puts the old records back with a new "updated" time so sync carries the change,
 // and entries that were added are moved to the Recycle bin instead of being erased.
 const UNDO_MAX = 25, UNDO_BYTES = 30e6, undoStack = [], redoStack = []; let undoAt = 0;
-const undoPartsOf = (d) => JSON.stringify({ txs: d.txs, accounts: d.accounts, categories: d.categories, budgets: d.budgets, merchants: d.settings.merchants || null, customTypes: d.settings.customTypes || null, typeLabels: d.settings.typeLabels || null });
+const undoPartsOf = (d) => JSON.stringify({ txs: d.txs, accounts: d.accounts, categories: d.categories, budgets: d.budgets, merchants: d.settings.merchants || null, merchantInfo: d.settings.merchantInfo || null, customTypes: d.settings.customTypes || null, typeLabels: d.settings.typeLabels || null });
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 function undoLabel(t0, nTx) {
   const touched = state.txs.filter((t) => t.updatedAt >= t0), added = state.txs.length - nTx, dels = touched.filter((t) => t.deleted).length;
