@@ -28,7 +28,7 @@ with sync_playwright() as p:
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.accounts.push(c.stamp({id:'pm1',name:'Pasmo',cur:'JPY',type:'cash',open:1000,include:true,archived:false}))})})()")
     pg.evaluate("window.__walletText="+__import__('json').dumps(TXT))
     open('/tmp/blank.png','wb').write(bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63fcffff3f0300050001a5f645400000000049454e44ae426082'))
-    pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer'); ok('menu offers it', 'Scanner' in pg.inner_text('.drawer') and 'Read a Pasmo screenshot' in pg.inner_text('.drawer', timeout=2000) or 'Read a Pasmo screenshot' in pg.evaluate("document.querySelector('.drawer').textContent"))
+    pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer'); ok('menu offers it', 'Scanner' in pg.inner_text('.drawer') and 'Read a Pasmo Screenshot' in pg.inner_text('.drawer', timeout=2000) or 'Read a Pasmo Screenshot' in pg.evaluate("document.querySelector('.drawer').textContent"))
     pg.evaluate("document.querySelector('.drawer [data-act=wallet-scan]').click()"); pg.wait_for_timeout(600); pg.wait_for_selector('#ws-file',state='attached',timeout=5000); pg.set_input_files('#ws-file','/tmp/blank.png'); pg.wait_for_selector('.wslist',timeout=8000)
     t=pg.inner_text('.sheet'); ok('rows listed with stations', 'Kita-Senju to Kawasaki' in t and 'Tobu-nikko to Kita-Senju' in t and 'Purchase: Kawasaki, Kanagawa' in t)
     ok('balance shown', '809' in t); ok('cut-off row reported', '1 row' in t)

@@ -140,7 +140,7 @@ function start() {
     finally { releaseEngine(); }
   };
 }
-export function openWalletScan() { cur = sheet('', { title: 'Read a Pasmo or Suica screenshot', wide: true, onClose: () => { cur = null; S = null; releaseEngine(); } }); start(); }
+export function openWalletScan() { cur = sheet('', { title: 'Read a Pasmo or Suica Screenshot', wide: true, onClose: () => { cur = null; S = null; releaseEngine(); } }); start(); }
 ACT['wallet-scan'] = () => setTimeout(openWalletScan, 90);
 ACT['ws-fare'] = (el) => { if (!S) return; const r = S.rows[+el.dataset.i]; if (r) { r.amount = +el.dataset.v; render(); } };
 ACT['ws-again'] = () => { if (cur) start(); };

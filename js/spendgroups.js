@@ -74,7 +74,7 @@ export function spend(db) {
   const chips = `<div class="chips" role="group" aria-label="Period">${RANGES.map(([k, l]) => `<button type="button" class="chip ${key === k ? 'on' : ''}" data-act="spend-range" data-k="${k}" aria-pressed="${key === k}">${l}</button>`).join('')}</div>`;
   let body;
   if (!countedAll) {
-    body = `<section class="card"><h2>How it works</h2>
+    body = `<section class="card"><h2>How It Works</h2>
       <p>When you add an expense, tap <b>Count by group</b> and say how many drinks, snacks and so on you bought. No names and no prices needed.</p>
       <p>After about 10 receipts Sukli can say roughly how much you spend on each group. It is always a rough "about", never exact.</p>
       <div class="btnrow"><button type="button" class="btn" data-act="spend-add">Add an entry</button></div></section>`;
@@ -94,7 +94,7 @@ export function spend(db) {
   const mine = Object.keys(groups);
   body += `<section class="card"><h2>Groups</h2><p class="hint">Make groups by price level, for example drinks and ready meals apart, because that is what lets Sukli tell them apart.</p>
     <div class="chips">${mine.map((g) => `<span class="chip">${esc(g)}${groups[g].unit === 'kg' ? ' (kg)' : ''}${used.has(g) ? '' : ` <button type="button" class="iconbtn" data-act="spend-del" data-g="${esc(g)}" aria-label="Remove ${esc(g)}">${ic('x')}</button>`}</span>`).join('')}</div></section>`;
-  return `${hdr('Spending by group')}<main class="page" id="spendpage">${chips}${body}</main>`;
+  return `${hdr('Spending by Group')}<main class="page" id="spendpage">${chips}${body}</main>`;
 }
 
 Object.assign(ACT, {

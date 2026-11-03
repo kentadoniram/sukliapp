@@ -30,7 +30,7 @@ export function openLoanPlanner(pre = {}) {
     <div id="lp-out" class="lpout" aria-live="polite"></div>
     ${recv.length ? `<label class="field"><span>Money arrives in</span><select name="recv">${recv.map((a) => `<option value="${a.id}">${esc(a.name)} · ${a.cur}</option>`).join('')}</select></label>
     <label class="field"><span>Record the debt in</span><select name="debt"><option value="">A new loan account</option>${debts.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select></label>` : '<p class="hint">Add an account first to record a loan.</p>'}
-    <div class="btnrow"><button type="button" class="btn ghost" data-close2>Close</button>${recv.length ? '<button type="button" class="btn" data-rec>Record this loan</button>' : ''}</div></form>`, { title: 'Loan planner', wide: true });
+    <div class="btnrow"><button type="button" class="btn ghost" data-close2>Close</button>${recv.length ? '<button type="button" class="btn" data-rec>Record this loan</button>' : ''}</div></form>`, { title: 'Loan Planner', wide: true });
   pickAll(s.el);
   const form = s.el.querySelector('#lp'), out = s.el.querySelector('#lp-out');
   bindCalc(s.el, { onUse: (nm) => { form.rate.value = String(+nm.toFixed(4)); form.rate.dispatchEvent(new Event('input', { bubbles: true })); } });

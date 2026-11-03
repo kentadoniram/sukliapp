@@ -18,7 +18,7 @@ export function merchantsSection(db) {
 
 ACT['mer-add'] = () => {
   const s = sheet(`<form novalidate><label class="field"><span>Merchant name</span><input name="m" autocomplete="off" autocapitalize="words" placeholder="e.g. Shopee" autofocus></label>
-    <p class="hint">It will show in the Merchant list when you add an expense.</p><div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">Add</button></div></form>`, { title: 'Add a merchant' });
+    <p class="hint">It will show in the Merchant list when you add an expense.</p><div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">Add</button></div></form>`, { title: 'Add a Merchant' });
   s.el.querySelector('[data-no]').onclick = () => s.close();
   s.el.querySelector('form').onsubmit = (e) => {
     e.preventDefault(); const v = clean(e.target.m.value); if (!v) return; s.dispose();

@@ -1174,3 +1174,6 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 
 .wsbal { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0; }
 .wsfare { margin: 2px 0 6px 28px; font-size: 13px; }
+
+.pairline { margin: 2px 0 8px; font-weight: 600; letter-spacing: .01em; }
+.pairline:empty { display: none; }

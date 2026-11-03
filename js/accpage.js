@@ -1,6 +1,6 @@
 // Accounts page (grouped and sorted), account detail with history, net worth, interest and credit-card details.
 import { pickAll } from './picker.js';
-import { openDateOf, openDates, WALLETS, walletOf } from './core.js';
+import { openDateOf, openDates, WALLETS, WALLET_INFO, walletOf } from './core.js';
 import { tipBtn, calcHtml, bindCalc, COMP_LABEL, rateAt, hasRate } from './interest.js';
 import { exchangeOf, canonPlatform, nearPlatform, platformNames } from './invest.js';
 import { softDelete, subscribe } from './core.js';
@@ -25,7 +25,7 @@ const SPEND = ['cash', 'bank', 'ewallet'], INVT = ['crypto', 'invest'];
 export function openReclass(id) {
   const a0 = get().accounts.find((x) => x.id === id); if (!a0) return;
   const s = sheet(`<p class="hint">What is <b>${esc(a0.name)}</b>? Its balance and entries stay exactly as they are. Only where it shows up changes.</p>
-    <div class="invopts">${Object.entries(typeNames).map(([k, l]) => `<button type="button" class="invopt ${a0.type === k ? 'main' : ''}" data-t="${k}"><b>${esc(l)}${a0.type === k ? ' (now)' : ''}</b><small>${esc(typeWhere[k] || '')}</small></button>`).join('')}</div>`, { title: 'Change account type' });
+    <div class="invopts">${Object.entries(typeNames).map(([k, l]) => `<button type="button" class="invopt ${a0.type === k ? 'main' : ''}" data-t="${k}"><b>${esc(l)}${a0.type === k ? ' (now)' : ''}</b><small>${esc(typeWhere[k] || '')}</small></button>`).join('')}</div>`, { title: 'Change Account Type' });
   s.el.querySelectorAll('[data-t]').forEach((b) => { b.onclick = () => { const t = b.dataset.t; s.close(); if (t === a0.type) return;
     const before = { type: a0.type, include: a0.include, invtab: a0.invtab, guessed: a0.guessed, apy: a0.apy };
     commit((d) => { const x = d.accounts.find((q) => q.id === id); if (!x) return; const was = x.type; x.type = t; x.guessed = false; x.include = SPEND.includes(t);
@@ -123,7 +123,7 @@ export function accounts(db) {
     const m = new Map(); for (const a of shown) { if (!m.has(a.type)) m.set(a.type, []); m.get(a.type).push(a); }
     groups = [...m.entries()].map(([k, list]) => ({ key: 'type-' + k, title: typeNames[k] || k, list, native: null, total: sum(list.map(val)), base: sum(list.map(val)), t: k }))
       .sort((a, b) => (typeOrder.indexOf(a.t) - typeOrder.indexOf(b.t)));
-  } else groups = [{ key: 'all', title: 'All accounts', list: shown, native: null, total: sum(shown.map(val)), base: sum(shown.map(val)) }];
+  } else groups = [{ key: 'all', title: 'All Accounts', list: shown, native: null, total: sum(shown.map(val)), base: sum(shown.map(val)) }];
   const sp = spendable(db, bal);
   const rowFor = (a) => {
     const v = bal.get(a.id) || 0, c = a.type === 'card' ? cardInfo(db, a, v) : null;
@@ -191,7 +191,7 @@ ACT['acct-sp'] = () => toast('Spendable counts cash, bank, e-wallet and card acc
 // ---------- net worth ----------
 ACT.nw = () => openNetWorth();
 function openNetWorth() {
-  const s = sheet('<div id="nw"></div>', { title: 'Net worth', wide: true });
+  const s = sheet('<div id="nw"></div>', { title: 'Net Worth', wide: true });
   const db = get(), nw = netWorth(db);
   const byType = new Map();
   for (const i of nw.items) { const k = i.a.type; byType.set(k, (byType.get(k) || 0) + i.base); }
@@ -387,8 +387,8 @@ export function openAccountDetail(id) {
         else { st.from = ''; st.to = ''; }
         draw(); break;
       }
-      case 'from': openDatePicker((st.from || today()) + ' 00:00:00', (v) => { st.preset = 'custom'; st.from = v.slice(0, 10); if (st.to && st.to < st.from) st.to = st.from; draw(); }, { title: 'From date', time: false }); break;
-      case 'to': openDatePicker((st.to || today()) + ' 00:00:00', (v) => { st.preset = 'custom'; st.to = v.slice(0, 10); if (st.from && st.to < st.from) st.from = st.to; draw(); }, { title: 'To date', time: false }); break;
+      case 'from': openDatePicker((st.from || today()) + ' 00:00:00', (v) => { st.preset = 'custom'; st.from = v.slice(0, 10); if (st.to && st.to < st.from) st.to = st.from; draw(); }, { title: 'From Date', time: false }); break;
+      case 'to': openDatePicker((st.to || today()) + ' 00:00:00', (v) => { st.preset = 'custom'; st.to = v.slice(0, 10); if (st.from && st.to < st.from) st.from = st.to; draw(); }, { title: 'To Date', time: false }); break;
       case 'pay': {
         const other = db.accounts.find((x) => !x.deleted && !x.archived && x.type !== 'card' && x.cur === a.cur) || db.accounts.find((x) => !x.deleted && !x.archived && x.type !== 'card');
         const c2 = cardInfo(db, a, balances(db).get(id));
@@ -415,7 +415,7 @@ function askValue(a, cur) {
   return new Promise((res) => {
     const s = sheet(`<form><label class="field"><span>What is it worth now? (${a.cur})</span><input name="v" inputmode="decimal" value="${cur}" autofocus></label>
       <p class="hint">The change is recorded as a value update, and left out of income and spending.</p>
-      <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">Update</button></div></form>`, { title: 'Update value', onClose: () => res(null) });
+      <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">Update</button></div></form>`, { title: 'Update Value', onClose: () => res(null) });
     s.el.querySelector('[data-no]').onclick = () => s.close();
     s.el.querySelector('form').onsubmit = (e) => { e.preventDefault(); const v = num(e.target.v.value); if (!isFinite(v)) return; s.dispose(); res(v); };
   });
@@ -431,11 +431,12 @@ export function openAccount(id, preset = {}) {
   const s = sheet(`<form id="acct-form">
     <label class="field"><span>Name</span><input name="name" value="${esc(a.name)}" required ${id ? '' : 'autofocus'}></label>
     <label class="field"><span>Exchange or platform (optional)</span><select name="exchange" data-keep="${esc(exchangeOf(a))}">${(() => { const cur = exchangeOf(a), pn = platformNames(), all = [...new Set([...(cur ? [cur] : []), ...pn.used])]; return `<option value="">None</option><optgroup label="Yours">${all.map((x) => `<option value="${esc(x)}" ${x === cur ? 'selected' : ''}>${esc(x)}</option>`).join('')}</optgroup><optgroup label="Popular">${pn.popular.map((x) => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}</optgroup>`; })()}</select></label>
-    <label class="field" id="walletf" ${exchangeOf(a) ? '' : 'hidden'}><span>Wallet inside the platform</span><select name="wallet">${[...new Set([...WALLETS, ...db.accounts.map((x) => x.wallet).filter(Boolean)])].map((w) => `<option value="${esc(w)}" ${(a.wallet || 'Spot') === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select><small class="muted">Spot, Funding, Futures, Margin, Earn… One asset can sit in several wallets, for example USDT in Spot and USDT in Earn.</small></label>
+    <label class="field" id="walletf" ${exchangeOf(a) ? '' : 'hidden'}><span>Trading Account Inside the Platform</span><select name="wallet">${[...new Set([...WALLETS, ...db.accounts.map((x) => x.wallet).filter(Boolean)])].map((w) => `<option value="${esc(w)}" ${(a.wallet || 'Spot') === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select><small class="muted" id="wallet-h">One coin can sit in several trading accounts, for example USDT in Spot and USDT in Earn. Each keeps its own balance.</small></label>
     <div class="two"><label class="field"><span>Currency</span><input type="hidden" name="cur" value="${esc(a.cur)}"><button type="button" class="curbtn wide" data-act="acct-cur" ${used ? 'disabled' : ''}>${flagOf(a.cur)} ${esc(a.cur)} ▾</button></label>
     <label class="field"><span>Type</span><select name="type" data-prev="${esc(a.type)}">${Object.entries(typeNames).map(([v, l]) => `<option value="${v}" ${v === a.type ? 'selected' : ''}>${esc(l)}</option>`).join('')}<option value="__new">＋ New account type…</option></select></label></div>
-    <div class="two"><label class="field"><span>Opening balance</span><input name="open" inputmode="decimal" value="${a.open || 0}"></label>
-    <label class="field"><span>Opening date</span><input name="openDate" type="date" value="${esc(openDateOf(a))}"></label></div>
+    <div class="two"><label class="field"><span id="open-l">${isLiability(a) ? 'Amount You Owe Now' : 'Balance on the Opening Date'} ${tipBtn('openbal')}</span><input name="open" inputmode="decimal" value="${isLiability(a) ? (a.open < 0 ? -a.open : a.open || 0) : (a.open || 0)}"></label>
+    <label class="field"><span>Opening Date ${tipBtn('opendate')}</span><input name="openDate" type="date" value="${esc(openDateOf(a))}"></label></div>
+    <p class="hint" id="open-h"></p>
     <div id="cardfields" ${a.type === 'card' ? '' : 'hidden'}>
       <label class="field"><span>Credit limit</span><input name="limit" inputmode="decimal" value="${a.limit || ''}" placeholder="e.g. 50000"></label>
       <div class="two"><label class="field"><span>Statement closes on day</span><input name="stmtDay" inputmode="numeric" value="${a.stmtDay || ''}" placeholder="1–31"></label>
@@ -463,15 +464,19 @@ export function openAccount(id, preset = {}) {
       <p class="hint">App says ${money(bal, a.cur)}. Type what your bank or wallet really shows and the app adds one correcting entry.</p>
       <div class="two"><input name="real" inputmode="decimal" placeholder="Real balance" aria-label="Real balance"><button class="btn ghost">Correct it</button></div></form>` : ''}`,
   { title: id ? 'Edit account' : 'New account' });
-  const walletAdd = { title: 'Wallet', addLabel: 'Add a new wallet', onAdd: async () => { const nm = (await promptDialog('New wallet', '', { okLabel: 'Add', hint: 'For example: Launchpool, Savings, Copy trading' }))?.trim(); if (!nm) return; const sel = s.el.querySelector('select[name=wallet]'); if (![...sel.options].some((o) => o.value.toLowerCase() === nm.toLowerCase())) sel.add(new Option(nm, nm)); sel.value = [...sel.options].find((o) => o.value.toLowerCase() === nm.toLowerCase()).value; sel.dispatchEvent(new Event('change', { bubbles: true })); } };
+  const walletAdd = { title: 'Trading Account', addLabel: 'Add a new trading account', onAdd: async () => { const nm = (await promptDialog('New trading account', '', { okLabel: 'Add', hint: 'For example: Launchpool, Savings, Copy trading' }))?.trim(); if (!nm) return; const sel = s.el.querySelector('select[name=wallet]'); if (![...sel.options].some((o) => o.value.toLowerCase() === nm.toLowerCase())) sel.add(new Option(nm, nm)); sel.value = [...sel.options].find((o) => o.value.toLowerCase() === nm.toLowerCase()).value; sel.dispatchEvent(new Event('change', { bubbles: true })); } };
   s.el.querySelector('select[name=exchange]').addEventListener('change', (e) => { s.el.querySelector('#walletf').hidden = !e.target.value; syncInt(); });
-  pickAll(s.el, { wallet: walletAdd, exchange: { title: 'Exchange or platform', addLabel: 'Add a new platform', onAdd: async () => { const sel = s.el.querySelector('select[name=exchange]'); const nm = (await promptDialog('New platform', '', { okLabel: 'Add', hint: 'For example: Binance, Moomoo, SBI Securities' }))?.trim(); if (!nm) return; let v = canonPlatform(nm); const nr = nearPlatform(v); if (nr && await confirmDialog(`Did you mean ${nr}? You typed ${v}.`, `Yes, ${nr}`, false, `No, keep ${v}`)) v = nr; if (![...sel.options].some((o) => o.value === v)) sel.add(new Option(v, v)); sel.value = v; } }, type: { title: 'Account type', addLabel: 'Add a new account type', onAdd: () => { const t = s.el.querySelector('select[name=type]'); t.value = '__new'; t.dispatchEvent(new Event('change', { bubbles: true })); } } });
+  pickAll(s.el, { wallet: walletAdd, exchange: { title: 'Exchange or Platform', addLabel: 'Add a new platform', onAdd: async () => { const sel = s.el.querySelector('select[name=exchange]'); const nm = (await promptDialog('New platform', '', { okLabel: 'Add', hint: 'For example: Binance, Moomoo, SBI Securities' }))?.trim(); if (!nm) return; let v = canonPlatform(nm); const nr = nearPlatform(v); if (nr && await confirmDialog(`Did you mean ${nr}? You typed ${v}.`, `Yes, ${nr}`, false, `No, keep ${v}`)) v = nr; if (![...sel.options].some((o) => o.value === v)) sel.add(new Option(v, v)); sel.value = v; } }, type: { title: 'Account Type', addLabel: 'Add a new account type', onAdd: () => { const t = s.el.querySelector('select[name=type]'); t.value = '__new'; t.dispatchEvent(new Event('change', { bubbles: true })); } } });
   const form = s.el.querySelector('#acct-form');
   // interest belongs to Earn: a coin on a platform's Spot (or Margin, Futures…) wallet has no interest options, unless it already has a rate
   const legacyInt = !!(a.apy > 0 || (a.rates || []).length || (a.promos || []).length), spotCrypto = () => form.type.value === 'crypto' && !!form.exchange.value && (form.wallet.value || 'Spot') !== 'Earn' && !legacyInt;
   const syncInt = () => { const L = isLiability({ type: form.type.value }), sc = spotCrypto(); s.el.querySelector('#intfields').hidden = L || sc; s.el.querySelector('#earnnote').hidden = L || !sc; s.el.querySelector('#debtfields').hidden = !L; };
   form.wallet.addEventListener('change', syncInt);
-  form.type.addEventListener('change', () => { s.el.querySelector('#cardfields').hidden = form.type.value !== 'card'; syncInt(); });
+  { const w = form.querySelector('select[name=wallet]'), h = s.el.querySelector('#wallet-h'); if (w && h) { const say = () => { h.textContent = WALLET_INFO[w.value] || 'One coin can sit in several trading accounts, each with its own balance.'; }; w.addEventListener('change', say); say(); } }
+  const openWords = () => { const liab = isLiability({ type: form.type.value }), l = s.el.querySelector('#open-l'), h = s.el.querySelector('#open-h'); if (l) l.firstChild.textContent = liab ? 'Amount You Owe Now ' : 'Balance on the Opening Date ';
+    if (h) h.textContent = liab ? 'Type what you owe on the opening date as a positive number: your current outstanding balance, not your credit limit or your available credit. Example: you owe 45,000, type 45000. Entries dated after the opening date add to it.' : 'Starting today? Type the balance you have now and keep today as the date. Account opened years ago? Type the balance it had on the date you pick; entries dated before that date stay as history and do not change it.'; };
+  openWords();
+  form.type.addEventListener('change', () => { s.el.querySelector('#cardfields').hidden = form.type.value !== 'card'; syncInt(); openWords(); });
   syncInt();
   // add / remove rows, debt interest switch, calculators
   s.el.addEventListener('click', (e) => { const add = e.target.closest('[data-add-row]'), rm = e.target.closest('[data-rm-row]');
@@ -483,7 +488,7 @@ export function openAccount(id, preset = {}) {
     e.preventDefault();
     const fd = new FormData(form);
     const name = fd.get('name').trim();
-    const open = num(fd.get('open')) || 0;
+    let open = num(fd.get('open')) || 0; if (isLiability({ type: fd.get('type') }) && open > 0) open = -open;   // a card or loan is typed as what you owe (positive) and kept as a negative balance
     const extra = {
       limit: num(fd.get('limit')) > 0 ? num(fd.get('limit')) : 0,
       stmtDay: Math.min(31, Math.max(0, Math.round(num(fd.get('stmtDay')) || 0))),
@@ -580,7 +585,7 @@ export function openInterestDetail(t) {
   const s = sheet(`<div class="facts three"><div><span>Interest</span><b>${money(gross, a.cur)}</b></div><div><span>Tax ${pct}%</span><b class="cr">${money(t.tax || 0, a.cur)}</b></div><div><span>Credited</span><b class="cg">${money(t.amount, a.cur)}</b></div></div>
     <p class="hint">${esc(a.name)} · ${esc(String(t.date).slice(0, 10))}. Current tax rate for this account: <b>${interestTaxPct(a)}%</b>. Changing it recalculates every interest entry this account has earned.</p>
     <label class="amtwrap sm"><input id="it-pct" inputmode="decimal" value="${interestTaxPct(a)}" aria-label="Tax percent"><b>% tax on interest</b></label>
-    <div class="btnrow"><button class="btn ghost" data-close2>Close</button><button class="btn" data-go>Apply to all</button></div>`, { title: 'Interest details' });
+    <div class="btnrow"><button class="btn ghost" data-close2>Close</button><button class="btn" data-go>Apply to all</button></div>`, { title: 'Interest Details' });
   s.el.querySelector('[data-close2]').onclick = () => s.close();
   s.el.querySelector('[data-go]').onclick = () => { const p = Math.min(100, Math.max(0, parseFloat(s.el.querySelector('#it-pct').value) || 0)); let n = 0; commit((d) => { const x = d.accounts.find((q) => q.id === a.id); x.taxPct = p; stamp(x); n = retaxInterest(d, a.id, p); }); s.close(); toast(`Tax rate ${p}%: ${n} ${n === 1 ? 'entry' : 'entries'} updated.`); };
   return true;

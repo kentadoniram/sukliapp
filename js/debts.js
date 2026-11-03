@@ -188,7 +188,7 @@ ACT['debt-budget'] = () => {
   const db = get(), cur = db.settings.debtBudget || '', b = budgetInfo(db);
   const s = sheet(`<form novalidate><p class="hint">The most you want to put toward all your debts together each month, in ${HOME}. ${b.room != null ? `Your entries leave about ${money(b.room)} after your usual spending. Sukli will not plan more than that unless you choose “Use my figure anyway”.` : ''}</p>
     <label class="field"><span>Each month (${HOME})</span><input name="v" inputmode="decimal" value="${cur}" placeholder="e.g. 15000" autofocus></label>
-    <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">Save</button></div></form>`, { title: 'Money for debts' });
+    <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">Save</button></div></form>`, { title: 'Money for Debts' });
   s.el.querySelector('[data-no]').onclick = () => s.close();
   s.el.querySelector('form').onsubmit = (e) => { e.preventDefault(); const n = num(e.target.v.value); s.dispose(); commit((d) => { if (n > 0) d.settings.debtBudget = n; else delete d.settings.debtBudget; }); toast(n > 0 ? 'Saved.' : 'Removed. Sukli will use your entries.'); };
 };

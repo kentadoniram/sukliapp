@@ -9,7 +9,7 @@ with sync_playwright() as p:
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900)
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='advanced'})})()")
     pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(900)
-    ok('Location section is in Settings and off by default', 'Location (optional)' in pg.inner_text('#view') and pg.locator('[data-act=loc-toggle]').inner_text()=='Turn on')
+    ok('Location section is in Settings and off by default', 'Location (Optional)' in pg.inner_text('#view') and pg.locator('[data-act=loc-toggle]').inner_text()=='Turn on')
     pg.evaluate("document.querySelector('[data-act=loc-toggle]').click()"); pg.wait_for_timeout(1200)
     on=pg.evaluate("(async()=>{const c=await import('/js/core.js');return !!c.get().settings.locOn})()"); ok('turned on', on)
     # an entry made now gets a rounded place

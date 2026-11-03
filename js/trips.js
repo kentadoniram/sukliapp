@@ -59,14 +59,14 @@ export function trips(db) {
   const r = tripReport(db), yr = nowStamp().slice(0, 4), thisYear = r.trips.filter((t) => t.from.startsWith(yr));
   let body = '';
   if (r.learning) body += `<section class="card"><p class="hint"><b>Still learning.</b> Sukli needs about three weeks of entries to know what a usual day looks like for you. Until then, anything it shows here is a guess.</p></section>`;
-  if (!r.trips.length) body += `<section class="card"><h2>How it works</h2><p>Just add your entries as usual: the shop, the amount, the date, and a tag like <i>Vacation</i> or <i>Birthday</i> if you want. Sukli learns what a normal day costs you, then notices days that are different: another currency, a flight or hotel, lots of new places, or a tag you added.</p><p>It then shows what a trip cost and how much was <b>extra</b> compared with a usual day. Nothing is changed in your entries.</p></section>`;
+  if (!r.trips.length) body += `<section class="card"><h2>How It Works</h2><p>Just add your entries as usual: the shop, the amount, the date, and a tag like <i>Vacation</i> or <i>Birthday</i> if you want. Sukli learns what a normal day costs you, then notices days that are different: another currency, a flight or hotel, lots of new places, or a tag you added.</p><p>It then shows what a trip cost and how much was <b>extra</b> compared with a usual day. Nothing is changed in your entries.</p></section>`;
   else {
     body += `<section class="card"><p class="hint">${thisYear.length} trip${thisYear.length === 1 ? '' : 's'} or event${thisYear.length === 1 ? '' : 's'} so far this year, ${money(thisYear.reduce((s, t) => s + t.trueCost, 0))} in total.</p></section>`;
     body += r.trips.slice().sort((a, b) => (a.from < b.from ? 1 : -1)).map(card).join('');
   }
-  if (r.planned.length) body += `<section class="card"><h2>Paid for, trip not yet</h2><p class="hint">Flights, hotels and similar you have paid for. They join the trip when it happens.</p><ul class="calfacts">${r.planned.map((p) => `<li><span>${esc(p.name)} · ${niceDate(p.date)}</span><b>${money(p.amount)}</b></li>`).join('')}</ul></section>`;
+  if (r.planned.length) body += `<section class="card"><h2>Paid For, Trip Not Yet</h2><p class="hint">Flights, hotels and similar you have paid for. They join the trip when it happens.</p><ul class="calfacts">${r.planned.map((p) => `<li><span>${esc(p.name)} · ${niceDate(p.date)}</span><b>${money(p.amount)}</b></li>`).join('')}</ul></section>`;
   if (r.rejected) body += `<section class="card"><p class="hint">${r.rejected} suggestion${r.rejected === 1 ? '' : 's'} you said were not trips are hidden. <button type="button" class="linkbtn" data-act="trip-reset">Show them again</button></p></section>`;
-  return `${hdr('Trips and events')}<main class="page" id="trippage">${body}</main>`;
+  return `${hdr('Trips and Events')}<main class="page" id="trippage">${body}</main>`;
 }
 
 function teach(from, yes) {

@@ -625,7 +625,7 @@ export function openAccountSetup() {
       <div><strong>${esc(a.name)}</strong><small>${money(bal.get(a.id) || 0, a.cur)}</small></div>
       <select aria-label="Type of ${esc(a.name)}">${Object.entries(typeNames).map(([v, l]) => `<option value="${v}" ${v === a.type ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <label class="check"><input type="checkbox" ${a.include ? 'checked' : ''}> Spendable</label></div>`).join('')}
-    <div class="btnrow"><button class="btn">Done</button></div></form>`, { title: 'Sort your accounts', wide: true });
+    <div class="btnrow"><button class="btn">Done</button></div></form>`, { title: 'Sort Your Accounts', wide: true });
   s.el.querySelector('#setup').onsubmit = (e) => {
     e.preventDefault();
     commit((d) => {
@@ -707,7 +707,7 @@ ACT['home-cur'] = () => openCurrencyPicker(async (c) => {
     d.settings.home = c;
   });
   toast(`Totals are now shown in ${c}.`);
-}, { title: 'Home currency' });
+}, { title: 'Home Currency' });
 ACT.look = (el) => { setLook({ [el.dataset.k]: el.dataset.v }); window.dispatchEvent(new Event('sukli-render')); };
 ACT.hidestyle = (el) => { priv.setStyle(el.dataset.v); applyHide(); window.dispatchEvent(new Event('sukli-render')); };
 ACT.remind = (el) => { commit((d) => { d.settings.remindDays = +el.dataset.v; }); };
@@ -728,9 +728,9 @@ export function settings(db) {
     <section><h2>Categories</h2>
       <p class="hint">Add, rename and delete your expense and income categories, with keywords so the app guesses them.</p>
       <div class="btnrow left"><a class="btn" href="#/categories?k=expense">Expense categories</a><a class="btn ghost" href="#/categories?k=income">Income categories</a></div></section>
-    ${(() => { const own = [...new Set([...Object.keys(db.settings.curDec || {}), ...db.accounts.filter((a) => !a.deleted && a.type === 'crypto').map((a) => a.cur)])]; return own.length ? `<section><h2>Coins and tokens: decimals</h2><p class="hint">How many decimals to show for coins and tokens (for example MNT as Mantle, or BBSOL).</p>${own.map((c) => `<label class="field inline"><span>${esc(c)}</span><select data-curdec="${esc(c)}">${[2, 4, 6, 8].map((n) => `<option ${CUR[c].dec === n ? 'selected' : ''}>${n}</option>`).join('')}</select><span>decimals</span></label>`).join('')}</section>` : ''; })()}
+    ${(() => { const own = [...new Set([...Object.keys(db.settings.curDec || {}), ...db.accounts.filter((a) => !a.deleted && a.type === 'crypto').map((a) => a.cur)])]; return own.length ? `<section><h2>Coins and Tokens: Decimals</h2><p class="hint">How many decimals to show for coins and tokens (for example MNT as Mantle, or BBSOL).</p>${own.map((c) => `<label class="field inline"><span>${esc(c)}</span><select data-curdec="${esc(c)}">${[2, 4, 6, 8].map((n) => `<option ${CUR[c].dec === n ? 'selected' : ''}>${n}</option>`).join('')}</select><span>decimals</span></label>`).join('')}</section>` : ''; })()}
     ${(() => { const r = nameRules(), groups = new Map(); for (const [a, k] of Object.entries(r.same)) { if (!groups.has(k)) groups.set(k, []); groups.get(k).push(a); }
-      return `<section id="nmatch"><h2>Name matching</h2><label class="field"><span>Home stop (optional)</span><input id="homeplace" value="${esc(s.homePlace || '')}" placeholder="e.g. San Pedro" autocomplete="off"><small class="muted">The stop you leave in the morning and come back to in the evening. Left empty, Sukli works it out from your trips.</small></label>
+      return `<section id="nmatch"><h2>Name Matching</h2><label class="field"><span>Home stop (optional)</span><input id="homeplace" value="${esc(s.homePlace || '')}" placeholder="e.g. San Pedro" autocomplete="off"><small class="muted">The stop you leave in the morning and come back to in the evening. Left empty, Sukli works it out from your trips.</small></label>
       <label class="field"><span>Workplace stop (optional)</span><input id="workplace" value="${esc(s.workPlace || '')}" placeholder="e.g. Shinagawa" autocomplete="off"><small class="muted">Sukli remembers it: on weekday mornings it suggests home to work, and in the evening work to home.</small></label><p class="hint">Teach Sukli which names mean the same thing (“starbucks antipolo” and “starbucks tagaytay”) and which do not (“tennis” the sport and “tennis socks”). It also asks when you type a new name that looks like an old one.</p>
       <button type="button" class="btn ghost wide" data-act="nm-review">Review similar names</button>
       <button type="button" class="btn ghost wide" data-act="nm-map">Name map (how names connect)</button>
@@ -738,7 +738,7 @@ export function settings(db) {
       ${(r.related || []).length ? `<h3>Related (same family, separate)</h3>${r.related.map((k) => `<div class="nmgroup"><span>${esc(k.replace('|', '  ~  '))} <small class="muted">${Math.round(((r.relw || {})[k] ?? 0.6) * 100)}% close</small></span><button type="button" class="btn sm ghost" data-act="nm-forget" data-kind="related" data-v="${esc(k)}">Undo</button></div>`).join('')}` : ''}
       ${r.apart.length ? `<h3>Kept apart</h3>${r.apart.map((k) => `<div class="nmgroup"><span>${esc(k.replace('|', '  ≠  '))}</span><button type="button" class="btn sm ghost" data-act="nm-forget" data-kind="apart" data-v="${esc(k)}">Undo</button></div>`).join('')}` : ''}</section>`; })()}
     ${(() => { const st = db.settings, custom = st.customTypes || {}, n = (k) => db.accounts.filter((a) => !a.deleted && a.type === k).length;
-      return `<section id="atypes"><h2>Account types</h2><p class="hint">Rename any type, or add your own, for example "Money owed to me" or "Savings pot". Choose whether a new type is something you have or something you owe.</p>
+      return `<section id="atypes"><h2>Account Types</h2><p class="hint">Rename any type, or add your own, for example "Money owed to me" or "Savings pot". Choose whether a new type is something you have or something you owe.</p>
       ${Object.entries(typeNames).map(([k, l]) => `<div class="field inline"><input data-atype-label="${esc(k)}" value="${esc(l)}" aria-label="Name of ${esc(l)}"><small class="muted">${n(k)} account${n(k) === 1 ? '' : 's'}${custom[k] ? (custom[k].liab ? ' · liability' : ' · asset') : ''}</small>${custom[k] ? `<button type="button" class="btn sm ghost" data-act="atype-del" data-k="${esc(k)}">Delete</button>` : ''}</div>`).join('')}
       <div class="field"><span>New account type</span><div class="atyperow"><input id="atype-new" placeholder="e.g. Savings pot" data-noclear="1" aria-label="New account type name"><select id="atype-kind" aria-label="Asset or liability"><option value="asset">Asset (I have)</option><option value="liab">Liability (I owe)</option></select><button type="button" class="btn sm" data-act="atype-add">Add</button></div></div></section>`; })()}
     ${arrangeSection(db)}
@@ -763,7 +763,7 @@ export function settings(db) {
     <section><h2>Display</h2>
       <label class="check"><input type="checkbox" id="showhome" ${s.showHome === false ? '' : 'checked'}> Show the ${HOME} equivalent next to other currencies</label>
       <p class="hint">For example a ¥1,200 lunch shows a small “≈ ₱…” under it. The eye button at the top hides every amount on screen, handy in public. It is remembered on this device only.</p></section>
-    ${REMOVED_UI ? `<section><h2>Cloud sync</h2>
+    ${REMOVED_UI ? `<section><h2>Cloud Sync</h2>
       <p class="hint">Keeps your phone and your Mac in step through your own free Supabase project. Only you can read your rows. <a href="#" data-act="cloud-setup" class="linkbtn">Set up Supabase (5 minutes)</a></p>
       ${configured() ? '<p class="hint">Project connected (from config.js).</p>' : `<label class="field"><span>Project URL</span><input id="c-url" value="${esc(cl.url || '')}" placeholder="https://abcdxyz.supabase.co" autocomplete="off" spellcheck="false" inputmode="url"></label>
       <label class="field"><span>Public (anon) key</span><input id="c-key" value="${esc(cl.key || '')}" placeholder="eyJ…" autocomplete="off" spellcheck="false"></label>`}
@@ -778,13 +778,13 @@ export function settings(db) {
       <p class="status" id="cloudstatus" role="status">${esc(cloudStatus.text || (me && lastOk() ? 'Last synced ' + new Date(lastOk()).toLocaleString() : ''))}</p></section>
 ` : ''}
     ${backupSection(db)}
-    ${REMOVED_UI ? `<section><h2>Google backup (optional)</h2>
+    ${REMOVED_UI ? `<section><h2>Google Backup (Optional)</h2>
       <p class="hint">Backs up to a private, hidden folder in your own Google Drive and keeps both your phones in step. Nothing else in your Drive is touched. <a href="#" data-act="gsetup" class="linkbtn">How to get a client ID</a></p>
       <label class="field"><span>Google client ID</span><input id="clientid" value="${esc(s.driveClientId)}" placeholder="1234-abc.apps.googleusercontent.com" autocomplete="off" spellcheck="false"></label>
       <label class="check"><input type="checkbox" id="autosync" ${s.autoSync ? 'checked' : ''}> Back up automatically after changes</label>
       <div class="btnrow left"><button class="btn" data-act="sync">Back up now</button></div>
       <p class="status" id="syncstatus" role="status">${esc(syncStatus.text || (s.lastSync ? 'Last backup ' + new Date(s.lastSync).toLocaleString() : 'Not backed up yet.'))}</p></section>` : ''}
-    <section><h2>Your data</h2>
+    <section><h2>Your Data</h2>
       <div class="btnstack">
         <label class="btn ghost filebtn">Import CSV (Bluecoins or Sukli)<input type="file" id="file-bc" accept=".csv,text/csv" hidden></label>
         <button class="btn ghost" data-act="export-sukli">Export Sukli CSV (all details)</button>
@@ -793,10 +793,10 @@ export function settings(db) {
         <button class="btn ghost" data-act="export-share">Share backup (save to Google Drive or Files)</button>
         <label class="btn ghost filebtn">Restore from backup (JSON)<input type="file" id="file-json" accept=".json,application/json" hidden></label></div>
       <p class="hint">The Sukli CSV keeps everything: posted dates, billing period, tags, fees, trips, items, statement and platform details. Only Sukli reads it back; use the Bluecoins CSV for Bluecoins. Importing the same file twice is safe: entries already here are skipped.</p></section>
-    <section><h2>Left out of cash outflow</h2>
+    <section><h2>Left Out of Cash Outflow</h2>
       <p class="hint">Groups ticked here don’t count as spending in totals and charts (for example trading losses).</p>
       <div class="checks">${groups.map((g) => `<label class="check"><input type="checkbox" data-act="exclude" data-g="${esc(g)}" ${s.excludeGroups.includes(g) ? 'checked' : ''}> ${esc(g)}</label>`).join('')}</div></section>
-    <section><h2>Spending safety</h2>
+    <section><h2>Spending Safety</h2>
       <p class="hint">While you add an expense, Sukli warns you when it gets close to your limit, spends more than comes in, loads up your credit cards, or leaves too little cash for upcoming card payments.</p>
       ${(() => { const c = safetyCfg(db); return `<label class="check"><input type="checkbox" id="ss-on" ${c.on ? 'checked' : ''}> Show warnings when I add an expense</label>
       <label class="field"><span>Compare spending and income over</span><select id="ss-mode"><option value="month" ${c.mode !== 'rolling' ? 'selected' : ''}>The calendar month</option><option value="rolling" ${c.mode === 'rolling' ? 'selected' : ''}>The last 30 days</option></select></label>
@@ -805,7 +805,7 @@ export function settings(db) {
       <label class="field"><span>Warn when card balances are more than this % of income</span><input id="ss-card" inputmode="numeric" value="${c.cardPct}"></label>
       <div class="field"><span>Essentials (kept as cash for upcoming card payments)</span><div class="chips">${groups.map((g) => `<label class="chip ${((c.essentials || []).includes(g)) ? 'on' : ''}"><input type="checkbox" data-ess="${esc(g)}" ${((c.essentials || []).includes(g)) ? 'checked' : ''} hidden>${esc(g)}</label>`).join('')}</div><small class="hint">Leave all unselected to let Sukli guess (food, transport, rent, utilities, health).</small></div>`; })()}
     </section>
-    <section><h2>Exchange rates</h2>
+    <section><h2>Exchange Rates</h2>
       <label class="check"><input type="checkbox" id="liverates" ${s.liveRates === false ? '' : 'checked'}> Update rates automatically (free, about once a day)</label>
       <div class="btnrow left"><button class="btn ghost sm" data-act="rates-now">Update now</button></div>
       <p class="status" id="ratesstatus" role="status">${esc(ratesStatus.text || (s.live ? 'Last updated ' + new Date(s.live.ts).toLocaleString() : 'Not updated yet.'))}</p>
@@ -813,7 +813,7 @@ export function settings(db) {
       ${curs.map((c) => `<div class="ratebox">${fxBlockHtml({ from: c, to: HOME, amount: 0, rate: homeFx(db, c), open: `data-act="rate-open" data-c="${c}"`, db })}</div>`).join('')}
       <p class="hint">Tap “Exchange Rate” to convert an amount, type your own rate, or get the latest one. Each entry also lets you set the ${HOME} value from your bill.</p></section>
     <section><h2>Glossary</h2><p class="hint">What the words mean: accounts, cards (statement, billing period, posted date), interest, investments, and common words on Japanese receipts with kanji, romaji and English.</p><div class="btnrow left"><button type="button" class="btn ghost" data-act="glossary">Open the glossary</button></div></section>
-    <section><h2>Put it on your phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
+    <section><h2>Put It on Your Phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
     <section><h2>Erase</h2><button class="btn danger ghost" data-act="erase">Erase everything on this device</button>
       <p class="hint">Backups in your Google Drive are not touched.</p></section>`);
 }
@@ -896,7 +896,7 @@ ACT['cloud-setup'] = () => {
     <li>Enter your email and a password here and press <b>Create account</b>. Do the same sign-in on your phone.</li></ol>
     <pre class="sql" id="sqltext">${esc(SETUP_SQL)}</pre>
     <div class="btnrow left"><button class="btn" id="copysql">Copy the script</button></div>
-    <p class="hint">The public key is safe to keep in the app: the database rule in the script is what keeps your rows private. Free projects pause after a week with no use, and you restore them with one click in the dashboard.</p>`, { title: 'Set up Supabase', wide: true });
+    <p class="hint">The public key is safe to keep in the app: the database rule in the script is what keeps your rows private. Free projects pause after a week with no use, and you restore them with one click in the dashboard.</p>`, { title: 'Set Up Supabase', wide: true });
   s2.el.querySelector('#copysql').onclick = async () => { try { await navigator.clipboard.writeText(SETUP_SQL); toast('Copied.'); } catch { toast('Select the script and copy it by hand.'); } };
 };
 ACT.sync = async () => {
@@ -909,7 +909,7 @@ ACT['export-csv'] = () => download(`sukli-${fileStamp()}.csv`, exportCSV(get()))
 ACT['export-share'] = async () => {
   const name = `sukli-backup-${fileStamp()}.json`, json = JSON.stringify({ ...get(), settings: { ...get().settings, driveClientId: '' } });
   try { const file = new File([json], name, { type: 'application/json' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Sukli backup' }); toast('Choose Google Drive or Files to keep it.'); return; } }
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Sukli Backup' }); toast('Choose Google Drive or Files to keep it.'); return; } }
   catch (e) { if (e && e.name === 'AbortError') return; }
   download(name, json, 'application/json'); toast('Your phone cannot share files from here, so the backup was downloaded instead.', { ms: 6000 });
 };
@@ -940,14 +940,14 @@ ACT['google-setup'] = () => sheet(`<ol class="steps">
   <li>Copy the <b>Client ID</b> and <b>Client secret</b>. In Supabase open <b>Authentication, Sign In / Providers, Google</b>, turn it on and paste both.</li>
   <li>In Supabase open <b>Authentication, URL Configuration</b>. Set <b>Site URL</b> to your app address and add the same address under <b>Redirect URLs</b>.</li>
   <li>Back here press <b>Continue with Google</b>. Do the same on every device: no export or import.</li></ol>
-  <p class="hint">Tip: put your Supabase URL and public key into <b>config.js</b> before you deploy, and no device needs anything pasted.</p>`, { title: 'Set up Google sign-in', wide: true });
+  <p class="hint">Tip: put your Supabase URL and public key into <b>config.js</b> before you deploy, and no device needs anything pasted.</p>`, { title: 'Set Up Google Sign-In', wide: true });
 ACT.gsetup = () => sheet(`<ol class="steps">
   <li>Open <b>console.cloud.google.com</b>, create a project (free, no card needed to my knowledge).</li>
   <li>Search “Google Drive API” and press <b>Enable</b>.</li>
   <li>Go to <b>APIs &amp; Services → OAuth consent screen</b>. Choose External, fill in an app name and your email, and under <b>Test users</b> add your own Google address.</li>
   <li>Go to <b>Credentials → Create credentials → OAuth client ID</b>, type <b>Web application</b>. Under <b>Authorised JavaScript origins</b> add the exact address where this app is hosted (for example <b>https://your-name.netlify.app</b>).</li>
   <li>Copy the client ID it shows and paste it here, then press <b>Back up now</b> and approve access.</li></ol>
-  <p class="hint">The app asks only for its own hidden folder (drive.appdata). Google may ask you to sign in again from time to time; if auto-backup stops, tap Back up now.</p>`, { title: 'Get a Google client ID' });
+  <p class="hint">The app asks only for its own hidden folder (drive.appdata). Google may ask you to sign in again from time to time; if auto-backup stops, tap Back up now.</p>`, { title: 'Get a Google Client ID' });
 
 ACT.commas = (el) => { try { localStorage.setItem('sukli.commas', el.checked ? '1' : '0'); } catch { /* ignore */ } };
 document.addEventListener('change', (e) => { const c = e.target.dataset && e.target.dataset.curdec; if (c) { const n = +e.target.value; commit((d) => { d.settings.curDec = { ...(d.settings.curDec || {}), [c]: n }; }); CUR[c].dec = n; } });
@@ -975,7 +975,7 @@ document.addEventListener('change', (e) => {
 ACT['nm-forget'] = (el) => { commit((d) => forget(d, el.dataset.kind, el.dataset.v)); };
 ACT['nm-review'] = () => {
   const db = get(), pairs = similarPairs(db);
-  sheet(`<p class="hint">Names that start the same way. For each pair choose Same, Related or Different.</p>${pairs.length ? pairs.map((x) => compareCard(db, x.a, x.b)).join('') : '<p class="empty">Nothing to review. All similar names are decided.</p>'}`, { title: 'Review similar names' });
+  sheet(`<p class="hint">Names that start the same way. For each pair choose Same, Related or Different.</p>${pairs.length ? pairs.map((x) => compareCard(db, x.a, x.b)).join('') : '<p class="empty">Nothing to review. All similar names are decided.</p>'}`, { title: 'Review Similar Names' });
 };
 
 // ---- name map: the similarity graph, drawn ----
@@ -993,8 +993,8 @@ function mapSheet(key, q = '') {
   const g = buildGraph(get()), cl = clusters(g, 0.6);
   const hit = q ? matches(g, q, 4) : [];
   const start = key && g.nodes.has(key) ? key : (cl[0] ? cl[0][0] : [...g.nodes.keys()][0]);
-  if (!start) { sheet('<p class="empty">No names yet.</p>', { title: 'Name map' }); return; }
-  const put = (html) => { if (mapApi && document.body.contains(mapApi.root)) mapApi.el.innerHTML = html; else mapApi = sheet(html, { title: 'Name map', onClose: () => { mapApi = null; } }); };
+  if (!start) { sheet('<p class="empty">No names yet.</p>', { title: 'Name Map' }); return; }
+  const put = (html) => { if (mapApi && document.body.contains(mapApi.root)) mapApi.el.innerHTML = html; else mapApi = sheet(html, { title: 'Name Map', onClose: () => { mapApi = null; } }); };
   const nodeRows = (g.adj.get(start) || []).sort((a, b) => b.w - a.w).map((x) => `<button type="button" class="chip" data-act="nm-focus" data-k="${esc(x.to)}">${esc(g.nodes.get(x.to).name)} <small>${edgeText(x)}</small></button>`).join('');
   put(`<div class="field"><span>Try a name</span><input id="nmq" type="text" value="${esc(q)}" placeholder="e.g. Mang Inasal Antipolo" autocomplete="off"></div>
     ${q ? `<div class="nmcard"><span>${hit.length ? hit.map((m) => `<b>${esc(m.name)}</b> ${Math.round(m.score * 100)}%${m.cat ? ` · ${esc(m.cat)}` : ''}<br><small class="muted">${esc(explain(m))}</small>`).join('<br>') : 'Nothing close enough in your history (needs a path of at least 60%).'}</span></div>` : ''}
@@ -1010,12 +1010,12 @@ ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
 
 // Settings, grouped by what they are for. Advanced items sit in their own folded group.
 const SET_GROUPS = [
-  ['look', 'Look and Feel', 'Simple or Advanced, tabs, Home cards, colours, text size', ['Mode', 'Tabs and Home cards', 'Appearance', 'Display']],
-  ['money', 'Money and Alerts', 'Home currency, spending warnings', ['Currency', 'Spending safety', 'Left out of cash outflow']],
-  ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Account types', 'Name matching']],
-  ['data', 'Backup and Data', 'Undo, reminders, backups, export', ['Undo', 'Backup reminder', 'Your data', 'Google backup (optional)']],
-  ['adv', 'Advanced', 'Most people never need these', ['Exchange rates', 'Live exchange rates', 'Coins and tokens: decimals', 'Cloud sync', 'Erase']],
-  ['help', 'Help', 'Glossary, install on your phone', ['Glossary', 'Put it on your phone']],
+  ['look', 'Look and Feel', 'Simple or Advanced, tabs, Home cards, colours, text size', ['Mode', 'Tabs and Home Cards', 'Appearance', 'Display']],
+  ['money', 'Money and Alerts', 'Home currency, spending warnings', ['Currency', 'Spending Safety', 'Left Out of Cash Outflow']],
+  ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Account Types', 'Name Matching']],
+  ['data', 'Backup and Data', 'Undo, reminders, backups, export', ['Undo', 'Backup Reminder', 'Your Data', 'Google Backup (Optional)']],
+  ['adv', 'Advanced', 'Most people never need these', ['Exchange Rates', 'Live exchange rates', 'Coins and Tokens: Decimals', 'Cloud Sync', 'Erase']],
+  ['help', 'Help', 'Glossary, install on your phone', ['Glossary', 'Put It on Your Phone']],
 ];
 const SET_OPEN = new Set(['look']);
 const SUB_OPEN = new Set((() => { try { return JSON.parse(localStorage.getItem('sukli-ssub') || '[]'); } catch { return []; } })());
@@ -1031,7 +1031,7 @@ function settingsGrouped(html) {
     const t = title(sec), g = SET_GROUPS.find((x) => x[3].includes(t)) || SET_GROUPS.find((x) => x[0] === 'adv');
     let out = sec.replace(/<h2>([^<]*)<\/h2>/, (m, h) => '<h2>' + titleCase(h) + '</h2>');
     if (g[0] === 'look' && t !== 'Mode') out = out.replace(/^(<section[^>]*>)<h2>([^<]*)<\/h2>([\s\S]*)<\/section>$/, (m, open, h, rest) => `${open}<details class="ssub" data-ssub="${esc(h)}" ${SUB_OPEN.has(h) ? 'open' : ''}><summary><h2>${h}</h2></summary>${rest}</details></section>`);   // inside Look and Feel the long sections fold away
-    if (['Name matching', 'Coins and tokens: decimals', 'Cloud sync'].includes(t)) out = out.replace('<section', '<section class="adv-only"').replace('class="adv-only" class="', 'class="adv-only ');
+    if (['Name Matching', 'Coins and Tokens: Decimals', 'Cloud Sync'].includes(t)) out = out.replace('<section', '<section class="adv-only"').replace('class="adv-only" class="', 'class="adv-only ');
     by.get(g[0]).push(out);
   }
   const ver = `<p class="hint verline" id="appver">Sukli version ${versionText()}</p>`;
@@ -1039,7 +1039,7 @@ function settingsGrouped(html) {
 }
 
 // ---------------- Arrange tabs and Home cards (Settings) ----------------
-export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Entries', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'], invest: ['Invest', 'spark'], debts: ['Debts', 'calc'], owed: ['Owed to you', 'wallet'] };
+export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Entries', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash Flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'], invest: ['Invest', 'spark'], debts: ['Debts', 'calc'], owed: ['Owed to You', 'wallet'] };
 export const DEFAULT_TABS = ['home', 'ledger', 'calendar', 'accounts'];
 export function tabIds(db) {
   const t = ((db.settings && db.settings.tabs) || []).filter((x, i, a) => TAB_DEFS[x] && a.indexOf(x) === i).slice(0, 4);
@@ -1048,7 +1048,7 @@ export function tabIds(db) {
 function arrangeSection(db) {
   const tb = tabIds(db), more = Object.keys(TAB_DEFS).filter((x) => !tb.includes(x)), lay = homeLayout(db);
   const mv = (kind, id, i, n) => `<span class="mv"><button type="button" class="btn sm ghost" data-act="arr-up" data-kind="${kind}" data-id="${id}" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="btn sm ghost" data-act="arr-down" data-kind="${kind}" data-id="${id}" aria-label="Move down" ${i === n - 1 ? 'disabled' : ''}>↓</button></span>`;
-  return `<section id="arrange"><h2>Tabs and Home cards</h2>
+  return `<section id="arrange"><h2>Tabs and Home Cards</h2>
     <p class="hint">The bottom bar holds up to 4 tabs, with the + button always in the middle. Anything not in the bar is still reachable from Home and the menus.</p>
     <h3>Bottom tabs (${tb.length}/4)</h3>
     ${tb.map((id, i) => `<div class="arow"><span>${ic(TAB_DEFS[id][1])} ${TAB_DEFS[id][0]}</span>${mv('tab', id, i, tb.length)}<button type="button" class="btn sm ghost" data-act="arr-tab-off" data-id="${id}" ${tb.length <= 2 ? 'disabled' : ''}>Remove</button></div>`).join('')}
@@ -1115,7 +1115,7 @@ export function confirmImport(pv) {
         <label class="row"><input type="radio" name="m${i}" value="new"> Create a new account</label>` : ''}
       <label>Type <select data-t="${i}">${opt(f.type)}</select></label></div>`).join('');
     const sh = sheet(`<p>${pv.fresh.length} new account${pv.fresh.length > 1 ? 's' : ''} would be added. Your ${pv.existing} existing accounts are not changed or re-classified.</p>${rows}
-      <div class="btnrow"><button class="btn" data-go>Import</button><button class="btn ghost" data-no>Cancel</button></div>`, { title: 'Check before importing', onClose: () => res(null) });
+      <div class="btnrow"><button class="btn" data-go>Import</button><button class="btn ghost" data-no>Cancel</button></div>`, { title: 'Check Before Importing', onClose: () => res(null) });
     sh.el.querySelector('[data-no]').onclick = () => { sh.close(); };
     sh.el.querySelector('[data-go]').onclick = () => {
       const types = {}, into = {};

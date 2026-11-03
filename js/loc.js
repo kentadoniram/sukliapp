@@ -56,7 +56,7 @@ const fmtPt = (p) => `${p.la.toFixed(2)}, ${p.lo.toFixed(2)}`;
 export function locSection(db) {
   const on = locOn(db), pl = placesOf(db), n = withLoc(db).length;
   const line = (label, p, none) => `<li><span>${label}</span><b>${p ? `about ${fmtPt(p)}<small> ${p.src === 'set' ? 'you set it' : `learned from ${p.n} entries`}</small>` : `<small>${none}</small>`}</b></li>`;
-  return `<section id="loc-set" class="adv-only"><h2>Location (optional)</h2>
+  return `<section id="loc-set" class="adv-only"><h2>Location (Optional)</h2>
     <p class="hint">When it is on, Sukli notes roughly where you are (to about 1 km) when you save an entry. It is kept on this device and in your Sukli CSV, never sent anywhere, and it needs your phone's permission. Far from home or work is one clue that a day was a trip; it never decides alone, and a nearby mall visit is not a trip.</p>
     <div class="btnrow left"><button type="button" class="btn ${on ? 'ghost' : ''}" data-act="loc-toggle">${on ? 'Turn off' : 'Turn on'}</button></div>
     ${on || n ? `<ul class="calfacts">${line('Home', pl.home, 'not known yet. Sukli learns it from where you usually save entries in the evening.')}${line('Work', pl.work, 'not known yet. Learned from weekday daytime entries.')}<li><span>Entries with a place</span><b>${n}</b></li></ul>

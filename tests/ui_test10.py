@@ -36,10 +36,10 @@ with sync_playwright() as p:
     pg.click('#f-when'); pg.wait_for_selector('.dpgrid, .datepicker, [data-dp]', timeout=3000); ok('calendar picker opens', True)
     pg.go_back(); pg.wait_for_timeout(300)
     ok('Back closes date picker only', pg.locator('#entry').count()==1)
-    pg.fill('#f-amount','123'); pg.focus('#f-name'); pg.fill('#f-name','abc'); pg.wait_for_timeout(200)
+    pg.fill('#f-amount','123'); pg.focus('#f-what'); pg.fill('#f-what','abc'); pg.wait_for_timeout(200)
     ok('clear button shows', pg.locator('.clearx:not([hidden])').count()==1)
     pg.click('.clearx'); pg.wait_for_timeout(100)
-    ok('clear button empties field', pg.input_value('#f-name')=='')
+    ok('clear button empties field', pg.input_value('#f-what')=='')
     pg.click('[data-e="kind"][data-v="transfer"]'); pg.wait_for_timeout(200)
     order=pg.evaluate("[...document.querySelectorAll('#entry > *')].map(e=>e.id).filter(Boolean)")
     ok('transfer: label before amount', order.index('namefield')<order.index('amountbox'))
@@ -53,7 +53,7 @@ with sync_playwright() as p:
     pg.evaluate("window.sukli.commit(d=>{})")
     pg.evaluate(f"window.sukli.openEntry && window.sukli.openEntry({{id:'{t}'}})") if False else None
     pg.goto('http://localhost:8123/index.html#/bin'); pg.wait_for_timeout(400)
-    ok('bin page loads', 'Recycle bin' in pg.inner_text('main, #app'))
+    ok('bin page loads', 'Recycle Bin' in pg.inner_text('main, #app'))
     pg.screenshot(path=S+'v6-bin.png')
     # --- accounts detail filters + card billing
     pg.goto('http://localhost:8123/index.html#/accounts'); pg.wait_for_timeout(500)

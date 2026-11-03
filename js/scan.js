@@ -264,7 +264,7 @@ const freeCanvases = (r) => { for (const k of ['canvas', 'grey']) { const c = r 
 let cur = null;
 export function openScan() {
   S = null;
-  cur = sheet('', { title: 'Scan a receipt', wide: true, onClose: () => { cur = null; releaseEngine(); } });
+  cur = sheet('', { title: 'Scan a Receipt', wide: true, onClose: () => { cur = null; releaseEngine(); } });
   start(cur);
 }
 ACT.scan = () => setTimeout(openScan, 90);   // lets the menu finish closing first

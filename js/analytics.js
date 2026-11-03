@@ -178,8 +178,8 @@ export function analytics(db) {
 const redraw = () => window.dispatchEvent(new Event('sukli-render'));
 ACT['an-range'] = (el) => { A.range = el.dataset.v; redraw(); };
 ACT['an-by'] = (el) => { A.by = el.dataset.v; redraw(); };
-ACT['an-from'] = () => { const P = period(); openDatePicker(P.from + ' 00:00:00', (v) => { A.from = v.slice(0, 10); if (A.to && A.to < A.from) A.to = A.from; redraw(); }, { time: false, title: 'From date' }); };
-ACT['an-to'] = () => { const P = period(); openDatePicker(P.to + ' 00:00:00', (v) => { A.to = v.slice(0, 10); if (A.from && A.to < A.from) A.from = A.to; redraw(); }, { time: false, title: 'To date' }); };
+ACT['an-from'] = () => { const P = period(); openDatePicker(P.from + ' 00:00:00', (v) => { A.from = v.slice(0, 10); if (A.to && A.to < A.from) A.to = A.from; redraw(); }, { time: false, title: 'From Date' }); };
+ACT['an-to'] = () => { const P = period(); openDatePicker(P.to + ' 00:00:00', (v) => { A.to = v.slice(0, 10); if (A.from && A.to < A.from) A.from = A.to; redraw(); }, { time: false, title: 'To Date' }); };
 ACT['an-list'] = (el) => { const k = el.dataset.k, ps = LAST.parts; openTxList({ inc: 'Income', exp: 'Spending', net: 'Income and spending' }[k], ps.filter((p) => k === 'net' || (k === 'inc' ? p.kind === 'income' : p.kind === 'expense'))); };
 ACT['an-bucket'] = (el) => { const a = el.dataset.a, b = el.dataset.b; openTxList(`${a === b ? a : a + ' to ' + b}`, LAST.parts.filter((p) => { const d = p.t.date.slice(0, 10); return d >= a && d <= b; })); };
 ACT['an-key'] = (el) => {

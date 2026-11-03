@@ -32,7 +32,7 @@ with sync_playwright() as p:
     pg.click('[data-act=trip-reset]'); pg.wait_for_timeout(500); ok('Show again restores', pg.locator('.tripcard').count()==n)
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='simple'})})()"); pg.wait_for_timeout(500)
     pg.evaluate("document.querySelector('[data-act=menu],.burger,[data-act=burger]')?.click()"); pg.wait_for_timeout(300)
-    ok('Simple mode hides the menu item', 'Trips and events' not in pg.evaluate("[...document.querySelectorAll('nav a, .drawer a, #menu a, [data-nav]')].map(a=>a.innerText).join('|')"))
+    ok('Simple mode hides the menu item', 'Trips and Events' not in pg.evaluate("[...document.querySelectorAll('nav a, .drawer a, #menu a, [data-nav]')].map(a=>a.innerText).join('|')"))
     ok('no errors %s'%errs, not errs)
     b.close()
 print('fails',res.count(False))

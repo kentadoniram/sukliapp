@@ -82,7 +82,7 @@ export function openBudgetSetup() {
     ${usual.size ? '<div class="btnrow left"><button type="button" class="btn sm ghost" data-suggest>Suggest budgets from my spending</button></div>' : ''}
     ${[...groups.entries()].sort((a, b) => (b[1].reduce((q, c) => q + (recent.get(c.id) || 0), 0) - a[1].reduce((q, c) => q + (recent.get(c.id) || 0), 0)) || a[0].localeCompare(b[0])).map(([g, l]) => { l.sort((a, b2) => (recent.get(b2.id) || 0) - (recent.get(a.id) || 0) || a.name.localeCompare(b2.name)); const n = l.filter((c) => cb.get(c.id) && !cb.get(c.id).off).length, open = n || l.some((c) => recent.get(c.id) > 0); return `<details class="bsgrp" ${open ? 'open' : ''}><summary><b>${esc(g)}</b> <small class="muted">${n ? n + ' budgeted' : l.length + (l.length === 1 ? ' category' : ' categories')}</small></summary>${l.sort((a, b) => a.name.localeCompare(b.name)).map(rowOf).join('')}</details>`; }).join('')}
     <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Save budget</button></div></form>`;
-  const s = sheet(html, { title: 'Budget setup', wide: true });
+  const s = sheet(html, { title: 'Budget Setup', wide: true });
   const f = s.el.querySelector('#bs');
   f.addEventListener('change', (e) => { if (e.target.matches('[data-on]')) { const r = e.target.closest('.bsrow'), a = r.querySelector('[data-amt]'); a.disabled = !e.target.checked; if (e.target.checked) a.focus(); } });
   f.addEventListener('click', (e) => { const b = e.target.closest('[data-cls]'); if (!b) return; b.parentNode.querySelectorAll('[data-cls]').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); }); });

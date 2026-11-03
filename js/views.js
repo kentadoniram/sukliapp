@@ -33,14 +33,14 @@ ACT.menu = () => {
   const wrap = document.createElement('div');
   wrap.className = 'drawer-scrim';
   wrap.innerHTML = `<nav class="drawer" aria-label="Menu"><div class="drawer-head"><b>Sukli</b><button type="button" class="iconbtn" data-x aria-label="Close menu">${ic('x')}</button></div>
-    ${(() => { const tb = tabIds(get()), inBar = (h) => tb.includes(h), main = [['home', 'Home', 'home'], ['ledger', 'Entries', 'list'], ['calendar', 'Calendar', 'calendar'], ['accounts', 'Accounts', 'wallet'], ['budget', 'Budget', 'pie'], ['invest', 'Investments', 'spark'], ['debts', 'Debts', 'calc'], ['owed', 'Owed to you', 'wallet'], ['cashflow', 'Cash flow', 'flow'], ['outlook', 'Outlook', 'spark'], ['analytics', 'Analytics', 'chart'], ['spend', 'Spending by group', 'pie'], ['trips', 'Trips and events', 'calendar']].filter(([h]) => !simple || !['invest', 'cashflow', 'outlook', 'analytics', 'spend', 'trips'].includes(h)), inB = main.filter(([h]) => inBar(h)), rest = main.filter(([h]) => !inBar(h)), open = barOpen();
-      return `${inB.length ? `<button type="button" class="dhead" data-dtoggle data-key="sukli-menu-bar" aria-expanded="${open}"><span>Bottom bar tabs</span>${ic('down', 'chev')}</button><ul class="dsub" ${open ? '' : 'hidden'}>${inB.map(([h, l, i]) => item(h, l, i)).join('')}</ul>` : ''}<ul>${rest.map(([h, l, i]) => item(h, l, i)).join('')}${item('review', 'Review', 'check', n)}</ul>`; })()}
+    ${(() => { const tb = tabIds(get()), inBar = (h) => tb.includes(h), main = [['home', 'Home', 'home'], ['ledger', 'Entries', 'list'], ['calendar', 'Calendar', 'calendar'], ['accounts', 'Accounts', 'wallet'], ['budget', 'Budget', 'pie'], ['invest', 'Investments', 'spark'], ['debts', 'Debts', 'calc'], ['owed', 'Owed to You', 'wallet'], ['cashflow', 'Cash Flow', 'flow'], ['outlook', 'Outlook', 'spark'], ['analytics', 'Analytics', 'chart'], ['spend', 'Spending by Group', 'pie'], ['trips', 'Trips and Events', 'calendar']].filter(([h]) => !simple || !['invest', 'cashflow', 'outlook', 'analytics', 'spend', 'trips'].includes(h)), inB = main.filter(([h]) => inBar(h)), rest = main.filter(([h]) => !inBar(h)), open = barOpen();
+      return `${inB.length ? `<button type="button" class="dhead" data-dtoggle data-key="sukli-menu-bar" aria-expanded="${open}"><span>Bottom Bar Tabs</span>${ic('down', 'chev')}</button><ul class="dsub" ${open ? '' : 'hidden'}>${inB.map(([h, l, i]) => item(h, l, i)).join('')}</ul>` : ''}<ul>${rest.map(([h, l, i]) => item(h, l, i)).join('')}${item('review', 'Review', 'check', n)}</ul>`; })()}
     <button type="button" class="dhead" data-dtoggle aria-expanded="${catOpen()}"><span>Categories</span>${ic('down', 'chev')}</button>
     <ul class="dsub" ${catOpen() ? '' : 'hidden'}>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
     <button type="button" class="dhead" data-dtoggle data-key="sukli-menu-scan" aria-expanded="${scanOpen()}"><span>Scanner</span>${ic('down', 'chev')}</button>
-    <ul class="dsub" ${scanOpen() ? '' : 'hidden'}><li><a href="#" data-act="scan">${ic('camera')}<span>Scan a receipt</span></a></li><li><a href="#" data-act="wallet-scan">${ic('camera')}<span>Read a Pasmo screenshot</span></a></li></ul>
-    ${simple ? '' : `<ul><li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan planner</span></a></li></ul>`}
-    ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle bin and undo history', 'trash')}${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
+    <ul class="dsub" ${scanOpen() ? '' : 'hidden'}><li><a href="#" data-act="scan">${ic('camera')}<span>Scan a Receipt</span></a></li><li><a href="#" data-act="wallet-scan">${ic('camera')}<span>Read a Pasmo Screenshot</span></a></li></ul>
+    ${simple ? '' : `<ul><li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan Planner</span></a></li></ul>`}
+    ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle Bin and Undo History', 'trash')}${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
   document.body.appendChild(wrap);
   document.body.classList.add('noscroll');
   const onKey = (e) => { if (e.key === 'Escape') close(); };
@@ -180,7 +180,7 @@ export function calendar(db) {
       <p class="legend cal-l"><i class="k o"></i>Cash outflow (darker = more) <i class="k g"></i>Cash inflow <i class="k b"></i>Transfer</p>
       ${isNow ? '' : `<div class="btnrow left"><button type="button" class="btn sm ghost" data-act="cal-today">Go to this month</button></div>`}</section>
     <section class="facts three"><div><span>Cash outflow</span><b class="cr">${R(tOut)}</b></div><div><span>Cash inflow</span><b class="cg">${R(tIn)}</b></div><div><span>Transfers</span><b class="cb">${R(tTr)}</b></div></section>
-    <section><h2>This month by day</h2>
+    <section><h2>This Month by Day</h2>
       <ul class="calfacts">
         <li><span>Average per day${isNow ? ' so far' : ''}</span><b>${upto ? R(per) : '—'}</b></li>
         <li><span>Busiest day</span><b>${busy ? `<button type="button" class="linkbtn" data-act="day" data-d="${ym}-${String(busy.d).padStart(2, '0')}">${dayLabel(`${ym}-${String(busy.d).padStart(2, '0')}`)}</button> · ${R(busy.out)}` : '—'}</b></li>

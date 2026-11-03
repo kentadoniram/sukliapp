@@ -208,7 +208,7 @@ export function openEntry(opts = {}) {
   function askExtra(extra, cur, onPick) {
     const s2 = sheet(`<p class="confirm-text">They paid ${esc(fmt(extra, cur, { force: true }))} more than they owed you. What is the extra?</p>
       <div class="chips"><button type="button" class="chip" data-x="Interest earned">Interest earned</button><button type="button" class="chip" data-x="Other income">Other income</button></div>
-      <p class="hint">The extra is counted as income. The rest only lowers what they owe you.</p><div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button></div>`, { title: 'Paid back extra' });
+      <p class="hint">The extra is counted as income. The rest only lowers what they owe you.</p><div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button></div>`, { title: 'Paid Back Extra' });
     s2.el.querySelector('[data-no]').onclick = () => s2.close();
     s2.el.addEventListener('click', (e) => { const b = e.target.closest('[data-x]'); if (b) { s2.close(); onPick(b.dataset.x); } });
   }
@@ -387,7 +387,7 @@ export function openEntry(opts = {}) {
       <select id="f-feecat" aria-label="Fee type">${f.feeCat ? '' : '<option value="">Fee type</option>'}${feeCatOptions(f.feeCat)}</select>
       <small class="muted feewho">Taken from ${esc((f.feeBy === 'to' ? b : a).name)}</small></div>`;
     const fs = el.querySelector('#f-feecat');
-    if (fs) enhanceSelect(fs, { title: 'Fee type', addLabel: 'Add a new fee type', onAdd: async () => { const n = (await promptDialog('New fee type', '', { okLabel: 'Add', hint: 'For example: Withdrawal fee, Gas fee' }))?.trim(); if (!n) return; fs.add(new Option(n, '__new:' + n)); fs.value = '__new:' + n; fs.dispatchEvent(new Event('change', { bubbles: true })); } });
+    if (fs) enhanceSelect(fs, { title: 'Fee Type', addLabel: 'Add a new fee type', onAdd: async () => { const n = (await promptDialog('New fee type', '', { okLabel: 'Add', hint: 'For example: Withdrawal fee, Gas fee' }))?.trim(); if (!n) return; fs.add(new Option(n, '__new:' + n)); fs.value = '__new:' + n; fs.dispatchEvent(new Event('change', { bubbles: true })); } });
   }
   function topCats(kind, n) {
     const m = modelFor(kind);
@@ -739,7 +739,7 @@ export function openEntry(opts = {}) {
         if (pick) { f.acct = pick.id; f.acctTouched = true; f.acctSuggested = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; if (f.toAcct === f.acct) f.toAcct = ''; }
         renderAccts(); renderFx(); refreshPred(); updateItemLeft(); renderFreq();
       };
-      if (cur === '__more') { renderCur(); openCurrencyPicker((c) => choose(c), { title: 'More currencies' }); }
+      if (cur === '__more') { renderCur(); openCurrencyPicker((c) => choose(c), { title: 'More Currencies' }); }
       else await choose(cur);
     }
     else if (id === 'f-feecat') { f.feeCat = e.target.value; f.feeTouched = true; f.feeSuggested = false; renderFee(); }
@@ -788,8 +788,8 @@ export function openEntry(opts = {}) {
       case 'k': keyPress(v); break;
       case 'postedon': f.postedOn = true; renderPosted(); break;
       case 'postedoff': f.postedOn = false; f.posted = ''; renderPosted(); break;
-      case 'posted': openDatePicker(f.posted + ' 00:00:00', (val) => { const v = val.slice(0, 10), day = String(f.date).slice(0, 10); if (v <= day) { f.posted = addDay(day, 1); toast('The posted date must be after the entry date.'); } else f.posted = v; renderPosted(); }, { title: 'Posted date', time: false }); break;
-      case 'when': openDatePicker(f.date, (val) => { f.date = val; renderPosted(); renderWhen(); refreshPred(); renderSafety(); }, { title: 'When was it?' }); break;
+      case 'posted': openDatePicker(f.posted + ' 00:00:00', (val) => { const v = val.slice(0, 10), day = String(f.date).slice(0, 10); if (v <= day) { f.posted = addDay(day, 1); toast('The posted date must be after the entry date.'); } else f.posted = v; renderPosted(); }, { title: 'Posted Date', time: false }); break;
+      case 'when': openDatePicker(f.date, (val) => { f.date = val; renderPosted(); renderWhen(); refreshPred(); renderSafety(); }, { title: 'When Was It?' }); break;
       case 'allamt': { const a0 = acctOf(f.acct); if (!a0) { toast('Choose the From account first.'); break; }
         let v = balances(get()).get(f.acct) || 0; const fee = parseFloat(String(f.fee || '').replace(/,/g, '')) || 0; if (f.feeBy !== 'to' && fee > 0) v -= fee;   // a fee taken from the sender comes out of the same balance
         if (!(v > 0)) { toast('There is nothing to move from this account.'); break; }
@@ -1011,7 +1011,7 @@ export function openCategoryPicker(kind, onPick) {
   }
   const s = sheet(`<input type="search" id="catq" class="search" placeholder="Search categories" autofocus>
     <div id="catlist"></div>
-    <div class="newcat"><button type="button" class="btn ghost wide" id="newcat-btn">+ New category</button></div>`, { title: 'All categories' });
+    <div class="newcat"><button type="button" class="btn ghost wide" id="newcat-btn">+ New category</button></div>`, { title: 'All Categories' });
   const list = s.el.querySelector('#catlist');
   const draw = (q = '') => {
     q = q.toLowerCase();
@@ -1088,7 +1088,7 @@ Example:<br><code>bus 30<br>mcdo 358.5<br>+ refund 1200</code>The app guesses ca
     <label class="field"><span>Date</span><input id="b-date" type="date" value="${nowStamp().slice(0, 10)}"></label>
     <label class="field"><span>Lines</span><textarea id="b-text" rows="8" placeholder="bus 30&#10;pandesal 45" autofocus></textarea></label>
     <p class="err" id="b-err" hidden></p>
-    <div class="btnrow"><button class="btn">Add all</button></div></form>`, { title: 'Add many at once' });
+    <div class="btnrow"><button class="btn">Add all</button></div></form>`, { title: 'Add Many at Once' });
   s.el.querySelector('form').onsubmit = (e) => {
     e.preventDefault();
     const db2 = get();

@@ -67,10 +67,10 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelectorAll('.scrim').forEach(e=>e.remove())")
     # trade form: All
     pg.evaluate("(async()=>{const m=await import('/js/trades.js');m.openTrade({asset:'sp1',side:'sell'})})()"); pg.wait_for_selector('#tr')
-    ok('sell: All beside Units, not beside Total', pg.is_visible('[data-all=qty]') and not pg.is_visible('[data-all=total]'))
+    ok('sell: All beside Quantity, not beside Total', pg.is_visible('[data-all=qty]') and not pg.is_visible('[data-all=total]'))
     pg.click('[data-all=qty]'); pg.wait_for_timeout(200); ok('sell All fills the whole holding', pg.input_value('#tr [name=qty]')=='123.45678912')
     pg.click('[data-side=buy]'); pg.wait_for_timeout(200)
-    ok('buy: All beside Total, not Units', pg.is_visible('[data-all=total]') and not pg.is_visible('[data-all=qty]'))
+    ok('buy: All beside Total, not Quantity', pg.is_visible('[data-all=total]') and not pg.is_visible('[data-all=qty]'))
     ok('no page errors', not errs); print(errs)
     b.close()
 print(f'{sum(res)}/{len(res)} passed')

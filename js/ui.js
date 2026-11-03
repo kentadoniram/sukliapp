@@ -129,7 +129,7 @@ export function confirmDialog(message, okLabel = 'Confirm', danger = false, noLa
   return new Promise((res) => {
     const s = sheet(`<p class="confirm-text">${esc(message)}</p>
       <div class="btnrow"><button type="button" class="btn ghost" data-no>${esc(noLabel)}</button>
-      <button type="button" class="btn ${danger ? 'danger' : ''}" data-yes>${esc(okLabel)}</button></div>`, { title: 'Please confirm', onClose: () => res(false) });
+      <button type="button" class="btn ${danger ? 'danger' : ''}" data-yes>${esc(okLabel)}</button></div>`, { title: 'Please Confirm', onClose: () => res(false) });
     s.el.querySelector('[data-no]').onclick = () => s.close();
     s.el.querySelector('[data-yes]').onclick = () => { s.silent = true; s.dispose(); res(true); };
   });

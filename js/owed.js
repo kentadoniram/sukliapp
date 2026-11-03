@@ -30,12 +30,12 @@ export function owedList(db) {
 export function owed(db) {
   const list = owedList(db), open = list.filter((p) => p.open), done = list.filter((p) => !p.open), total = open.reduce((q, p) => q + p.owed, 0);
   const add = '<button type="button" class="btn" data-act="owed-add">Add a person</button>';
-  if (!list.length) return `<div class="debtpage owedpage">${hdr('Owed to you')}<section class="cardbox"><h3>Nobody owes you yet</h3><p class="hint">When you lend money to a friend or family member, record it with <b>Lent</b> in the add button (the round +). It is not counted as spending, and it shows here until they pay you back.</p><div class="btnrow left">${add}</div></section></div>`;
+  if (!list.length) return `<div class="debtpage owedpage">${hdr('Owed to You')}<section class="cardbox"><h3>Nobody owes you yet</h3><p class="hint">When you lend money to a friend or family member, record it with <b>Lent</b> in the add button (the round +). It is not counted as spending, and it shows here until they pay you back.</p><div class="btnrow left">${add}</div></section></div>`;
   const row = (p) => `<div class="debtrow"><div class="dr-head"><div><b class="oname">${esc(p.name)}</b><small class="muted">${p.since ? `Waiting since ${niceDate(p.since)} (${daysText(p.waited)})` : 'No lending entry yet'}${p.cur !== HOME ? ` · ${fmt(p.owedCur, p.cur)}` : ''}</small></div><b class="dr-owed">${money(p.owed)}</b></div>
     <ul class="calfacts">${p.due ? `<li><span>Expected back by</span><b>${niceDate(p.due)}${p.dueIn >= 0 ? ` (${daysText(p.dueIn)})` : ''}</b>${p.dueIn < 0 ? ' <small class="muted">date has passed</small>' : ''}</li>` : ''}<li><span>Paid back so far</span>${p.backN ? `<b>${money(p.backSum)} in ${p.backN} payment${p.backN === 1 ? '' : 's'}</b>${p.lastBack ? ` <small class="muted">last ${niceDate(p.lastBack)}</small>` : ''}` : '<span class="muted">nothing yet</span>'}</li></ul>
     <div class="btnrow tight"><button type="button" class="btn sm" data-act="owed-back" data-id="${p.id}">They paid me back</button><button type="button" class="btn sm ghost" data-act="owed-more" data-id="${p.id}">Lend more</button><button type="button" class="btn sm ghost" data-act="owed-edit" data-id="${p.id}">Change</button></div></div>`;
   const settled = done.length ? coll('o-done', `Paid back (${done.length})`, `<div class="rows plain">${done.map((p) => `<div class="orow"><span class="rmain"><strong>${esc(p.name)}</strong><small>${p.backN ? `Paid back ${money(p.backSum)}` : 'Nothing owed'}</small></span><span class="obtns"><button type="button" class="btn sm ghost" data-act="owed-more" data-id="${p.id}">Lend again</button><button type="button" class="btn sm ghost" data-act="owed-edit" data-id="${p.id}">Change</button></span></div>`).join('')}</div>`) : '';
-  return `<div class="debtpage owedpage">${hdr('Owed to you')}
+  return `<div class="debtpage owedpage">${hdr('Owed to You')}
     <section class="cardbox"><h3>What others owe you</h3><div class="debtsum"><div class="dsrow"><span>Total owed to you</span><b>${money(total)}</b></div><div class="dsrow"><span>People</span><b>${open.length}</b></div></div>
       <p class="hint">Money you lent is not counted as spending, and it is not part of your Spendable money until it is paid back.</p><div class="btnrow left">${add}<button type="button" class="btn ghost" data-act="owed-new">I lent money</button></div></section>
     ${open.length ? `<h2 class="subh">Who owes you (${open.length})</h2>${open.map(row).join('')}` : '<section class="cardbox"><p class="hint">Everyone has paid you back.</p></section>'}${settled}</div>`;
@@ -59,7 +59,7 @@ ACT['owed-edit'] = (el) => {
     <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">Save</button></div></form>`, { title: a.name });
   const q = (x) => s.el.querySelector(x), draw = () => { q('[data-due]').textContent = due ? niceDate(due) : 'Pick a date'; q('[data-nodue]').hidden = !due; };
   q('[data-no]').onclick = () => s.close();
-  q('[data-due]').onclick = () => openDatePicker((due || todayStr()) + ' 00:00:00', (v) => { due = v.slice(0, 10); draw(); }, { time: false, title: 'Expected back by' });
+  q('[data-due]').onclick = () => openDatePicker((due || todayStr()) + ' 00:00:00', (v) => { due = v.slice(0, 10); draw(); }, { time: false, title: 'Expected Back By' });
   q('[data-nodue]').onclick = () => { due = ''; draw(); };
   const off = q('[data-off]');
   if (off) off.onclick = async () => {

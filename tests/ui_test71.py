@@ -15,7 +15,7 @@ with sync_playwright() as p:
     n=pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.undoHistory().undo.length})()"); ok('three steps recorded: %s'%n, n==3)
     pg.reload(); pg.wait_for_selector('.tabs',timeout=20000); pg.wait_for_timeout(1500)
     n=pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.undoHistory().undo.length})()"); ok('history survives a restart: %s'%n, n==3)
-    pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(400); pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer'); ok('menu has one Recycle bin and undo history item', 'Recycle bin and undo history' in pg.inner_text('.drawer') and 'Undo history' not in pg.inner_text('.drawer').replace('Recycle bin and undo history',''))
+    pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(400); pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer'); ok('menu has one Recycle Bin and Undo History item', 'Recycle Bin and Undo History' in pg.inner_text('.drawer') and 'Undo History' not in pg.inner_text('.drawer').replace('Recycle Bin and Undo History',''))
     pg.click('.drawer a[href="#/bin"]'); pg.wait_for_timeout(500); pg.click('.bintabs a:has-text("Undo history")'); pg.wait_for_timeout(600); t=pg.inner_text('#view')
     ok('history page lists steps', 'Undo history' in t and t.count('Undo to here')==3 and 'Changed 1 account' in t)
     ok('two cards: Deleted and Undo history', pg.locator('.bintabs a').count()==2)

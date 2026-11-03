@@ -95,7 +95,7 @@ ACT['wz-when'] = async (el) => {
   const v = el.dataset.v;
   if (v !== 'custom') { wz.whenKind = v; wz.whenAt = ''; rerender(); return; }
   const { openDatePicker } = await import('./datepicker.js');
-  openDatePicker(stampOf(new Date()), (val) => { wz.whenKind = 'custom'; wz.whenAt = String(val).replace('T', ' ').padEnd(19, ':00').slice(0, 19); rerender(); }, { title: 'When was it?' });
+  openDatePicker(stampOf(new Date()), (val) => { wz.whenKind = 'custom'; wz.whenAt = String(val).replace('T', ' ').padEnd(19, ':00').slice(0, 19); rerender(); }, { title: 'When Was It?' });
 };
 ACT['wz-next'] = () => {
   if (!valid()) return;

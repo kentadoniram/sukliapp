@@ -15,10 +15,10 @@ with sync_playwright() as p:
     pg.click('details.ssub >> nth=0 >> summary'); pg.wait_for_timeout(300); ok('tapping a heading opens it', pg.eval_on_selector('details.ssub','d=>d.open'))
     ok('open state remembered on this device', 'Tabs' in (pg.evaluate("localStorage.getItem('sukli-ssub')") or '') or len(pg.evaluate("JSON.parse(localStorage.getItem('sukli-ssub')||'[]')"))==1)
     # Advanced (default): everything visible
-    pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer'); t=pg.inner_text('.drawer'); ok('Advanced menu has Investments, Analytics, Cash flow', all(x in t for x in ['Investments','Analytics','Cash flow','Outlook','Loan planner'])); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer'); t=pg.inner_text('.drawer'); ok('Advanced menu has Investments, Analytics, Cash Flow', all(x in t for x in ['Investments','Analytics','Cash Flow','Outlook','Loan Planner'])); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # Simple
     J(pg,"c.commit(d=>{d.settings.mode='simple'})"); pg.wait_for_timeout(500)
-    pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer'); t=pg.inner_text('.drawer'); ok('Simple menu hides Investments, Analytics, Cash flow, Outlook, Loan planner', not any(x in t for x in ['Investments','Analytics','Cash flow','Outlook','Loan planner']))
+    pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer'); t=pg.inner_text('.drawer'); ok('Simple menu hides Investments, Analytics, Cash Flow, Outlook, Loan planner', not any(x in t for x in ['Investments','Analytics','Cash Flow','Outlook','Loan Planner']))
     ok('Simple menu keeps Debts, Owed to you, Accounts, Settings and offers Advanced', all(x.lower() in t.lower() for x in ['Debts','Owed to you','Bottom bar tabs','Settings','Show all options (Advanced)']))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.click('[data-act=add]'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300); ok('Simple entry form hides the Merchant row', not pg.is_visible('#merchrow'))

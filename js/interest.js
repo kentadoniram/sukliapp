@@ -40,7 +40,12 @@ export const isPeriodEnd = (d, comp) => {
 
 // ---- the "?" buttons: tap to open a short explanation, tap again to close ----
 export const TIPS = {
-  pricecur: ['Price currency', 'The money the price of one unit is quoted in. NVIDIA is quoted in USD, Toyota in JPY, BNB in USDT. Sukli uses that currency’s exchange rate to show the value in your own currency. It is not a new account, just the unit of the price.'],
+  openbal: ['Opening balance', 'The amount the account held on the Opening Date. Bank, cash or e-wallet: your balance on that day (if you start today, your balance now). Credit card or loan: what you owe on that day, as a positive number. It is not the credit limit or the available credit.'],
+  opendate: ['Opening date', 'The day the balance above counts from. Entries dated earlier are kept as history but do not change the balance. Starting fresh? Use today. Want older entries to count? Use an earlier date and enter the balance you had then.'],
+  ticker: ['Ticker', 'The short trading symbol of the asset, for example BTC, ETH, SOL, USDT, or NVDA for NVIDIA. It is the name the exchange shows next to the coin.'],
+  assetname: ['Name', 'The full or your own name of the asset, for example Bitcoin or NVIDIA. Optional: it only makes the list easier to read.'],
+  livepriceid: ['Live price ID', 'The name CoinGecko uses for this coin, for example bitcoin or usd-coin. Sukli uses it to look up the live price. It is suggested from the ticker; check it only if the price looks wrong.'],
+  pricecur: ['Price currency', 'The currency used to set the asset’s market value, for example USD, USDT or PHP. The money the price of one unit is quoted in. NVIDIA is quoted in USD, Toyota in JPY, BNB in USDT. Sukli uses that currency’s exchange rate to show the value in your own currency. It is not a new account, just the unit of the price.'],
   principal: ['Principal', 'The starting amount that interest is worked out on: what you put in, or what you borrowed or still owe.'],
   rate: ['Yearly rate', 'The percentage per year printed by your bank or lender, before the effect of compounding. Also called the nominal rate.'],
   compounding: ['Compounding', 'How often interest is added to the balance so that it earns interest too. Daily adds it every day, monthly at each month end, quarterly every 3 months. More often means slightly more over a year.'],

@@ -28,5 +28,5 @@ ACT['safe-info'] = () => {
     <ul class="calfacts"><li><span>Cash, bank and e-wallet</span><b>${m(s.money)}</b></li>
     ${s.items.map((x) => `<li><span>${esc(x.name)}<small> ${esc(x.kind)}</small></span><b>-${m(x.amount)}</b></li>`).join('')}
     <li><span><b>Safe to spend</b></span><b>${m(s.safe)}</b></li></ul>
-    <p class="hint">A card purchase is still an expense on the day you buy. It lowers this figure at once, even though the bank balance has not moved until you pay the card.</p>`, { title: 'Safe to spend' });
+    <p class="hint">A card purchase is still an expense on the day you buy. It lowers this figure at once, even though the bank balance has not moved until you pay the card.</p>`, { title: 'Safe to Spend' });
 };

@@ -43,7 +43,7 @@ const stamp = (at) => { try { return new Date(at).toLocaleString(undefined, { mo
 const binTabs = (hist, nb, nh) => `<div class="seg two bintabs" role="group" aria-label="Recycle bin or undo history"><a class="${hist ? '' : 'on'}" href="#/bin">Deleted${nb ? ` (${nb})` : ''}</a><a class="${hist ? 'on' : ''}" href="#/bin?v=history">Undo history${nh ? ` (${nh})` : ''}</a></div>`;
 function history(nb) {
   const h = undoHistory(), kb = h.undo.reduce((q, x) => q + x.kb, 0);
-  return `${hdr('Undo history')}${binTabs(true, nb, h.undo.length)}
+  return `${hdr('Undo History')}${binTabs(true, nb, h.undo.length)}
   <section class="card"><p class="hint">Your last changes to entries, accounts, categories and budgets, newest first. Tap <b>Undo to here</b> to go back to just before that change; you will see every change that gets undone before you confirm. History is kept when you close the app, up to 25 changes, and older ones drop off. It is cleared if your data was changed from another device or restored from a backup. Entries you added go to the Recycle bin.</p>
     ${h.redo.length ? `<div class="btnrow left"><button type="button" class="btn ghost sm" data-act="hist-redo">Redo: ${esc(h.redo[0].label)}</button></div>` : ''}</section>
   ${h.undo.length ? `<ul class="binlist">${h.undo.map((x, k) => `<li class="binrow"><div class="binmain"><b>${esc(x.label)}</b><small class="muted">${esc(stamp(x.at))} · ${esc(ago(x.at))}</small>${(x.detail || []).map((l) => `<small class="hdet">${esc(l)}</small>`).join('')}</div><div class="binbtn"><button class="btn sm ${k ? 'ghost' : ''}" data-act="hist-to" data-n="${k + 1}">${k ? 'Undo to here' : 'Undo'}</button></div></li>`).join('')}</ul>
@@ -54,7 +54,7 @@ export function bin(db) {
   if (/[?&]v=history/.test(location.hash)) return history(rows.length);
   const nh = undoHistory().undo.length;
   const days = [7, 14, 30, 60, 90, 0];
-  return `${hdr('Recycle bin')}${binTabs(false, rows.length, nh)}
+  return `${hdr('Recycle Bin')}${binTabs(false, rows.length, nh)}
   <section class="card"><p class="hint">Deleted items wait here, so a slip is never final. Restore anything until its time runs out. After that it is removed for good (on every device).</p>
     <label class="field"><span>Keep deleted items for</span><select data-act-change="bin-days">${days.map((d) => `<option value="${d}" ${(+s.binDays || 0) === d ? 'selected' : ''}>${d ? d + ' days' : 'Until I delete them'}</option>`).join('')}</select></label></section>
   ${rows.length ? `<div class="binhead"><b>${rows.length} ${rows.length === 1 ? 'item' : 'items'}</b><button class="btn ghost danger sm" data-act="bin-empty">Empty bin</button></div>
@@ -102,7 +102,7 @@ ACT['hist-to'] = (el) => {
   const list = steps.map((x) => `<li><b>${esc(x.label)}</b> <small class="muted">${esc(ago(x.at))}</small>${(x.detail || []).map((l) => `<small class="hdet">${esc(l)}</small>`).join('')}</li>`).join('');
   const s = sheet(`<p class="confirm-text">${n === 1 ? 'This change will be undone:' : `These ${n} changes will be undone, newest first:`}</p><ul class="undolist">${list}</ul>
     <p class="hint">Your data goes back to how it was before the oldest one. You can use Redo afterwards. Entries you added go to the Recycle bin.</p>
-    <div class="btnrow"><button type="button" class="btn ghost" data-no>Keep my data as it is</button><button type="button" class="btn" data-yes>Undo ${n === 1 ? 'this change' : `all ${n}`}</button></div>`, { title: 'What will be undone' });
+    <div class="btnrow"><button type="button" class="btn ghost" data-no>Keep my data as it is</button><button type="button" class="btn" data-yes>Undo ${n === 1 ? 'this change' : `all ${n}`}</button></div>`, { title: 'What Will Be Undone' });
   s.el.querySelector('[data-no]').onclick = () => s.close();
   s.el.querySelector('[data-yes]').onclick = () => { s.silent = true; s.dispose(); const l = undoSteps(n); toast(l ? `Went back ${n} change${n === 1 ? '' : 's'}.` : 'Nothing to undo.'); };
 };

@@ -37,7 +37,7 @@ export function inputHistory(db) {
 }
 let sh = null;
 const redraw = () => { if (sh && sh.el.isConnected) sh.el.innerHTML = inputHistory(get()); };
-export function openInputHistory() { st.f = 'all'; st.limit = 40; sh = sheet(inputHistory(get()), { title: 'Input history', wide: true }); }
+export function openInputHistory() { st.f = 'all'; st.limit = 40; sh = sheet(inputHistory(get()), { title: 'Input History', wide: true }); }
 ACT['ih-open'] = () => openInputHistory();
 ACT['ih-filter'] = (el) => { st.f = el.dataset.v; st.limit = 40; redraw(); };
 ACT['ih-more'] = () => { st.limit += 60; redraw(); };

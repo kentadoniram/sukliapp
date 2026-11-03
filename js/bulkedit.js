@@ -33,7 +33,7 @@ export function openBulkEdit(ids, onDone) {
   const touched = () => { const any = q('be-name').value.trim() || q('be-cat').value || q('be-tags').value.trim() || q('be-notes').value.trim() || q('be-merch').value.trim() || q('be-acct').value || day; q('be-go').disabled = !any; };
   s.el.querySelectorAll('input,select').forEach((e) => e.addEventListener('input', touched)); s.el.querySelectorAll('select').forEach((e) => e.addEventListener('change', touched));
   s.el.querySelectorAll('[data-tm]').forEach((b) => { b.onclick = () => { mode = b.dataset.tm; s.el.querySelectorAll('[data-tm]').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', String(x === b)); }); }; });
-  q('be-date').onclick = () => openDatePicker(`${day || String(txs[0].date).slice(0, 10)} 12:00:00`, (v) => { day = v.slice(0, 10); q('be-date').textContent = dayLabel(day + ' 00:00:00'); touched(); }, { time: false, title: 'New day for all' });
+  q('be-date').onclick = () => openDatePicker(`${day || String(txs[0].date).slice(0, 10)} 12:00:00`, (v) => { day = v.slice(0, 10); q('be-date').textContent = dayLabel(day + ' 00:00:00'); touched(); }, { time: false, title: 'New Day for All' });
   s.el.querySelector('[data-x]').onclick = () => s.close();
   s.el.querySelector('form').onsubmit = (e) => {
     e.preventDefault();

@@ -2,7 +2,7 @@
 // other financial products such as MP2. First rough version: valuation and structure; buy/sell comes next.
 import { enhanceSelect, pickAll, pickerList } from './picker.js';
 import { tipBtn } from './interest.js';
-import { compact, WALLETS, walletOf, accLabel, get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, findOrAddCategory, factorFor, allCurrencies, ensureCurrency } from './core.js';
+import { compact, WALLETS, WALLET_INFO, walletOf, accLabel, get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, findOrAddCategory, factorFor, allCurrencies, ensureCurrency } from './core.js';
 import { ACT, sheet, ic, esc, toast, promptDialog, confirmDialog } from './ui.js';
 import { hdr, coll, pieLabels, ui } from './screens.js';
 import { openAccountDetail, openAccount } from './accpage.js';
@@ -75,7 +75,7 @@ function eqLine(db, total) {
 ACT['inv-cur'] = () => {
   const db = get(), cur = (db.settings && db.settings.invCur) || HOME, ok = (c) => c === HOME || homeFx(db, c) > 0, common = [...new Set([HOME, 'USD', 'USDT', 'JPY', 'KRW', 'PHP', 'EUR', 'HKD'])].filter(ok);
   const opt = (c) => ({ value: c, label: `${c} · ${curName(c)}${c === HOME ? ' (home currency)' : ''}`, group: '' });
-  pickerList([...common.map((c) => ({ ...opt(c), group: 'Common' })), ...allCurrencies().filter((c) => ok(c) && !common.includes(c)).map((c) => ({ ...opt(c), group: 'All with a known rate' }))], { value: cur, title: 'Show Investments in',
+  pickerList([...common.map((c) => ({ ...opt(c), group: 'Common' })), ...allCurrencies().filter((c) => ok(c) && !common.includes(c)).map((c) => ({ ...opt(c), group: 'All with a known rate' }))], { value: cur, title: 'Show Investments In',
     onPick: (v) => commit((d) => { d.settings.invCur = v === HOME ? '' : v; }) });
 };
 
@@ -160,7 +160,7 @@ function distribution(db, mode) {
 }
 ACT['inv-pie'] = () => {
   const db = get(); setInvCur(db); let mode = gmode(), sel = '';
-  const s = sheet('<div id="ivp"></div>', { title: 'Where your money is', wide: true });
+  const s = sheet('<div id="ivp"></div>', { title: 'Where Your Money Is', wide: true });
   const draw = () => {
     const all = distribution(db, mode), total = all.reduce((t, x) => t + x.v, 0), box = s.el.querySelector('#ivp');
     const top = all.slice(0, 8), rest = all.slice(8), slices = top.map((x, i) => ({ ...x, c: mode === 'platform' ? platColor(x.name) : PIE_COLORS[i % PIE_COLORS.length] }));
@@ -273,20 +273,38 @@ export function addAsset(pre = {}) {
     <label class="field"><span>Asset type</span><select name="type">${typeOpts}</select></label>
     <label class="field"><span>Platform or broker</span><input name="ex" value="${esc(pre.platform || '')}" placeholder="Pick one below or type your own" required autocomplete="off"></label>
     ${platformChips()}
-    <label class="field"><span>Wallet inside the platform</span><select name="wallet">${[...new Set([...WALLETS, ...get().accounts.map((x) => x.wallet).filter(Boolean)])].map((w) => `<option ${(pre.wallet || 'Spot') === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select></label>
-    <div class="two"><label class="field"><span>Ticker</span><input name="coin" placeholder="BNB, BGB, NVDA, 7203, 005930" required autocomplete="off" style="text-transform:uppercase"></label>
-      <label class="field"><span>Name (optional)</span><input name="name" placeholder="NVIDIA, Toyota, Samsung…" autocomplete="off"></label></div>
+    <label class="field"><span>Trading Account Inside the Platform</span><select name="wallet">${[...new Set([...WALLETS, ...get().accounts.map((x) => x.wallet).filter(Boolean)])].map((w) => `<option ${(pre.wallet || 'Spot') === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select><small class="muted" id="wal-h"></small></label>
+    <div id="tkchips"></div>
+    <div class="two"><label class="field"><span>Ticker ${tipBtn('ticker')}</span><input name="coin" placeholder="BNB, BGB, NVDA, 7203, 005930" required autocomplete="off" style="text-transform:uppercase"></label>
+      <label class="field"><span>Name (Optional) ${tipBtn('assetname')}</span><input name="name" placeholder="NVIDIA, Toyota, Samsung…" autocomplete="off"></label></div>
+    <p class="hint" id="tk-note" hidden></p>
     <label class="field" id="mk"><span>Market (for shares and ETFs)</span><select name="market"><option value="">None</option>${MARKETS.map((m) => `<option>${m}</option>`).join('')}</select></label>
-    <div class="two"><label class="field"><span>Price currency ${tipBtn('pricecur')}</span><select name="quote">${quoteOptions(pre.quote || 'USDT')}</select></label>
-      <label class="field"><span>Price per unit (optional)</span><input name="price" inputmode="decimal" placeholder="e.g. 740"></label></div>
-    <label class="field" id="cgf"><span>Live price id (CoinGecko, optional)</span><input name="cg" placeholder="e.g. bitget-token" autocomplete="off" autocapitalize="off"><small class="muted">Looks the price up online on its own. Leave empty to set prices yourself.</small></label>
-    <div class="two"><label class="field"><span>Amount you hold now</span><input name="amt" inputmode="decimal" placeholder="0"></label>
+    <div class="two"><label class="field"><span>Price Currency ${tipBtn('pricecur')}</span><select name="quote">${quoteOptions(pre.quote || 'USDT')}</select></label>
+      <label class="field"><span>Price (Optional)</span><input name="price" inputmode="decimal" placeholder="e.g. 740"></label></div>
+    <label class="field" id="cgf"><span>Live Price ID (CoinGecko, Optional) ${tipBtn('livepriceid')}</span><input name="cg" placeholder="e.g. bitget-token" autocomplete="off" autocapitalize="off"><small class="muted" id="cg-h">Looks the price up online on its own. Suggested from the ticker. Leave empty to set prices yourself.</small></label>
+    <div class="two"><label class="field"><span>Amount You Hold Now</span><input name="amt" inputmode="decimal" placeholder="0"></label>
       <label class="field"><span>Decimals</span><input name="dec" inputmode="numeric" placeholder="auto"></label></div>
     <p class="hint">Creates its own balance, kept separate from PHP, JPY or USDT. Tickers on exchanges that are not listed (Tokyo, Korea, anywhere) can be added the same way. Without a price the value shows once you buy or sell it, or set a price later.</p>
-    <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Add asset</button></div></form>`, { title: 'Add an asset' });
-  pickAll(s.el, { quote: { title: 'Price currency', addLabel: 'Add a new currency or coin', onAdd: async () => { const raw = (await promptDialog('New currency or coin code', '', { okLabel: 'Add', hint: 'Letters and numbers, for example THB, SGD, or a token such as ARB.' })) || ''; const c = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10); if (c.length < 2) return; const sel = s.el.querySelector('select[name=quote]'); commit((d) => { ensureCurrency(d, c); }); if (![...sel.options].some((o) => o.value === c)) sel.add(new Option(`${c} · ${curName(c)}`, c)); sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); } }, wallet: { title: 'Wallet', addLabel: 'Add a new wallet', onAdd: async () => { const nm = (await promptDialog('New wallet', '', { okLabel: 'Add', hint: 'For example: Launchpool, Savings, Copy trading' }))?.trim(); if (!nm) return; const sel = s.el.querySelector('select[name=wallet]'); if (![...sel.options].some((o) => o.value.toLowerCase() === nm.toLowerCase())) sel.add(new Option(nm, nm)); sel.value = [...sel.options].find((o) => o.value.toLowerCase() === nm.toLowerCase()).value; sel.dispatchEvent(new Event('change', { bubbles: true })); } } });
+    <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Add asset</button></div></form>`, { title: 'Add an Asset' });
+  pickAll(s.el, { quote: { title: 'Price Currency', addLabel: 'Add a new currency or coin', onAdd: async () => { const raw = (await promptDialog('New currency or coin code', '', { okLabel: 'Add', hint: 'Letters and numbers, for example THB, SGD, or a token such as ARB.' })) || ''; const c = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10); if (c.length < 2) return; const sel = s.el.querySelector('select[name=quote]'); commit((d) => { ensureCurrency(d, c); const sg = suggestCg(c); if (sg) { d.settings.tickers = d.settings.tickers || {}; const o = d.settings.tickers[c] || {}; if (!o.cgId) d.settings.tickers[c] = { ...o, ticker: o.ticker || c, cgId: sg }; } }); if (![...sel.options].some((o) => o.value === c)) sel.add(new Option(`${c} · ${curName(c)}`, c)); sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); } }, wallet: { title: 'Trading Account', addLabel: 'Add a new trading account', onAdd: async () => { const nm = (await promptDialog('New trading account', '', { okLabel: 'Add', hint: 'For example: Launchpool, Savings, Copy trading' }))?.trim(); if (!nm) return; const sel = s.el.querySelector('select[name=wallet]'); if (![...sel.options].some((o) => o.value.toLowerCase() === nm.toLowerCase())) sel.add(new Option(nm, nm)); sel.value = [...sel.options].find((o) => o.value.toLowerCase() === nm.toLowerCase()).value; sel.dispatchEvent(new Event('change', { bubbles: true })); } } });
   const f = s.el.querySelector('#ic'), sync = () => { s.el.querySelector('#mk').hidden = f.type.value === 'crypto'; s.el.querySelector('#cgf').hidden = f.type.value !== 'crypto'; }; s.el.querySelectorAll('[data-plat]').forEach((b) => { b.onclick = () => { f.ex.value = b.dataset.plat; }; }); const np = s.el.querySelector('[data-newplat]'); if (np) np.onclick = async () => { const nm = await addPlatform(); if (nm) { f.ex.value = nm; const c = document.createElement('button'); c.type = 'button'; c.className = 'chip plat'; c.dataset.plat = nm; c.innerHTML = `<b>${esc(nm)}</b>`; c.onclick = () => { f.ex.value = nm; }; np.parentNode.appendChild(c); } }; f.type.onchange = sync; sync();
   s.el.querySelector('[data-x]').onclick = () => s.close();
+  { // trading account explanation, coins already on this platform (one tap), shared details of a coin Sukli already knows, Live Price ID suggestion
+    const symOf = () => f.coin.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10), db0 = () => get();
+    const wal = () => { const h = s.el.querySelector('#wal-h'); if (h) h.textContent = WALLET_INFO[f.wallet.value] || 'One coin can sit in several trading accounts, each with its own balance.'; };
+    const chips = () => { const el = s.el.querySelector('#tkchips'), p = f.ex.value.trim().toLowerCase(); if (!el) return; const have = [...new Set(db0().accounts.filter((a) => !a.deleted && p && (a.exchange || '').toLowerCase() === p && a.type !== 'card').map((a) => a.cur))].slice(0, 12);
+      el.innerHTML = have.length ? `<p class="hint">Already on ${esc(f.ex.value.trim())}: tap a coin to add it to <b>${esc(f.wallet.value)}</b> too. It keeps its own balance there and shares its price.</p><div class="chips">${have.map((c) => `<button type="button" class="chip" data-tk="${esc(c)}">${esc(c)}</button>`).join('')}</div>` : ''; };
+    const known = () => { const sym = symOf(), tk = (db0().settings.tickers || {})[sym], note = s.el.querySelector('#tk-note'), cgh = s.el.querySelector('#cg-h');
+      if (tk) { if (!f.name.value.trim() && tk.name) f.name.value = tk.name; if (tk.assetType && f.type.value !== tk.assetType && [...f.type.options].some((o) => o.value === tk.assetType)) { f.type.value = tk.assetType; f.type.dispatchEvent(new Event('change', { bubbles: true })); }
+        if (tk.quote && [...f.quote.options].some((o) => o.value === tk.quote)) f.quote.value = tk.quote; if (tk.market) f.market.value = tk.market; if (tk.cgId && !f.cg.value.trim()) f.cg.value = tk.cgId; }
+      const where = db0().accounts.filter((a) => !a.deleted && a.cur === sym && a.type !== 'card').map((a) => `${a.exchange || 'No platform'}${a.wallet && a.wallet !== 'Spot' ? ' ' + a.wallet : ''}`);
+      if (note) { note.hidden = !where.length; note.textContent = where.length ? `${sym} is already set up (${[...new Set(where)].slice(0, 4).join(', ')}). Its name, price currency and live price ID are shared, so nothing is entered twice. This adds a separate ${sym} balance in the trading account you chose.` : ''; }
+      const sg = suggestCg(sym); if (sg && (!f.cg.value.trim() || f.cg.dataset.auto === '1')) { f.cg.value = sg; f.cg.dataset.auto = '1'; if (cgh) cgh.textContent = `Suggested from the ticker: ${sg}. Change it only if the price looks wrong.`; }
+      else if (!sg && f.cg.dataset.auto === '1') { f.cg.value = ''; f.cg.dataset.auto = ''; if (cgh) cgh.textContent = 'Looks the price up online on its own. Leave empty to set prices yourself.'; } };
+    f.coin.addEventListener('input', known); f.cg.addEventListener('input', () => { f.cg.dataset.auto = ''; });
+    f.wallet.addEventListener('change', () => { wal(); chips(); }); f.ex.addEventListener('input', chips); s.el.addEventListener('click', (e) => { const b = e.target.closest('[data-tk]'); if (b) { f.coin.value = b.dataset.tk; known(); } if (e.target.closest('[data-plat]')) setTimeout(chips, 0); });
+    wal(); chips();
+  }
   f.onsubmit = async (e) => { e.preventDefault(); const exn0 = f.ex.value.trim(), raw = f.coin.value.trim().toUpperCase(), type = f.type.value, market = type === 'crypto' ? '' : f.market.value;
     let sym = raw.replace(/[^A-Z0-9]/g, ''); if (/^\d/.test(sym)) sym = ((market.match(/^[A-Z]+/) || ['X'])[0].slice(0, 3)) + sym; sym = sym.slice(0, 10);
     const amt = parseFloat(String(f.amt.value).replace(/,/g, '')) || 0, price = parseFloat(f.price.value) || 0, quote = f.quote.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || 'USD', dec = Math.min(12, Math.max(0, parseInt(f.dec.value, 10) || (type === 'crypto' ? 6 : 4)));
@@ -329,7 +347,9 @@ ACT['inv-new'] = () => {
 };
 
 // ---------- prices, history, performance, income, predictions ----------
-const KNOWN_CG = { BGB: 'bitget-token', MNT: 'mantle', OKB: 'okb', KCS: 'kucoin-shares', HYPE: 'hyperliquid', SUI: 'sui', AVAX: 'avalanche-2', DOT: 'polkadot', LINK: 'chainlink', NEAR: 'near', ARB: 'arbitrum', OP: 'optimism' };
+export const KNOWN_CG = { BTC: 'bitcoin', ETH: 'ethereum', BNB: 'binancecoin', SOL: 'solana', XRP: 'ripple', DOGE: 'dogecoin', TON: 'the-open-network', TRX: 'tron', ADA: 'cardano', LTC: 'litecoin', MATIC: 'matic-network', USDT: 'tether', USDC: 'usd-coin', DAI: 'dai', FDUSD: 'first-digital-usd', BGB: 'bitget-token', MNT: 'mantle', OKB: 'okb', KCS: 'kucoin-shares', HYPE: 'hyperliquid', SUI: 'sui', AVAX: 'avalanche-2', DOT: 'polkadot', LINK: 'chainlink', NEAR: 'near', ARB: 'arbitrum', OP: 'optimism', SHIB: 'shiba-inu', UNI: 'uniswap', ATOM: 'cosmos', XLM: 'stellar', ETC: 'ethereum-classic', BCH: 'bitcoin-cash', FIL: 'filecoin', APT: 'aptos', PEPE: 'pepe', TIA: 'celestia', INJ: 'injective-protocol', SEI: 'sei-network', WLD: 'worldcoin-wld', XMR: 'monero', ALGO: 'algorand', VET: 'vechain', ICP: 'internet-computer', AAVE: 'aave', MKR: 'maker', GRT: 'the-graph', RENDER: 'render-token', WBTC: 'wrapped-bitcoin', STETH: 'staked-ether', PAXG: 'pax-gold' };
+// the CoinGecko id for a ticker, when it is one Sukli knows (suggestion only; the person can change it)
+export const suggestCg = (sym) => KNOWN_CG[String(sym || '').toUpperCase().replace(/[^A-Z0-9]/g, '')] || '';
 const today = () => new Date().toISOString().slice(0, 10);
 export function pushHistory(tk, price, quote, src) {
   if (!tk || !(price > 0)) return; const h = tk.history = tk.history || [], last = h[h.length - 1], day = today();
@@ -420,13 +440,13 @@ export function openIncome(pre = {}) {
     <div class="two"><label class="field"><span id="ii-l">Amount received</span><input name="amt" inputmode="decimal" required></label><label class="field"><span>Date</span><input name="date" type="date" value="${today()}"></label></div>
     <label class="field"><span>Received as</span><select name="as"><option value="asset">More of the asset itself (units)</option>${cash.length ? '<option value="cash">Cash into an account</option>' : ''}</select></label>
     <label class="field" id="ii-c" hidden><span>Paid into</span><select name="cash"></select></label>
-    <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Save</button></div></form>`, { title: 'Investment income' });
+    <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Save</button></div></form>`, { title: 'Investment Income' });
   const f = s.el.querySelector('#ii');
   // "Cash into an account": accounts on the same platform as the asset first, then the others; an account can be added from the list
   const fillCash = () => { const a = db.accounts.find((x) => x.id === f.asset.value), p = a ? exchangeOf(a) : '', on = cash.filter((x) => p && exchangeOf(x) === p), off = cash.filter((x) => !(p && exchangeOf(x) === p)), o = (l) => l.map((x) => `<option value="${x.id}">${esc(x.name)} · ${esc(x.cur)}</option>`).join('');
     f.cash.innerHTML = (on.length ? `<optgroup label="On ${esc(p)}">${o(on)}</optgroup>` : '') + (off.length ? `<optgroup label="${on.length ? 'Other platforms and accounts' : 'Accounts'}">${o(off)}</optgroup>` : ''); };
   fillCash();
-  enhanceSelect(f.asset, { title: 'Income from' }); enhanceSelect(f.type, { title: 'Kind', addLabel: 'Add a new kind', onAdd: async () => { const k = (await promptDialog('New kind of income', '', { okLabel: 'Add', hint: 'For example: Lending interest, Referral bonus, Cashback reward' }))?.trim(); if (!k) return; const known = [...INCOME_TYPES, ...(get().settings.incomeKinds || [])].find((x) => x.toLowerCase() === k.toLowerCase()); const name = known || k; if (!known) commit((d) => { d.settings.incomeKinds = [...(d.settings.incomeKinds || []), k]; }); f.type.innerHTML = kindOptions(get(), incCats, 'inv:' + name); f.type.value = 'inv:' + name; } }); enhanceSelect(f.as); enhanceSelect(f.cash, { title: 'Paid into', onAdd: () => { const a = db.accounts.find((x) => x.id === f.asset.value); s.close(); openAccount(null, { exchange: a ? exchangeOf(a) : '' }); }, addLabel: 'Add a new account or platform' });
+  enhanceSelect(f.asset, { title: 'Income From' }); enhanceSelect(f.type, { title: 'Kind', addLabel: 'Add a new kind', onAdd: async () => { const k = (await promptDialog('New kind of income', '', { okLabel: 'Add', hint: 'For example: Lending interest, Referral bonus, Cashback reward' }))?.trim(); if (!k) return; const known = [...INCOME_TYPES, ...(get().settings.incomeKinds || [])].find((x) => x.toLowerCase() === k.toLowerCase()); const name = known || k; if (!known) commit((d) => { d.settings.incomeKinds = [...(d.settings.incomeKinds || []), k]; }); f.type.innerHTML = kindOptions(get(), incCats, 'inv:' + name); f.type.value = 'inv:' + name; } }); enhanceSelect(f.as); enhanceSelect(f.cash, { title: 'Paid Into', onAdd: () => { const a = db.accounts.find((x) => x.id === f.asset.value); s.close(); openAccount(null, { exchange: a ? exchangeOf(a) : '' }); }, addLabel: 'Add a new account or platform' });
   f.asset.addEventListener('change', fillCash);
   f.as.onchange = () => { s.el.querySelector('#ii-c').hidden = f.as.value !== 'cash'; };
   s.el.querySelector('[data-x]').onclick = () => s.close();
@@ -459,7 +479,7 @@ function openPredict(pre = {}) {
     <label class="field"><span>By when</span><input name="by" type="date" value="${new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10)}"></label>
     <label class="field"><span>Why (optional)</span><input name="note" autocomplete="off"></label>
     <p class="hint">This is your own guess. It is never used as the price of the asset.</p>
-    <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Save estimate</button></div></form>`, { title: 'Add a prediction' });
+    <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Save estimate</button></div></form>`, { title: 'Add a Prediction' });
   pickAll(s.el);
   const f = s.el.querySelector('#ip'); s.el.querySelector('[data-x]').onclick = () => s.close();
   const pq = () => { const t = (db.settings.tickers || {})[f.asset.value]; if (t && t.quote) f.quote.value = t.quote; }; f.asset.onchange = pq; pq();
@@ -493,7 +513,7 @@ ACT['inv-ticker'] = (el) => {
     ${spark}<small class="muted">Blue dots: live prices. Purple dots: prices you set or traded at.</small>
     <ul class="calfacts">${h.length ? h.map((p, k) => ({ p, k })).reverse().slice(0, 30).map(({ p, k }, i, arr) => { const prev = arr[i + 1] && arr[i + 1].p, ch = prev ? (p.price - prev.price) / prev.price * 100 : null, odd = oddPrices(h).has(k); return `<li class="${odd ? 'oddp' : ''}"><span>${esc(p.date)}${p.ts && p.src !== 'live' ? ' ' + esc(new Date(p.ts).toTimeString().slice(0, 5)) : ''} <small class="muted">${p.src === 'live' ? 'daily close' : p.src === 'trade' ? 'trade' : 'you set'}${odd ? ' · <b class="cr">looks off</b>' : ''}</small></span><b>${fmt(p.price, p.quote || tk.quote)}${ch != null ? ` <small class="${ch >= 0 ? 'cg' : 'cr'}">${ch >= 0 ? '+' : '−'}${Math.abs(ch).toFixed(1)}%</small>` : ''} <button type="button" class="linkbtn rmx" data-hdel="${k}" aria-label="Delete this price">Delete</button></b></li>`; }).join('') : '<li><span>No history yet</span><b></b></li>'}</ul>
     <label class="field"><span>Group</span><select name="rg">${[...new Set([...RISK_GROUPS, ...Object.values(db.settings.tickers || {}).map((t) => t.riskGroup).filter(Boolean)])].map((g) => `<option ${g === (a ? riskOf(db, a) : tk.riskGroup) ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></label>
-    <div class="btnrow"><button type="button" class="btn ghost" data-pr>Set price</button><button type="button" class="btn ghost" data-rn>Rename</button><button type="button" class="btn ghost" data-pd>Add prediction</button><button type="button" class="btn" data-x>Close</button></div>`, { title: 'Price history' });
+    <div class="btnrow"><button type="button" class="btn ghost" data-pr>Set price</button><button type="button" class="btn ghost" data-rn>Rename</button><button type="button" class="btn ghost" data-pd>Add prediction</button><button type="button" class="btn" data-x>Close</button></div>`, { title: 'Price History' });
   const setGroup = (g) => commit((d) => { const t = (d.settings.tickers || {})[sym]; if (t) t.riskGroup = g; });
   pickAll(s.el, { rg: { title: 'Group', addLabel: 'Add a new group', onAdd: async () => { const g = (await promptDialog('New group', '', { okLabel: 'Add', hint: 'For example: Long-term, Speculative, Retirement' }))?.trim(); if (!g) return; const sel = s.el.querySelector('select[name=rg]'); if (![...sel.options].some((o) => o.value === g)) sel.add(new Option(g, g)); sel.value = g; setGroup(g); } } });
   s.el.querySelector('select[name=rg]').addEventListener('change', (e) => setGroup(e.target.value));

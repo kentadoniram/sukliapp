@@ -348,7 +348,16 @@ export const stamp = (rec) => { rec.updatedAt = Date.now(); return rec; };
 export const live = (arr) => arr.filter((x) => !x.deleted);
 // Investments are Platform (Binance, Bybit, KuCoin…) > wallet inside it (Spot, Funding, Futures, Margin, Earn) > asset (BTC, USDT, SOL).
 // One account is one asset in one wallet of one platform. accLabel always says where it is, whatever the account was named.
-export const WALLETS = ['Spot', 'Funding', 'Futures', 'Margin', 'Earn', 'Other'];
+export const WALLETS = ['Spot', 'Margin', 'Futures', 'Earn', 'Funding', 'Other'];
+// what each trading account inside a platform is for (a platform such as Binance, Bitget or Bybit has several; the same coin can sit in more than one)
+export const WALLET_INFO = {
+  Spot: 'Spot: buy and sell coins directly, with your own money and no borrowing.',
+  Margin: 'Margin: trade with borrowed funds. It can use leverage and adds risk.',
+  Futures: 'Futures: trade derivatives (contracts on a price). It can use leverage and carries much higher risk.',
+  Earn: 'Earn: a separate product where coins are put aside to earn interest or yield.',
+  Funding: 'Funding: where coins wait before you move them to Spot, Margin or Futures, or send them out.',
+  Other: 'Other: any other account or product on the platform.',
+};
 export const walletOf = (a) => (a && a.exchange ? a.wallet || 'Spot' : '');
 export function accLabel(a) {
   if (!a) return '';
