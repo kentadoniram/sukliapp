@@ -17,7 +17,9 @@ with sync_playwright() as p:
     pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(800)
     ok('platform has Internal button', pg.locator('[data-act=inv-internal][data-ex=Kx]').count()>=1)
     pg.evaluate("document.querySelector('[data-act=inv-internal][data-ex=Kx]').click()"); pg.wait_for_selector('#itf'); 
-    ok('sheet: platform fixed to Kx, from/to wallets', pg.input_value('#itf [name=plat]')=='Kx' and pg.locator('#itf [name=to] option').count()>=2)
+    ok('sheet: platform fixed to Kx, from/to wallets', pg.locator('#itf [name=plat]').count()==0 and 'Kx' in pg.inner_text('#itf') and pg.input_value('#itf [name=from]')=='Spot' and pg.locator('#itf [name=to] option').count()>=2)
+    pg.click('#it-rev'); pg.wait_for_timeout(200); ok('reverse swaps From and To %s'%pg.input_value('#itf [name=from]'), pg.input_value('#itf [name=from]')=='Earn' and pg.input_value('#itf [name=to]')=='Spot'); pg.click('#it-rev')
+    ok('currency shown inside the amount box', pg.inner_text('#it-cur')=='USDT')
     pg.click('#it-all'); ok('All fills the balance %s'%pg.input_value('#itf [name=amt]'), pg.input_value('#itf [name=amt]')=='50')
     pg.fill('#itf [name=amt]','5'); pg.click('#it-save'); pg.wait_for_timeout(500)
     ok('saved from the sheet', pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.get().txs.filter(t=>t.internal).length})()")==3)
