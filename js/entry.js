@@ -11,6 +11,7 @@ import { fxBlockHtml, fxBlockUpdate, openConverter } from './fxview.js';
 import { parseTags, joinTags, tagCounts } from './tags.js';
 import { tipBtn } from './interest.js';
 import { captureLoc, hereWhy, permState, parsePt } from './loc.js';
+import { cachedAddress, lookupAddress, saveAddress } from './geo.js';
 import { isLiability, isOwed, lockInfo, periodFor, addDay } from './finance.js';
 import { budgetAlerts, newAlertsSince } from './budgetsetup.js';
 import { guessLabel, transferLabel } from './label.js';
@@ -678,12 +679,21 @@ export function openEntry(opts = {}) {
     el.innerHTML = `<span>Location (optional)</span><div class="locbox"><button type="button" class="acctbtn" data-e="loc-get">${pt ? `📍 ${pt.la.toFixed(2)}, ${pt.lo.toFixed(2)}` : 'Current Location'}</button>
       <div class="chips">${pt ? '<button type="button" class="chip" data-e="loc-clear">Remove</button>' : ''}<button type="button" class="chip" data-e="loc-edit">${L.edit ? 'Close' : 'Type It'}</button></div></div>
       ${L.edit ? `<input id="f-loc" inputmode="decimal" placeholder="Latitude, longitude (e.g. 35.53, 139.69)" value="${pt ? `${pt.la}, ${pt.lo}` : ''}" aria-label="Location as latitude and longitude">` : ''}
+      ${pt ? `<div class="addrline">${f.place ? `<span>${esc(f.place)}</span> <button type="button" class="chip" data-e="addr-edit">Edit Address</button>` : '<button type="button" class="chip" data-e="addr-get">Show Address</button>'}${L.addrEdit ? '' : ''}</div>${L.addrEdit ? `<input id="f-place" autocomplete="off" placeholder="Type the address or place name" value="${esc(f.place || '')}" aria-label="Address">` : ''}` : ''}
       <small class="muted">${esc(permTxt)}</small>${L.msg ? `<small class="locmsg">${esc(L.msg)}</small>` : ''}`;
+  }
+  const fillAddr = () => { if (f.loc && !f.place) { const c = cachedAddress(get(), f.loc); if (c) f.place = c; } };
+  async function getAddr() {
+    const L = f.locUi; if (!f.loc) return; L.msg = 'Looking up the address (one request, then it is kept)…'; renderLoc();
+    const r = await lookupAddress(f.loc);
+    if (r.text) { f.place = r.text; L.msg = r.cached ? 'Address from your saved places.' : 'Address found. Tap Edit Address if it is not right.'; }
+    else L.msg = r.err === 'busy' ? 'The address service is busy. Try again in a minute, or type the address.' : r.err === 'none' ? 'No address found for this spot. Type one with Edit Address.' : 'Could not reach the address service. Try again later, or type the address.';
+    renderLoc();
   }
   async function getLoc() {
     const L = f.locUi || (f.locUi = { perm: 'unknown', msg: '', edit: false }); L.msg = 'Finding where you are…'; renderLoc();
     const r = await hereWhy(); L.perm = await permState();
-    if (r.p) { f.loc = r.p; L.msg = 'Saved with this entry (about 1 km accuracy). Tap Remove to drop it.'; if (L.perm === 'unknown') L.perm = 'granted'; }
+    if (r.p) { f.loc = r.p; f.place = ''; fillAddr(); L.msg = 'Saved with this entry (about 1 km accuracy). Tap Remove to drop it.'; if (L.perm === 'unknown') L.perm = 'granted'; }
     else { L.msg = r.err === 'denied' ? 'Location is blocked for this app. Allow it in your phone’s settings, or type a place with Type It.' : r.err === 'timeout' ? 'Could not find you in time. Try again, or type it.' : 'Location is not available on this device. You can type it.'; if (r.err === 'denied') L.perm = 'denied'; }
     renderLoc();
   }
@@ -770,7 +780,8 @@ export function openEntry(opts = {}) {
     else if (id === 'f-cbv') { f.cb.v = e.target.value; updCb(); }
     else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
     else if (id === 'f-from' || id === 'f-to') { if (id === 'f-from') f.from = e.target.value; else f.to = e.target.value; tripName(); tripChips(); }
-    else if (id === 'f-loc') { const q = parsePt(e.target.value); if (q) { f.loc = q; f.locUi.msg = 'Saved with this entry.'; } else if (!e.target.value.trim()) { f.loc = null; f.locUi.msg = 'Location removed.'; } else f.locUi.msg = 'Type latitude and longitude, like 35.53, 139.69.'; renderLoc(); }
+    else if (id === 'f-place') { f.place = e.target.value.trim(); if (f.loc) saveAddress(f.loc, f.place); f.locUi.msg = f.place ? 'Address saved for this place.' : ''; }
+    else if (id === 'f-loc') { const q = parsePt(e.target.value); if (q) { f.loc = q; f.place = ''; fillAddr(); f.locUi.msg = 'Saved with this entry.'; } else if (!e.target.value.trim()) { f.loc = null; f.locUi.msg = 'Location removed.'; } else f.locUi.msg = 'Type latitude and longitude, like 35.53, 139.69.'; renderLoc(); }
     else if (id === 'f-what') { f.name = e.target.value; renderNameHelp(); if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('#countsrow')) renderCounts(); suggestAcct(); suggestMerchant(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
     else if (id === 'f-fx') { f.fx = e.target.value; f.fxMode = 'rate'; updateFxVal(); }
     else if (id === 'f-peso') { f.peso = e.target.value; f.fxMode = 'peso'; updateFxVal(); }
@@ -908,7 +919,9 @@ export function openEntry(opts = {}) {
       case 'cb-mode': f.cb.mode = b.dataset.v; renderCb(); break;
       case 'branchpick': pickBranch(); break;
       case 'loc-get': getLoc(); break;
-      case 'loc-clear': f.loc = null; f.locUi.msg = 'Location removed from this entry.'; renderLoc(); break;
+      case 'addr-get': getAddr(); break;
+      case 'addr-edit': f.locUi.addrEdit = !f.locUi.addrEdit; renderLoc(); break;
+      case 'loc-clear': f.loc = null; f.place = ''; f.locUi.msg = 'Location removed from this entry.'; renderLoc(); break;
       case 'loc-edit': f.locUi.edit = !f.locUi.edit; renderLoc(); break;
       case 'counts-on': f.showCounts = true; if (!f.counts.length) f.counts.push({ g: '', n: '' }); renderCounts(); break;
       case 'count-add': f.counts.push({ g: '', n: '' }); renderCounts(); break;
@@ -1042,7 +1055,7 @@ export function openEntry(opts = {}) {
       posted: (f.kind !== 'transfer' && f.postedOn && a.type === 'card' && a.stmtDay > 0 && f.posted > String(f.date).slice(0, 10)) ? f.posted : '' };
     if (f.kind === 'expense' && counts.length && f.parts && f.parts.length && splitParts(f.name)) rec.parts = f.parts.map((x) => ({ n: x.n, k: x.k }));   // the things the total is made of, kept so item prices can be worked out later
     if (f.debt && f.kind === 'transfer') rec[FLOWS[f.flow].flag] = true;
-    if (f.loc) rec.loc = f.loc; else if (existing && existing.loc) rec.loc = null;
+    if (f.loc) { rec.loc = f.loc; rec.place = f.place || null; } else if (existing && existing.loc) { rec.loc = null; rec.place = null; }
     { const mc = f.kind === 'expense' ? canonMerchant(db2, f.merchant) : ''; if (mc) { rec.merchant = mc; if (f.branch) rec.branch = f.branch; } }
     if (f.kind !== 'transfer' && cat && ((f.catTouched && f.guessed && f.guessed !== cat) || (existing && existing.cat && existing.cat !== cat) || (existing && existing.corrected))) rec.corrected = true;
     if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) { rec.from = f.from.trim(); rec.to = f.to.trim(); } else if (existing && (existing.from || existing.to)) { rec.from = ''; rec.to = ''; }
@@ -1072,7 +1085,7 @@ export function openEntry(opts = {}) {
         // keep what it was before this change, so the Input history can put it back (the last 5 versions)
         const before = {}; for (const k of ['kind', 'date', 'name', 'amount', 'cur', 'fx', 'acct', 'toAcct', 'toAmount', 'cat', 'notes', 'fee', 'feeCat', 'feeBy']) if (t[k] !== undefined) before[k] = t[k];
         t.rev = [{ at: Date.now(), ...before }, ...(t.rev || [])].slice(0, 5);
-        Object.assign(t, rec); for (const k of FLOW_FLAGS) if (!rec[k]) delete t[k]; if (!rec.merchant) delete t.merchant; if (!rec.branch) delete t.branch; if (!rec.cashback) delete t.cashback; if (!t.loc) delete t.loc; stamp(t); savedAs = t; }
+        Object.assign(t, rec); for (const k of FLOW_FLAGS) if (!rec[k]) delete t[k]; if (!rec.merchant) delete t.merchant; if (!rec.branch) delete t.branch; if (!rec.cashback) delete t.cashback; if (!t.loc) delete t.loc; if (!t.place) delete t.place; stamp(t); savedAs = t; }
       else if (oth) {
         const hx = (c) => homeFx(d, c) || 1, toAmt = (pp0, v) => (pp0.cur === a.cur ? v : +(v * hx(a.cur) / hx(pp0.cur)).toFixed(2));
         if (oth.mine > 0) { savedAs = stamp({ id: oth.eid, ...rec, createdAt: Date.now() }); d.txs.push(savedAs); }

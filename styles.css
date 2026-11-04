@@ -1201,3 +1201,4 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 .row.ln1 .rmain strong { display: block; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row.ln1 .rmain small { flex: 0 1 auto; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row.ln1 .ramt { white-space: nowrap; }
+.dr-owedbox{display:grid;text-align:right}.dr-owedbox small{font-size:.8rem}
