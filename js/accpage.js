@@ -15,6 +15,7 @@ import { applyHide } from './appearance.js';
 import { money, eq, hdr, coll, ui, tradeKids, effectLine } from './screens.js';
 import { openEntry } from './entry.js';
 import './earnui.js';
+import './platform.js';
 
 import { loanBox } from './loans.js';
 import { favCurs, openCurrencyPicker, flagOf } from './curpicker.js';
@@ -188,6 +189,7 @@ ACT['wallet-xfer'] = async (el) => {
   const { openEntry } = await import('./entry.js');
   openEntry({ preset: { kind: 'transfer', acct: a.id, toAcct: to.id } });
 };
+ACT['earn-toggle'] = (el) => { const cur = get().accounts.find((q) => q.id === el.dataset.id), on = !(cur && cur.earn && cur.earn.on); commit((d) => { const x = d.accounts.find((q) => q.id === el.dataset.id); if (!x) return; x.earn = { ...(x.earn || {}), on }; stamp(x); }); import('./earn.js').then((m) => { commit((d) => { m.runEarn(d); }); }); };
 ACT['acct-sp'] = () => toast('Spendable counts cash, bank, e-wallet and card accounts marked “Count in spendable total”.');
 
 // ---------- net worth ----------
@@ -315,8 +317,8 @@ export function openAccountDetail(id) {
       <div class="btnrow tight"><button class="btn sm" data-ad="add">Add entry</button>${isLiability(a) ? `<button class="btn sm ghost" data-act="loan-charge" data-id="${a.id}">Add charge</button>` : ''}
         ${['asset', 'invest', 'other'].includes(a.type) ? '<button class="btn sm ghost" data-ad="reval">Update value</button>' : ''}
         <button class="btn sm ghost" data-ad="edit">Edit</button></div>
-      ${a.exchange && a.type === 'crypto' ? `<div class="wmove"><span class="muted">${esc(walletOf(a))} wallet on ${esc(a.exchange)}: move coins between wallets as a transfer</span><div class="chips">${walletOf(a) !== 'Earn' ? `<button type="button" class="btn sm" data-act="wallet-xfer" data-id="${a.id}" data-w="Earn">Move to Earn</button>` : ''}${walletOf(a) !== 'Spot' ? `<button type="button" class="btn sm ghost" data-act="wallet-xfer" data-id="${a.id}" data-w="Spot">Move to Spot</button>` : ''}</div></div>` : ''}
-      ${a.exchange && a.type === 'crypto' && walletOf(a) === 'Earn' ? `<div class="btnrow tight"><button class="btn sm ghost" data-act="earn-open" data-id="${a.id}">Subscription Settings${a.earn && a.earn.on ? ' · on' : ''}</button></div>` : ''}
+      ${a.exchange && a.type === 'crypto' ? `<div class="wmove"><span class="muted">${esc(walletOf(a))} wallet on ${esc(a.exchange)}: move coins between wallets as a transfer</span><div class="chips">${walletOf(a) !== 'Earn' ? `<button type="button" class="btn sm" data-act="wallet-xfer" data-id="${a.id}" data-w="Earn">Move to Earn</button>` : ''}</div></div>` : ''}
+      ${a.exchange && a.type === 'crypto' && walletOf(a) === 'Earn' ? `<div class="btnrow tight subbtn"><button class="btn sm ghost" data-act="earn-open" data-id="${a.id}">Subscription Settings</button><label class="switch" aria-label="Subscription Settings On or Off"><input type="checkbox" data-act="earn-toggle" data-id="${a.id}" ${a.earn && a.earn.on ? 'checked' : ''}><span>${a.earn && a.earn.on ? 'On' : 'Off'}</span></label></div>` : ''}
       ${a.exchange ? `<details class="wmove"><summary class="muted">Wrong wallet on ${esc(a.exchange)}? Change this account’s wallet</summary><div class="chips">${[...new Set([...WALLETS, ...db.accounts.filter((x) => !x.deleted && x.exchange === a.exchange).map(walletOf)])].map((w) => `<button type="button" class="chip ${walletOf(a) === w ? 'on' : ''}" data-act="wallet-move" data-id="${a.id}" data-w="${esc(w)}" aria-pressed="${walletOf(a) === w}">${esc(w)}</button>`).join('')}<button type="button" class="chip" data-act="wallet-move" data-id="${a.id}" data-w="__new">+ New wallet</button></div></details>` : ''}
       <div class="rangebar seg sm" role="group" aria-label="Chart range">${[[30, '30 days'], [90, '90 days'], [365, '1 year'], [0, 'All']].map(([v, l]) => `<button type="button" data-ad="range" data-v="${v}" class="${st.range === v ? 'on' : ''}" aria-pressed="${st.range === v}">${l}</button>`).join('')}</div>
       <svg class="chart scrub" data-pts="${esc(JSON.stringify(pts))}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Balance over time. Touch and drag to read each day.">

@@ -16,15 +16,15 @@ export function openEarn(id) {
     const today = e8(now, off).day, todayH = log.hours.filter((x) => e8(x.h - 1, x.z != null ? x.z : off).day === today).sort((p, q) => q.h - p.h), tsum = todayH.reduce((t, x) => t + x.amt, 0);
     const hrs = (arr, zz = off) => `<ul class="calfacts">${arr.map((x) => `<li><span>${esc(e8Label(x[0] != null ? x[0] : x.h, zz))}</span><b>${num(x[1] != null ? x[1] : x.amt, cur)}</b></li>`).join('')}</ul>`;
     const dflt = defaultFrom(db, a), fromId = c.from && srcs.some((x) => x.id === c.from) ? c.from : (dflt ? dflt.id : '');
-    if (c.on && c.subOn && !c.from && fromId) { commit((d) => { const y = d.accounts.find((q) => q.id === id); y.earn = { ...(y.earn || {}), from: fromId }; stamp(y); }); }
+    if (c.subOn && !c.from && fromId) { commit((d) => { const y = d.accounts.find((q) => q.id === id); y.earn = { ...(y.earn || {}), from: fromId }; stamp(y); }); }
     const depT = c.depTime || (c.slots || []).slice().sort()[0] || '15:09', dm = e8Ms('2026-01-04', depT, 0), dsub = dm, dstart = earnStartOf(dsub, { ...c, startLagH: 0 }, 0), dfirst = dstart + c.firstLagH * H, hm = (ms) => e8(ms, 0).hm + (e8(ms, 0).day > '2026-01-04' ? ' (next day)' : '');
     root.innerHTML = `
-      <div class="subhead"><h3>Subscription Settings</h3><label class="switch" aria-label="Subscription Settings On or Off"><input type="checkbox" data-ew="on" ${c.on ? 'checked' : ''}><span>${c.on ? 'On' : 'Off'}</span></label></div>
-      <p class="hint">${esc(a.name)} · every time here uses the clock of ${esc(a.exchange || 'this platform')}, not this phone’s clock. Now: <b>${esc(e8Label(now, off))} (${tz})</b>. On means Sukli works out the hourly earnings of this product.</p>
+      
+      <p class="hint">${esc(a.name)} · every time here uses the clock of ${esc(a.exchange || 'this platform')}, not this phone’s clock. Now: <b>${esc(e8Label(now, off))} (${tz})</b>. Hourly earnings are worked out while the On/Off switch beside Subscription Settings (on the account page) is On. It is now <b>${c.on ? 'On' : 'Off'}</b>.</p>
       <div class="two"><label class="field"><span>Timezone</span><select data-ew="tz">${Array.from({ length: 27 }, (_, i) => i - 12).map((z) => `<option value="${z}" ${z === off ? 'selected' : ''}>${tzName(z)}</option>`).join('')}</select></label>
-      ${c.on ? `<label class="field"><span>Yearly Rate (APY, %)</span><input data-ew="apy" inputmode="decimal" value="${c.apy || ''}" placeholder="e.g. 4.5"></label>` : '<div></div>'}</div>
+      <label class="field"><span>Yearly Rate (APY, %)</span><input data-ew="apy" inputmode="decimal" value="${c.apy || ''}" placeholder="e.g. 4.5"></label></div>
       <p class="hint">Binance and Bybit use UTC+0, Bitget UTC+8. It applies to every Earn product on ${esc(a.exchange || 'this platform')}. Changing it only affects new times: entries already recorded keep theirs.</p>
-      ${c.on ? `<label class="field"><span>When Does Earning Start?</span><select data-ew="startRule"><option value="nextHour" ${c.startRule !== 'midnight' ? 'selected' : ''}>At the next full hour</option><option value="midnight" ${c.startRule === 'midnight' ? 'selected' : ''}>At the next midnight (${tz})</option></select></label>
+      ${true ? `<label class="field"><span>When Does Earning Start?</span><select data-ew="startRule"><option value="nextHour" ${c.startRule !== 'midnight' ? 'selected' : ''}>At the next full hour</option><option value="midnight" ${c.startRule === 'midnight' ? 'selected' : ''}>At the next midnight (${tz})</option></select></label>
       <div class="two"><div class="field"><span>Deposit Time</span><button type="button" class="btn ghost sm tbtn" data-ew="pickdep">🕒 ${esc(depT)}</button></div>
       <label class="field"><span>First Accrual (Hours After Earning Starts)</span><input data-ew="firstLagH" inputmode="numeric" value="${c.firstLagH}"></label></div>
       <div class="cardbox"><b>What These Mean</b>
@@ -46,7 +46,6 @@ export function openEarn(id) {
   };
   draw();
   root.addEventListener('change', (e) => { const k = e.target.dataset.ew; if (!k) return; const v = e.target.value;
-    if (k === 'on') return set({ on: e.target.checked });
     if (k === 'apy') return set({ apy: Math.max(0, parseFloat(v) || 0) });
     if (k === 'firstLagH') return set({ [k]: Math.max(0, parseInt(v, 10) || 0) });
     if (k === 'from') return set({ from: v });

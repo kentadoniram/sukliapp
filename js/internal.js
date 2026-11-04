@@ -12,12 +12,19 @@ const r8 = r9;
 // the account for this coin in this wallet of this platform (or undefined)
 export const findWalletAcct = (db, platform, cur, wallet) => db.accounts.find((x) => !x.deleted && x.cur === cur && (exchangeOf(x) || '').toLowerCase() === platform.toLowerCase() && walletOf(x).toLowerCase() === wallet.toLowerCase());
 
+// the account for this coin in this wallet; made when missing (empty, kept in the Investments tab)
+export function ensureWalletAcct(platform, cur, wallet) {
+  const db = get(), have = findWalletAcct(db, platform, cur, wallet); if (have) return have;
+  const sib = db.accounts.find((x) => !x.deleted && (exchangeOf(x) || '').toLowerCase() === platform.toLowerCase()), nid = uid();
+  commit((d) => { d.accounts.push(stamp({ id: nid, name: `${platform}${wallet === 'Spot' ? '' : ' ' + wallet} ${cur}`, wallet, cur, type: 'crypto', assetType: 'crypto', exchange: (sib && sib.exchange) || platform, open: 0, include: false, archived: false, invtab: true })); });
+  return get().accounts.find((x) => x.id === nid);
+}
 // does the work without a sheet (also used by tests). Returns { ok, msg, id }
 export function internalMove({ platform, cur, from, to, amount, when }) {
   const db = get();
   if (!platform || !cur) return { ok: false, msg: 'Choose the platform and the coin.' };
   if (!from || !to || from.toLowerCase() === to.toLowerCase()) return { ok: false, msg: 'Choose two different wallets.' };
-  const src = findWalletAcct(db, platform, cur, from); if (!src) return { ok: false, msg: `${platform} has no ${cur} in ${from}.` };
+  const src = findWalletAcct(db, platform, cur, from); if (!src) return { ok: false, msg: `${from} has no ${cur} to move yet. Add or move some there first.` };
   const srcCur = (src && src.cur) || cur, amt = qtyR(num(amount), srcCur); if (!(amt > 0)) return { ok: false, msg: 'Enter how much to move.' };
   let dst = findWalletAcct(db, platform, cur, to), made = false;
   const tid = uid(), nid = uid();
@@ -42,7 +49,7 @@ export function openInternal({ asset = '', platform = '' } = {}) {
   let cur = a0 && exchangeOf(a0) === plat ? a0.cur : '', from = a0 && exchangeOf(a0) === plat ? walletOf(a0) : '', to = '', when = nowStamp();
   const s = sheet(`<div id="itf" class="itx">
     ${fixed ? `<p class="hint">Inside <b>${esc(plat)}</b> only, free, no fee. To move between platforms use Transfer/Move.</p>` : `<label class="field"><span>Platform</span><select name="plat">${plats.map((p) => `<option ${p === plat ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label><p class="hint">Inside one platform only, free, no fee.</p>`}
-    <div class="itrow"><label class="field"><span>From</span><select name="from"></select></label><button type="button" class="btn ghost itrev" id="it-rev" aria-label="Reverse From and To">⇄<small>Reverse</small></button><label class="field"><span>To</span><select name="to"></select></label></div>
+    <div class="itrow"><label class="field"><span>From</span><select name="from"></select></label><div class="field itmid"><span aria-hidden="true">&nbsp;</span><button type="button" class="btn ghost itrev" id="it-rev" aria-label="Reverse From and To" title="Reverse">⇄</button></div><label class="field"><span>To</span><select name="to"></select></label></div>
     <label class="field"><span>Coin or Asset</span><select name="cur"></select></label>
     <label class="field"><span>Amount</span><div class="itamt"><input name="amt" inputmode="decimal" placeholder="0" autocomplete="off"><b id="it-cur"></b><button type="button" class="btn sm" id="it-all">Max</button></div><small class="muted" id="it-bal"></small></label>
     <button type="button" class="btn ghost" id="it-when"></button>
@@ -52,13 +59,15 @@ export function openInternal({ asset = '', platform = '' } = {}) {
   const opts = (list, v) => list.map((x) => `<option value="${esc(x)}" ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
   const wallets = () => { const db = get(); return [...new Set([...WALLETS, ...live(db.accounts).filter((x) => exchangeOf(x) === plat).map(walletOf)])]; };
   const coinsIn = (w) => { const db = get(); return [...new Set(live(db.accounts).filter((x) => inInvest(x) && exchangeOf(x) === plat && walletOf(x).toLowerCase() === w.toLowerCase()).map((x) => x.cur))].sort(); };
+  // an asset added to any wallet of this platform is offered for every wallet (the other wallet's account is made when the money arrives)
+  const coinsAll = () => { const db = get(); return [...new Set(live(db.accounts).filter((x) => inInvest(x) && exchangeOf(x) === plat).map((x) => x.cur))].sort(); };
   const draw = () => {
     const ws = wallets(), have = ws;   // every wallet can be picked as the source
-    if (!have.includes(from)) from = (ws.find((w) => coinsIn(w).length) || ws[0] || '');
+    if (!have.includes(from)) from = ws.includes('Spot') ? 'Spot' : (ws[0] || '');
     const tos = ws.filter((w) => w !== from); if (!tos.includes(to)) to = (from !== 'Earn' && tos.includes('Earn') ? 'Earn' : tos.includes('Spot') ? 'Spot' : tos[0]) || '';
     q('from').innerHTML = have.map((w) => `<option value="${esc(w)}" ${w === from ? 'selected' : ''}>${esc(w)}${coinsIn(w).length ? '' : ' (empty)'}</option>`).join(''); q('to').innerHTML = opts(tos, to);
-    const cs = coinsIn(from); if (!cs.includes(cur)) cur = cs[0] || '';
-    q('cur').innerHTML = cs.length ? opts(cs, cur) : '<option value="">No assets in this wallet yet</option>'; el('it-cur').textContent = cur; info();
+    const cs = coinsAll(); if (!cs.includes(cur)) cur = (coinsIn(from)[0] || cs[0] || '');
+    q('cur').innerHTML = (cs.length ? opts(cs, cur) : '<option value="">No assets on this platform yet</option>') + '<option value="__new">+ New Asset…</option>'; el('it-cur').textContent = cur; info();
   };
   const bal = () => { const db = get(), a = from && cur && findWalletAcct(db, plat, cur, from); return a ? (balances(db).get(a.id) || 0) : 0; };
   const info = () => {
@@ -71,7 +80,14 @@ export function openInternal({ asset = '', platform = '' } = {}) {
   if (q('plat')) q('plat').onchange = () => { plat = q('plat').value; from = ''; to = ''; cur = ''; draw(); };
   q('from').onchange = () => { from = q('from').value; draw(); };
   q('to').onchange = () => { to = q('to').value; info(); };
-  q('cur').onchange = () => { cur = q('cur').value; el('it-cur').textContent = cur; info(); };
+  q('cur').onchange = async () => {
+    if (q('cur').value === '__new') {
+      const { promptDialog } = await import('./ui.js');
+      const raw = (await promptDialog('New asset', '', { okLabel: 'Add', hint: `A coin code such as SOL or USDT. It is added to ${from || 'Spot'} on ${plat}, and every wallet of ${plat} can use it.` })) || '';
+      const c = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (c) { ensureWalletAcct(plat, c, from || 'Spot'); cur = c; } draw(); return;
+    }
+    cur = q('cur').value; el('it-cur').textContent = cur; info(); };
   el('it-rev').onclick = () => { const f = from, t = to; if (!t) return; from = t; to = f; draw(); };
   el('it-all').onclick = () => { q('amt').value = exactAmt(r8(Math.max(0, bal()))); };
   el('it-save').onclick = () => {

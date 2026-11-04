@@ -1206,8 +1206,9 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 /* Internal Transfer sheet */
 .itx .field select,.itx .itamt{height:56px;min-height:56px;font-size:17px;box-sizing:border-box}
 .itx .field select{width:100%;padding:0 12px}
-.itx .itrow{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end}
-.itx .itrev{height:56px;min-height:56px;box-sizing:border-box;padding:0 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:20px;line-height:1}
+.itx .itrow{display:grid;grid-template-columns:minmax(0,1fr) 56px minmax(0,1fr);gap:8px;align-items:start}
+.itx .itrow .field{margin:14px 0}
+.itx .itrev{height:56px;min-height:56px;width:56px;box-sizing:border-box;padding:0;display:flex;align-items:center;justify-content:center;font-size:24px;line-height:1}
 .itx .itrev small{font-size:11px}
 .itx .itamt{display:flex;align-items:center;gap:8px;border:1px solid var(--rule);border-radius:10px;padding:0 8px 0 12px;background:var(--sheet)}
 .itx .itamt input{flex:1;min-width:0;border:0;background:transparent;font-size:20px;min-height:50px;outline:none;padding:0}
@@ -1230,3 +1231,27 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 .addtime>span{flex:1}
 .tbtn{min-height:38px;padding:0 12px}
 .addtime .btn.sm{min-height:38px;padding:0 14px}
+
+/* 13.41 layout fixes */
+.mr{display:grid;gap:3px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--rule);padding:12px 4px;color:inherit;font:inherit;cursor:pointer}
+.mr:first-child{border-top:0}
+.mr-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.mr-top strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(16px * var(--fs,1))}
+.mr-top b{white-space:nowrap;font-size:calc(16px * var(--fs,1))}
+.mr small{color:var(--ink2)}
+.mr-bar{display:block;height:5px;border-radius:3px;background:var(--rule);overflow:hidden;margin-top:4px}
+.mr-bar u{display:block;height:100%;background:var(--line);border-radius:3px;text-decoration:none}
+.orow.done{flex-wrap:wrap;gap:6px 10px;padding:12px 2px}
+.orow.done .rmain{flex:1 1 100%}
+.orow.done .oname{display:flex;align-items:baseline;gap:6px;padding:0}
+.orow.done .oname strong{white-space:normal}
+.orow.done .obtns{display:flex;gap:8px}
+.orow.done .obtns .btn{min-height:38px;padding:0 14px}
+.othrow select.oth-who,.othrow .oth-n{min-height:62px;font-size:1.1rem}
+.othrow .oth-n{font-size:1.6rem;font-weight:650}
+.subbtn{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#ew .two .field select,#ew .two .field input{height:48px;min-height:48px;box-sizing:border-box;width:100%}
+.locbox{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.locbox .acctbtn{flex:1 1 100%}
+.exname[data-act]{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+.platset .btnrow{margin:8px 0}
