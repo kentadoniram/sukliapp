@@ -48,7 +48,7 @@ with sync_playwright() as p:
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(700)
     ok('invest header wording is clear', 'Record activity' in pg.inner_text('#view') and 'Add asset' in pg.inner_text('#view'))
     pg.click('#tabs .fab'); pg.wait_for_selector('.sheet .invopts')
-    ok('middle + on Invest asks account first, then 4 kinds', pg.locator('.sheet select[name=acc]').count()==1 and pg.locator('.sheet .invopt').count()==4)
+    ok('middle + on Invest asks account first, then 5 kinds', pg.locator('.sheet select[name=acc]').count()==1 and pg.locator('.sheet .invopt').count()==5)
     ok('option title and note do not overlap', pg.evaluate("""()=>[...document.querySelectorAll('.invopt')].every(o=>{const b=o.querySelector('b').getBoundingClientRect(),s=o.querySelector('small').getBoundingClientRect();return b.bottom<=s.top+1})"""))
     pg.click('.sheet [data-close]'); pg.wait_for_timeout(300)
     # budget pie: no redraw on tap

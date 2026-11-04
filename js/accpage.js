@@ -238,10 +238,11 @@ ACT['acct-new'] = () => openAccount(null);
 // a new transfer from an account page: this account on its usual side, the usual other account on the other side.
 // Cards and loans usually receive money, otherwise the most used route decides (this account can be the receiver).
 const inInvestAcct = (a) => !!a && !a.archived && (a.type === 'crypto' || a.type === 'invest' || !!a.invtab);
-function transferPreset(db, id) {
+export function transferPreset(db, id) {
   const a = db.accounts.find((x) => x.id === id), h = transferHints(db), ok = (x) => { const o = db.accounts.find((q) => q.id === x); return o && !o.deleted && !o.archived; };
   const mine = h.routes.filter((r) => (r.from === id && ok(r.to)) || (r.to === id && ok(r.from))).sort((x, y) => y.n - x.n || (x.last < y.last ? 1 : -1))[0];
-  if (mine) return mine.from === id ? { kind: 'transfer', acct: id, toAcct: mine.to, ...(mine.amount ? { amount: String(mine.amount) } : {}) } : { kind: 'transfer', acct: mine.from, toAcct: id, ...(mine.amount ? { amount: String(mine.amount) } : {}) };
+  // the account you opened is always the From side; the usual other side of your past transfers is suggested as To
+  if (mine) return mine.from === id ? { kind: 'transfer', acct: id, toAcct: mine.to, ...(mine.amount ? { amount: String(mine.amount) } : {}) } : { kind: 'transfer', acct: id, toAcct: mine.from };
   if (a && ['card', 'loan'].includes(a.type)) return { kind: 'transfer', toAcct: id, acct: (db.accounts.find((x) => !x.deleted && !x.archived && x.id !== id && x.include) || {}).id || '' };
   return { kind: 'transfer', acct: id };
 }
@@ -361,7 +362,7 @@ export function openAccountDetail(id) {
           ${m.overdue ? '<p class="hint warnline">The due date has passed and some of this statement is still unpaid.</p>' : ''}<p class="hint">Entries count on their posted date when one is set. Payments before the statement date are counted in that period.</p></div>`; })()}
       <div class="rows plain">${rowsHtml || '<p class="empty">No entries for this filter.</p>'}</div>
       ${shownH.length > st.more ? `<button class="btn ghost wide" data-ad="more">Show more (${shownH.length - st.more} left)</button>` : ''}
-      <div class="adfab ${st.fab ? 'open' : ''}">${st.fab ? `<div class="adfab-menu" role="menu">${(inInvestAcct(a) ? ['trade', 'transfer', 'expense', 'income'] : ['expense', 'income', 'transfer']).map((k) => `<button type="button" role="menuitem" data-ad="fab-new" data-v="${k}">${k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</div>` : ''}<button type="button" class="adfab-btn" data-ad="fab" aria-label="Add to this account" aria-expanded="${!!st.fab}">${ic(st.fab ? 'x' : 'plus')}</button></div>`;
+      <div class="adfab ${st.fab ? 'open' : ''}">${st.fab ? `<div class="adfab-menu" role="menu">${(inInvestAcct(a) ? ['trade', ...(a.exchange ? ['internal'] : []), 'transfer', 'expense', 'income'] : ['expense', 'income', 'transfer']).map((k) => `<button type="button" role="menuitem" data-ad="fab-new" data-v="${k}">${k === 'transfer' ? 'Transfer/Move' : k === 'internal' ? 'Internal Transfer' : k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</div>` : ''}<button type="button" class="adfab-btn" data-ad="fab" aria-label="Add to this account" aria-expanded="${!!st.fab}">${ic(st.fab ? 'x' : 'plus')}</button></div>`;
   };
   draw();
   const un = (() => { let q = false; const f = () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; if (root.isConnected) draw(); }); }; window.addEventListener('sukli-render', f); const u2 = subscribe(f); return () => { window.removeEventListener('sukli-render', f); u2(); }; })();
@@ -376,6 +377,7 @@ export function openAccountDetail(id) {
       case 'fab': st.fab = !st.fab; draw(); break;
       case 'fab-new': { st.fab = false; draw(); const k = b.dataset.v;
         if (k === 'trade') { import('./trades.js').then((m) => m.openTrade({ asset: id })); break; }
+        if (k === 'internal') { import('./internal.js').then((m) => m.openInternal({ asset: id })); break; }
         if (k === 'income' && inInvestAcct(db.accounts.find((x) => x.id === id))) { import('./invest.js').then((m) => m.openIncome({ asset: id })); break; } openEntry({ preset: k === 'transfer' ? transferPreset(db, id) : { kind: k, acct: id } }); break; }
       case 'edit': openAccount(id); break;
       case 'reclass': openReclass(id); break;

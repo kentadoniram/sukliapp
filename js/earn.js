@@ -17,16 +17,22 @@ export function localMs(s) { const m = String(s).match(/^(\d+)-(\d+)-(\d+)[ T](\
 export const tzOf = (db, a) => { const ex = (a && a.exchange) || '', m = (db.settings && db.settings.platformTz) || {}, k = Object.keys(m).find((x) => x.toLowerCase() === ex.toLowerCase());
   if (k != null && Number.isFinite(+m[k])) return +m[k]; return /binance|bybit/i.test(ex) ? 0 : 8; };
 export const tzName = (off) => `UTC${off < 0 ? '−' : '+'}${Math.abs(off)}`;
-export const DEFAULT = { on: false, apy: 0, subOn: false, slots: ['03:00', '15:00'], subAmt: 'all', from: '', startLagH: 0, firstLagH: 1 };
+export const DEFAULT = { on: false, apy: 0, subOn: false, slots: ['03:00', '15:00'], subAmt: 'all', from: '', startRule: 'nextHour', startLagH: 0, firstLagH: 1 };
 export const cfgOf = (a) => ({ ...DEFAULT, ...(a && a.earn ? a.earn : {}) });
 export const isEarnOn = (a) => !!(a && !a.deleted && a.earn && a.earn.on);
 export const logOf = (db, id) => ((db.settings.earnLog = db.settings.earnLog || {})[id] = (db.settings.earnLog[id] || { hours: [], days: [] }));
 // every amount that arrived in this account, with the three times that matter
+// when earning starts for money that arrived at `sub`. 'nextHour': the next full hour on the clock (15:00 and 15:09 both start 16:00,
+// because the hour in progress never counts). 'midnight': the exchange's next midnight in its timezone (some products start the next day).
+export function earnStartOf(sub, c, off) {
+  if (c.startRule === 'midnight') return e8Ms(addDay(e8(sub, off).day, 1), '00:00', off) + c.startLagH * H;
+  return floorHour(sub) + H + c.startLagH * H;
+}
 export function subscriptions(db, a) {
-  const c = cfgOf(a), out = [];
+  const c = cfgOf(a), off = tzOf(db, a), out = [];
   for (const t of db.txs) {
     if (t.deleted || t.kind !== 'transfer' || t.toAcct !== a.id) continue;
-    const sub = t.earnSubAt || localMs(t.date), start = ceilHour(sub) + c.startLagH * H, first = start + c.firstLagH * H;
+    const sub = t.earnSubAt || localMs(t.date), start = earnStartOf(sub, c, off), first = start + c.firstLagH * H;
     out.push({ id: t.id, amt: t.toAmount != null ? t.toAmount : t.amount, sub, start, first, auto: !!t.earnAuto });
   }
   if ((a.open || 0) > 0 && c.trackFrom) out.push({ id: 'open', amt: a.open, sub: 0, start: 0, first: 0, auto: false, open: true });
