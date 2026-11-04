@@ -1,13 +1,13 @@
 // Internal Transfer: move one coin between two wallets (Spot, Earn, Futures, Margin…) of the SAME platform.
 // Free, same coin, no fee. Both balances change; the destination account is only made when that wallet has no account for the coin yet.
 // Moving between DIFFERENT platforms (Binance to Bybit) is Transfer/Move in the + menu.
-import { get, commit, uid, stamp, nowStamp, balances, exactAmt, walletOf, WALLETS, HOME, fmt, rateFor } from './core.js';
+import { r9, qtyR, get, commit, uid, stamp, nowStamp, balances, exactAmt, walletOf, WALLETS, HOME, fmt, rateFor } from './core.js';
 import { sheet, esc, toast } from './ui.js';
 import { inInvest, exchangeOf } from './invest.js';
 
 const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
 const live = (l) => l.filter((x) => !x.deleted && !x.archived);
-const r8 = (n) => Math.round(n * 1e8) / 1e8;
+const r8 = r9;
 
 // the account for this coin in this wallet of this platform (or undefined)
 export const findWalletAcct = (db, platform, cur, wallet) => db.accounts.find((x) => !x.deleted && x.cur === cur && (exchangeOf(x) || '').toLowerCase() === platform.toLowerCase() && walletOf(x).toLowerCase() === wallet.toLowerCase());
@@ -18,7 +18,7 @@ export function internalMove({ platform, cur, from, to, amount, when }) {
   if (!platform || !cur) return { ok: false, msg: 'Choose the platform and the coin.' };
   if (!from || !to || from.toLowerCase() === to.toLowerCase()) return { ok: false, msg: 'Choose two different wallets.' };
   const src = findWalletAcct(db, platform, cur, from); if (!src) return { ok: false, msg: `${platform} has no ${cur} in ${from}.` };
-  const amt = r8(num(amount)); if (!(amt > 0)) return { ok: false, msg: 'Enter how much to move.' };
+  const srcCur = (src && src.cur) || cur, amt = qtyR(num(amount), srcCur); if (!(amt > 0)) return { ok: false, msg: 'Enter how much to move.' };
   let dst = findWalletAcct(db, platform, cur, to), made = false;
   const tid = uid(), nid = uid();
   commit((d) => {

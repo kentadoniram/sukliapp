@@ -2,6 +2,9 @@
 import { get, commit, stamp } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { norm } from './merchants.js';
+import { cachedAddress } from './geo.js';
+// a saved point shows as its address when one is known; the numbers stay out of sight
+const ptTxt = (p) => cachedAddress(get(), p) || 'saved (the address shows once an entry at this spot has looked it up)';
 import { merchantList, canonMerchant } from './merchantpick.js';
 
 const clean = (s) => String(s || '').replace(/\s+/g, ' ').trim();
@@ -39,7 +42,7 @@ export function branchesOf(db, m) {
 const setInfo = (d, m, fn) => { const all = (d.settings.merchantInfo = d.settings.merchantInfo || {}); const o = (all[m] = all[m] || { branches: {} }); o.branches = o.branches || {}; fn(o); };
 async function placeFields(cur) {
   return `<label class="field"><span>Place (Optional)</span><input name="place" autocomplete="off" value="${esc(cur.place || '')}" placeholder="e.g. Tsukagoshi, Saiwai Ward, Kawasaki, Kanagawa"></label>
-    <div class="btnrow left"><button type="button" class="btn ghost sm" data-here>Use Where I Am Now</button><small class="muted" data-pt>${cur.loc ? `Saved point: ${cur.loc.la.toFixed(2)}, ${cur.loc.lo.toFixed(2)}` : 'No point saved.'}</small></div>`;
+    <div class="btnrow left"><button type="button" class="btn ghost sm" data-here>Use Where I Am Now</button><small class="muted" data-pt>${cur.loc ? `Saved location: ${ptTxt(cur.loc)}` : 'No point saved.'}</small></div>`;
 }
 function openBranch(m, b) {
   const db = get(), cur = (infoOf(db, m).branches || {})[b] || {}, n = db.txs.filter((t) => !t.deleted && t.branch === b && t.merchant && norm(t.merchant) === norm(m)).length;
@@ -49,7 +52,7 @@ function openBranch(m, b) {
       <p class="hint">${n} ${n === 1 ? 'entry' : 'entries'} at this branch of ${esc(m)}. Renaming changes them all.</p>
       <div class="btnrow"><button type="button" class="btn ghost danger" data-rm>Remove Branch</button><button class="btn">Save</button></div></form>`, { title: `${m}: ${b}` });
     const q = s.el.querySelector('form');
-    q.querySelector('[data-here]').onclick = async () => { const { hereWhy } = await import('./loc.js'); const r = await hereWhy(); if (r.p) { loc = r.p; q.querySelector('[data-pt]').textContent = `Saved point: ${r.p.la.toFixed(2)}, ${r.p.lo.toFixed(2)}`; } else toast('Could not get your location. Type the place instead.'); };
+    q.querySelector('[data-here]').onclick = async () => { const { hereWhy } = await import('./loc.js'); const r = await hereWhy(); if (r.p) { loc = r.p; q.querySelector('[data-pt]').textContent = `Saved location: ${ptTxt(r.p)}`; } else toast('Could not get your location. Type the place instead.'); };
     q.querySelector('[data-rm]').onclick = () => { s.dispose(); commit((d) => { for (const t of d.txs) if (!t.deleted && t.branch === b && t.merchant && norm(t.merchant) === norm(m)) { delete t.branch; stamp(t); } setInfo(d, m, (o) => { delete o.branches[b]; }); }); toast('Branch removed. Entries keep the merchant.'); };
     q.onsubmit = (e) => { e.preventDefault(); const nb = clean(q.b.value); if (!nb) return; s.dispose();
       commit((d) => { for (const t of d.txs) if (!t.deleted && t.branch === b && t.merchant && norm(t.merchant) === norm(m)) { t.branch = nb; stamp(t); }
@@ -68,7 +71,7 @@ ACT['mer-edit'] = (el) => {
     <div class="btnrow left"><button type="button" class="btn ghost sm" data-addbr>Add a Branch</button></div>
     <div class="btnrow"><button type="button" class="btn ghost danger" data-rm>${n ? 'Remove from entries' : 'Delete'}</button><button class="btn">Save</button></div></form>`, { title: name });
   const q = s.el.querySelector('form');
-  q.querySelector('[data-here]').onclick = async () => { const { hereWhy } = await import('./loc.js'); const r = await hereWhy(); if (r.p) { loc = r.p; q.querySelector('[data-pt]').textContent = `Saved point: ${r.p.la.toFixed(2)}, ${r.p.lo.toFixed(2)}`; } else toast('Could not get your location. Type the place instead.'); };
+  q.querySelector('[data-here]').onclick = async () => { const { hereWhy } = await import('./loc.js'); const r = await hereWhy(); if (r.p) { loc = r.p; q.querySelector('[data-pt]').textContent = `Saved location: ${ptTxt(r.p)}`; } else toast('Could not get your location. Type the place instead.'); };
   q.querySelector('[data-addbr]').onclick = async () => { const v = clean((await promptDialog('New branch', '', { okLabel: 'Add', hint: `A place of ${name}, for example Kawasaki Station.` })) || ''); if (!v) return; s.dispose(); commit((d) => setInfo(d, name, (o) => { o.branches[v] = o.branches[v] || {}; })); toast('Branch added.'); };
   q.querySelector('[data-rm]').onclick = async () => {
     s.dispose();

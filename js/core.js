@@ -69,7 +69,15 @@ export const priv = {
 };
 
 // a balance as the text to type into an amount box: no float noise, no trailing zeros (0.12345678, 1500)
-export const exactAmt = (n) => { const t = Math.abs(n) < 1e-9 ? '0' : n.toFixed(8); return t.includes('.') ? t.replace(/\.?0+$/, '') : t; };
+// Amounts are kept as exact decimals at the asset's own unit size (raw units = amount x 10^decimals, like lamports for SOL, 6 for USDC/USDT, 8 for BTC).
+// JavaScript numbers carry about 15 digits, so every amount and every balance is rounded to at most 9 decimals: no float dust is left behind, and "All" empties an account exactly.
+export const UNIT_DEC = { BTC: 8, LTC: 8, SOL: 9, USDT: 6, USDC: 6, FDUSD: 6, DAI: 9, ETH: 9, BNB: 9, XRP: 6, TRX: 6, TON: 9, DOGE: 8, ADA: 6, MATIC: 9 };
+export const unitDec = (cur) => (UNIT_DEC[cur] != null ? UNIT_DEC[cur] : CRYPTO.includes(cur) ? 9 : 6);
+export const r9 = (x) => { const v = Number((+x || 0).toFixed(9)); return Object.is(v, -0) ? 0 : v; };
+export const toRaw = (x, cur) => Math.round(r9(x) * Math.pow(10, unitDec(cur)));            // integer raw units
+export const fromRaw = (n, cur) => r9(n / Math.pow(10, unitDec(cur)));
+export const qtyR = (x) => r9(x);   // saved amounts keep all 9 decimals whatever the coin, so "All" can never leave dust behind (older balances may have more digits than the coin's own unit)
+export const exactAmt = (n) => { const t = Math.abs(n) < 5e-10 ? '0' : (+n).toFixed(9); return t.includes('.') ? t.replace(/\.?0+$/, '') : t; };
 export function fmt(n, cur = BASE, opts = {}) {
   const c = CUR[cur] || { sym: cur + ' ', dec: 2 };
   const hide = priv.on && !opts.force;
@@ -78,7 +86,7 @@ export function fmt(n, cur = BASE, opts = {}) {
   const dec = opts.round ? 0 : c.dec;
   let abs = Math.abs(n || 0);
   if (opts.cut2 && dec >= 2) abs = Math.trunc(abs * 100 + 1e-7) / 100;   // list view only: show at most 2 decimals (cut, not rounded); stored value is untouched
-  const s = abs.toLocaleString('en-US', { minimumFractionDigits: Math.min(dec, 2), maximumFractionDigits: dec });   // coins keep up to 8 decimals, no trailing zeros past 2
+  const s = abs.toLocaleString('en-US', { minimumFractionDigits: Math.min(dec, 2), maximumFractionDigits: !opts.cut2 && CRYPTO.includes(cur) ? Math.max(dec, unitDec(cur)) : dec });   // coins keep up to 8 decimals, no trailing zeros past 2
   const sign = n < 0 && abs >= Math.pow(10, -dec) / 2 ? '−' : (opts.sign && n > 0 ? '+' : '');
   return sign + c.sym + s;
 }
@@ -396,7 +404,7 @@ export function balances(db, asOf) {
   const b = new Map();
   const ods = openDates(db);
   for (const a of db.accounts) if (!a.deleted) { const od = ods.get(a.id) || ''; b.set(a.id, !asOf || !od || od + ' 00:00:00' <= asOf ? a.open || 0 : 0); }
-  const add = (id, v) => { if (b.has(id)) b.set(id, b.get(id) + v); };
+  const add = (id, v) => { if (b.has(id)) b.set(id, r9(b.get(id) + v)); };
   for (const t of db.txs) {
     if (t.deleted || (asOf && t.date > asOf)) continue;
     if (t.kind === 'income') add(t.acct, t.amount);

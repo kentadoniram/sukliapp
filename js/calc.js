@@ -32,4 +32,4 @@ export function evalExpr(src) {
   try { const v = sum(); return i === s.length && isFinite(v) ? v : NaN; } catch { return NaN; }
 }
 export const isExpr = (s) => /[+\-*/×÷()%xX−]/.test(String(s).replace(/^\s*-/, ''));
-export const tidy = (v) => String(Number(Number(v).toFixed(6)));
+export const tidy = (v) => String(Number(Number(v).toFixed(9)));

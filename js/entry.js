@@ -1,7 +1,7 @@
 // The add / edit sheet, the category picker and the "add many at once" sheet.
 import {
   get, commit, undoLast, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
-  findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt,
+  findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt, r9, qtyR,
 } from './core.js';
 import { buildGraph, makeResolver, explain } from './simgraph.js';
 import { nameRules } from './merchants.js';
@@ -676,16 +676,17 @@ export function openEntry(opts = {}) {
   function renderLoc() {
     const el = $f('locrow'); if (!el) return; const L = f.locUi || (f.locUi = { perm: 'unknown', msg: '', edit: false });
     const pt = f.loc, permTxt = { granted: 'Location permission: allowed', denied: 'Location permission: blocked. Allow it in your phone’s settings for this app, or type a place below.', prompt: 'Location permission: will ask when you tap', unknown: 'Location permission: not known yet (your phone asks when you tap)' }[L.perm];
-    el.innerHTML = `<span>Location (optional)</span><div class="locbox"><button type="button" class="acctbtn" data-e="loc-get">${pt ? `📍 ${pt.la.toFixed(2)}, ${pt.lo.toFixed(2)}` : 'Current Location'}</button>
-      <div class="chips">${pt ? '<button type="button" class="chip" data-e="loc-clear">Remove</button>' : ''}<button type="button" class="chip" data-e="loc-edit">${L.edit ? 'Close' : 'Type It'}</button></div></div>
+    el.innerHTML = `<span>Location (optional)</span><div class="locbox"><button type="button" class="acctbtn" data-e="loc-get">${pt ? `📍 ${f.place ? esc(f.place) : L.busy ? 'Finding the address…' : 'Location saved, address not found yet'}` : 'Add Location'}</button>
+      <div class="chips">${pt ? '<button type="button" class="chip" data-e="loc-clear">Remove</button><button type="button" class="chip" data-e="loc-detail">' + (L.detail ? 'Hide Details' : 'Details') + '</button>' : ''}<button type="button" class="chip" data-e="loc-edit">${L.edit ? 'Close' : 'Type It'}</button></div></div>
+      ${pt && L.detail ? `<pre class="locjson" aria-label="Location details">${esc(JSON.stringify({ latitude: pt.la, longitude: pt.lo, address: f.place || null, approx: 'about 1 km' }, null, 2))}</pre>` : ''}
       ${L.edit ? `<input id="f-loc" inputmode="decimal" placeholder="Latitude, longitude (e.g. 35.53, 139.69)" value="${pt ? `${pt.la}, ${pt.lo}` : ''}" aria-label="Location as latitude and longitude">` : ''}
-      ${pt ? `<div class="addrline">${f.place ? `<span>${esc(f.place)}</span> <button type="button" class="chip" data-e="addr-edit">Edit Address</button>` : '<button type="button" class="chip" data-e="addr-get">Show Address</button>'}${L.addrEdit ? '' : ''}</div>${L.addrEdit ? `<input id="f-place" autocomplete="off" placeholder="Type the address or place name" value="${esc(f.place || '')}" aria-label="Address">` : ''}` : ''}
+      ${pt ? `<div class="addrline">${f.place ? `<button type="button" class="chip" data-e="addr-edit">Edit Address</button>` : '<button type="button" class="chip" data-e="addr-get">Show Address</button>'}${L.addrEdit ? '' : ''}</div>${L.addrEdit ? `<input id="f-place" autocomplete="off" placeholder="Type the address or place name" value="${esc(f.place || '')}" aria-label="Address">` : ''}` : ''}
       <small class="muted">${esc(permTxt)}</small>${L.msg ? `<small class="locmsg">${esc(L.msg)}</small>` : ''}`;
   }
   const fillAddr = () => { if (f.loc && !f.place) { const c = cachedAddress(get(), f.loc); if (c) f.place = c; } };
   async function getAddr() {
-    const L = f.locUi; if (!f.loc) return; L.msg = 'Looking up the address (one request, then it is kept)…'; renderLoc();
-    const r = await lookupAddress(f.loc);
+    const L = f.locUi; if (!f.loc) return; L.msg = 'Looking up the address (one request, then it is kept)…'; L.busy = true; renderLoc();
+    const r = await lookupAddress(f.loc); L.busy = false;
     if (r.text) { f.place = r.text; L.msg = r.cached ? 'Address from your saved places.' : 'Address found. Tap Edit Address if it is not right.'; }
     else L.msg = r.err === 'busy' ? 'The address service is busy. Try again in a minute, or type the address.' : r.err === 'none' ? 'No address found for this spot. Type one with Edit Address.' : 'Could not reach the address service. Try again later, or type the address.';
     renderLoc();
@@ -693,7 +694,7 @@ export function openEntry(opts = {}) {
   async function getLoc() {
     const L = f.locUi || (f.locUi = { perm: 'unknown', msg: '', edit: false }); L.msg = 'Finding where you are…'; renderLoc();
     const r = await hereWhy(); L.perm = await permState();
-    if (r.p) { f.loc = r.p; f.place = ''; fillAddr(); L.msg = 'Saved with this entry (about 1 km accuracy). Tap Remove to drop it.'; if (L.perm === 'unknown') L.perm = 'granted'; }
+    if (r.p) { f.loc = r.p; f.place = ''; fillAddr(); L.msg = 'Saved with this entry (about 1 km accuracy). Tap Remove to drop it.'; if (L.perm === 'unknown') L.perm = 'granted'; renderLoc(); if (!f.place) await getAddr(); return; }
     else { L.msg = r.err === 'denied' ? 'Location is blocked for this app. Allow it in your phone’s settings, or type a place with Type It.' : r.err === 'timeout' ? 'Could not find you in time. Try again, or type it.' : 'Location is not available on this device. You can type it.'; if (r.err === 'denied') L.perm = 'denied'; }
     renderLoc();
   }
@@ -781,7 +782,7 @@ export function openEntry(opts = {}) {
     else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
     else if (id === 'f-from' || id === 'f-to') { if (id === 'f-from') f.from = e.target.value; else f.to = e.target.value; tripName(); tripChips(); }
     else if (id === 'f-place') { f.place = e.target.value.trim(); if (f.loc) saveAddress(f.loc, f.place); f.locUi.msg = f.place ? 'Address saved for this place.' : ''; }
-    else if (id === 'f-loc') { const q = parsePt(e.target.value); if (q) { f.loc = q; f.place = ''; fillAddr(); f.locUi.msg = 'Saved with this entry.'; } else if (!e.target.value.trim()) { f.loc = null; f.locUi.msg = 'Location removed.'; } else f.locUi.msg = 'Type latitude and longitude, like 35.53, 139.69.'; renderLoc(); }
+    else if (id === 'f-loc') { const q = parsePt(e.target.value); if (q) { f.loc = q; f.place = ''; fillAddr(); f.locUi.msg = 'Saved with this entry.'; if (!f.place) setTimeout(getAddr, 0); } else if (!e.target.value.trim()) { f.loc = null; f.locUi.msg = 'Location removed.'; } else f.locUi.msg = 'Type latitude and longitude, like 35.53, 139.69.'; renderLoc(); }
     else if (id === 'f-what') { f.name = e.target.value; renderNameHelp(); if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('#countsrow')) renderCounts(); suggestAcct(); suggestMerchant(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
     else if (id === 'f-fx') { f.fx = e.target.value; f.fxMode = 'rate'; updateFxVal(); }
     else if (id === 'f-peso') { f.peso = e.target.value; f.fxMode = 'peso'; updateFxVal(); }
@@ -881,9 +882,9 @@ export function openEntry(opts = {}) {
       case 'posted': openDatePicker(f.posted + ' 00:00:00', (val) => { const v = val.slice(0, 10), day = String(f.date).slice(0, 10); if (v <= day) { f.posted = addDay(day, 1); toast('The posted date must be after the entry date.'); } else f.posted = v; renderPosted(); }, { title: 'Posted Date', time: false }); break;
       case 'when': openDatePicker(f.date, (val) => { f.date = val; renderPosted(); renderWhen(); refreshPred(); renderSafety(); }, { title: 'When Was It?' }); break;
       case 'allamt': { const a0 = acctOf(f.acct); if (!a0) { toast('Choose the From account first.'); break; }
-        let v = Math.round((balances(get()).get(f.acct) || 0) * 1e8) / 1e8; let fee = parseFloat(String(f.fee || '').replace(/,/g, '')) || 0;
+        let v = r9(balances(get()).get(f.acct) || 0); let fee = parseFloat(String(f.fee || '').replace(/,/g, '')) || 0;
         if (fee > 0 && f.feeSuggested && !f.feeTouched) { f.fee = ''; f.feeSuggested = false; f.feeTouched = true; fee = 0; const fe = $f('f-fee'); if (fe) fe.value = ''; toast('Moving the whole balance. The guessed fee was cleared. Type a fee if there is one.'); }
-        if (f.feeBy !== 'to' && fee > 0) v = Math.round((v - fee) * 1e8) / 1e8;   // a fee taken from the sender comes out of the same balance
+        if (f.feeBy !== 'to' && fee > 0) v = r9(v - fee);   // a fee taken from the sender comes out of the same balance
         if (!(v > 0)) { toast('There is nothing to move from this account.'); break; }
         const am = $f('f-amount'); am.value = exactAmt(v); am.dispatchEvent(new Event('input', { bubbles: true })); break; }
       case 'amtclear': { f.amount = ''; const am = $f('f-amount'); am.value = ''; showCalcRes(); syncX(); heavy(); if (!f.calc) am.focus(); break; }
@@ -919,6 +920,7 @@ export function openEntry(opts = {}) {
       case 'cb-mode': f.cb.mode = b.dataset.v; renderCb(); break;
       case 'branchpick': pickBranch(); break;
       case 'loc-get': getLoc(); break;
+      case 'loc-detail': f.locUi.detail = !f.locUi.detail; renderLoc(); break;
       case 'addr-get': getAddr(); break;
       case 'addr-edit': f.locUi.addrEdit = !f.locUi.addrEdit; renderLoc(); break;
       case 'loc-clear': f.loc = null; f.place = ''; f.locUi.msg = 'Location removed from this entry.'; renderLoc(); break;
@@ -982,7 +984,7 @@ export function openEntry(opts = {}) {
   function save(again) {
     const db2 = get();
     const a = acctOf(f.acct);
-    const amount0 = +num(f.amount).toFixed(6); let amount = amount0, extraAmt = 0;
+    const amount0 = qtyR(num(f.amount), (acctOf(f.acct) || {}).cur); let amount = amount0, extraAmt = 0;
     if (!(amount0 > 0)) return fail('Enter an amount greater than zero.');
     if (!a) return fail('Choose an account.');
     if (f.flow === 'back' && !existing) {                           // paid back more than they owed: the extra is income (interest earned or other income), the rest lowers what they owe
@@ -1013,12 +1015,12 @@ export function openEntry(opts = {}) {
         if (!isMine(ma)) return fail(f.flow === 'pay' ? 'Choose the account you pay from (not a card or loan).' : 'Choose one of your own accounts (not a card, loan or person).');
       }
       if (!b || b.id === a.id) return fail('Choose two different accounts.');
-      toAmount = a.cur === b.cur ? (f.sameDiff && num(f.toAmount) > 0 ? +num(f.toAmount).toFixed(6) : amount) : !f.convert ? amount : +num(f.toAmount).toFixed(6);
+      toAmount = a.cur === b.cur ? (f.sameDiff && num(f.toAmount) > 0 ? qtyR(num(f.toAmount), a.cur) : amount) : !f.convert ? amount : qtyR(num(f.toAmount), b.cur);
       if (!(toAmount > 0)) return fail(`Enter how much arrived in ${b.name} (${b.cur}).`);
     }
     let fee = 0, feeCat = '', feeFx = null, feeCur = '';
     if (f.kind === 'transfer' && !f.debt && num(f.fee) > 0) {
-      fee = +num(f.fee).toFixed(6);
+      fee = r9(num(f.fee));
       if (!f.feeCat) return fail('Choose what kind of fee it is (transfer fee, bank service fee, network fee…).');
       const fa = f.feeBy === 'to' ? acctOf(f.toAcct) : a;
       feeCur = fa.cur;

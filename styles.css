@@ -1212,3 +1212,6 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 .itx .itamt{display:flex;align-items:center;gap:8px;border:1px solid var(--line,#ccc);border-radius:12px;padding:0 8px 0 12px;background:var(--card,#fff)}
 .itx .itamt input{flex:1;min-width:0;border:0;background:transparent;font-size:20px;min-height:50px;outline:none}
 .itx .itamt b{color:var(--muted,#666);font-weight:600}
+
+.locjson{margin:6px 0 0;padding:8px 10px;border-radius:10px;background:var(--bg2,#eee);font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;user-select:all}
+.locbox .acctbtn{text-align:left;white-space:normal}

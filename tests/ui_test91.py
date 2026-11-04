@@ -16,8 +16,9 @@ with sync_playwright() as p:
     # 1 address
     pg.evaluate("(async()=>{const m=await import('/js/entry.js');m.openEntry({preset:{acct:'a91'}})})()"); pg.wait_for_selector('#locrow'); pg.wait_for_timeout(400)
     pg.click('#locrow [data-e=loc-edit]'); pg.fill('#f-loc','35.53, 139.69'); pg.press('#f-loc','Tab'); pg.wait_for_timeout(300)
-    ok('no request until asked', len(calls)==0)
-    pg.click('#locrow [data-e=addr-get]'); pg.wait_for_timeout(1800)
+    pg.wait_for_timeout(1800)
+    ok('typed point: address looked up by itself, coordinates not shown on the button', len(calls)==1 and '35.53' not in pg.inner_text('#locrow [data-e=loc-get]'))
+    pg.click('#locrow [data-e=loc-detail]'); ok('Details shows the coordinates as JSON', '"latitude": 35.53' in pg.inner_text('#locrow .locjson')); pg.click('#locrow [data-e=loc-detail]')
     t=pg.inner_text('#locrow'); ok('address shown %s'%t.replace('\n',' '), 'Saiwai Ward' in t and 'Kawasaki' in t and 'Japan' not in t)
     ok('one request', len(calls)==1)
     pg.fill('#f-amount','300'); pg.fill('#f-what','Milk'); pg.click('#btns [data-e=save]'); pg.wait_for_timeout(700)
