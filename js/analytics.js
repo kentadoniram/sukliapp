@@ -171,8 +171,8 @@ export function analytics(db) {
 
   LAST = { parts, P };
   return `${hdr('Analytics')}${filters}${kpis}
-    ${coll('an-ie', 'Income vs spending', incExp)}${coll('an-cf', 'Cash flow (running net)', line(cf, 'Running net cash flow'))}${coll('an-nw', 'Net worth', line(nwS, 'Net worth'))}
-    ${coll('an-by', 'Where the money went', breakdown)}${coll('an-merch', 'By merchant', merchHtml)}${coll('an-bud', 'Budgets and limit', budgets)}${coll('an-card', 'Credit cards', cardsHtml)}${coll('an-cmp', 'Compared with the earlier period', compare)}${coll('an-top', 'Biggest expenses', topHtml)}`;
+    ${coll('an-ie', 'Income vs Spending', incExp)}${coll('an-cf', 'Cash Flow (Running Net)', line(cf, 'Running net cash flow'))}${coll('an-nw', 'Net Worth', line(nwS, 'Net worth'))}
+    ${coll('an-by', 'Where the Money Went', breakdown)}${coll('an-merch', 'By Merchant', merchHtml)}${coll('an-bud', 'Budgets and Limit', budgets)}${coll('an-card', 'Credit Cards', cardsHtml)}${coll('an-cmp', 'Compared with the Earlier Period', compare)}${coll('an-top', 'Biggest Expenses', topHtml)}`;
 }
 
 const redraw = () => window.dispatchEvent(new Event('sukli-render'));
@@ -198,7 +198,7 @@ ACT['an-merch'] = (el) => {
   const name = ps.find((p) => p.t.merchant) ? ps.find((p) => p.t.merchant).t.merchant : 'No merchant', total = sum(ps.map((p) => p.v));
   const by = new Map(); for (const p of ps) { const c = cm.get(p.cat), n = c ? c.name : 'Uncategorized'; by.set(n, (by.get(n) || 0) + p.v); }
   const rows = ps.slice().sort((a, b) => (a.t.date < b.t.date ? 1 : -1));
-  sheet(`<p class="hint">${new Set(ps.map((p) => p.t.id)).size} entries · <b>${money(total)}</b></p><h3>What it was</h3>
+  sheet(`<p class="hint">${new Set(ps.map((p) => p.t.id)).size} entries · <b>${money(total)}</b></p><h3>What It Was</h3>
     <ul class="calfacts">${[...by.entries()].sort((a, b) => b[1] - a[1]).map(([n, v]) => `<li><span>${esc(n)} <small class="muted">${total ? Math.round(v / total * 100) : 0}%</small></span><b>${money(v)}</b></li>`).join('')}</ul>
     <h3>Entries</h3><div class="rows plain">${rows.slice(0, 100).map((p) => { const c = cm.get(p.cat), a = am.get(p.t.acct); return `<button class="row" data-act="edit" data-id="${p.t.id}"><i class="badge sm" style="background:${groupColor(p.group)}">${esc((p.group || '?')[0])}</i><span class="rmain"><strong>${esc(p.label || p.t.name || (c ? c.name : 'Entry'))}</strong><small>${esc(p.t.date.slice(0, 10))} · ${esc(c ? c.name : '')}${a ? ' · ' + esc(a.name) : ''}</small></span><span class="ramt expense"><b>−${money(p.v)}</b></span></button>`; }).join('')}</div>${rows.length > 100 ? '<p class="hint">Showing the 100 newest.</p>' : ''}`, { title: name, wide: true });
 };

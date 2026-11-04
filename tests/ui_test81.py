@@ -8,6 +8,7 @@ with sync_playwright() as p:
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900)
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.titleCase=false})})()")
     J(pg,"c.commit(d=>{d.settings.mode='advanced';for(const [i,n] of [['pplana','Ana'],['pplben','Ben'],['pplcy','Cy']])d.accounts.push(c.stamp({id:i,name:n,cur:d.settings.homeCur||'PHP',type:'owed',open:0,include:true,archived:false}))})")
     def open_entry(name,amt):
         pg.evaluate("document.querySelector('[data-act=add]').click()"); pg.wait_for_selector('#entry'); pg.wait_for_timeout(500)

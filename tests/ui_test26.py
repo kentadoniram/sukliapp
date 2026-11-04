@@ -28,7 +28,7 @@ with sync_playwright() as p:
     t=pg.inner_text('#view'); ok('performance shows gain vs paid', 'Performance' in t and 'paid ₱10,000' in t and '%' in t)
     # income
     open_menu(pg,'income'); pg.wait_for_selector('#ii'); choose(pg,'#ii [name=asset]',text='NVDA'); choose(pg,'#ii [name=type]',value='inv:Dividend'); pg.fill('#ii [name=amt]','0.25'); pg.click('#ii button:text-is("Save")'); pg.wait_for_timeout(700)
-    t=pg.inner_text('#view'); ok('investment income card', 'Investment income' in t and 'Dividend' in t)
+    t=pg.inner_text('#view'); ok('investment income card', 'Investment Income' in t and 'Dividend' in t)
     # prediction
     pg.click('[data-act=inv-predict] >> nth=0'); pg.wait_for_selector('#ip'); choose(pg,'#ip [name=asset]',value='NVDA'); pg.fill('#ip [name=price]','9000'); pg.fill('#ip [name=quote]','PHP'); pg.click('#ip button:text-is("Save estimate")'); pg.wait_for_timeout(600)
     t=pg.inner_text('#view'); ok('prediction apart from actual', 'Your estimate' in t and 'Actual' in t and 'to reach it' in t)

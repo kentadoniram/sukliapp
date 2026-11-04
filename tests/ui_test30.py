@@ -23,7 +23,7 @@ with sync_playwright() as p:
     while pg.locator('[data-act=month][data-d="1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="1"]'); pg.wait_for_timeout(200)
     pg.wait_for_timeout(500); t=pg.inner_text('#view')
     ok('budget tab warns about the over-budget want', 'Dining Out' in t and 'want' in t and 'over budget' in t)
-    ok('needs, wants, luxury card', 'Needs, wants and luxury' in t and 'Wants' in t and 'Needs' in t)
+    ok('needs, wants, luxury card', 'Needs, Wants and Luxury' in t and 'Wants' in t and 'Needs' in t)
     pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(700)
     while pg.locator('[data-act=month][data-d="1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="1"]'); pg.wait_for_timeout(250)
     pg.wait_for_timeout(600); ok('home shows a budget alert', 'Budget alert' in pg.inner_text('#view'))

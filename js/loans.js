@@ -114,7 +114,7 @@ export function lossCard(db, ym, coll, R) {
   const li = db.accounts.filter((a) => !a.deleted && a.loan).flatMap((a) => loanProgress(a.loan, loanPayments(db, a)).rows.map((x) => ({ date: x.date, v: x.interest * (homeFxOf(db, a.cur)) })));
   const intM = li.filter((x) => x.date.startsWith(ym)).reduce((q, x) => q + x.v, 0), int12 = li.filter((x) => monthOf(x.date) >= from && monthOf(x.date) <= ym).reduce((q, x) => q + x.v, 0);
   if (!tx.length && !taxes.length && !li.length) return '';
-  return coll('h-loss', 'Money lost to fees and interest', `<ul class="calfacts"><li><span>This month</span><b class="cr">${R(sum(tx.filter(inM)))}</b></li><li><span>Last 12 months (by kind below)</span><b class="cr">${R(sum(tx.filter(in12)))}</b></li>
+  return coll('h-loss', 'Money Lost to Fees and Interest', `<ul class="calfacts"><li><span>This month</span><b class="cr">${R(sum(tx.filter(inM)))}</b></li><li><span>Last 12 months (by kind below)</span><b class="cr">${R(sum(tx.filter(in12)))}</b></li>
     ${[...by.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => `<li><span>${esc(k)}</span><b>${R(v)}</b></li>`).join('')}
     ${int12 ? `<li><span>Loan interest paid, estimate (12 months${intM ? `, ${R(intM)} this month` : ''})</span><b>${R(int12)}</b></li>` : ''}
     ${t12 ? `<li><span>Tax taken from interest (12 months)</span><b>${R(t12)}</b></li>` : ''}</ul><p class="hint">Fees, interest charges, late fees and penalties you recorded.</p>`);

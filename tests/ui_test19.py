@@ -31,7 +31,7 @@ with sync_playwright() as p:
     ok('undo restores', pg.locator('#ledger-list .row').count()==n0)
     # calendar
     pg.goto(U+'#/calendar'); pg.wait_for_selector('.cal'); pg.wait_for_timeout(300)
-    t=pg.inner_text('#view'); ok('calendar richer', 'Busiest day' in t and 'Spending by week' in t and 'Cash outflow' in t)
+    t=pg.inner_text('#view'); ok('calendar richer', 'Busiest day' in t and 'Spending by Week' in t and 'Cash outflow' in t)
     ok('heat shading present', pg.locator('.cal-d[style*=heat]').count()>0)
     # account detail fab
     pg.goto(U+'#/accounts'); pg.wait_for_timeout(500)

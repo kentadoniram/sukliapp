@@ -85,7 +85,7 @@ const LIGHT = { green: ['green', 'Looks okay', 'Your money for debts covers what
 
 export function debts(db) {
   const list = debtList(db), md = mode(db), b = budgetInfo(db), total = list.reduce((s, d) => s + d.owed, 0), minTotal = list.reduce((s, d) => s + d.min, 0);
-  if (!list.length) return `<div class="debtpage">${hdr('Debts')}<section class="cardbox"><h3>No debts to track</h3><p class="hint">Add a credit card or a loan in <a href="#/accounts">Accounts</a> (type: Credit card, or Loan or money owed) and put what you owe on it. It will show up here with the order to pay.</p></section></div>`;
+  if (!list.length) return `<div class="debtpage">${hdr('Debts')}<section class="cardbox"><h3>No Debts to Track</h3><p class="hint">Add a credit card or a loan in <a href="#/accounts">Accounts</a> (type: Credit card, or Loan or money owed) and put what you owe on it. It will show up here with the order to pay.</p></section></div>`;
   const needAll = list.reduce((s, d) => s + Math.min(d.owed, Math.max(0, d.min - d.paid)), 0);
   let funds = b.value, dip = false;
   if (b.own == null && funds != null && b.safe != null && funds < needAll - 0.5 && b.safe > funds) { funds = Math.min(needAll, b.safe); dip = true; }   // what is due may use the safety cushion, extra money never does
@@ -154,14 +154,14 @@ export function debts(db) {
     <p class="hint">Total ${money(plan.payTotal)}${income ? ` (${pct(plan.payTotal / income)} of your income)${spend != null ? `. That leaves about ${money(Math.max(0, income - plan.payTotal))} for living, and you usually spend ${money(spend)}.` : '.'}` : '.'}${plan.leftover > 0.5 ? ` ${money(plan.leftover)} of the money for debts is not needed this month.` : ''}</p>` : '<p class="hint">Once Sukli knows what is left for debts this month, the order and amounts show here.</p>';
   let extraBox = '';
   if (xs) {
-    if (xs.blocked) extraBox = `<h4 class="subh">Paying extra</h4><p class="hint">${xs.blocked}</p>`;
+    if (xs.blocked) extraBox = `<h4 class="subh">Paying Extra</h4><p class="hint">${xs.blocked}</p>`;
     else if (xs.rows.length) {
       const yes = xs.rows.filter((x) => x.extra > 0.5), no = xs.rows.filter((x) => !(x.extra > 0.5) && by.get(x.id));
-      extraBox = `<h4 class="subh">Paying extra (optional)</h4>${yes.length ? `<ul class="calfacts">${yes.map((x) => `<li><span>${esc(by.get(x.id).name)}</span><b>+${money(x.extra)}</b></li>`).join('')}</ul><p class="hint">${yes.map((x) => `${esc(by.get(x.id).name)}: ${x.why}`).join(' ')} This is not in the total above. Paying extra is your choice: keep your cash cushion first.</p>` : '<p class="hint">Sukli does not suggest paying more than the usual amounts this month.</p>'}${no.length ? `<ul class="calfacts nopay">${no.map((x) => `<li><span>${esc(by.get(x.id).name)}</span><small class="muted">${x.why}</small></li>`).join('')}</ul>` : ''}`;
+      extraBox = `<h4 class="subh">Paying Extra (Optional)</h4>${yes.length ? `<ul class="calfacts">${yes.map((x) => `<li><span>${esc(by.get(x.id).name)}</span><b>+${money(x.extra)}</b></li>`).join('')}</ul><p class="hint">${yes.map((x) => `${esc(by.get(x.id).name)}: ${x.why}`).join(' ')} This is not in the total above. Paying extra is your choice: keep your cash cushion first.</p>` : '<p class="hint">Sukli does not suggest paying more than the usual amounts this month.</p>'}${no.length ? `<ul class="calfacts nopay">${no.map((x) => `<li><span>${esc(by.get(x.id).name)}</span><small class="muted">${x.why}</small></li>`).join('')}</ul>` : ''}`;
     }
   }
   const cmp = (p) => (p.never ? 'not paid off at this rate' : `debt-free ${whenText(p.months)} (${monthsText(p.months)}), ${money(p.interest)} interest`);
-  const planBox = sim ? `<h4 class="subh">If you keep this up every month</h4><ul class="calfacts"><li><span>${md === 'avalanche' ? 'Extra to highest interest' : 'Extra to smallest debt'}</span><b>${cmp(sim)}</b></li><li><span>${md === 'avalanche' ? 'Extra to smallest debt' : 'Extra to highest interest'}</span><b>${cmp(other)}</b></li><li><span>Minimums only</span><b>${cmp(minOnly)}</b></li></ul>` : '';
+  const planBox = sim ? `<h4 class="subh">If You Keep This Up Every Month</h4><ul class="calfacts"><li><span>${md === 'avalanche' ? 'Extra to highest interest' : 'Extra to smallest debt'}</span><b>${cmp(sim)}</b></li><li><span>${md === 'avalanche' ? 'Extra to smallest debt' : 'Extra to highest interest'}</span><b>${cmp(other)}</b></li><li><span>Minimums only</span><b>${cmp(minOnly)}</b></li></ul>` : '';
   const seg = `<div class="seg two debtmode" role="group" aria-label="Where extra money goes"><button type="button" data-act="debt-mode" data-m="avalanche" class="${md === 'avalanche' ? 'on' : ''}">Extra to highest interest</button><button type="button" data-act="debt-mode" data-m="snowball" class="${md === 'snowball' ? 'on' : ''}">Extra to smallest debt</button></div>`;
   const rateText = (d) => (!d.rateKnown ? '<b class="cr">Not set</b>' : d.addon ? `<b>${d.rate}% add-on</b>` : `<b>${(+d.rate).toFixed(2).replace(/\.?0+$/, '')}% a year</b> <small class="muted">(${(((Math.pow(1 + d.rate / 100, 1 / 12) - 1)) * 100).toFixed(2).replace(/\.?0+$/, '')}% a month)</small>`);
   const dueText = (d) => (d.due ? `<b class="${d.overdue ? 'cr' : ''}">${d.overdue ? 'Overdue since ' + niceDate(d.due) : niceDate(d.due) + (d.days != null ? (d.days === 0 ? ' (today)' : ` (${d.days} day${d.days === 1 ? '' : 's'})`) : '')}</b>` : '<span class="muted">not set</span>');
@@ -175,11 +175,11 @@ export function debts(db) {
     <li><span>Small loans from lending companies (SEC)</span><b>For loans of ₱10,000 or less over up to 4 months, taken or renewed from April 1, 2026: interest at most 6% a month, all charges together at most 12% a month, late penalty at most 5% a month. Circular 14 of 2025.</b></li>
     <li><span>If you pay more than these</span><b>Ask the lender to explain the charges, and you can complain to the BSP (banks and cards) or the SEC (lending companies).</b></li></ul><p class="hint">These come from news reports and can change. Check with the BSP or SEC for the current rule.</p>`;
   return `<div class="debtpage">${hdr('Debts')}
-    <section class="cardbox"><h3>Your month</h3>${month}${lightBox}${short}${cashFlag}</section>
-    <section class="cardbox"><h3>What to pay now</h3>${order}${extraBox}${plan ? `<h4 class="subh">If there is extra, where it goes</h4>${seg}` : ''}${planBox}<p class="hint">An estimate from your own entries. It pays what is due soonest first, keeps to how you usually pay, leaves money for living, and only suggests paying early when it is worth it. Real balances change with new charges and late fees.</p></section>
+    <section class="cardbox"><h3>Your Month</h3>${month}${lightBox}${short}${cashFlag}</section>
+    <section class="cardbox"><h3>What to Pay Now</h3>${order}${extraBox}${plan ? `<h4 class="subh">If There Is Extra, Where It Goes</h4>${seg}` : ''}${planBox}<p class="hint">An estimate from your own entries. It pays what is due soonest first, keeps to how you usually pay, leaves money for living, and only suggests paying early when it is worth it. Real balances change with new charges and late fees.</p></section>
     ${warn}
     <h2 class="subh">Your debts (${list.length})</h2>${rows}
-    ${coll('d-limits', 'Interest limits in the Philippines', limits)}</div>`;
+    ${coll('d-limits', 'Interest Limits in the Philippines', limits)}</div>`;
 }
 
 ACT['debt-pay'] = (el) => openEntry({ preset: { kind: 'transfer', debt: true, toAcct: el.dataset.id } });

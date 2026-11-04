@@ -7,6 +7,7 @@ with sync_playwright() as p:
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900)
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.titleCase=false})})()")
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='advanced'})})()")
     pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(900)
     ok('Location section is in Settings and off by default', 'Location (Optional)' in pg.inner_text('#view') and pg.locator('[data-act=loc-toggle]').inner_text()=='Turn on')

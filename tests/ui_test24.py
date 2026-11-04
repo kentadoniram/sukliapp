@@ -26,7 +26,7 @@ with sync_playwright() as p:
     trade('buy','10','30000','100')
     trade('sell','5','20000','50')
     t=pg.inner_text('#view'); print(t[:300].replace('\n',' | '))
-    ok('realized gain card shows', 'Realized gains and losses' in t and ('+₱' in t))
+    ok('realized gain card shows', 'Realized Gains and Losses' in t and ('+₱' in t))
     pg.click('.hold:has-text("ZZZ")'); pg.wait_for_selector('#ad'); pg.wait_for_timeout(300)
     h=pg.inner_text('#ad'); ok('holding page shows trades', 'Buy 10 ZZZ' in h and 'Sell 5 ZZZ' in h)
     pg.locator('#ad button.row[data-act=edit]').first.click(); pg.wait_for_selector('[data-del]'); ok('trade detail opens', 'not counted as spending' in pg.inner_text('.sheet >> nth=-1'))

@@ -195,7 +195,7 @@ export function investments(db) {
   const paidTxt = (a) => { const p = book.pos.get(a.id); if (!p || !(p.qty > 0)) return ''; const e = Object.entries(p.paid || {}).filter(([, v]) => v > 0); return e.length ? ` · paid ${e.map(([c, v]) => qty(v, c)).join(' + ')}` : ''; };
   const basis = (a) => { const p = book.pos.get(a.id), px = homeFx(db, a.cur) || 0; if (!p || !(p.qty > 0) || !(p.cost > 0) || !px) return ''; const un = p.qty * px - p.cost; return ` · cost ${money(p.cost)} · <span class="${un >= 0 ? 'cg' : 'cr'}">${un >= 0 ? '+' : '−'}${money(Math.abs(un))} (${(un / p.cost * 100).toFixed(1)}%)</span>`; };
   const yr = String(new Date().getFullYear()), thisYear = book.realized.filter((x) => x.date.startsWith(yr)).reduce((q, x) => q + x.gain, 0), nm = (id) => (db.accounts.find((a) => a.id === id) || { name: '?' }).name;
-  const gains = book.realized.length ? coll('i-gain', `Realized gains and losses <small class="muted gsum">${book.total >= 0 ? '+' : '−'}${money(Math.abs(book.total))}</small>`, `<ul class="calfacts"><li><span>All time</span><b class="${book.total >= 0 ? 'cg' : 'cr'}">${money(book.total)}</b></li><li><span>This year</span><b class="${thisYear >= 0 ? 'cg' : 'cr'}">${money(thisYear)}</b></li>
+  const gains = book.realized.length ? coll('i-gain', `Realized Gains and Losses <small class="muted gsum">${book.total >= 0 ? '+' : '−'}${money(Math.abs(book.total))}</small>`, `<ul class="calfacts"><li><span>All time</span><b class="${book.total >= 0 ? 'cg' : 'cr'}">${money(book.total)}</b></li><li><span>This year</span><b class="${thisYear >= 0 ? 'cg' : 'cr'}">${money(thisYear)}</b></li>
     ${book.realized.slice(-6).reverse().map((x) => `<li><span>${esc(x.date.slice(0, 10))} · ${esc(nm(x.acct))}</span><b class="${x.gain >= 0 ? 'cg' : 'cr'}">${x.gain >= 0 ? '+' : '−'}${money(Math.abs(x.gain))}</b></li>`).join('')}</ul><p class="hint">Average-cost method, after fees. Units you held before using Sukli have no known cost and are left out of gains.</p>`, '') : '';
   // inside a platform: its wallets (Spot, Futures, Margin, Earn…), each with its own assets, when there is more than one wallet or a wallet other than Spot
   // what a wallet has earned so far (interest, staking, dividends), counted in your home currency
@@ -216,7 +216,7 @@ export function investments(db) {
   // one header card for all the crypto platforms, so the other investments (bonds, government savings, funds) are not buried below a long list of exchanges
   if (crypto.length && ui.collapsed['i-crypto'] === undefined) ui.collapsed['i-crypto'] = byEx.size >= 3;
   const cryptoCard = crypto.length ? `<div class="ivgroup">${coll('i-crypto', `Crypto <small class="muted gsum">${money(exSum(crypto))} · ${byEx.size} ${byEx.size === 1 ? 'place' : 'places'}</small>`, exHtml)}</div>` : exHtml;
-  const otherHtml = other.length ? coll('i-other', `Bonds, savings and other investments <small class="muted gsum">${money(exSum(other))}</small>`, `<div class="rows plain">${other.sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0)).map((a) => { const b = bal.get(a.id) || 0;
+  const otherHtml = other.length ? coll('i-other', `Bonds, Savings, and Other Investments <small class="muted gsum">${money(exSum(other))}</small>`, `<div class="rows plain">${other.sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0)).map((a) => { const b = bal.get(a.id) || 0;
     return `<button class="row acct" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:var(--line)">${esc((a.name || '?').slice(0, 1))}</i><span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(a.exchange || (a.type === 'invest' ? 'Investment' : 'Other product'))} · ${fmt(b, a.cur)}</small></span><span class="ramt"><b>${priced(db, a) ? money(val(db, a, b)) : '<small class="muted">no rate</small>'}</b></span></button>`; }).join('')}</div>`, '') : '';
   setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
   return `<div class="invpage">${hdr('Investments', `<button class="btn sm iv-rec" data-act="inv-add">Record activity</button> <button class="btn sm ghost iv-add" data-act="inv-new">Add asset</button> <button class="btn sm ghost curchip" data-act="inv-cur" aria-label="Show Investments in ${esc(invC)}. Tap to change." title="Currency shown in Investments">${esc(invC)} ▾</button>`)}
@@ -234,7 +234,7 @@ export function investments(db) {
 function tickerCard(db, tickers) {
   const used = new Set(db.accounts.filter((x) => !x.deleted).map((x) => x.cur)), list = Object.entries(tickers).filter(([k, t]) => used.has(k) && (t.price > 0 || t.live || t.history));
   if (!list.length) return '';
-  return coll('i-tick', 'Tickers and prices <small class="muted gsum">tap one for its history</small>', `<ul class="calfacts">${list.map(([k, t]) => { const a = db.accounts.find((x) => !x.deleted && x.cur === k), now = a ? priceNow(db, a) : null;
+  return coll('i-tick', 'Tickers and Prices <Small Class="muted Gsum">tap One for Its History</small>', `<ul class="calfacts">${list.map(([k, t]) => { const a = db.accounts.find((x) => !x.deleted && x.cur === k), now = a ? priceNow(db, a) : null;
     return `<li><span><button type="button" class="linkbtn" data-act="inv-ticker" data-sym="${esc(k)}"><b>${esc(t.ticker || k)}</b></button> <small class="muted">${esc(t.name || '')}${t.market ? ' · ' + esc(t.market) : ''}</small><br><small class="muted">${a ? esc(priceStamp(db, a)) : ''}</small></span><b>${now ? fmt(now.v, now.quote) : (t.price > 0 ? fmt(t.price, t.quote) : 'no price')} ${t.live || t.cgId ? '' : `<button type="button" class="linkbtn" data-act="inv-price" data-sym="${esc(k)}">${t.price > 0 ? 'Update' : 'Set price'}</button>`}</b></li>`; }).join('')}</ul>
     <p class="hint">Coins with a price feed update by themselves when you are online. For shares and other assets, enter the price from time to time (or trade): each entry is kept so you can see how it moved.</p>`, '');
 }
@@ -381,9 +381,9 @@ function feesCard(db, book) {
   const fees = parts.reduce((x, p) => x + p.v, 0), losses = book.realized.filter((r) => r.gain < 0).reduce((x, r) => x + r.gain, 0);
   if (!parts.length && !losses) return '';
   const yr = String(new Date().getFullYear()), thisYr = parts.filter((p) => p.date.startsWith(yr)).reduce((x, p) => x + p.v, 0);
-  return coll('i-fees', `Fees and losses <small class="muted gsum">${money(fees + Math.abs(losses))}</small>`,
+  return coll('i-fees', `Fees and Losses <small class="muted gsum">${money(fees + Math.abs(losses))}</small>`,
     `<ul class="calfacts"><li><span>Trading fees, all time</span><b class="cr">${money(fees)}</b></li><li><span>Trading fees, this year</span><b>${money(thisYr)}</b></li><li><span>Realized losses on sales</span><b class="cr">${money(Math.abs(losses))}</b></li></ul>
-    <h3 class="subh">Latest fees</h3><ul class="calfacts">${parts.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6).map((p) => `<li><span>${esc(p.date.slice(0, 10))} · ${esc(p.name)}</span><b>${money(p.v)}</b></li>`).join('') || '<li><span>No fees recorded</span><b></b></li>'}</ul>
+    <h3 class="subh">Latest Fees</h3><ul class="calfacts">${parts.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6).map((p) => `<li><span>${esc(p.date.slice(0, 10))} · ${esc(p.name)}</span><b>${money(p.v)}</b></li>`).join('') || '<li><span>No fees recorded</span><b></b></li>'}</ul>
     <p class="hint">Each fee is saved with its trade and also counted as an expense. They appear here, not as losses in Entries.</p>`, '');
 }
 function performanceCard(db, bal, book, items) {
@@ -426,7 +426,7 @@ function incomeCard(db) {
   const v = (t) => t.amount * factorFor(db, t), yr = String(new Date().getFullYear()), by = new Map();
   for (const t of list) by.set(t.invIncome.type, (by.get(t.invIncome.type) || 0) + v(t));
   const nm = (id) => { const a = db.accounts.find((x) => x.id === id); return a ? ((db.settings.tickers || {})[a.cur] || {}).ticker || a.cur : '?'; };
-  return coll('i-inc', `Investment income <small class="muted gsum">${money(list.reduce((q, t) => q + v(t), 0))}</small>`,
+  return coll('i-inc', `Investment Income <small class="muted gsum">${money(list.reduce((q, t) => q + v(t), 0))}</small>`,
     `<ul class="calfacts"><li><span>This year</span><b class="cg">${money(list.filter((t) => t.date.startsWith(yr)).reduce((q, t) => q + v(t), 0))}</b></li>${[...by.entries()].map(([k, x]) => `<li><span>${esc(k)}</span><b>${money(x)}</b></li>`).join('')}</ul>
     <h3 class="subh">Latest</h3><ul class="calfacts">${list.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6).map((t) => `<li><span>${esc(t.date.slice(0, 10))} · ${esc(t.invIncome.type)} · ${esc(nm(t.invIncome.asset))}</span><b>${fmt(t.amount, t.cur)}</b></li>`).join('')}</ul>`, '<button type="button" class="btn sm ghost" data-act="inv-income">+ Income</button>');
 }
@@ -465,7 +465,7 @@ function predictCard(db) {
   const list = allPreds(db).sort((a, b) => (a.by < b.by ? -1 : 1)), held = db.accounts.some((a) => !a.deleted && inInvest(a) && isAsset(a));
   if (!held) return '';
   const actual = (sym) => { const a = db.accounts.find((x) => !x.deleted && x.cur === sym); return a ? priceNow(db, a) : null; };
-  return coll('i-pred', 'My predictions <small class="muted gsum">your estimates</small>', `${list.length ? list.map((p) => { const act = actual(p.sym), gap = act && act.quote === p.quote ? (p.price - act.v) / act.v * 100 : null, a = db.accounts.find((x) => !x.deleted && x.cur === p.sym);
+  return coll('i-pred', 'My Predictions <Small Class="muted Gsum">your Estimates</small>', `${list.length ? list.map((p) => { const act = actual(p.sym), gap = act && act.quote === p.quote ? (p.price - act.v) / act.v * 100 : null, a = db.accounts.find((x) => !x.deleted && x.cur === p.sym);
       return `<div class="pred"><div class="predtop"><b>${esc(p.t.ticker || p.sym)}</b><button type="button" class="linkbtn" data-act="inv-pdel" data-sym="${esc(p.sym)}" data-id="${esc(p.id)}">Remove</button></div>
         <div><span class="estbadge">Your estimate</span> ${fmt(p.price, p.quote)} by ${esc(p.by)}${p.note ? ` <small class="muted">· ${esc(p.note)}</small>` : ''}</div>
         <div>${act ? `<span class="actbadge">Actual</span> ${fmt(act.v, act.quote)} <small class="muted">· ${a ? esc(priceStamp(db, a)) : ''}</small>${gap != null ? ` · <b class="${gap >= 0 ? 'cg' : 'cr'}">${gap >= 0 ? '+' : '−'}${Math.abs(gap).toFixed(1)}% to reach it</b>` : ''}` : '<span class="actbadge">Actual</span> <small class="muted">no price yet</small>'}</div></div>`; }).join('') : '<p class="hint">Write down where you think an asset will be, and by when. Your estimate is always shown apart from the real price.</p>'}`,

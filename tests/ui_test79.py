@@ -7,6 +7,7 @@ with sync_playwright() as p:
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900)
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.titleCase=false})})()")
     pg.click('[data-act=add]'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(500)
     pg.fill('#f-what','Lawson'); pg.wait_for_timeout(300); ok('no hint for a plain name', pg.locator('.partshint').count()==0)
     pg.fill('#f-what','coke, 2 onigiri, tissue, mystery thing'); pg.wait_for_timeout(400)

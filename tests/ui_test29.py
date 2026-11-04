@@ -16,7 +16,7 @@ with sync_playwright() as p:
     pg.click('#tr button:text-is("Record")'); pg.wait_for_timeout(500)
     if pg.locator('[data-yes]').count(): pg.click('[data-yes]'); pg.wait_for_timeout(400)
     pg.wait_for_timeout(600); pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(600)
-    t=pg.inner_text('#view'); ok('Investments shows Fees and losses', 'Fees and losses' in t)
+    t=pg.inner_text('#view'); ok('Investments shows Fees and losses', 'Fees and Losses' in t)
     pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_timeout(500)
     while pg.locator('[data-act=month][data-d="1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="1"]'); pg.wait_for_timeout(200)
     pg.wait_for_timeout(500); t=pg.inner_text('#view')

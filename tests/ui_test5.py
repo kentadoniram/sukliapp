@@ -12,6 +12,7 @@ with sync_playwright() as p:
     pg.on('pageerror',lambda e: errs.append(str(e)))
     pg.goto('http://localhost:8123/index.html'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(400)
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.titleCase=false})})()")
     # 3 labels
     pg.click('.fab'); pg.wait_for_selector('#entry')
     seg=pg.inner_text('#seg'); ok('entry types renamed: '+seg.replace('\n',' '), all(w in seg for w in ['Expense','Income','Transfer']) and 'Spent' not in seg)
@@ -106,7 +107,7 @@ with sync_playwright() as p:
     pg.screenshot(path=S+'v4-budget-warn.png')
     # 5 cash flow
     pg.goto('http://localhost:8123/index.html#/cashflow'); pg.wait_for_selector('.strip')
-    t=pg.inner_text('#view'); ok('cash flow window', all(w in t for w in ['Net income by month','By account','Biggest cash outflows']))
+    t=pg.inner_text('#view'); ok('cash flow window', all(w in t for w in ['Net Income by Month','By Account','Biggest Cash Outflows']))
     pg.locator('[data-act=acct-flow]').first.click(); pg.wait_for_timeout(300); ok('account row opens entries', pg.evaluate("location.hash")=='#/ledger')
     # categories page: edit/add/delete
     pg.goto('http://localhost:8123/index.html#/categories?k=expense'); pg.wait_for_selector('[data-act=cat-new]')

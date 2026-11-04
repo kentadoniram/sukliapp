@@ -221,7 +221,7 @@ function openNetWorth() {
     <div class="gdhead"><b class="big ${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b><span class="muted">Assets ${money(nw.assets)} − debts ${money(nw.debts)}, in ${BASE} at your current rates.</span></div>
     <h3>Last 12 months <small class="muted">(today’s rates · tap a bar)</small></h3>
     <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Net worth at each month end"><line x1="0" x2="${W}" y1="${mid}" y2="${mid}" stroke="var(--rule)"/>${bars}</svg>
-    <h3>By kind</h3>${types.map(([k, v]) => `<div class="gbar" data-tip="${esc(`${typeNames[k] || k}: ${money(v)}`)}"><i class="badge sm" style="background:${groupColor(k)}">${groupLetter(typeNames[k] || k)}</i>
+    <h3>By Kind</h3>${types.map(([k, v]) => `<div class="gbar" data-tip="${esc(`${typeNames[k] || k}: ${money(v)}`)}"><i class="badge sm" style="background:${groupColor(k)}">${groupLetter(typeNames[k] || k)}</i>
       <div class="gmain"><div class="gtop"><span>${esc(typeNames[k] || k)}</span><b class="${v < 0 ? 'neg' : ''}">${money(v)}</b></div><div class="track"><div class="fill" style="width:${Math.abs(v) / maxT * 100}%;background:${v < 0 ? 'var(--bad)' : groupColor(k)}"></div></div></div></div>`).join('')}
     <h3>Assets</h3><div class="rows plain">${nw.items.filter((i) => i.base > 0).sort((a, b) => b.base - a.base).map(rowOf).join('') || '<p class="empty">None yet.</p>'}</div>
     <h3>Debts</h3><div class="rows plain">${nw.items.filter((i) => i.base < 0).sort((a, b) => a.base - b.base).map(rowOf).join('') || '<p class="empty">None.</p>'}</div>
@@ -322,7 +322,7 @@ export function openAccountDetail(id) {
         <path d="${area}" fill="var(--tint)"/><path d="${path}" fill="none" stroke="var(--line)" stroke-width="2.4" stroke-linejoin="round"/></svg>
       <p class="hint tap">Touch and drag along the line to read the balance on each day.</p>
       <div class="facts"><div><span>In this month</span><b class="in">${money(inM, a.cur)}</b></div><div><span>Out this month</span><b>${money(outM, a.cur)}</b></div><div><span>Entries</span><b>${hist.length}</b></div></div>
-      ${card ? `<div class="cardbox"><h3>Credit card</h3>
+      ${card ? `<div class="cardbox"><h3>Credit Card</h3>
         <div class="facts"><div><span>Owed</span><b>${money(card.owed, a.cur)}</b></div><div><span>Limit</span><b>${card.limit ? money(card.limit, a.cur) : '—'}</b></div><div><span>Available</span><b>${card.avail != null ? money(Math.max(0, card.avail), a.cur) : '—'}</b></div></div>
         ${card.limit ? `<span class="util big ${card.used >= 80 ? 'hot' : card.used >= 50 ? 'mid' : ''}" role="img" aria-label="${card.used}% used"><i style="width:${card.used}%"></i></span><p class="hint">${card.used}% of the limit is used. Staying under about 30% is easier on your credit.</p>` : '<p class="hint">Add the credit limit in Edit to see how much is used.</p>'}
         ${card.stmt ? `<p class="hint">Statement date: <strong>${dayLabel(card.stmt + ' 00:00:00')}</strong>. Owed at the statement ${money(card.owedAtStmt, a.cur)}, paid since ${money(card.paid, a.cur)}.</p>` : '<p class="hint">Add the statement day in Edit to track each billing cycle.</p>'}
@@ -330,20 +330,20 @@ export function openAccountDetail(id) {
         <div class="btnrow tight">${card.owed > 0.005 ? '<button class="btn sm" data-ad="pay">Pay card</button>' : ''}${card.due ? '<button class="btn sm ghost" data-ad="ics">Add reminders to my calendar (.ics)</button>' : ''}</div>
         <p class="hint">Paying moves money from one of your accounts into the card. It lowers what you owe and is not counted as spending a second time.</p></div>` : ''}
       ${(a.type === 'loan' || a.loan) ? loanBox(db, a, money) : ''}
-      ${a.type === 'card' && a.limits && a.limits.length > 1 ? `<div class="cardbox"><h3>Credit limit history</h3><ul class="calfacts">${[...a.limits].reverse().map((l, i, arr) => { const nx = arr[i + 1]; return `<li><span>${l.date ? esc(l.date) : 'Earlier'}</span><b>${money(l.limit, a.cur)}${nx ? ` <small class="${l.limit >= nx.limit ? 'in' : 'neg'}">${l.limit >= nx.limit ? '+' : '−'}${money(Math.abs(l.limit - nx.limit), a.cur)}</small>` : ''}</b></li>`; }).join('')}</ul></div>` : ''}
+      ${a.type === 'card' && a.limits && a.limits.length > 1 ? `<div class="cardbox"><h3>Credit Limit History</h3><ul class="calfacts">${[...a.limits].reverse().map((l, i, arr) => { const nx = arr[i + 1]; return `<li><span>${l.date ? esc(l.date) : 'Earlier'}</span><b>${money(l.limit, a.cur)}${nx ? ` <small class="${l.limit >= nx.limit ? 'in' : 'neg'}">${l.limit >= nx.limit ? '+' : '−'}${money(Math.abs(l.limit - nx.limit), a.cur)}</small>` : ''}</b></li>`; }).join('')}</ul></div>` : ''}
       ${hasRate(a) ? `<div class="cardbox"><h3>Interest</h3><p>${rateAt(a, today())}% a year${perDay ? `, about <strong>${money(perDay, a.cur)}</strong> a day after tax on today’s balance` : ''}. Earned so far in Sukli: <strong>${money(earned, a.cur)}</strong>${taxPct > 0 ? ` after ${taxPct}% tax${taxed ? ` (${money(taxed, a.cur)} withheld)` : ''}` : ''}.</p>
         <p class="hint">Approximate: Sukli adds one entry a day (category ${a.type === 'crypto' ? 'Crypto earned' : 'Interest'}). Set the rate your app shows; edit or delete any entry that differs.</p></div>` : ''}
       ${hasRate(a) ? (() => { const pv = interestPreview(db, a, 7), rh = rateHistory(a), ps = promoStatus(db, a), t0 = today();
         const cur = [...rh].reverse().find((r) => !r.from || r.from <= t0) || rh[0];
-        return `<div class="cardbox"><h3>Interest details</h3>
+        return `<div class="cardbox"><h3>Interest Details</h3>
         ${(() => { const li = lockInfo(db, a); return li.locked > 0 ? `<p class="lockline"><strong>Locked: ${money(li.locked, a.cur)}</strong> · free to take out: ${money(li.available, a.cur)} · next part unlocks ${esc(li.nextUnlock)}<br><small class="muted">Taking out more than the free amount before then may cost you the promo rate (Sukli stops counting it as promo money).</small></p>` : ''; })()}
-        <h4 class="subh">Rate history</h4><ul class="calfacts">${rh.map((r) => `<li><span>${r.from ? 'From ' + esc(r.from) : 'Starting rate'}${r === cur ? ' · now' : ''}</span><b>${r.rate}% a year</b></li>`).join('')}</ul>
-        ${ps.length ? `<h4 class="subh">Promotional rates</h4><ul class="calfacts">${ps.map((x) => `<li><span>${x.p.rate}% on money deposited ${esc(x.p.depFrom)} to ${esc(x.p.depTo)}<br><small class="muted">${esc(x.status)} · ${money(x.deposited, a.cur)} deposited in that window${x.lock ? ` · ${esc(x.lock)}` : ''}</small></span><b class="promo ${/^Earning/.test(x.status) ? 'on' : ''}">${/^Earning/.test(x.status) ? 'Active' : /^Ended/.test(x.status) ? 'Ended' : /^Starts/.test(x.status) ? 'Upcoming' : 'Open'}</b></li>`).join('')}</ul>` : ''}
+        <h4 class="subh">Rate History</h4><ul class="calfacts">${rh.map((r) => `<li><span>${r.from ? 'From ' + esc(r.from) : 'Starting rate'}${r === cur ? ' · now' : ''}</span><b>${r.rate}% a year</b></li>`).join('')}</ul>
+        ${ps.length ? `<h4 class="subh">Promotional Rates</h4><ul class="calfacts">${ps.map((x) => `<li><span>${x.p.rate}% on money deposited ${esc(x.p.depFrom)} to ${esc(x.p.depTo)}<br><small class="muted">${esc(x.status)} · ${money(x.deposited, a.cur)} deposited in that window${x.lock ? ` · ${esc(x.lock)}` : ''}</small></span><b class="promo ${/^Earning/.test(x.status) ? 'on' : ''}">${/^Earning/.test(x.status) ? 'Active' : /^Ended/.test(x.status) ? 'Ended' : /^Starts/.test(x.status) ? 'Upcoming' : 'Open'}</b></li>`).join('')}</ul>` : ''}
         <h4 class="subh">Next 7 days <small class="muted">(if the balance stays at ${money(pv.balance, a.cur)})</small></h4>
         <ul class="calfacts ipreview">${pv.rows.map((r) => `<li><span>${esc(dayLabel(r.date + ' 12:00:00'))}${r.promo ? ' · promo' : ''}${r.note ? ` <small class="muted">· ${esc(r.note)}</small>` : ''}</span><b>${money(pv.taxPct > 0 ? r.net : r.gross, a.cur, { force: false })}</b></li>`).join('')}</ul>
         <p class="hint">${pv.taxPct > 0 ? `After ${pv.taxPct}% tax. ` : ''}Interest is added ${pv.comp === 'daily' ? 'every day' : pv.comp} at 23:55${pv.comp === 'daily' ? '' : ` (next: ${esc(pv.nextCredit)})`}.</p></div>`; })() : ''}
       ${hasDebtInt(a) ? (() => { const dv = debtPreview(db, a, 7), D = a.debtInt;
-        return `<div class="cardbox"><h3>Interest on this debt</h3><p>${D.rate}% a year (${D.kind === 'addon' ? 'add-on, flat on the amount borrowed' : 'effective'}), added ${esc(dv.comp)}. ${D.fromDue ? 'Starts after each payment due date that passes with money still owed.' : `Starts on ${esc(D.start || '?')} if money is still owed.`}</p>
+        return `<div class="cardbox"><h3>Interest on This Debt</h3><p>${D.rate}% a year (${D.kind === 'addon' ? 'add-on, flat on the amount borrowed' : 'effective'}), added ${esc(dv.comp)}. ${D.fromDue ? 'Starts after each payment due date that passes with money still owed.' : `Starts on ${esc(D.start || '?')} if money is still owed.`}</p>
         <ul class="calfacts ipreview">${dv.rows.map((r) => `<li><span>${esc(dayLabel(r.date + ' 12:00:00'))}</span><b>${r.on ? money(r.charge, a.cur, { force: false }) : '<span class="muted">not yet</span>'}</b></li>`).join('')}</ul>
         <p class="hint">Charges are added at 23:55 (next: ${esc(dv.nextCharge)}) and count as a financial loss. Paying the debt off stops them.</p></div>`; })() : ''}
       <h3>History</h3>
@@ -463,7 +463,7 @@ export function openAccount(id, preset = {}) {
     ${id ? `<label class="check"><input type="checkbox" name="archived" ${a.archived ? 'checked' : ''}> Hide this account (archive)</label>` : ''}
     ${used ? '<p class="hint">Currency is locked because this account has entries.</p>' : ''}
     <div class="btnrow">${id && !used ? '<button type="button" class="btn danger ghost" data-del>Delete</button>' : ''}<button class="btn">Save</button></div></form>
-    ${id ? `<form id="recon" class="recon"><h3>Does the real balance differ?</h3>
+    ${id ? `<form id="recon" class="recon"><h3>Does the Real Balance Differ?</h3>
       <p class="hint">App says ${money(bal, a.cur)}. Type what your bank or wallet really shows and the app adds one correcting entry.</p>
       <div class="two"><input name="real" inputmode="decimal" placeholder="Real balance" aria-label="Real balance"><button class="btn ghost">Correct it</button></div></form>` : ''}`,
   { title: id ? 'Edit account' : 'New account' });

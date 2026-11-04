@@ -207,7 +207,7 @@ function weekBars(db) {
   if (!total) body = '<p class="empty">Nothing yet.</p>';
   else if (mode === 'v') body = `<div class="wkv" role="img" aria-label="Spending for each of the last 7 days">${dates.map((d, i) => `<div class="wc ${i === 6 ? 'now' : ''}" data-tip="${esc(full(d, i) + ': ' + (vals[i] ? money(vals[i]) : 'nothing spent'))}"><span class="wa ${vals[i] ? '' : 'muted'}" ${cl(i) ? `style="color:${cl(i)}"` : ''}>${vals[i] ? esc(amt(vals[i])) : ''}</span><span class="wb"><i style="height:${vals[i] > 0 ? Math.max(3, Math.round(vals[i] / top * 100)) : 0}%${cl(i) ? `;background:${cl(i)}` : ''}"></i></span><span class="wl">${esc(day(d, i))}</span></div>`).join('')}</div>`;
   else body = dates.map((d, i) => `<div class="wk ${i === 6 ? 'now' : ''}"><span class="wd">${esc(full(d, i))}</span><span class="wtrack"><i style="width:${vals[i] > 0 ? Math.max(2, Math.round(vals[i] / top * 100)) : 0}%${cl(i) ? `;background:${cl(i)}` : ''}"></i></span><b class="wv ${vals[i] ? '' : 'muted'}" ${cl(i) ? `style="color:${cl(i)}"` : ''}>${vals[i] ? esc(money(vals[i])) : '–'}</b></div>`).join('');
-  return `<section class="week" aria-label="Spending in the last 7 days"><div class="weekhead"><h3 class="subh">Spent each day, last 7 days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3></div>${body}</section>`;
+  return `<section class="week" aria-label="Spending in the last 7 days"><div class="weekhead"><h3 class="subh">Spent Each Day, Last 7 Days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3></div>${body}</section>`;
 }
 // the cards on Home, in the order you chose in Settings. [id, name, heavy: drawn a moment later so the numbers above appear at once]
 export const HOME_SECTIONS = [
@@ -235,17 +235,17 @@ function homeSection(id, c) {
       return `<section class="spendable"><div><span>Spendable now</span><b>${money(sp.total)}</b></div><div class="curs">${chips || '<span class="muted">No balances yet</span>'}</div>
       ${sp.missing.length ? `<p class="hint">Not counted: ${sp.missing.join(', ')} (set a rate in Settings).</p>` : ''}${(() => { if (appMode() === 'simple') return ''; const sf = safeToSpend(db); return sf.committed > 0.5 ? `<button type="button" class="safeto" data-act="safe-info"><span>Safe to spend<small> after ${money(sf.committed)} already owed</small></span><b>${money(sf.safe)}</b></button>` : ''; })()}</section>`; }
     case 'alerts': { const n = reviewCount(db); return `${reminderBanner(db)}${budgetBanner(db)}${n ? `<a class="banner" href="#/review"><strong>${n} ${n === 1 ? 'entry needs' : 'entries need'} a quick check</strong><span>Confirm the guessed categories</span>${ic('right')}</a>` : ''}`; }
-    case 'insights': { const ins = insights(db, ui.month); return ins.length ? coll('h-ins', 'Worth knowing', `<ul class="ins">${ins.map((x) => `<li class="${x.tone}">${x.id ? `<button class="insb" data-act="edit" data-id="${x.id}">${esc(x.text)}</button>` : esc(x.text)}</li>`).join('')}</ul>`) : ''; }
+    case 'insights': { const ins = insights(db, ui.month); return ins.length ? coll('h-ins', 'Worth Knowing', `<ul class="ins">${ins.map((x) => `<li class="${x.tone}">${x.id ? `<button class="insb" data-act="edit" data-id="${x.id}">${esc(x.text)}</button>` : esc(x.text)}</li>`).join('')}</ul>`) : ''; }
     case 'loss': return lossCard(db, ui.month, coll, (n) => money(n));
     case 'pace': return paceCard(db);
     case 'projpie': return projPie(db);
     case 'rolling': return rollingCard(db);
     case 'outlook': return outlookCard(db);
     case 'went': { const out = totals(db, ui.month), groups = [...out.by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8), max = groups.length ? Math.max(groups[0][1], ...groups.map(([g]) => budgetOf(db, g))) : 1;
-      return coll('h-out', 'Where it went', groups.length ? wentToggle() + (wentMode() === 'pie' ? wentPie([...out.by.entries()].sort((a, b) => b[1] - a[1]), out.total) : groups.map(([g, v]) => gbar(db, g, v, max, 'expense', out.total)).join('') + '<p class="hint tap">Tap a group to see what is in it.</p>') : `<p class="empty">Nothing yet.</p>`); }
+      return coll('h-out', 'Where It Went', groups.length ? wentToggle() + (wentMode() === 'pie' ? wentPie([...out.by.entries()].sort((a, b) => b[1] - a[1]), out.total) : groups.map(([g, v]) => gbar(db, g, v, max, 'expense', out.total)).join('') + '<p class="hint tap">Tap a group to see what is in it.</p>') : `<p class="empty">Nothing yet.</p>`); }
     case 'came': { const inc = totals(db, ui.month, 'income'), g = [...inc.by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
-      return coll('h-in', 'Where it came from', g.length ? g.map(([k, v]) => gbar(db, k, v, g[0][1], 'income', inc.total)).join('') : '<p class="empty">Nothing yet.</p>'); }
-    case 'six': return coll('h-6', 'Last 6 months', `${trendChart(trend(db, ui.month, 6), ui.month, 6)}<p class="legend"><i class="k bar"></i>Cash outflow <i class="k inc"></i>Cash inflow · tap a month</p>`);
+      return coll('h-in', 'Where It Came from', g.length ? g.map(([k, v]) => gbar(db, k, v, g[0][1], 'income', inc.total)).join('') : '<p class="empty">Nothing yet.</p>'); }
+    case 'six': return coll('h-6', 'Last 6 Months', `${trendChart(trend(db, ui.month, 6), ui.month, 6)}<p class="legend"><i class="k bar"></i>Cash outflow <i class="k inc"></i>Cash inflow · tap a month</p>`);
     case 'latest': { const recent = sortedTxs(db).filter((t) => t.date.startsWith(ui.month)).slice(0, 6), accts = accountMap(db), cats = catMap(db);
       return coll('h-latest', 'Latest', `<div class="rows">${recent.length ? recent.map((t) => row(t, accts, cats)).join('') : '<p class="empty">No entries yet.</p>'}</div>`, '<a href="#/ledger" class="linkbtn">All entries</a>'); }
     default: return '';
@@ -306,7 +306,7 @@ function rollingCard(db) {
   const tr = r.trend ? `${r.trend === 'rising' ? 'Rising' : r.trend === 'falling' ? 'Falling' : 'Steady'}: the last 3 months ${R(r.recent)} a day against ${R(r.before)} before (${r.trendPct > 0 ? '+' : '−'}${Math.round(Math.abs(r.trendPct) * 100)}%).` : '';
   const vs = r.typical > 0 ? Math.round(((r.now - r.typical) / r.typical) * 100) : 0;
   const mrows = r.months.slice().reverse().map((m) => `<div class="mrow"><span>${esc(monthLabel(m.ym))}</span><b>${R(m.avg)}</b></div>`).join('');
-  return coll('h-roll', 'Daily average, rolling 7 days', `<svg class="chart scrub" data-pts="${esc(JSON.stringify(pts))}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Rolling seven day average of daily spending over the last 12 months. Touch to read values.">${band}
+  return coll('h-roll', 'Daily Average, Rolling 7 Days', `<svg class="chart scrub" data-pts="${esc(JSON.stringify(pts))}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Rolling seven day average of daily spending over the last 12 months. Touch to read values.">${band}
       <line x1="4" x2="${W - 4}" y1="${Y(r.typical).toFixed(1)}" y2="${Y(r.typical).toFixed(1)}" stroke="var(--ink2)" stroke-dasharray="3 3"/>
       <path d="${path}" stroke="var(--line)" stroke-width="2" fill="none" stroke-linejoin="round"/>${ticks}</svg>
     <p class="legend"><i class="k lineb"></i>7-day average <i class="k dash"></i>typical (median) <i class="k bar"></i>usual range</p>
@@ -408,7 +408,7 @@ export function openGroupDetail(g, kind, ym) {
         <div><span>Usual (${bm.length || 0} mo avg)</span><b>${bm.length ? money(usual) : '—'}</b>${bm.length ? delta(total, usual) : ''}</div>
         <div><span>Biggest</span><b>${parts.length ? money(Math.max(...parts.map((p) => p.v))) : '—'}</b></div></div>
       ${trendChart(tr.map((x) => (isOut ? { m: x.m, spent: x.v, income: 0 } : { m: x.m, spent: 0, income: x.v })), ym, 6, false)}
-      <h3>By category</h3>
+      <h3>By Category</h3>
       <div class="catbars">${catRows.map(([id, v]) => { const c = cats.get(id); return `<button class="cbar ${pick === id ? 'on' : ''}" data-cat="${id}"><span>${esc(c ? c.name : 'No category')}</span><b>${money(v)}</b><div class="track"><div class="fill" style="width:${Math.max(3, v / cmax * 100)}%;background:${isOut ? groupColor(g) : 'var(--in)'}"></div></div></button>`; }).join('')}</div>
       <div class="h2row"><h3>${pick ? esc((cats.get(pick) || { name: 'No category' }).name) : 'All entries'} · ${money(ctot)}</h3>${pick ? '<button class="linkbtn" data-clear>Show all</button>' : ''}</div>
       <div class="rows plain">${shown.slice(0, 80).map((p) => {
@@ -692,7 +692,7 @@ export function reports(db) {
   }
   const seg = `<div class="seg four" role="group" aria-label="Group spending by">${BYS.map(([v, l]) => `<button type="button" data-act="by" data-v="${v}" class="${ui.by === v ? 'on' : ''}" aria-pressed="${ui.by === v}">${l}</button>`).join('')}</div>`;
   return `${monthNav()}${strip(st)}
-    ${coll('r-12', 'Last 12 months', `${chart}<p class="legend"><i class="k bar"></i>Cash outflow <i class="k inc"></i>Cash inflow · tap a month</p>`)}
+    ${coll('r-12', 'Last 12 Months', `${chart}<p class="legend"><i class="k bar"></i>Cash outflow <i class="k inc"></i>Cash inflow · tap a month</p>`)}
     ${coll('r-by', 'Spending by', `${seg}${body}<p class="hint">Entries split into items are counted under each item’s own category.</p>`)}`;
 }
 ACT.budget = async (el) => {
@@ -751,8 +751,8 @@ export function settings(db) {
       <button type="button" class="btn ghost wide" data-act="nm-review">Review similar names</button>
       <button type="button" class="btn ghost wide" data-act="nm-map">Name map (how names connect)</button>
       ${[...groups.entries()].map(([k, as]) => `<div class="nmgroup"><b>${esc(k)}</b><div>${as.filter((a) => a !== k).map((a) => `<span class="chip">${esc(a)} <button type="button" class="x" data-act="nm-forget" data-kind="same" data-v="${esc(a)}" aria-label="Unlink ${esc(a)}">×</button></span>`).join('') || '<small class="muted">only itself</small>'}</div></div>`).join('')}
-      ${(r.related || []).length ? `<h3>Related (same family, separate)</h3>${r.related.map((k) => `<div class="nmgroup"><span>${esc(k.replace('|', '  ~  '))} <small class="muted">${Math.round(((r.relw || {})[k] ?? 0.6) * 100)}% close</small></span><button type="button" class="btn sm ghost" data-act="nm-forget" data-kind="related" data-v="${esc(k)}">Undo</button></div>`).join('')}` : ''}
-      ${r.apart.length ? `<h3>Kept apart</h3>${r.apart.map((k) => `<div class="nmgroup"><span>${esc(k.replace('|', '  ≠  '))}</span><button type="button" class="btn sm ghost" data-act="nm-forget" data-kind="apart" data-v="${esc(k)}">Undo</button></div>`).join('')}` : ''}</section>`; })()}
+      ${(r.related || []).length ? `<h3>Related (Same Family, Separate)</h3>${r.related.map((k) => `<div class="nmgroup"><span>${esc(k.replace('|', '  ~  '))} <small class="muted">${Math.round(((r.relw || {})[k] ?? 0.6) * 100)}% close</small></span><button type="button" class="btn sm ghost" data-act="nm-forget" data-kind="related" data-v="${esc(k)}">Undo</button></div>`).join('')}` : ''}
+      ${r.apart.length ? `<h3>Kept Apart</h3>${r.apart.map((k) => `<div class="nmgroup"><span>${esc(k.replace('|', '  ≠  '))}</span><button type="button" class="btn sm ghost" data-act="nm-forget" data-kind="apart" data-v="${esc(k)}">Undo</button></div>`).join('')}` : ''}</section>`; })()}
     ${(() => { const st = db.settings, custom = st.customTypes || {}, n = (k) => db.accounts.filter((a) => !a.deleted && a.type === k).length;
       return `<section id="atypes"><h2>Account Types</h2><p class="hint">Rename any type, or add your own, for example "Money owed to me" or "Savings pot". Choose whether a new type is something you have or something you owe.</p>
       ${Object.entries(typeNames).map(([k, l]) => `<div class="field inline"><input data-atype-label="${esc(k)}" value="${esc(l)}" aria-label="Name of ${esc(l)}"><small class="muted">${n(k)} account${n(k) === 1 ? '' : 's'}${custom[k] ? (custom[k].liab ? ' · liability' : ' · asset') : ''}</small>${custom[k] ? `<button type="button" class="btn sm ghost" data-act="atype-del" data-k="${esc(k)}">Delete</button>` : ''}</div>`).join('')}
@@ -1066,10 +1066,10 @@ function arrangeSection(db) {
   const mv = (kind, id, i, n) => `<span class="mv"><button type="button" class="btn sm ghost" data-act="arr-up" data-kind="${kind}" data-id="${id}" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="btn sm ghost" data-act="arr-down" data-kind="${kind}" data-id="${id}" aria-label="Move down" ${i === n - 1 ? 'disabled' : ''}>↓</button></span>`;
   return `<section id="arrange"><h2>Tabs and Home Cards</h2>
     <p class="hint">The bottom bar holds up to 4 tabs, with the + button always in the middle. Anything not in the bar is still reachable from Home and the menus.</p>
-    <h3>Bottom tabs (${tb.length}/4)</h3>
+    <h3>Bottom Tabs (${tb.length}/4)</h3>
     ${tb.map((id, i) => `<div class="arow"><span>${ic(TAB_DEFS[id][1])} ${TAB_DEFS[id][0]}</span>${mv('tab', id, i, tb.length)}<button type="button" class="btn sm ghost" data-act="arr-tab-off" data-id="${id}" ${tb.length <= 2 ? 'disabled' : ''}>Remove</button></div>`).join('')}
     ${more.length ? `<p class="hint">Add to the bar${tb.length >= 4 ? ' (remove one first)' : ''}:</p><div class="btnrow left">${more.map((id) => `<button type="button" class="btn sm ghost" data-act="arr-tab-on" data-id="${id}" ${tb.length >= 4 ? 'disabled' : ''}>+ ${TAB_DEFS[id][0]}</button>`).join('')}</div>` : ''}
-    <h3>Home cards, top to bottom</h3>
+    <h3>Home Cards, Top to Bottom</h3>
     ${lay.order.map((id, i) => { const nm = (HOME_SECTIONS.find((x) => x[0] === id) || [])[1], off = lay.hidden.includes(id);
       return `<div class="arow ${off ? 'off' : ''}"><label class="check"><input type="checkbox" data-act="arr-show" data-id="${id}" ${off ? '' : 'checked'}> ${esc(nm)}${SIMPLE_HIDDEN.includes(id) ? ' <small class="muted">(not shown in Simple mode)</small>' : ''}</label>${mv('home', id, i, lay.order.length)}</div>`; }).join('')}
     <button type="button" class="btn ghost wide" data-act="arr-reset">Put tabs and cards back to normal</button></section>`;
@@ -1099,7 +1099,7 @@ export function projIncome(db, ym) {
 }
 function projPie(db) {
   const ym = ui.month, out = totals(db, ym), pi = projIncome(db, ym), inc = pi.v, spent = out.total;
-  if (!(inc > 0)) return coll('h-proj', 'Spending vs expected income', `<p class="empty">No income yet.</p><button type="button" class="btn ghost" data-act="proj-set">Set my expected monthly income</button>`);
+  if (!(inc > 0)) return coll('h-proj', 'Spending vs Expected Income', `<p class="empty">No income yet.</p><button type="button" class="btn ghost" data-act="proj-set">Set my expected monthly income</button>`);
   const all = [...out.by.entries()].sort((a, b) => b[1] - a[1]), top = all.slice(0, 6), rest = all.slice(6).reduce((a, [, v]) => a + v, 0);
   const slices = top.map(([g, v]) => ({ g, v })); if (rest > 0) slices.push({ g: 'Everything else', v: rest, other: true });
   const left = inc - spent, over = left < 0, den = Math.max(inc, spent), C = 2 * Math.PI * 52; let acc = 0;
@@ -1108,7 +1108,7 @@ function projPie(db) {
   const labels = pieLabels(slices.map((x) => x.v / den));
   const track = over ? '' : `<circle cx="70" cy="70" r="52" fill="none" stroke="var(--rule)" stroke-width="26" stroke-dasharray="${Math.max(0, (left / den) * C - 1.2).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 70 70)"></circle>`;
   const pct = Math.round((spent / inc) * 100);
-  return coll('h-proj', 'Spending vs expected income', `<div class="wentpie"><svg class="donut sm" viewBox="-30 -12 200 164" role="img" aria-label="${pct}% of expected income spent">${track}${arcs}${labels}<text x="70" y="68" text-anchor="middle" class="dv">${pct}%</text><text x="70" y="85" text-anchor="middle" class="dl">${over ? 'over income' : 'spent'}</text></svg>
+  return coll('h-proj', 'Spending vs Expected Income', `<div class="wentpie"><svg class="donut sm" viewBox="-30 -12 200 164" role="img" aria-label="${pct}% of expected income spent">${track}${arcs}${labels}<text x="70" y="68" text-anchor="middle" class="dv">${pct}%</text><text x="70" y="85" text-anchor="middle" class="dl">${over ? 'over income' : 'spent'}</text></svg>
     <ul class="pielegend"><li><div class="pj"><span>Expected income</span><b>${money(inc)}</b></div></li><li><div class="pj"><span>Came in so far</span><b>${money(pi.got)}</b></div></li><li><div class="pj"><span>Spent</span><b>${money(spent)}</b></div></li><li><div class="pj ${over ? 'bad' : ''}"><span>${over ? 'Over by' : 'Left'}</span><b>${money(Math.abs(left))}</b></div></li></ul></div>
     <p class="hint">${pi.own ? 'Using the income you set.' : pi.typ ? `Expected income is your usual month (middle of your last ${Math.min(3, [1, 2, 3, 4, 5, 6].filter((i) => totals(db, shiftMonth(ym, -i), 'income').total > 0).length)} months with income)${pi.got > pi.typ ? ', raised to what already came in' : ''}.` : 'No earlier months to go on, so this is what came in so far.'} Tap a slice for what is in it. <button type="button" class="linkbtn" data-act="proj-set">Set my own</button></p>`);
 }

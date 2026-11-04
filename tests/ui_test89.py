@@ -8,6 +8,7 @@ with sync_playwright() as p:
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900)
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.titleCase=false})})()")
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='advanced';d.accounts.push(c.stamp({id:'cbw',name:'CB Wallet',type:'cash',cur:'PHP',open:10000,include:true,archived:false}))});const m=await import('/js/entry.js');m.openEntry({preset:{acct:'cbw'}})})()"); pg.wait_for_selector('#cbrow'); pg.wait_for_timeout(400)
     pg.click('#cbrow [data-e=cb-on]'); pg.fill('#f-amount','1000'); pg.fill('#f-what','CB test'); pg.fill('#f-cbv','5'); pg.press('#f-cbv','Tab'); pg.wait_for_timeout(200)
     ok('live calc shows 50 %s'%pg.inner_text('#cbcalc'), '50.00' in pg.inner_text('#cbcalc'))

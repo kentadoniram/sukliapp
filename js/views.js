@@ -97,8 +97,8 @@ function openFlowDetail(kind, ym, withGo) {
         <div><span>Last month</span><b>${money(prevNet)}</b>${delta(net, prevNet, true)}</div>
         <div><span>Usual (${bm.length} mo)</span><b>${usualNet === null ? '—' : money(usualNet)}</b></div></div>
       ${netChart(tr, ym, false)}
-      <h3>Cash inflow</h3>${groupRows(db, ym, 'income', 6)}
-      <h3>Cash outflow</h3>${groupRows(db, ym, 'expense', 6)}
+      <h3>Cash Inflow</h3>${groupRows(db, ym, 'income', 6)}
+      <h3>Cash Outflow</h3>${groupRows(db, ym, 'expense', 6)}
       ${withGo ? '<div class="btnrow"><button class="btn" data-go>Open this month</button></div>' : ''}`;
     const go = root.querySelector('[data-go]');
     if (go) go.onclick = () => { ui.month = ym; s.close(); location.hash = '#/home'; render(); };
@@ -143,10 +143,10 @@ export function cashflow(db) {
       <div><span>Kept</span><b>${rate === null ? '—' : rate + '%'}</b></div>
       <div><span>Net per day</span><b>${R(net / (p.day || 1))}</b></div>
       <div><span>Moved between accounts</span><b>${R(moved)}</b></div></div></section>
-    ${coll('c-net', 'Net income by month', `${netChart(tr, ym)}<p class="legend"><i class="k inc"></i>Kept <i class="k neg"></i>Overspent · tap a month</p>`)}
-    ${coll('c-in', 'Biggest cash inflows', groupRows(db, ym, 'income', 5))}
-    ${coll('c-out', 'Biggest cash outflows', groupRows(db, ym, 'expense', 5))}
-    ${coll('c-acc', 'By account', accRows.length ? `<div class="rows plain">${accRows.map((r) => `<button class="row acctflow" data-act="acct-flow" data-id="${r.id}"><span class="rmain"><strong>${esc(r.name)}</strong><small><span class="in">+${money(r.i)}</span> · <span class="neg">−${money(r.o)}</span></small></span>
+    ${coll('c-net', 'Net Income by Month', `${netChart(tr, ym)}<p class="legend"><i class="k inc"></i>Kept <i class="k neg"></i>Overspent · tap a month</p>`)}
+    ${coll('c-in', 'Biggest Cash Inflows', groupRows(db, ym, 'income', 5))}
+    ${coll('c-out', 'Biggest Cash Outflows', groupRows(db, ym, 'expense', 5))}
+    ${coll('c-acc', 'By Account', accRows.length ? `<div class="rows plain">${accRows.map((r) => `<button class="row acctflow" data-act="acct-flow" data-id="${r.id}"><span class="rmain"><strong>${esc(r.name)}</strong><small><span class="in">+${money(r.i)}</span> · <span class="neg">−${money(r.o)}</span></small></span>
       <span class="ramt"><b class="${r.i - r.o < 0 ? 'neg' : 'in'}">${money(r.i - r.o)}</b></span></button>`).join('')}</div><p class="hint">Entries in each account, valued in ${BASE}. Tap one to see them.</p>` : '<p class="empty">No entries this month.</p>')}`;
 }
 ACT['acct-flow'] = (el) => { ui.acct = el.dataset.id; ui.filter = 'all'; ui.q = ''; ui.limit = 120; location.hash = '#/ledger'; render(); };
@@ -186,7 +186,7 @@ export function calendar(db) {
         <li><span>Busiest day</span><b>${busy ? `<button type="button" class="linkbtn" data-act="day" data-d="${ym}-${String(busy.d).padStart(2, '0')}">${dayLabel(`${ym}-${String(busy.d).padStart(2, '0')}`)}</button> · ${R(busy.out)}` : '—'}</b></li>
         <li><span>Days you spent nothing</span><b>${upto ? `${quiet} of ${upto}` : '—'}</b></li>
         <li><span>Entries this month</span><b>${entries}</b></li></ul>
-      <h3 class="subh">Spending by week</h3>
+      <h3 class="subh">Spending by Week</h3>
       <div class="wkbars">${weeks.map((w) => `<div class="wk"><span>${w.from}–${w.to}</span><i style="width:${Math.max(w.out ? 3 : 0, (w.out / maxW) * 100).toFixed(0)}%"></i><b>${w.out ? R(w.out) : '—'}</b></div>`).join('')}</div></section>
     <p class="hint">Tap a day to see its entries or add one. Amounts are in ${BASE}, shortened (12k = 12,000).</p>`;
 }
@@ -312,8 +312,8 @@ function budgetInner(db) {
     : '<p class="hint">No budgets yet. Open a group below and press “Set a monthly budget”.</p>';
   return `${monthNav()}<!--scope-->
     ${warns.length ? `<section class="bwarn">${warns.map((w) => `<button class="warnrow ${w.tone}" data-act="slice" data-k="${esc(w.g)}">${ic('check')}<span>${esc(w.text)}</span></button>`).join('')}</section>` : ''}
-    ${coll('b-sum', 'Budget summary', sumBlock, '<button type="button" class="btn sm ghost" data-act="budget-setup">Budget setup</button>')}
-    ${coll('b-class', 'Needs, wants and luxury', classCard(db, ym) || '<p class="hint">Nothing spent in this month yet.</p>')}
+    ${coll('b-sum', 'Budget Summary', sumBlock, '<button type="button" class="btn sm ghost" data-act="budget-setup">Budget setup</button>')}
+    ${coll('b-class', 'Needs, Wants and Luxury', classCard(db, ym) || '<p class="hint">Nothing spent in this month yet.</p>')}
     <div id="bpie"><section class="seg-wrap"><div class="seg two" role="group" aria-label="Split by">${[['group', 'By group'], ['category', 'By category']].map(([v, l]) => `<button type="button" data-act="pieby" data-v="${v}" class="${by === v ? 'on' : ''}" aria-pressed="${by === v}">${l}</button>`).join('')}</div>
       ${donut}${total ? '<p class="hint center">Tap a slice or a row for the detail.</p>' : ''}</section>
     <section>${slices.map(rowFor).join('')}</section></div>`;
@@ -384,7 +384,7 @@ export function outlookCard(db) {
   const f = forecastNext(db, thisMonth());
   if (!f.months.length) return '';
   const notes = behaviorNotes(db, thisMonth()).slice(0, 2);
-  return coll('h-outlook', 'Next month outlook', `<a class="outlook-card" href="#/outlook"><div><span class="muted">${esc(monthLabel(f.next))} forecast</span><b>${R(f.total)}</b>
+  return coll('h-outlook', 'Next Month Outlook', `<a class="outlook-card" href="#/outlook"><div><span class="muted">${esc(monthLabel(f.next))} forecast</span><b>${R(f.total)}</b>
     <small class="muted">${f.incomeAvg ? `usual income ${R(f.incomeAvg)}` : 'no usual income yet'}</small></div>${ic('right')}</a>${notes.length ? notesList(notes) : ''}`);
 }
 export function outlook(db) {
@@ -421,9 +421,9 @@ export function outlook(db) {
       ${f.method ? `<small class="muted fcmethod">Based on the ${esc(f.method)}${f.low != null ? `. In past months this kind of guess was usually within about ${R(f.high - f.total)} either way (${R(f.low)} to ${R(f.high)}), tested on ${f.tested} months.` : '. Not enough history yet to test how close it usually is.'}</small>` : ''}
       <span class="${left >= 0 ? 'in' : 'neg'}">${f.incomeAvg ? (left >= 0 ? `About ${R(left)} left after the usual ${R(f.incomeAvg)} income` : `About ${R(-left)} more than the usual ${R(f.incomeAvg)} income`) : 'Add income entries to compare against what comes in'}</span>
       <small class="muted">Based on ${f.months.length === 1 ? 'one earlier month' : f.months.length + ' earlier months'} (${f.months.slice().reverse().map((m) => monthLabel(m).split(' ')[0]).join(', ')}). It is a plain average of your own history, not a promise.</small></section>
-    ${coll('o-chart', 'Spending by month', `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Spending in recent months and the forecast">${inc}${bars}</svg><p class="legend"><i class="k bar"></i>Actual <i class="k dash"></i>Forecast${f.incomeAvg ? ' <i class="k inc"></i>Usual income' : ''} · tap a bar</p>`)}
-    ${coll('o-notes', 'Warnings, tips and rewards', notesList(notes))}
-    ${coll('o-groups', 'Where it will probably go', rows ? `${rows}<p class="hint tap">The tick shows how far this month is. Tap a group for its details.</p>` : '<p class="empty">Nothing to show yet.</p>')}
-    ${(() => { const reg = detectRecurring(db); return reg.length ? coll('o-reg', 'Regular payments found', `<p class="hint">Found from how often and how much you pay. About ${R(reg.reduce((n, r) => n + r.monthly, 0))} a month in total.</p><div class="rows plain">${reg.slice(0, 8).map((r) => `<div class="row"><span class="rmain"><strong>${esc(r.name)}</strong><small>${esc(r.every)}${r.steady ? '' : ', amount varies'} · next around ${esc(r.next)}</small></span><span class="ramt"><b>${R(r.amount)}</b></span></div>`).join('')}</div>`) : ''; })()}
-    ${f.fixed.length ? coll('o-fixed', 'Repeats every month', `<div class="rows plain">${f.fixed.map((x) => `<div class="row"><span class="rmain"><strong>${esc(x.name)}</strong><small>seen in each of the last ${f.months.length} months</small></span><span class="ramt"><b>${R(x.v)}</b></span></div>`).join('')}</div>`) : ''}`;
+    ${coll('o-chart', 'Spending by Month', `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Spending in recent months and the forecast">${inc}${bars}</svg><p class="legend"><i class="k bar"></i>Actual <i class="k dash"></i>Forecast${f.incomeAvg ? ' <i class="k inc"></i>Usual income' : ''} · tap a bar</p>`)}
+    ${coll('o-notes', 'Warnings, Tips and Rewards', notesList(notes))}
+    ${coll('o-groups', 'Where It Will Probably Go', rows ? `${rows}<p class="hint tap">The tick shows how far this month is. Tap a group for its details.</p>` : '<p class="empty">Nothing to show yet.</p>')}
+    ${(() => { const reg = detectRecurring(db); return reg.length ? coll('o-reg', 'Regular Payments Found', `<p class="hint">Found from how often and how much you pay. About ${R(reg.reduce((n, r) => n + r.monthly, 0))} a month in total.</p><div class="rows plain">${reg.slice(0, 8).map((r) => `<div class="row ln1"><span class="rmain"><strong>${esc(r.name)}</strong><small>${esc(r.every)}${r.steady ? '' : ' (varies)'} · next ${esc(r.next)}</small></span><span class="ramt"><b>${R(r.amount)}</b></span></div>`).join('')}</div>`) : ''; })()}
+    ${f.fixed.length ? coll('o-fixed', 'Repeats Every Month', `<div class="rows plain">${f.fixed.map((x) => `<div class="row ln1"><span class="rmain"><strong>${esc(x.name)}</strong><small>every one of ${f.months.length} months</small></span><span class="ramt"><b>${R(x.v)}</b></span></div>`).join('')}</div>`) : ''}`;
 }

@@ -37,6 +37,13 @@ export function modelFor(kind) {
   return cache[kind].m;
 }
 
+// "grocery shopping" -> "Grocery Shopping". Only words typed fully in lower case change; anything with a capital (iPhone, GCash, JR, McDonald's) or a digit is left as typed; small joining words stay small.
+const SMALLW = new Set(['a', 'an', 'the', 'of', 'to', 'in', 'on', 'for', 'and', 'or', 'at', 'by', 'with', 'from', 'vs', 'per', 'as', 'but', 'nor', 'into']);
+export function titleCase(t) {
+  let first = true;
+  return String(t).replace(/(^|[\s(\/-])([a-z][a-z'’]*)(?![A-Za-z0-9])/g, (m, pre, w, off) => { const lead = first; first = false; return pre + (!lead && SMALLW.has(w) ? w : w[0].toUpperCase() + w.slice(1)); });
+}
+const titleOn = () => (get().settings || {}).titleCase !== false;
 const commasOn = () => { try { return localStorage.getItem('sukli.commas') !== '0'; } catch { return true; } };
 const withCommas = (v) => {
   const m = String(v).match(/^(-?)(\d[\d,]*)(\.\d*)?$/);   // plain numbers only; sums like 120+45 are left alone
@@ -73,7 +80,7 @@ function fromTx(t) {
     fee: t.fee > 0 ? String(t.fee) : '', feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
     convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
     catTouched: true, acctTouched: true, date: t.date, posted: t.posted || '', postedOn: !!t.posted, notes: t.notes || '', labels: t.labels || '', flag: t.flag || null, id: t.id, pred: null,
-    items: (t.items || []).map((i) => ({ n: i.n, amt: String(i.amt), cat: i.cat || '' })), showItems: !!(t.items && t.items.length), counts: (t.counts || []).map((c) => ({ g: c.g, n: String(c.n) })), showCounts: !!(t.counts && t.counts.length), parts: (t.parts || []).map((x) => ({ ...x })), partsOff: '', from: t.from || '', to: t.to || '' };
+    items: (t.items || []).map((i) => (i.q > 1 && i.u != null ? { n: i.n, amt: String(i.u), q: i.q, cat: i.cat || '' } : { n: i.n, amt: String(i.amt), q: 1, cat: i.cat || '' })), showItems: !!(t.items && t.items.length), counts: (t.counts || []).map((c) => ({ g: c.g, n: String(c.n) })), showCounts: !!(t.counts && t.counts.length), parts: (t.parts || []).map((x) => ({ ...x })), partsOff: '', from: t.from || '', to: t.to || '' };
 }
 
 // accounts grouped by kind (Banks, E-wallets, Crypto…), most recently used first inside each group
@@ -394,7 +401,11 @@ export function openEntry(opts = {}) {
   }
   function topCats(kind, n) {
     const m = modelFor(kind);
-    return [...m.classes.entries()].sort((x, y) => y[1].n - x[1].n).slice(0, n).map(([id]) => ({ id, p: 0 }));
+    const top = [...m.classes.entries()].sort((x, y) => y[1].n - x[1].n).slice(0, n).map(([id]) => ({ id, p: 0 })), have = new Set([...m.classes.keys()]);
+    // a category you just made has no entries yet, so the model does not know it: offer the newest ones straight away
+    const fresh = get().categories.filter((c) => !c.deleted && !have.has(c.id) && c.group !== 'Adjustments' && (c.kind === kind || c.kind === 'both') && Date.now() - (c.createdAt || c.updatedAt || 0) < 30 * 864e5)
+      .sort((a, b) => (b.createdAt || b.updatedAt || 0) - (a.createdAt || a.updatedAt || 0)).slice(0, 2).map((c) => ({ id: c.id, p: 0 }));
+    return [...top, ...fresh];
   }
   function candidates() { return f.name.trim() ? catCandidates(modelFor(f.kind), get().categories, f.name, f.kind, 6) : []; }
   // no category yet: offer the existing groups (the larger headings), most used first; tapping one lists its categories
@@ -427,17 +438,20 @@ export function openEntry(opts = {}) {
       ${!f.cat || nofit ? groupSuggest(cm) : ''}
       ${nofit ? `<button type="button" class="linkbtn nofit" data-e="newcat">No category fits “${esc(typed.slice(0, 24))}”. Add it as a new category</button>` : ''}</div>`;
   }
-  function itemSum() { return f.items.reduce((s2, i) => s2 + (num(i.amt) || 0), 0); }
+  const lineOf = (i) => Math.round((num(i.amt) || 0) * (i.q > 0 ? i.q : 1) * 100) / 100;
+  function itemSum() { return f.items.reduce((s2, i) => s2 + lineOf(i), 0); }
   function renderItems() {
     const el = $f('itemsrow');
     if (f.kind !== 'expense') { el.innerHTML = ''; return; }
     if (!f.showItems) { el.innerHTML = `<button type="button" class="linkbtn split" data-e="items-on">${ic('split')} Split into items (groceries, receipts)</button>`; return; }
-    el.innerHTML = `<div class="field items"><span>Items on this receipt</span>
+    el.innerHTML = `<div class="field items"><span>Items on This Receipt <small class="hint">price of one, then tap + for more of the same</small></span>
       <div id="itemlist">${f.items.map((it, i) => `<div class="item" data-i="${i}">
         <input class="in-n" placeholder="Item" value="${esc(it.n)}" aria-label="Item name">
-        <input class="in-a" inputmode="decimal" placeholder="0.00" value="${esc(it.amt)}" aria-label="Item price">
+        <input class="in-a" inputmode="decimal" placeholder="0.00" value="${esc(it.amt)}" aria-label="Price of one">
+        <button type="button" class="iconbtn" data-e="item-del" data-v="${i}" aria-label="Remove item">${ic('x')}</button>
         <select class="in-c" aria-label="Item category"><option value="">Same as above</option>${catOptions(it.cat, 'expense')}</select>
-        <button type="button" class="iconbtn" data-e="item-del" data-v="${i}" aria-label="Remove item">${ic('x')}</button></div>`).join('')}</div>
+        <div class="qty" role="group" aria-label="Quantity"><button type="button" data-e="item-q" data-v="${i}:-1" aria-label="One less">−</button><b>${it.q > 0 ? it.q : 1}</b><button type="button" data-e="item-q" data-v="${i}:1" aria-label="One more">+</button></div>
+        <small class="muted iline">${it.q > 1 ? `${it.q} × ${esc(it.amt || 0)} = ${esc(String(lineOf(it)))}` : ''}</small></div>`).join('')}</div>
       <div class="itemfoot"><button type="button" class="linkbtn" data-e="item-add">+ Add item</button><span id="itemleft"></span></div></div>`;
     el.querySelectorAll('select.in-c').forEach((sel) => enhanceSelect(sel, { title: 'Category', addLabel: 'Add a new category', onAdd: () => openCategoryForm({ kind: 'expense', onDone: (c) => { sel.add(new Option(c.name, c.id)); sel.value = c.id; sel.dispatchEvent(new Event('change', { bubbles: true })); } }) }));
     updateItemLeft();
@@ -746,11 +760,11 @@ export function openEntry(opts = {}) {
   }
 
   // ---------- events ----------
-  form.addEventListener('focusout', (e) => { if (e.target.id === 'f-amount') formatAmountInput(e.target); });
+  form.addEventListener('focusout', (e) => { if (e.target.id === 'f-amount') formatAmountInput(e.target); if (e.target.id === 'f-what' && titleOn()) { const v = titleCase(e.target.value); if (v !== e.target.value) { e.target.value = v; f.name = v; renderNameHelp && renderNameHelp(); } } });
   form.addEventListener('input', (e) => {
     const id = e.target.id;
     if (id === 'f-amount') {
-      formatAmountInput(e.target); f.amount = e.target.value; showCalcRes(); syncX(); updateFxVal(); heavy(); othSum(); updCb();
+      formatAmountInput(e.target); f.amount = e.target.value; showCalcRes(); syncX(); updateFxVal(); heavy(); othSum(); updCb(); updateItemLeft();
     }
     else if (e.target.classList.contains('oth-n')) { f.others.rows[+e.target.closest('.othrow').dataset.i].v = e.target.value; othSum(); }
     else if (id === 'f-cbv') { f.cb.v = e.target.value; updCb(); }
@@ -773,7 +787,7 @@ export function openEntry(opts = {}) {
           const sel = row.querySelector('.in-c');
           if (p.cats[0] && it.n.trim().length > 2 && p.conf > 0.35) { it.cat = p.cats[0].id; sel.value = it.cat; } else { it.cat = ''; sel.value = ''; }
         }
-      } else if (e.target.classList.contains('in-a')) { it.amt = e.target.value; updateItemLeft(); }
+      } else if (e.target.classList.contains('in-a')) { it.amt = e.target.value; updateItemLeft(); const ln = row.querySelector('.iline'); if (ln) ln.textContent = it.q > 1 ? `${it.q} × ${it.amt || 0} = ${lineOf(it)}` : ''; }
     }
   });
   async function newAccountFor(cur) {
@@ -878,9 +892,10 @@ export function openEntry(opts = {}) {
       case 'catgroup': { const g = v, list = get().categories.filter((c) => !c.deleted && c.group === g && (c.kind === f.kind || c.kind === 'both')).sort((a, b) => a.name.localeCompare(b.name));
         pickerList(list.map((c) => ({ value: c.id, label: c.name, group: '' })), { title: g, addLabel: `Add a new category in ${g}`, onAdd: () => openCategoryForm({ kind: f.kind, group: g, name: f.name.trim().replace(/\b\w/g, (x) => x.toUpperCase()).slice(0, 40), keywords: f.name.trim().toLowerCase(), onDone: (c) => { pickCat(c.id); refreshPred(); renderCats(); } }), onPick: (id) => { pickCat(id); renderCats(); renderTrip(); renderSafety(); } }); break; }
       case 'allcats': openCategoryPicker(f.kind, (id) => { pickCat(id); renderCats(); }); break;
-      case 'items-on': f.showItems = true; if (!f.items.length) f.items.push({ n: '', amt: '', cat: '' }); renderItems(); break;
-      case 'item-add': f.items.push({ n: '', amt: '', cat: '' }); renderItems(); form.querySelectorAll('.item .in-n')[f.items.length - 1].focus(); break;
+      case 'items-on': f.showItems = true; if (!f.items.length) f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); break;
+      case 'item-add': f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); form.querySelectorAll('.item .in-n')[f.items.length - 1].focus(); break;
       case 'item-del': f.items.splice(+v, 1); renderItems(); break;
+      case 'item-q': { const [i, dq] = v.split(':').map(Number), it = f.items[i]; if (it) { it.q = Math.max(1, Math.min(99, (it.q > 0 ? it.q : 1) + dq)); renderItems(); } break; }
       case 'parts-use': { const pts = splitParts(f.name) || []; f.parts = pts; f.counts = countsFromParts(get(), pts); f.showCounts = true; renderCounts(); const open = f.counts.filter((c) => !c.g).length; toast(open ? `Pick a group for ${open} of them.` : 'Counted by group. Check it, then save.'); break; }
       case 'parts-off': f.partsOff = f.name; f.parts = []; renderCounts(); break;
       case 'oth-on': f.others = newOth(); renderCounts(); break;
@@ -1004,13 +1019,13 @@ export function openEntry(opts = {}) {
       } else if (!f.catTouched && !existing && f.pred && f.pred.conf < 0.6 && f.name.trim() && modelFor(f.kind).total > 0) flag = 'review';
     } else cat = '';
     if (f.kind === 'expense') {
-      items = f.items.filter((i) => i.n.trim() || num(i.amt)).map((i) => ({ n: i.n.trim(), amt: num(i.amt) || 0, cat: i.cat || '' }));
+      items = f.items.filter((i) => i.n.trim() || num(i.amt)).map((i) => (i.q > 1 ? { n: i.n.trim(), amt: lineOf(i), q: i.q, u: num(i.amt) || 0, cat: i.cat || '' } : { n: i.n.trim(), amt: num(i.amt) || 0, cat: i.cat || '' }));
       if (items.length && Math.abs(items.reduce((s2, i) => s2 + i.amt, 0) - amount) >= 0.01) flag = 'review';
     }
     let counts = [];
     if (f.kind === 'expense') { const cl = countLines(db2, f.counts); if (cl.error) return fail(cl.error); counts = cl.lines; }
     // a blank label is filled in: a transfer gets "from - to", other entries get the usual label for this category and amount, and go to Review
-    let label = f.name.trim(), autoName = false;
+    let label = titleOn() ? titleCase(f.name.trim()) : f.name.trim(), autoName = false;
     if (f.kind === 'expense' && tripCat() && label && bareMode(label)) {      // only "bus" was typed: name the trip
       const mode = modeNow(); label = tripLabel(mode, f.from.trim(), f.to.trim()); autoName = true;
     } else if (!label && f.kind === 'expense' && tripCat() && !(f.from.trim() && f.to.trim())) { label = tripLabel(modeNow(), '', ''); autoName = true; }
@@ -1117,13 +1132,32 @@ export function openCategoryForm({ id = null, kind = 'expense', group = '', name
   const groups = [...new Set(db.categories.filter((x) => !x.deleted && (x.kind === kind || x.kind === 'both')).map((x) => x.group))].sort();
   const isInc = (c ? c.kind : kind) === 'income';
   const s = sheet(`<form id="catform">
-    <label class="field"><span>Group (the bigger heading)</span><input name="g" list="grouplist" value="${esc(c ? c.group : group)}" placeholder="${isInc ? 'e.g. Employer, Side income' : 'e.g. Food &amp; Drinks, Health'}" required autocomplete="off"></label>
-    <datalist id="grouplist">${groups.map((g) => `<option value="${esc(g)}">`).join('')}</datalist>
+    <label class="field"><span>Group (the bigger heading)</span><input name="g" value="${esc(c ? c.group : group)}" placeholder="${isInc ? 'e.g. Employer, Side income' : 'e.g. Food &amp; Drinks, Health'}" required autocomplete="off"></label>
+    <div class="chips pickchips" id="gchips" aria-label="Existing groups"></div>
     <label class="field"><span>Category (the detail)</span><input name="n" value="${esc(c ? c.name : name)}" placeholder="${isInc ? 'e.g. Bonus, Freelance, Refund' : 'e.g. Gym, Vet, Gifts'}" required autocomplete="off" ${id ? '' : 'autofocus'}></label>
+    <div class="chips pickchips" id="nchips" aria-label="Existing categories in this group"></div>
     <label class="field"><span>Words that should land here (optional)</span><input name="k" value="${esc(c ? c.keywords || '' : keywords)}" placeholder="${isInc ? 'e.g. bonus, 13th month' : 'e.g. gym, fitness, anytime'}" autocomplete="off" autocapitalize="off"></label>
-    <p class="hint">Separate words with commas. Next time a name contains one of them, this category is guessed. It also learns from every entry you put here.</p>
+    ${id ? '<div class="chips pickchips" id="kchips" aria-label="Words from your entries"></div>' : ''}
+    <p class="hint">Separate words with commas. Next time a name contains one of them, this category is guessed. It also learns from every entry you put here.${id ? ' Tap a suggested word to add it.' : ''}</p>
     <div class="btnrow">${c ? '<button type="button" class="btn danger ghost" data-del>Delete</button>' : ''}<button class="btn">${c ? 'Save' : 'Add and use'}</button></div></form>`,
   { title: c ? 'Edit category' : (isInc ? 'New income category' : 'New category') });
+  // pick an existing group or category with one tap, or just type a new one
+  { const fm = s.el.querySelector('#catform'), gi = fm.g, ni = fm.n, ki = fm.k, cats = get().categories.filter((x) => !x.deleted && (x.kind === kind || x.kind === 'both' || (c && x.kind === c.kind)) && x.group !== 'Adjustments');
+    const chip = (t, a, on) => `<button type="button" class="chip ${on ? 'on' : ''}" ${a}>${esc(t)}</button>`;
+    const drawG = () => { const q = gi.value.trim().toLowerCase(), list = groups.filter((g) => !q || g.toLowerCase().includes(q)); fm.querySelector('#gchips').innerHTML = list.length ? list.map((g) => chip(g, `data-g="${esc(g)}"`, g.toLowerCase() === q)).join('') : (q ? `<small class="muted">New group “${esc(gi.value.trim())}” will be created.</small>` : ''); };
+    const drawN = () => { const g = gi.value.trim().toLowerCase(), q = ni.value.trim().toLowerCase(), list = cats.filter((x) => x.group.toLowerCase() === g && (!q || x.name.toLowerCase().includes(q))).sort((a, b) => a.name.localeCompare(b.name)); const exact = cats.some((x) => x.group.toLowerCase() === g && x.name.toLowerCase() === q);
+      fm.querySelector('#nchips').innerHTML = (g ? list.map((x) => chip(x.name, `data-n="${esc(x.name)}"`, x.name.toLowerCase() === q)).join('') : '') + (q && g && !exact ? `<small class="muted">New category “${esc(ni.value.trim())}” will be created.</small>` : ''); };
+    const STOP = new Set('the and for with from shop store mart payment pay paid new one two buy bought ' .split(' '));
+    const drawK = () => { const box = fm.querySelector('#kchips'); if (!box) return; const have = new Set(ki.value.toLowerCase().split(/[,\n]/).map((w) => w.trim()).filter(Boolean)), cnt = new Map();
+      for (const t of get().txs) { if (t.deleted || t.cat !== c.id || !t.name) continue; for (const w of new Set(String(t.name).toLowerCase().match(/[a-z\u00c0-\u024f\u3040-\u30ff\u4e00-\u9fff]{3,}/g) || [])) if (!STOP.has(w) && !have.has(w)) cnt.set(w, (cnt.get(w) || 0) + 1); }
+      const top = [...cnt.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8);
+      box.innerHTML = top.length ? top.map(([w, n]) => chip(`${w} (${n})`, `data-k="${esc(w)}"`, false)).join('') : '<small class="muted">No new words found in the entries of this category.</small>'; };
+    gi.addEventListener('input', () => { drawG(); drawN(); }); ni.addEventListener('input', drawN); ki.addEventListener('input', drawK);
+    fm.addEventListener('click', (e) => { const b = e.target.closest('[data-g],[data-n],[data-k]'); if (!b) return;
+      if (b.dataset.g != null) { gi.value = b.dataset.g; drawG(); drawN(); ni.focus(); }
+      else if (b.dataset.n != null) { ni.value = b.dataset.n; drawN(); }
+      else { ki.value = [ki.value.trim().replace(/,\s*$/, ''), b.dataset.k].filter(Boolean).join(', '); drawK(); } });
+    drawG(); drawN(); drawK(); }
   s.el.querySelector('#catform').onsubmit = (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
