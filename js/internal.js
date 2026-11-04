@@ -53,12 +53,12 @@ export function openInternal({ asset = '', platform = '' } = {}) {
   const wallets = () => { const db = get(); return [...new Set([...WALLETS, ...live(db.accounts).filter((x) => exchangeOf(x) === plat).map(walletOf)])]; };
   const coinsIn = (w) => { const db = get(); return [...new Set(live(db.accounts).filter((x) => inInvest(x) && exchangeOf(x) === plat && walletOf(x).toLowerCase() === w.toLowerCase()).map((x) => x.cur))].sort(); };
   const draw = () => {
-    const ws = wallets(), have = ws.filter((w) => coinsIn(w).length);
-    if (!have.includes(from)) from = have[0] || '';
+    const ws = wallets(), have = ws;   // every wallet can be picked as the source
+    if (!have.includes(from)) from = (ws.find((w) => coinsIn(w).length) || ws[0] || '');
     const tos = ws.filter((w) => w !== from); if (!tos.includes(to)) to = (from !== 'Earn' && tos.includes('Earn') ? 'Earn' : tos.includes('Spot') ? 'Spot' : tos[0]) || '';
-    q('from').innerHTML = opts(have, from); q('to').innerHTML = opts(tos, to);
+    q('from').innerHTML = have.map((w) => `<option value="${esc(w)}" ${w === from ? 'selected' : ''}>${esc(w)}${coinsIn(w).length ? '' : ' (empty)'}</option>`).join(''); q('to').innerHTML = opts(tos, to);
     const cs = coinsIn(from); if (!cs.includes(cur)) cur = cs[0] || '';
-    q('cur').innerHTML = opts(cs, cur); el('it-cur').textContent = cur; info();
+    q('cur').innerHTML = cs.length ? opts(cs, cur) : '<option value="">No assets in this wallet yet</option>'; el('it-cur').textContent = cur; info();
   };
   const bal = () => { const db = get(), a = from && cur && findWalletAcct(db, plat, cur, from); return a ? (balances(db).get(a.id) || 0) : 0; };
   const info = () => {
@@ -72,7 +72,7 @@ export function openInternal({ asset = '', platform = '' } = {}) {
   q('from').onchange = () => { from = q('from').value; draw(); };
   q('to').onchange = () => { to = q('to').value; info(); };
   q('cur').onchange = () => { cur = q('cur').value; el('it-cur').textContent = cur; info(); };
-  el('it-rev').onclick = () => { const f = from, t = to; if (!t || !coinsIn(t).length) { toast(`${t || 'That wallet'} has no assets to move yet.`); return; } from = t; to = f; draw(); };
+  el('it-rev').onclick = () => { const f = from, t = to; if (!t) return; from = t; to = f; draw(); };
   el('it-all').onclick = () => { q('amt').value = exactAmt(r8(Math.max(0, bal()))); };
   el('it-save').onclick = () => {
     const r = internalMove({ platform: plat, cur, from, to, amount: q('amt').value, when });

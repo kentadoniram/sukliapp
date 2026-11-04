@@ -28,6 +28,11 @@ export function earnStartOf(sub, c, off) {
   if (c.startRule === 'midnight') return e8Ms(addDay(e8(sub, off).day, 1), '00:00', off) + c.startLagH * H;
   return floorHour(sub) + H + c.startLagH * H;
 }
+// the account an automatic subscription moves from when none was chosen: the same coin in the Spot wallet of this platform (else any other wallet of it)
+export function defaultFrom(db, a) {
+  const l = db.accounts.filter((x) => !x.deleted && !x.archived && x.id !== a.id && x.cur === a.cur && (x.exchange || '') === (a.exchange || ''));
+  return l.find((x) => (x.wallet || 'Spot') === 'Spot') || l[0] || null;
+}
 export function subscriptions(db, a) {
   const c = cfgOf(a), off = tzOf(db, a), out = [];
   for (const t of db.txs) {
@@ -61,10 +66,10 @@ export function runEarn(db, now = Date.now()) {
     if (E.lastSlot == null) E.lastSlot = now;
     // 1. automatic subscriptions at the chosen UTC+8 times (the real slot time is used, even if the app was closed then)
     if (c.subOn) {
-      const src = db.accounts.find((x) => x.id === c.from && !x.deleted && x.cur === a.cur && x.id !== a.id);
+      const src = db.accounts.find((x) => x.id === c.from && !x.deleted && x.cur === a.cur && x.id !== a.id) || defaultFrom(db, a);
       if (src) for (const ms of slotTimes(c, Math.max(E.lastSlot, now - 14 * 24 * H), now, off)) {
         const id = `earnsub-${a.id}-${ms}`; if (db.txs.some((t) => t.id === id)) continue;
-        const bal = r8(balances(db).get(src.id) || 0), amt = c.subAmt === 'all' ? bal : Math.min(bal, r8(parseFloat(c.subAmt) || 0));
+        const bal = r8(balances(db).get(src.id) || 0), amt = bal;   // always everything that is available
         if (!(amt > 0)) continue;
         db.txs.push(stamp({ id, kind: 'transfer', date: nowStamp(new Date(ms)), acct: src.id, toAcct: a.id, cur: a.cur, amount: amt, fx: rateFor(db, a.cur) || 1, name: 'Auto subscribe to Earn', earnAuto: true, earnSubAt: ms })); made.subs++;
       }
