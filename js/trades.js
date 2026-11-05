@@ -5,6 +5,7 @@ import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
 import { inInvest, pushHistory, exchangeOf, addAsset } from './invest.js';
 import { enhanceSelect } from './picker.js';
+import { TOP_TOKENS, ensureAsset } from './tokens.js';
 import { openDatePicker } from './datepicker.js';
 
 const money = (n, cur = HOME) => fmt(n, cur);
@@ -50,7 +51,8 @@ export function openTrade(pre = {}) {
   const fillCash = (keep) => { const p = f.plat.value, pool = [...cash.filter((x) => !inInvest(x)), ...cash.filter((x) => inInvest(x))], q = ((db.settings.tickers || {})[(acct(f.asset.value) || {}).cur] || {}).quote;
     const pref = keep && pool.some((x) => x.id === keep) ? keep : (pool.find((x) => p && exchangeOf(x) === p && x.cur === q) || pool.find((x) => p && exchangeOf(x) === p && inInvest(x) && /USD|JPY|PHP|EUR|KRW/.test(x.cur)) || lastCash || pool[0] || {}).id;
     f.cash.innerHTML = grp(pool, p, pref); if (pref) f.cash.value = pref; };
-  const fillAsset = (sel) => { const list = holdFor(f.plat.value); f.asset.innerHTML = list.length ? opt(list, sel) : '<option value="">No asset on this platform yet. Use Add new.</option>'; if (sel && list.some((x) => x.id === sel)) f.asset.value = sel;
+  const moreCoins = () => { const p = f.plat.value; if (!p) return ''; const have = new Set(holdFor(p).map((x) => x.cur)); return `<optgroup label="More Coins (Top 50)">${TOP_TOKENS.filter((t) => !have.has(t.c)).map((t) => `<option value="tok:${t.c}">${t.c} · ${esc(t.n)}</option>`).join('')}</optgroup>`; };
+  const fillAsset = (sel) => { const list = holdFor(f.plat.value); f.asset.innerHTML = (list.length ? opt(list, sel) : '') + moreCoins(); if (sel && list.some((x) => x.id === sel)) f.asset.value = sel;
     const other = hold.filter((x) => x.id !== f.asset.value); f.asset2.innerHTML = grp(other.length ? other : hold, f.plat.value, other[0] && other[0].id); };
   fillAsset(pre.asset); fillCash(lastCash && lastCash.id);
   enhanceSelect(f.plat, { title: 'Platform', onAdd: () => { s.close(); addAsset({ onDone: (id) => openTrade({ ...pre, asset: id, side: pre.side }) }); }, addLabel: 'Add a new platform (adds its first asset)' });
@@ -58,7 +60,9 @@ export function openTrade(pre = {}) {
   enhanceSelect(f.cash, { title: 'Account', onAdd: () => { s.close(); import('./accpage.js').then((m) => m.openAccount(null, { exchange: f.plat.value })); }, addLabel: 'Add a new account' });
   enhanceSelect(f.asset2, { title: 'Convert Into' }); enhanceSelect(f.feeIn); enhanceSelect(f.feeMode);
   f.plat.addEventListener('change', () => { fillAsset(); fillCash(); sync(''); });
-  f.asset.addEventListener('change', () => { fillCash(f.cash.value); });
+  f.asset.addEventListener('change', () => {
+    if (String(f.asset.value).startsWith('tok:')) { const c = f.asset.value.slice(4), p = f.plat.value; const a = ensureAsset(p, c, 'Spot'); s.close(); openTrade({ ...pre, asset: a && a.id, side }); return; }   // the coin's (empty) balance is made here the first time
+    fillCash(f.cash.value); });
   // the price fills itself from your last price or the live price (until you type your own); it never replaces what you typed
   let priceTouched = false;
   const autoPrice = () => { if (priceTouched || side === 'convert') return; const a0 = acct(f.asset.value), c0 = acct(f.cash.value); if (!a0 || !c0) return; const ra = rateFor(db, a0.cur), rc = rateFor(db, c0.cur);

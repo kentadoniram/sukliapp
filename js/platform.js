@@ -13,7 +13,7 @@ export function openPlatform(ex) {
     const total = accts.reduce((t, a) => t + val(a), 0), off = tzOf(db, { exchange: ex });
     const wallets = [...new Set(accts.map(walletOf))], earn = accts.filter((a) => walletOf(a) === 'Earn');
     root.innerHTML = `
-      <p class="hint">${accts.length} asset account${accts.length === 1 ? '' : 's'} in ${wallets.length} wallet${wallets.length === 1 ? '' : 's'} (${esc(wallets.join(', ') || 'none yet')}) · about <b>${esc(fmt(total, HOME))}</b></p>
+      <p class="hint"><b>${esc(ex)}</b> › Accounts (${esc(wallets.join(', ') || 'none yet')}) › Assets · ${accts.length} asset balance${accts.length === 1 ? '' : 's'} · about <b>${esc(fmt(total, HOME))}</b>. Every coin of the top 50 can be used in any account here without adding it first.</p>
       <h3>Actions</h3>
       <div class="btnrow left"><button type="button" class="btn sm" data-act="plat-do" data-do="inv-add" data-ex="${esc(ex)}">Record</button><button type="button" class="btn sm ghost" data-act="plat-do" data-do="inv-coin" data-ex="${esc(ex)}">+ Asset</button><button type="button" class="btn sm ghost" data-act="plat-do" data-do="inv-internal" data-ex="${esc(ex)}">Internal Transfer</button></div>
       <label class="field"><span>Timezone of ${esc(ex)}</span><select data-p="tz">${Array.from({ length: 27 }, (_, i) => i - 12).map((z) => `<option value="${z}" ${z === off ? 'selected' : ''}>${tzName(z)}</option>`).join('')}</select></label>

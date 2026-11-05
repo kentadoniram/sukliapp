@@ -124,6 +124,7 @@ const queue = () => { if (!pending) { pending = true; requestAnimationFrame(rend
   await load();
   const oauthMsg = await handleOAuthReturn();
   runInterest();
+  setTimeout(() => { import('./geo.js').then((m) => m.backfillAddresses(6)).then((n) => { if (n) queue(); }).catch(() => {}); }, 6000);
   initBackup();
   showLatest();
   subscribe(() => { queue(); scheduleSync(); cloudSchedule(); });

@@ -1,7 +1,7 @@
 // The add / edit sheet, the category picker and the "add many at once" sheet.
 import {
   get, commit, undoLast, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
-  findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt, r9, qtyR,
+  findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt, r9, qtyR, commitQuiet,
 } from './core.js';
 import { buildGraph, makeResolver, explain } from './simgraph.js';
 import { nameRules } from './merchants.js';
@@ -76,7 +76,7 @@ function fromTx(t) {
   const db = get();
   const cross = t.kind === 'transfer' && t.toAmount != null && Math.abs(t.toAmount - t.amount) > 1e-9;
   const flow = t.kind !== 'transfer' ? '' : t.debtPay ? 'pay' : t.debtBorrow ? 'borrow' : t.lent ? 'lend' : t.lentBack ? 'back' : '';
-  return { cb: t.cashback ? { on: true, mode: t.cashback.mode, v: String(t.cashback.v) } : { on: false, mode: 'pct', v: '' }, branch: t.branch || '', loc: t.loc || null, kind: t.kind, debt: !!flow, flow, merchant: t.merchant || '', merchTouched: true, merchSuggested: false, amount: String(t.amount), name: t.name || '', acct: t.acct, toAcct: t.toAcct || '',
+  return { cb: t.cashback ? { on: true, mode: t.cashback.mode, v: String(t.cashback.v) } : { on: false, mode: 'pct', v: '' }, branch: t.branch || '', loc: t.loc || null, place: t.place || '', kind: t.kind, debt: !!flow, flow, merchant: t.merchant || '', merchTouched: true, merchSuggested: false, amount: String(t.amount), name: t.name || '', acct: t.acct, toAcct: t.toAcct || '',
     toAmount: t.toAmount != null ? String(t.toAmount) : '', fx: t.fx ? prec(t.fx / homeRate(db, t.date)) : '', cat: t.cat || '',
     fee: t.fee > 0 ? String(t.fee) : '', feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
     convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
@@ -687,6 +687,7 @@ export function openEntry(opts = {}) {
   async function getAddr() {
     const L = f.locUi; if (!f.loc) return; L.msg = 'Looking up the address (one request, then it is kept)…'; L.busy = true; renderLoc();
     const r = await lookupAddress(f.loc); L.busy = false;
+    if (r.text && existing && existing.loc && !existing.place) commitQuiet((d) => { const t = d.txs.find((q) => q.id === existing.id); if (t && !t.place) t.place = r.text; });
     if (r.text) { f.place = r.text; L.msg = r.cached ? 'Address from your saved places.' : 'Address found. Tap Edit Address if it is not right.'; }
     else L.msg = r.err === 'busy' ? 'The address service is busy. Try again in a minute, or type the address.' : r.err === 'none' ? 'No address found for this spot. Type one with Edit Address.' : 'Could not reach the address service. Try again later, or type the address.';
     renderLoc();
@@ -1111,7 +1112,7 @@ export function openEntry(opts = {}) {
 
   arrange(); renderSeg(); renderMerch(); renderFreq(); renderAccts(); renderFx(); renderItems(); renderCounts(); renderWhen(); renderBtns(); renderSafety();
   if (existing) { refreshPred(); f.cat = existing.cat || ''; renderCats(); } else renderCats();
-  renderTrip(); renderTags(); renderBranch(); renderCb(); renderLoc(); permState().then((st) => { (f.locUi || (f.locUi = { msg: '', edit: false })).perm = st; renderLoc(); });
+  renderTrip(); renderTags(); renderBranch(); renderCb(); fillAddr(); renderLoc(); if (f.loc && !f.place) getAddr(); permState().then((st) => { (f.locUi || (f.locUi = { msg: '', edit: false })).perm = st; renderLoc(); });
   updateFxVal();
 }
 

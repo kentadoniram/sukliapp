@@ -26,3 +26,23 @@ export async function lookupAddress(p, fetcher = (typeof fetch !== 'undefined' ?
     saveAddress(p, text, false); return { text };
   } catch { return { err: 'offline' }; }
 }
+
+// Saved entries that have a point but no address yet (added offline, or before this existed): fill them in the background,
+// one place at a time, at most `max` new lookups per call. An answer already in the cache costs no request. Safe to call often.
+let backfilling = false;
+export async function backfillAddresses(max = 6) {
+  if (backfilling || (typeof navigator !== 'undefined' && navigator.onLine === false)) return 0;
+  backfilling = true; let looked = 0, filled = 0;
+  try {
+    const todo = new Map();
+    for (const t of get().txs) if (!t.deleted && t.loc && !t.place && isFinite(t.loc.la) && isFinite(t.loc.lo)) { const k = geoKey(t.loc); if (!todo.has(k)) todo.set(k, t.loc); }
+    for (const [k, p] of todo) {
+      const cached = cachedAddress(get(), p);
+      if (!cached) { if (looked >= max) continue; looked++; }
+      const r = cached ? { text: cached } : await lookupAddress(p);
+      if (r.err === 'busy') break;
+      if (r.text) { commitQuiet((d) => { for (const t of d.txs) if (!t.deleted && t.loc && !t.place && geoKey(t.loc) === k) { t.place = r.text; filled++; } }); }
+    }
+  } finally { backfilling = false; }
+  return filled;
+}

@@ -4,6 +4,7 @@
 import { r9, qtyR, get, commit, uid, stamp, nowStamp, balances, exactAmt, walletOf, WALLETS, HOME, fmt, rateFor } from './core.js';
 import { sheet, esc, toast } from './ui.js';
 import { inInvest, exchangeOf } from './invest.js';
+import { ensureAsset, accountTypesOf, assetChoices } from './tokens.js';
 
 const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
 const live = (l) => l.filter((x) => !x.deleted && !x.archived);
@@ -12,13 +13,7 @@ const r8 = r9;
 // the account for this coin in this wallet of this platform (or undefined)
 export const findWalletAcct = (db, platform, cur, wallet) => db.accounts.find((x) => !x.deleted && x.cur === cur && (exchangeOf(x) || '').toLowerCase() === platform.toLowerCase() && walletOf(x).toLowerCase() === wallet.toLowerCase());
 
-// the account for this coin in this wallet; made when missing (empty, kept in the Investments tab)
-export function ensureWalletAcct(platform, cur, wallet) {
-  const db = get(), have = findWalletAcct(db, platform, cur, wallet); if (have) return have;
-  const sib = db.accounts.find((x) => !x.deleted && (exchangeOf(x) || '').toLowerCase() === platform.toLowerCase()), nid = uid();
-  commit((d) => { d.accounts.push(stamp({ id: nid, name: `${platform}${wallet === 'Spot' ? '' : ' ' + wallet} ${cur}`, wallet, cur, type: 'crypto', assetType: 'crypto', exchange: (sib && sib.exchange) || platform, open: 0, include: false, archived: false, invtab: true })); });
-  return get().accounts.find((x) => x.id === nid);
-}
+export const ensureWalletAcct = ensureAsset;
 // does the work without a sheet (also used by tests). Returns { ok, msg, id }
 export function internalMove({ platform, cur, from, to, amount, when }) {
   const db = get();
@@ -57,17 +52,17 @@ export function openInternal({ asset = '', platform = '' } = {}) {
     <div class="btnrow"><button type="button" class="btn primary" id="it-save">Move</button></div></div>`, { title: 'Internal Transfer' });
   const q = (n) => s.el.querySelector(`[name=${n}]`), el = (id) => s.el.querySelector('#' + id), whenBtn = el('it-when');
   const opts = (list, v) => list.map((x) => `<option value="${esc(x)}" ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
-  const wallets = () => { const db = get(); return [...new Set([...WALLETS, ...live(db.accounts).filter((x) => exchangeOf(x) === plat).map(walletOf)])]; };
+  const wallets = () => accountTypesOf(get(), plat);
   const coinsIn = (w) => { const db = get(); return [...new Set(live(db.accounts).filter((x) => inInvest(x) && exchangeOf(x) === plat && walletOf(x).toLowerCase() === w.toLowerCase()).map((x) => x.cur))].sort(); };
   // an asset added to any wallet of this platform is offered for every wallet (the other wallet's account is made when the money arrives)
-  const coinsAll = () => { const db = get(); return [...new Set(live(db.accounts).filter((x) => inInvest(x) && exchangeOf(x) === plat).map((x) => x.cur))].sort(); };
+  const coinsAll = () => assetChoices(get()).map((x) => x.c);   // the top 50 plus anything you added, the same for every account of every exchange
   const draw = () => {
     const ws = wallets(), have = ws;   // every wallet can be picked as the source
     if (!have.includes(from)) from = ws.includes('Spot') ? 'Spot' : (ws[0] || '');
     const tos = ws.filter((w) => w !== from); if (!tos.includes(to)) to = (from !== 'Earn' && tos.includes('Earn') ? 'Earn' : tos.includes('Spot') ? 'Spot' : tos[0]) || '';
     q('from').innerHTML = have.map((w) => `<option value="${esc(w)}" ${w === from ? 'selected' : ''}>${esc(w)}${coinsIn(w).length ? '' : ' (empty)'}</option>`).join(''); q('to').innerHTML = opts(tos, to);
-    const cs = coinsAll(); if (!cs.includes(cur)) cur = (coinsIn(from)[0] || cs[0] || '');
-    q('cur').innerHTML = (cs.length ? opts(cs, cur) : '<option value="">No assets on this platform yet</option>') + '<option value="__new">+ New Asset…</option>'; el('it-cur').textContent = cur; info();
+    const cs = coinsAll(); if (!cs.includes(cur)) cur = (coinsIn(from)[0] || 'USDT');
+    { const mine = new Set(coinsIn(from)), nm = new Map(assetChoices(get()).map((x) => [x.c, x.n])), o = (c) => `<option value="${esc(c)}" ${c === cur ? 'selected' : ''}>${esc(c)}${nm.get(c) ? ' · ' + esc(nm.get(c)) : ''}</option>`; q('cur').innerHTML = `${mine.size ? `<optgroup label="In ${esc(from)} now">${cs.filter((c) => mine.has(c)).map(o).join('')}</optgroup>` : ''}<optgroup label="All Coins">${cs.filter((c) => !mine.has(c)).map(o).join('')}</optgroup><option value="__new">+ Other Coin…</option>`; } el('it-cur').textContent = cur; info();
   };
   const bal = () => { const db = get(), a = from && cur && findWalletAcct(db, plat, cur, from); return a ? (balances(db).get(a.id) || 0) : 0; };
   const info = () => {
