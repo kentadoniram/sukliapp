@@ -1090,7 +1090,7 @@ export function openEntry(opts = {}) {
         t.rev = [{ at: Date.now(), ...before }, ...(t.rev || [])].slice(0, 5);
         Object.assign(t, rec); for (const k of FLOW_FLAGS) if (!rec[k]) delete t[k]; if (!rec.merchant) delete t.merchant; if (!rec.branch) delete t.branch; if (!rec.cashback) delete t.cashback; if (!t.loc) delete t.loc; if (!t.place) delete t.place; stamp(t); savedAs = t; }
       else if (oth) {
-        const hx = (c) => homeFx(d, c) || 1, toAmt = (pp0, v) => (pp0.cur === a.cur ? v : +(v * hx(a.cur) / hx(pp0.cur)).toFixed(2));
+        const hx = (c) => homeFx(d, c) || 1, hA = a.cur === HOME ? 1 : fx / (homeRate(d, rec.date) || 1), toAmt = (pp0, v) => (pp0.cur === a.cur ? v : +(v * hA / hx(pp0.cur)).toFixed(2));   // the bill's own (possibly hand-set) rate, not today's
         if (oth.mine > 0) { savedAs = stamp({ id: oth.eid, ...rec, createdAt: Date.now() }); d.txs.push(savedAs); }
         for (const x of oth.list) { const lent = stamp({ id: x.lid, kind: 'transfer', amount: x.theirs, cur: a.cur, fx, date: rec.date, name: `Paid for ${x.pp.name}${label ? ': ' + label : ''}`, autoName: false, cat: '', acct: a.id, toAcct: x.pp.id, toAmount: toAmt(x.pp, x.theirs), fee: 0, feeBy: '', notes: '', labels: '', items: [], counts: [], flag: null, lent: true, splitId: oth.gid, createdAt: Date.now() }); d.txs.push(lent); if (!savedAs) savedAs = lent; }
       }

@@ -1,6 +1,6 @@
 // A shared bill is ONE bill with linked shares: your part (the expense) and one "Lent" transfer per person.
 // The Entries list shows the bill once (expandable); this window edits the whole bill so every share stays in step with the total.
-import { get, commit, stamp, softDelete, fmt, homeFx } from './core.js';
+import { get, commit, stamp, softDelete, fmt, homeFx, homeRate, HOME } from './core.js';
 import { esc, ACT, sheet, toast, confirmDialog } from './ui.js';
 const r2 = (n) => Math.round(n * 100) / 100;
 const num = (v) => parseFloat(String(v).replace(/,/g, '')) || 0;
@@ -57,7 +57,7 @@ export function openSplit(txId) {
     commit((d) => {
       const hx = (c) => homeFx(d, c) || 1, accts = new Map(d.accounts.map((a) => [a.id, a]));
       for (const x of st.shares) { const t = d.txs.find((q) => q.id === x.id); if (!t) continue; const pp = accts.get(t.toAcct);
-        t.amount = x.amt; t.toAmount = pp && pp.cur !== t.cur ? r2(x.amt * hx(t.cur) / hx(pp.cur)) : x.amt; t.name = `Paid for ${x.who}: ${name}`; t.autoName = false; stamp(t); }
+        t.amount = x.amt; t.toAmount = pp && pp.cur !== t.cur ? r2(x.amt * (t.cur === HOME ? 1 : (t.fx || hx(t.cur)) / (homeRate(d, t.date) || 1)) / hx(pp.cur)) : x.amt; t.name = `Paid for ${x.who}: ${name}`; t.autoName = false; stamp(t); }
       if (g.mine) { const t = d.txs.find((q) => q.id === g.mine.id); t.name = name; t.autoName = false; t.paidFor = { ...t.paidFor, total: st.total }; if (m > 0.004) t.amount = m; else softDelete(t); stamp(t); }
     });
     toast('Saved'); s.close(); });

@@ -72,6 +72,16 @@ export function earnDue(db, now = Date.now()) {
   return db.accounts.some((a) => { if (!isEarnOn(a)) return false; const c = cfgOf(a);
     return c.lastHour == null || floorHour(now) > c.lastHour || (c.subOn && c.lastSlot != null && slotTimes(c, c.lastSlot, now, tzOf(db, a)).length > 0); });
 }
+// A day's Interest Earned entry keeps growing, so its date moves forward. If an automatic subscription already swept the interest-so-far from Spot,
+// the entry must stay dated BEFORE that sweep (the sweep took part of it); otherwise Spot would show a negative balance in between.
+// Only the date is held back: the amount keeps growing, the sweep stays its own internal transfer, and balances do not change.
+function holdBeforeSweep(db, dest, a, t, firstMs, natural) {
+  let first = null;
+  for (const x of db.txs) if (!x.deleted && x.earnAuto && x.toAcct === a.id && x.acct === dest.id && x.earnSubAt >= firstMs && (first === null || x.earnSubAt < first)) first = x.earnSubAt;
+  if (first === null) return natural;
+  const lim = nowStamp(new Date(first - 1000));
+  return lim < natural ? lim : natural;
+}
 export function runEarn(db, now = Date.now()) {
   const made = { subs: 0, hours: 0, days: 0 };
   for (const a of db.accounts) {
@@ -109,8 +119,11 @@ export function runEarn(db, now = Date.now()) {
         if (!tx) { const cat = findOrAddCategory(db, 'Earn', 'Crypto earned', 'income'); tx = stamp({ id, kind: 'income', date: finished ? `${day} 23:55:00` : nowStamp(new Date(last)), acct: dest.id, cur: a.cur, amount: amt, fx: rateFor(db, a.cur) || 1, cat: cat.id, name: 'Interest Earned', auto: true, earnDay: day, earnAcct: a.id, earnOpen: !finished }); db.txs.push(tx); made.days++; }
         else if (tx.earnOpen) { tx.amount = amt; tx.fx = rateFor(db, a.cur) || tx.fx || 1; tx.earnOpen = !finished; tx.earnAcct = a.id; tx.date = finished ? `${day} 23:55:00` : nowStamp(new Date(last)); stamp(tx); if (finished) made.days++; }
       }
+      if (tx && !tx.deleted && amt > 0) { const nd = holdBeforeSweep(db, dest, a, tx, Math.min(...hs.map((x) => x.h)), tx.date); if (nd !== tx.date) { tx.date = nd; stamp(tx); } }
       if (finished) { log.days.push({ day, amt, tx: id, z, hours: hs.sort((p, q) => p.h - q.h).map((x) => [x.h, x.amt]) }); log.hours = log.hours.filter((x) => !hs.includes(x)); }
     }
+    for (const d of log.days) { const tx = d.tx && db.txs.find((t) => t.id === d.tx); if (!tx || tx.deleted || !d.hours.length) continue;   // days saved before this fix
+      const nd = holdBeforeSweep(db, dest, a, tx, Math.min(...d.hours.map((x) => x[0])), tx.date); if (nd !== tx.date) { tx.date = nd; stamp(tx); } }
     log.days.sort((p, q) => (p.day < q.day ? 1 : -1));
     stamp(a);
   }
