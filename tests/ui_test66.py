@@ -57,7 +57,7 @@ with sync_playwright() as p:
     r=pg.evaluate("(async()=>{const c=await import('/js/core.js');const d=c.get(),b=c.balances(d);const t=d.txs.find(x=>!x.deleted&&x.kind==='expense'&&/Not paid back/.test(x.name));return [b.get('%s'),t&&t.amount]})()"%aid)
     ok('write-off sets owed to 0 and records a loss: %s'%r, abs(r[0])<0.01 and r[1] and abs(r[1]-900)<0.01)
     pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_selector('#ledger-list'); pg.fill('#q','Lent to'); pg.wait_for_timeout(500); lt=pg.inner_text('#ledger-list'); ok('ledger says Lent', 'Lent' in lt)
-    pg.click('#ledger-list .row'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300); ok('editing reopens in Lent', 'Who did you lend to?' in pg.inner_text('#entry') and pg.get_attribute('[data-e=flow][data-v=lend]','aria-pressed')=='true')
+    pg.click('#ledger-list .row'); pg.wait_for_selector('[data-ev=edit]'); pg.click('[data-ev=edit]'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300); ok('editing reopens in Lent', 'Who did you lend to?' in pg.inner_text('#entry') and pg.get_attribute('[data-e=flow][data-v=lend]','aria-pressed')=='true')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
     ok('no errors', not errs)
 print('fails=%d'%len([r for r in res if not r]))

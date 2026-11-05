@@ -14,8 +14,8 @@ const live = (l) => l.filter((x) => !x.deleted);
 const p2 = (n) => String(n).padStart(2, '0');
 const stampOf = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}:00`;
 const yen = (n) => fmt(n, 'JPY');
-const cardAccts = (db) => live(db.accounts).filter((a) => !a.archived && a.cur === 'JPY');
-const isCard = (a) => /pasmo|suica|icoca|ic card|パスモ|スイカ/i.test(a.name);
+const cardAccts = (db) => live(db.accounts).filter((a) => !a.archived && a.cur === 'JPY').sort((x, y) => (isCard(y) ? 1 : 0) - (isCard(x) ? 1 : 0));
+const isCard = (a) => a.type === 'ic' || /pasmo|suica|icoca|ic card|パスモ|スイカ/i.test(a.name);
 
 // what a ride between two stations has cost you before (a suggestion only: JR fares follow the distance of the shortest route, other railways add their own, and fares change)
 const pairKey = (a, b) => [String(a || '').trim().toLowerCase(), String(b || '').trim().toLowerCase()].sort().join('|');

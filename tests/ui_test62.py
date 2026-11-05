@@ -33,7 +33,7 @@ with sync_playwright() as p:
     ok('wallet down 4000, debt down 4000', abs((before[0]-after[0])-4000)<0.01 and abs((after[1]-before[1])-4000)<0.01)
     sp=pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.get().txs.filter(t=>!t.deleted&&t.kind==='expense'&&t.name==='Paid Pay Card').length})()"); ok('not an expense', sp==0)
     pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_selector('#ledger-list'); pg.fill('#q','Paid Pay'); pg.wait_for_timeout(500); lt=pg.inner_text('#ledger-list'); ok('ledger says Pay debt: '+lt[:80].replace('\n',' | '), 'Pay debt' in lt)
-    pg.click('#ledger-list .row'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300)
+    pg.click('#ledger-list .row'); pg.wait_for_selector('[data-ev=edit]'); pg.click('[data-ev=edit]'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300)
     ok('editing reopens in Pay debt', pg.get_attribute('[data-e=kind][data-v=debt]','aria-pressed')=='true' and 'What will you pay?' in pg.inner_text('#entry'))
     pg.click('[data-e=kind][data-v=transfer]'); pg.wait_for_timeout(300); ok('plain Transfer still shows From and To', 'From' in pg.inner_text('#entry') and pg.locator('.swapbtn').count()==1)
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)

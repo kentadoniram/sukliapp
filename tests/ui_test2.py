@@ -41,8 +41,8 @@ with sync_playwright() as p:
     print('BULK:',A.evaluate("()=>window.sukli.get().txs.filter(t=>t.date.startsWith(new Date().toISOString().slice(0,4))&&!t.src).map(t=>[t.name,t.amount,t.kind,t.flag])"))
     # --- edit + delete + undo
     A.goto('http://localhost:8123/index.html#/ledger'); A.wait_for_timeout(400)
-    A.click('#ledger-list .row >> nth=0'); A.wait_for_selector('#entry'); 
-    print('edit sheet name:',A.input_value('#f-name'))
+    A.click('#ledger-list .row >> nth=0'); A.wait_for_selector('[data-ev=edit]'); A.click('[data-ev=edit]'); A.wait_for_selector('#entry'); 
+    print('edit sheet name:',A.input_value('#f-what'))
     A.click('[data-e="del"]'); A.wait_for_timeout(200)
     print('URL before:',A.url, A.evaluate('history.length'))
     A.wait_for_timeout(300); print('URL after:',A.url)

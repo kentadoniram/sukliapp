@@ -2,7 +2,7 @@
 import { get, commit, seedCategories, findOrAddCategory, stamp, uid, HOME, CUR, replaceAll, emptyDb } from './core.js';
 import { ACT, esc, toast } from './ui.js';
 
-const KINDS = { cash: ['Cash', 'cash'], bank: ['Bank or debit card', 'bank'], ewallet: ['E-wallet (GCash, PayPay…)', 'ewallet'], card: ['Credit card', 'card'] };
+const KINDS = { cash: ['Cash', 'cash'], bank: ['Bank or debit card', 'bank'], ewallet: ['E-wallet (GCash, PayPay…)', 'ewallet'], ic: ['IC wallet (Suica, PASMO…)', 'ic'], card: ['Credit card', 'card'] };
 const FOODS = ['Lunch', 'Coffee', 'Groceries', 'Train', 'Snack'];
 const STEPS = 5;
 const wz = { mode: '', lvl: '', step: 0, what: '', amount: '', pay: '', now: '', whenKind: '', whenAt: '' };

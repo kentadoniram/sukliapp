@@ -15,7 +15,7 @@ export const today = () => nowStamp().slice(0, 10);
 const addDays = (s, n) => { const [y, m, d] = s.split('-').map(Number); return ymd(new Date(y, m - 1, d + n)); };
 const sum = (a) => a.reduce((s, x) => s + x, 0);
 
-export const ASSET_TYPES = new Set(['cash', 'bank', 'ewallet', 'invest', 'crypto', 'other', 'asset', 'owed']);
+export const ASSET_TYPES = new Set(['cash', 'bank', 'ewallet', 'ic', 'invest', 'crypto', 'other', 'asset', 'owed']);
 // money other people owe you (an asset). Never spendable; the Owed to you tab lists them.
 export const isOwed = (a) => !!a && a.type === 'owed';
 const LIAB = new Set(['card', 'loan']);
@@ -332,7 +332,7 @@ export function cardIcs(db) {
 
 // groups for account pickers and the Accounts page
 export const TYPE_GROUP = {
-  bank: ['Banks', 1], ewallet: ['E-wallets', 2], crypto: ['Crypto exchanges and wallets', 3], cash: ['Cash', 4],
+  bank: ['Banks', 1], ewallet: ['E-wallets', 2], ic: ['IC wallets', 2.5], crypto: ['Crypto exchanges and wallets', 3], cash: ['Cash', 4],
   invest: ['Investments', 5], asset: ['Assets', 6], owed: ['Money owed to me', 6.5], card: ['Credit cards', 7], loan: ['Loans and money owed', 8], other: ['Other', 9],
 };
 export const typeGroupName = (t) => (TYPE_GROUP[t] || TYPE_GROUP.other)[0];
@@ -588,7 +588,7 @@ export function safetyCheck(db, { amount, acctId, kind = 'expense', date, group 
     if (x.archived) continue;
     const v = (bal.get(x.id) || 0) * (homeFx(db, x.cur) || 0);
     if (x.type === 'card') { cardOwed += Math.max(0, -v); const b = cardBilling(db, x, bal.get(x.id)); if (b.due && b.dueAmount > 0 && b.days <= 14) dueSoon += b.dueAmount * (homeFx(db, x.cur) || 0); }
-    else if (['cash', 'bank', 'ewallet'].includes(x.type) && x.include) cash += Math.max(0, v);
+    else if (['cash', 'bank', 'ewallet', 'ic'].includes(x.type) && x.include) cash += Math.max(0, v);
   }
   const cardInPeriod = sum(parts.filter((p) => p.kind === 'expense' && (db.accounts.find((x) => x.id === p.t.acct) || {}).type === 'card').map((p) => p.v));
   const cardAfter = cardOwed + (isCard ? amt : 0);

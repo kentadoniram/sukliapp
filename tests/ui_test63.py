@@ -36,7 +36,7 @@ with sync_playwright() as p:
     # list shows merchant and search finds it
     pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_selector('#ledger-list'); pg.fill('#q','wet market'); pg.wait_for_timeout(500); lt=pg.inner_text('#ledger-list'); ok('search by merchant, row shows it', 'Shopee pork chop' in lt and 'Wet market' in lt)
     # edit reopens with merchant and can clear it
-    pg.click('#ledger-list .row'); pg.wait_for_selector('#entry'); ok('edit shows saved merchant', 'Wet market' in pg.inner_text('#merchrow'))
+    pg.click('#ledger-list .row'); pg.wait_for_selector('[data-ev=edit]'); pg.click('[data-ev=edit]'); pg.wait_for_selector('#entry'); ok('edit shows saved merchant', 'Wet market' in pg.inner_text('#merchrow'))
     pg.click('[data-e=merchpick]'); pg.wait_for_selector('#mlist'); pg.click('#mlist [data-m=""]'); pg.wait_for_timeout(200); pg.click('#btns .btn:not(.ghost)'); pg.wait_for_timeout(800)
     ok('cleared merchant is removed', pg.evaluate("window.sukli.get().txs.find(t=>t.name==='Shopee pork chop').merchant")==None)
     # bulk edit

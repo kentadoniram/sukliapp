@@ -20,7 +20,7 @@ export function openAccountPicker({ selected = '', skip = '', cur = '', only = '
     s.el.querySelectorAll('[data-chip]').forEach((b) => { const on = b.dataset.chip === (q ? '' : chip); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
     const hit = list.filter((a) => (q ? `${a.name} ${accLabel(a)} ${typeNames[a.type] || a.type} ${a.cur} ${a.exchange || ''} ${a.wallet || ''}`.toLowerCase().includes(q) : !chip || a.cur === chip));
     const invFirst = INV(db.accounts.find((a) => a.id === selected)) || INV(db.accounts.find((a) => a.id === skip)) || /^#\/invest/.test(location.hash);
-    const order = invFirst ? ['bank', 'cash', 'ewallet', ...Object.keys(typeNames).filter((k) => !['bank', 'cash', 'ewallet'].includes(k))] : Object.keys(typeNames), groups = new Map();
+    const order = invFirst ? ['bank', 'cash', 'ewallet', 'ic', ...Object.keys(typeNames).filter((k) => !['bank', 'cash', 'ewallet', 'ic'].includes(k))] : Object.keys(typeNames), groups = new Map();
     const gk = (a) => (a.exchange ? `\u0001${a.exchange} · ${walletOf(a)}` : a.type);   // platform > wallet for investments, the account type for the rest
     for (const a of hit) { const k = gk(a); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(a); }
     const html = [...groups.entries()].sort((x, y) => { const ix = (k) => (k.startsWith('\u0001') ? (invFirst ? -1 : 99) : order.indexOf(k)), mine = (k) => (k.startsWith('\u0001') && selected && db.accounts.some((a) => a.id === selected && `\u0001${a.exchange} · ${walletOf(a)}` === k) ? 0 : 1); return ix(x[0]) - ix(y[0]) || mine(x[0]) - mine(y[0]) || x[0].localeCompare(y[0]); }).map(([t, as]) =>

@@ -3,7 +3,7 @@
 import { get, commit, fmt, HOME, homeFx, nowStamp } from './core.js';
 import { ACT, esc, toast, promptDialog, sheet } from './ui.js';
 import { hdr } from './screens.js';
-import { placesOf, farKm } from './loc.js';
+import { placesOf, farKm, distKm, locOn, here, permState } from './loc.js';
 import { analyzeHabits, habitRows, WEIGHTS } from './habits.js';
 
 const money = (n) => fmt(n, HOME, { round: true });
@@ -62,6 +62,28 @@ export function dailyNeeds(db, days = 90) {
   let sum = 0, left = 0; for (const t of inR) { const v = t.amount * (homeFx(db, t.cur) || t.fx || 1); if (trip.has(t.id) || fixed.has(t.cat)) left += v; else sum += v; }
   const n = Math.min(days, Math.max(1, Math.round((new Date(last + 'T12:00:00') - new Date(from + 'T12:00:00')) / 864e5) + 1));
   return { perDay: sum / n, perMonth: sum / n * 30, days: n, left };
+}
+// Home card: the newest trip or event Sukli found (or the one you named), with what it cost and a way into the full page.
+// When Location is on and your phone already allows it, a line says if you are far from home right now (a clue only: it never starts a trip by itself).
+export function latestTripCard(db) {
+  let r; try { r = tripReport(db); } catch { return ''; }
+  const t = r.trips.slice().sort((a, b) => (a.from < b.from ? 1 : -1))[0];
+  if (!t) return '';
+  const ntr = r.trips.length, cats = t.byCat.filter((c) => c.expected != null && c.extra >= 1).sort((a, b) => b.extra - a.extra).slice(0, 2);
+  return `<section class="card tripcard homeTrip"><div class="sgtop"><b>${esc(title(t))}</b><span>${money(t.trueCost)}</span></div>
+    <small>${niceDate(t.from)}${t.days > 1 ? ' to ' + niceDate(t.to) : ''} · ${t.days} day${t.days === 1 ? '' : 's'} · latest trip or event</small>
+    <ul class="calfacts">${t.prepaid > 0 ? `<li><span>Paid ahead</span><b>${money(t.prepaid)}</b></li>` : ''}<li><span>Spent during it</span><b>${money(t.onTrip)}</b></li>${cats.map((c) => `<li><span>${esc(c.name)} above usual</span><b>+${money(c.extra)}</b></li>`).join('')}</ul>
+    <p class="hint awaynow" data-away hidden></p>
+    <div class="btnrow"><a class="btn sm ghost" href="#/trips">${ntr > 1 ? `All ${ntr} trips and events` : 'Open trip details'}</a></div></section>`;
+}
+// fills the "far from home now" line after Home is drawn; asks nothing: it stays silent unless Location is on and already allowed
+export async function awayCheck() {
+  const els = [...document.querySelectorAll('[data-away]')]; if (!els.length) return;
+  const db = get(); if (!locOn(db) || (await permState()) !== 'granted') return;
+  const home = placesOf(db).home; if (!home) return;
+  const p = await here(4000); if (!p) return;
+  const km = distKm(p, home); if (km < 30) return;
+  for (const el of els) if (el.isConnected) { el.hidden = false; el.textContent = `You seem to be about ${Math.round(km)} km from home right now. Entries you save here carry that clue, so Sukli can tell a trip from a normal day.`; }
 }
 const title = (t) => (t.note && t.note.name) || (t.tags.length ? t.tags.join(' / ') : 'Trip or event');
 

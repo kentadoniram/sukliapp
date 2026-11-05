@@ -69,7 +69,7 @@ export function budgetInfo(db) {
 }
 // cash you hold now, the best savings you can park money in, and what falls due soon (all in the home currency)
 export function cashCtx(db) {
-  const bal = balances(db), day = todayStr(), accts = live(db.accounts).filter((a) => !a.archived && a.include !== false && ['cash', 'bank', 'ewallet'].includes(a.type));
+  const bal = balances(db), day = todayStr(), accts = live(db.accounts).filter((a) => !a.archived && a.include !== false && ['cash', 'bank', 'ewallet', 'ic'].includes(a.type));
   let liquid = 0; const savers = [];
   for (const a of accts) {
     const fx = homeFx(db, a.cur) || 1, b = bal.get(a.id) || 0; if (b > 0) liquid += b * fx;

@@ -11,6 +11,7 @@ import { fxBlockHtml, fxBlockUpdate, openConverter } from './fxview.js';
 import { parseTags, joinTags, tagCounts } from './tags.js';
 import { tipBtn } from './interest.js';
 import { captureLoc, hereWhy, permState, parsePt } from './loc.js';
+import { pickOnMap } from './mappick.js';
 import { cachedAddress, lookupAddress, saveAddress } from './geo.js';
 import { isLiability, isOwed, lockInfo, periodFor, addDay } from './finance.js';
 import { budgetAlerts, newAlertsSince } from './budgetsetup.js';
@@ -677,7 +678,7 @@ export function openEntry(opts = {}) {
     const el = $f('locrow'); if (!el) return; const L = f.locUi || (f.locUi = { perm: 'unknown', msg: '', edit: false });
     const pt = f.loc, permTxt = { granted: 'Location permission: allowed', denied: 'Location permission: blocked. Allow it in your phone’s settings for this app, or type a place below.', prompt: 'Location permission: will ask when you tap', unknown: 'Location permission: not known yet (your phone asks when you tap)' }[L.perm];
     el.innerHTML = `<span>Location (optional)</span><div class="locbox"><button type="button" class="acctbtn" data-e="loc-get">${pt ? `📍 ${f.place ? esc(f.place) : L.busy ? 'Finding the address…' : 'Location saved, address not found yet'}` : 'Add Location'}</button>
-      <div class="chips">${pt ? (f.place ? '<button type="button" class="chip" data-e="addr-edit">Edit Address</button>' : '<button type="button" class="chip" data-e="addr-get">Show Address</button>') + '<button type="button" class="chip" data-e="loc-clear">Remove</button><button type="button" class="chip" data-e="loc-detail">' + (L.detail ? 'Hide Details' : 'Details') + '</button>' : ''}<button type="button" class="chip" data-e="loc-edit">${L.edit ? 'Close' : 'Type It'}</button></div></div>
+      <div class="chips">${pt ? (f.place ? '<button type="button" class="chip" data-e="addr-edit">Edit Address</button>' : '<button type="button" class="chip" data-e="addr-get">Show Address</button>') + '<button type="button" class="chip" data-e="loc-clear">Remove</button><button type="button" class="chip" data-e="loc-detail">' + (L.detail ? 'Hide Details' : 'Details') + '</button>' : ''}<button type="button" class="chip" data-e="loc-map">Pick on Map</button><button type="button" class="chip" data-e="loc-edit">${L.edit ? 'Close' : 'Type It'}</button></div></div>
       ${pt && L.detail ? `<pre class="locjson" aria-label="Location details">${esc(JSON.stringify({ latitude: pt.la, longitude: pt.lo, address: f.place || null, approx: 'about 1 km' }, null, 2))}</pre>` : ''}
       ${L.edit ? `<input id="f-loc" inputmode="decimal" placeholder="Latitude, longitude (e.g. 35.53, 139.69)" value="${pt ? `${pt.la}, ${pt.lo}` : ''}" aria-label="Location as latitude and longitude">` : ''}
       ${pt && L.addrEdit ? `<input id="f-place" autocomplete="off" placeholder="Type the address or place name" value="${esc(f.place || '')}" aria-label="Address">` : ''}
@@ -921,6 +922,7 @@ export function openEntry(opts = {}) {
       case 'cb-mode': f.cb.mode = b.dataset.v; renderCb(); break;
       case 'branchpick': pickBranch(); break;
       case 'loc-get': getLoc(); break;
+      case 'loc-map': (async () => { const p = await pickOnMap(f.loc); if (!p) return; f.loc = p; f.place = ''; fillAddr(); const L = f.locUi || (f.locUi = { perm: 'unknown', msg: '', edit: false }); L.msg = 'Place picked on the map (about 1 km).'; renderLoc(); if (!f.place) getAddr(); })(); break;
       case 'loc-detail': f.locUi.detail = !f.locUi.detail; renderLoc(); break;
       case 'addr-get': getAddr(); break;
       case 'addr-edit': f.locUi.addrEdit = !f.locUi.addrEdit; renderLoc(); break;

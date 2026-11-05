@@ -23,6 +23,8 @@ import { merchantsSection } from './merchantset.js';
 import { undoSection } from './undoui.js';
 import { locSection } from './loc.js';
 import { splitGroups, splitExtra, openSplit } from './splitbill.js';
+import { openEntryView } from './entryview.js';
+import { latestTripCard, awayCheck } from './trips.js';
 import { openBulkEdit } from './bulkedit.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES, setLookMode } from './appearance.js';
@@ -168,7 +170,9 @@ export function row(t, accts, cats, sel, trail) {
     <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub2}</small><small class="eff">${effectLine(t, accts)}</small>${balLines(t, accts, trail)}</span>
     <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}${arr}</span></button>`;
 }
-ACT.edit = (el) => { const t = get().txs.find((x) => x.id === el.dataset.id); if (t && t.splitId && openSplit(t.id)) return; if (t && t.auto && t.kind === 'income' && openInterestDetail(t)) return; openEntry({ id: el.dataset.id }); };
+// a tapped entry opens to read only; Edit and Delete are separate buttons inside it
+ACT['edit-now'] = (el) => { const t = get().txs.find((x) => x.id === el.dataset.id); if (t && t.splitId && openSplit(t.id)) return; openEntry({ id: el.dataset.id }); };
+ACT.edit = (el) => { const t = get().txs.find((x) => x.id === el.dataset.id); if (t && t.auto && t.kind === 'income' && openInterestDetail(t)) return; if (!openEntryView(el.dataset.id)) ACT['edit-now'](el); };
 ACT.add = async () => {
   // on the Investments tab the + button asks which account and what kind of entry
   if ((location.hash.replace(/^#\/?/, '').split('?')[0]) === 'invest') { (await import('./invest.js')).invEntryMenu(); return; }
@@ -214,10 +218,10 @@ function weekBars(db) {
 export const HOME_SECTIONS = [
   ['spendable', 'Spendable now', false], ['alerts', 'Reminders and items to check', false], ['insights', 'Worth knowing', true], ['pace', 'Pace', false], ['projpie', 'Spending vs expected income', false],
   ['rolling', 'Daily average, rolling 7 days', false], ['outlook', 'Next month outlook', true], ['went', 'Where it went', false], ['came', 'Where it came from', false],
-  ['loss', 'Money lost to fees and interest', false], ['six', 'Last 6 months', false], ['latest', 'Latest entries', false],
+  ['loss', 'Money lost to fees and interest', false], ['six', 'Last 6 months', false], ['trip', 'Latest trip or event', true], ['latest', 'Latest entries', false],
 ];
 // cards that analyse your spending (trends, pace, forecasts, fee losses): Simple mode keeps them off Home; Advanced shows them unless you turn them off
-export const SIMPLE_HIDDEN = ['insights', 'pace', 'projpie', 'rolling', 'outlook', 'loss', 'six'];
+export const SIMPLE_HIDDEN = ['insights', 'pace', 'projpie', 'rolling', 'outlook', 'loss', 'six', 'trip'];
 export function homeLayout(db) {
   const L = (db.settings && db.settings.homeLayout) || {}, ids = HOME_SECTIONS.map((x) => x[0]);
   const order = [...(L.order || []).filter((x) => ids.includes(x)), ...ids.filter((x) => !(L.order || []).includes(x))];
@@ -227,6 +231,7 @@ export function fillDeferred(db, done) {
   const ctxOf = () => { const st = monthStats(db, ui.month); return { db, st, accts: accountMap(db), cats: catMap(db) }; };
   const els = [...document.querySelectorAll('[data-defer]')];
   els.forEach((el, i) => setTimeout(() => { try { if (!el.isConnected) return; el.outerHTML = homeTitles(homeSection(el.dataset.defer, ctxOf())); } catch (e) { el.remove(); } }, 16 * (i + 1)));
+  setTimeout(() => { awayCheck().catch(() => {}); }, 16 * (els.length + 1) + 10);
   if (done) setTimeout(done, 16 * (els.length + 1) + 30);
 }
 function homeSection(id, c) {
@@ -237,6 +242,7 @@ function homeSection(id, c) {
       ${sp.missing.length ? `<p class="hint">Not counted: ${sp.missing.join(', ')} (set a rate in Settings).</p>` : ''}${(() => { if (appMode() === 'simple') return ''; const sf = safeToSpend(db); return sf.committed > 0.5 ? `<button type="button" class="safeto" data-act="safe-info"><span>Safe to spend<small> after ${money(sf.committed)} already owed</small></span><b>${money(sf.safe)}</b></button>` : ''; })()}</section>`; }
     case 'alerts': { const n = reviewCount(db); return `${reminderBanner(db)}${budgetBanner(db)}${n ? `<a class="banner" href="#/review"><strong>${n} ${n === 1 ? 'entry needs' : 'entries need'} a quick check</strong><span>Confirm the guessed categories</span>${ic('right')}</a>` : ''}`; }
     case 'insights': { const ins = insights(db, ui.month); return ins.length ? coll('h-ins', 'Worth Knowing', `<ul class="ins">${ins.map((x) => `<li class="${x.tone}">${x.id ? `<button class="insb" data-act="edit" data-id="${x.id}">${esc(x.text)}</button>` : esc(x.text)}</li>`).join('')}</ul>`) : ''; }
+    case 'trip': return latestTripCard(db);
     case 'loss': return lossCard(db, ui.month, coll, (n) => money(n));
     case 'pace': return paceCard(db);
     case 'projpie': return projPie(db);
@@ -608,7 +614,7 @@ export function review(db) {
     return `<article class="rcard"><div class="rtop"><strong>${esc(t.name || 'Untitled')}</strong><b>${money(t.kind === 'income' ? t.amount : -t.amount, t.cur)}${eq(t.amount, t.cur, t.fx) ? `<small class="eqs"> ${eq(t.amount, t.cur, t.fx)}</small>` : ''}</b></div>
       <small>${dayLabel(t.date)} · ${esc(a ? a.name : '')}${t.autoName ? ' · label was left blank and guessed, tap Edit to rename' : ''}${t.items && t.items.length ? ' · items do not add up to the total' : ''}</small>
       <div class="chips">${opts.map((x) => { const c = cats.get(x.id); return `<button class="chip cat" data-act="confirm" data-id="${t.id}" data-cat="${x.id}"><i style="background:${groupColor(c.group)}">${groupLetter(c.group)}</i>${esc(c.name)} <small>${Math.round(x.p * 100)}%</small></button>`; }).join('')}
-      <button class="chip more" data-act="edit" data-id="${t.id}">Edit</button></div></article>`;
+      <button class="chip more" data-act="edit-now" data-id="${t.id}">Edit</button></div></article>`;
   });
   const sure = list.filter((t) => { const p = predict(modelFor(t.kind === 'income' ? 'income' : 'expense'), t.name, t.amount, { acct: t.acct, cur: t.cur, hour: +t.date.slice(11, 13) }); return p.conf >= 0.8 && !(t.items && t.items.length); }).length;
   return `${hdr('Review')}

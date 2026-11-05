@@ -29,12 +29,13 @@ export function guessAccountType(name) {
   if (/loan|receivable|reimburse/.test(n)) return 'loan';
   if (/bybit|bitget|okx|binance|kucoin|mexc|gate\.io|\bmnt\b|phantom|bgb|bbsol|rlusd|coins\.ph pro/.test(n)) return 'crypto';
   if (/credit card|visa|cash advance|mastercard|amex|maya credit|lazada pay|\bcredit\b/.test(n)) return 'card';
-  if (/gcash|maya|shopee ?pay|coins\.ph|paypay|suica|pasmo|paypal/.test(n)) return 'ewallet';
+  if (/suica|pasmo|icoca|ic card|パスモ|スイカ/.test(n)) return 'ic';
+  if (/gcash|maya|shopee ?pay|coins\.ph|paypay|paypal/.test(n)) return 'ewallet';
   if (/wallet|cash|currency/.test(n)) return 'cash';
   if (/bdo|cimb|maribank|bank|bpi|landbank|seabank|gotyme|mp2/.test(n)) return 'bank';
   return 'other';
 }
-export const SPENDABLE_TYPES = new Set(['cash', 'bank', 'ewallet', 'card']);
+export const SPENDABLE_TYPES = new Set(['cash', 'bank', 'ewallet', 'ic', 'card']);
 
 // Bluecoins has renamed columns between versions, so columns are matched by meaning, not by exact title.
 const ALIASES = {
