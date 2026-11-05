@@ -134,7 +134,7 @@ export function effectLine(t, accts) {
   if (t.lentBack) return 'Paid back to you: not counted as income';
   if (t.kind === 'transfer' && t.internal) return 'Moved inside the platform, free, not counted as spending';
   if (t.kind === 'transfer') return `Moved between accounts, not counted as spending${feeTxt}`;
-  if (t.earnDay) return `Earn total for ${t.earnDay} (platform clock), added up from the hourly payouts`;
+  if (t.earnDay) return t.earnOpen ? `⏳ Still adding up for ${t.earnDay} (platform clock): grows every hour. Tap for the hours` : `Earned hour by hour on ${t.earnDay} (platform clock). Tap for the hours`;
   if (t.earnAuto) return 'Automatic Earn subscription: moved between accounts, not counted as spending';
   if (t.invIncome) return 'Investment income recorded';
   if (t.autoDebt) return 'Interest on a debt, added automatically';

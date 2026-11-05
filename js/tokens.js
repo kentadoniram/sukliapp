@@ -24,7 +24,8 @@ const BY_EX = { binance: ['Spot', 'Margin', 'Futures', 'Options', 'Earn', 'Fundi
 export function accountTypesOf(db, exchange) {
   const k = String(exchange || '').toLowerCase(), base = BY_EX[k] || DEFAULT_ACCTS;
   const used = db.accounts.filter((a) => !a.deleted && (a.exchange || '').toLowerCase() === k).map(walletOf);
-  return [...new Set([...base, ...used])];
+  const mine = ((db.settings.acctTypes || {})[Object.keys(db.settings.acctTypes || {}).find((x) => x.toLowerCase() === k)] || []);   // account types you added for this exchange (new products appear over time)
+  return [...new Set([...base, ...mine, ...used])];
 }
 
 // every coin you can pick on an exchange: the top 50, plus anything you added anywhere
@@ -46,4 +47,14 @@ export function ensureAsset(platform, cur, wallet = 'Spot') {
     d.accounts.push(stamp({ id: nid, name: `${(sib && sib.exchange) || platform}${wallet === 'Spot' ? '' : ' ' + wallet} ${cur}`, wallet, cur, type: 'crypto', assetType: 'crypto', exchange: (sib && sib.exchange) || platform, open: 0, include: false, archived: false, invtab: true }));
   });
   return same(get());
+}
+
+// add or remove an account type for one exchange (for products the exchange launches later). Built-in and used types cannot be removed.
+export function addAccountType(exchange, name) {
+  const n = String(name || '').trim().replace(/\s+/g, ' ').slice(0, 24); if (!n) return '';
+  commit((d) => { const m = (d.settings.acctTypes = d.settings.acctTypes || {}); const k = Object.keys(m).find((x) => x.toLowerCase() === exchange.toLowerCase()) || exchange; m[k] = [...new Set([...(m[k] || []), n])]; });
+  return n;
+}
+export function removeAccountType(exchange, name) {
+  commit((d) => { const m = d.settings.acctTypes || {}, k = Object.keys(m).find((x) => x.toLowerCase() === exchange.toLowerCase()); if (k) m[k] = m[k].filter((x) => x !== name); });
 }

@@ -1,7 +1,7 @@
 // The Earn schedule window of an Earn account: settings, subscriptions, today's hours and the daily history. Times follow each platform’s own clock.
 import { get, commit, stamp, fmt, CUR, walletOf } from './core.js';
 import { esc, sheet, toast, ACT } from './ui.js';
-import { cfgOf, e8, e8Ms, e8Label, logOf, subscriptions, H, runEarn, tzOf, tzName, earnStartOf, defaultFrom } from './earn.js';
+import { dayHours, cfgOf, e8, e8Ms, e8Label, logOf, subscriptions, H, runEarn, tzOf, tzName, earnStartOf, defaultFrom } from './earn.js';
 const dec = (cur) => Math.max(2, Math.min(8, (CUR[cur] || { dec: 8 }).dec));
 const num = (n, cur) => fmt(n, cur);
 export function openEarn(id) {
@@ -24,7 +24,8 @@ export function openEarn(id) {
       <div class="two"><label class="field"><span>Timezone</span><select data-ew="tz">${Array.from({ length: 27 }, (_, i) => i - 12).map((z) => `<option value="${z}" ${z === off ? 'selected' : ''}>${tzName(z)}</option>`).join('')}</select></label>
       <label class="field"><span>Yearly Rate (APY, %)</span><input data-ew="apy" inputmode="decimal" value="${c.apy || ''}" placeholder="e.g. 4.5"></label></div>
       <p class="hint">Binance and Bybit use UTC+0, Bitget UTC+8. It applies to every Earn product on ${esc(a.exchange || 'this platform')}. Changing it only affects new times: entries already recorded keep theirs.</p>
-      ${true ? `<label class="field"><span>When Does Earning Start?</span><select data-ew="startRule"><option value="nextHour" ${c.startRule !== 'midnight' ? 'selected' : ''}>At the next full hour</option><option value="midnight" ${c.startRule === 'midnight' ? 'selected' : ''}>At the next midnight (${tz})</option></select></label>
+      ${true ? `<label class="field"><span>Pay Interest To</span><select data-ew="payTo"><option value="spot" ${c.payTo !== 'earn' ? 'selected' : ''}>Spot (same coin)</option><option value="earn" ${c.payTo === 'earn' ? 'selected' : ''}>This Earn account</option></select></label>
+      <label class="field"><span>When Does Earning Start?</span><select data-ew="startRule"><option value="nextHour" ${c.startRule !== 'midnight' ? 'selected' : ''}>At the next full hour</option><option value="midnight" ${c.startRule === 'midnight' ? 'selected' : ''}>At the next midnight (${tz})</option></select></label>
       <div class="two"><div class="field"><span>Deposit Time</span><button type="button" class="btn ghost sm tbtn" data-ew="pickdep">🕒 ${esc(depT)}</button></div>
       <label class="field"><span>First Accrual (Hours After Earning Starts)</span><input data-ew="firstLagH" inputmode="numeric" value="${c.firstLagH}"></label></div>
       <div class="cardbox"><b>What These Mean</b>
@@ -49,6 +50,7 @@ export function openEarn(id) {
     if (k === 'apy') return set({ apy: Math.max(0, parseFloat(v) || 0) });
     if (k === 'firstLagH') return set({ [k]: Math.max(0, parseInt(v, 10) || 0) });
     if (k === 'from') return set({ from: v });
+    if (k === 'payTo') return set({ payTo: v === 'earn' ? 'earn' : 'spot' });
     if (k === 'startRule') return set({ startRule: v === 'midnight' ? 'midnight' : 'nextHour' });
     if (k === 'tz') { const a = get().accounts.find((x) => x.id === id); commit((d) => { const m = (d.settings.platformTz = d.settings.platformTz || {}); m[a.exchange || a.name] = +v; }); return draw(); }
   });
@@ -63,3 +65,12 @@ export function openEarn(id) {
     if (k === 'addslot') { const t = pick; if (!/^\d\d:\d\d$/.test(t)) { toast('Pick a time first.'); return; } set({ slots: [...new Set([...(c.slots || []), t])] }); } });
 }
 ACT['earn-open'] = (el) => openEarn(el.dataset.id);
+
+// tapping a day's "Interest Earned" entry: the hours behind it (the total is still growing while the day is open)
+export function openEarnDay(t) {
+  const db = get(), a = db.accounts.find((x) => x.id === t.earnAcct), d = dayHours(db, t), z = d.z != null ? d.z : (a ? tzOf(db, a) : 0), cur = t.cur;
+  const rows = d.hours.slice().reverse(), tot = d.hours.reduce((q, x) => q + x[1], 0);
+  sheet(`<p class="hint">${esc(a ? a.name : 'Earn')} · ${esc(t.earnDay)} on the platform clock (${tzName(z)}). ${d.done ? 'This day is finished.' : '<b>Still adding up:</b> a new hour is added at the top of every hour until midnight.'}</p>
+    <div class="facts three"><div><span>Hours</span><b>${rows.length}</b></div><div><span>Total So Far</span><b class="cg">${fmt(tot, cur)}</b></div><div><span>Credited To</span><b>${esc((db.accounts.find((x) => x.id === t.acct) || {}).name || '')}</b></div></div>
+    ${rows.length ? `<ul class="calfacts">${rows.map((x) => `<li><span>${esc(e8Label(x[0], z))}</span><b>${fmt(x[1], cur)}</b></li>`).join('')}</ul>` : '<p class="muted">The hours are no longer kept for this day.</p>'}`, { title: 'Interest Earned', wide: true });
+}

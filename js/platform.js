@@ -4,6 +4,8 @@ import { get, commit, stamp, walletOf, fmt, HOME, balances, homeFx } from './cor
 import { ACT, sheet, esc, toast } from './ui.js';
 import { exchangeOf, inInvest } from './invest.js';
 import { tzOf, tzName } from './earn.js';
+import { accountTypesOf, addAccountType, removeAccountType } from './tokens.js';
+import { promptDialog } from './ui.js';
 
 export function openPlatform(ex) {
   const s = sheet('<div id="pset" class="platset"></div>', { title: ex, wide: true }), root = s.el.querySelector('#pset');
@@ -14,6 +16,9 @@ export function openPlatform(ex) {
     const wallets = [...new Set(accts.map(walletOf))], earn = accts.filter((a) => walletOf(a) === 'Earn');
     root.innerHTML = `
       <p class="hint"><b>${esc(ex)}</b> › Accounts (${esc(wallets.join(', ') || 'none yet')}) › Assets · ${accts.length} asset balance${accts.length === 1 ? '' : 's'} · about <b>${esc(fmt(total, HOME))}</b>. Every coin of the top 50 can be used in any account here without adding it first.</p>
+      <h3>Account Types</h3>
+      <div class="chips">${accountTypesOf(db, ex).map((w) => { const mine = ((db.settings.acctTypes || {})[Object.keys(db.settings.acctTypes || {}).find((x) => x.toLowerCase() === ex.toLowerCase())] || []).includes(w) && !wallets.includes(w); return `<span class="chip ${wallets.includes(w) ? 'on' : ''}">${esc(w)}${mine ? ` <button type="button" class="linkbtn" data-p="deltype" data-v="${esc(w)}" aria-label="Remove ${esc(w)}">✕</button>` : ''}</span>`; }).join('')}<button type="button" class="chip" data-p="addtype">+ Add Account Type</button></div>
+      <p class="hint">Exchanges add new products from time to time. Add the name here (for example Copy Trading) and it appears in From, To and when adding assets for ${esc(ex)}.</p>
       <h3>Actions</h3>
       <div class="btnrow left"><button type="button" class="btn sm" data-act="plat-do" data-do="inv-add" data-ex="${esc(ex)}">Record</button><button type="button" class="btn sm ghost" data-act="plat-do" data-do="inv-coin" data-ex="${esc(ex)}">+ Asset</button><button type="button" class="btn sm ghost" data-act="plat-do" data-do="inv-internal" data-ex="${esc(ex)}">Internal Transfer</button></div>
       <label class="field"><span>Timezone of ${esc(ex)}</span><select data-p="tz">${Array.from({ length: 27 }, (_, i) => i - 12).map((z) => `<option value="${z}" ${z === off ? 'selected' : ''}>${tzName(z)}</option>`).join('')}</select></label>
@@ -25,7 +30,10 @@ export function openPlatform(ex) {
   };
   draw();
   root.addEventListener('change', (e) => { if (e.target.dataset.p !== 'tz') return; commit((d) => { (d.settings.platformTz = d.settings.platformTz || {})[ex] = +e.target.value; }); toast(`Timezone of ${ex} saved.`); draw(); });
-  root.addEventListener('click', (e) => { if (e.target.closest('[data-p=done]')) s.close(); });
+  root.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-p=done]')) { s.close(); return; }
+    if (e.target.closest('[data-p=addtype]')) { const v = await promptDialog('New account type', '', { okLabel: 'Add', hint: `A product name on ${ex}, for example Copy Trading, Launchpool or Margin (Isolated).` }); if (v && addAccountType(ex, v)) { toast(`${v.trim()} added to ${ex}.`); draw(); } return; }
+    const dt = e.target.closest('[data-p=deltype]'); if (dt) { removeAccountType(ex, dt.dataset.v); draw(); } });
 }
 ACT['plat-open'] = (el) => openPlatform(el.dataset.ex);
 // a button inside the sheet runs the same action as the one on the card, then the sheet gets out of the way

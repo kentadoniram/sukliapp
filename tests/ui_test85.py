@@ -34,7 +34,7 @@ with sync_playwright() as p:
     ok('subscription 15:09, earning from 16:00, first payout 17:00 (UTC+8)', r['sub']=='2026-11-01 15:09' and r['start']=='2026-11-01 16:00' and r['first']=='2026-11-01 17:00')
     ok('day 1 has 8 hours (17:00 to 00:00) = 0.08', r['days'][0]==['2026-11-01',0.08,8])
     ok('day 2 full 24 hours = 0.24', r['days'][1]==['2026-11-02',0.24,24])
-    ok('today still hourly, 15 hours, not an entry', len(r['pend'])==15 and r['pend'][0]=='2026-11-03 01:00' and r['txs']==2)
+    ok('today still hourly, 15 hours, today has one open entry', len(r['pend'])==15 and r['pend'][0]=='2026-11-03 01:00' and r['txs']==3)
     # auto subscription at 03:00 and 15:00 UTC+8
     r=pg.evaluate("""(async()=>{const e=await import('/js/earn.js');const c=await import('/js/core.js');
       const l=e.e8Ms('2026-11-03','00:00'), now=e.e8Ms('2026-11-03','15:30');
