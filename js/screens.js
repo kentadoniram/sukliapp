@@ -22,7 +22,7 @@ import { helpBtn } from './tabhelp.js';
 import { merchantsSection } from './merchantset.js';
 import { undoSection } from './undoui.js';
 import { locSection } from './loc.js';
-import { splitGroups, splitExtra, openSplit } from './splitbill.js';
+import { splitGroups, splitExtra, openSplit, deleteWithMates, withMates } from './splitbill.js';
 import { openEntryView } from './entryview.js';
 import { latestTripCard, awayCheck } from './trips.js';
 import { openBulkEdit } from './bulkedit.js';
@@ -585,14 +585,12 @@ ACT['sel-start'] = () => { ui.selecting = true; ui.sel = new Set(); selRefresh()
 ACT['sel-end'] = () => { ui.selecting = false; ui.sel = new Set(); selRefresh(); };
 ACT['sel-toggle'] = (el) => { const id = el.dataset.id; if (ui.sel.has(id)) ui.sel.delete(id); else ui.sel.add(id); selRefresh(); };
 ACT['sel-all'] = () => { const all = ui.shown || []; if (ui.sel.size >= all.length) ui.sel = new Set(); else ui.sel = new Set(all); selRefresh(); };
-ACT['sel-edit'] = () => { const ids = [...ui.sel]; if (ids.length) openBulkEdit(ids, () => { ui.selecting = false; ui.sel = new Set(); }); };
+ACT['sel-edit'] = () => { const ids = [...withMates(get(), [...ui.sel])]; /* a shared bill is edited as a whole */ if (ids.length) openBulkEdit(ids, () => { ui.selecting = false; ui.sel = new Set(); }); };
 ACT['sel-del'] = async () => {
   const ids = [...ui.sel]; if (!ids.length) return;
   if (!(await confirmDialog(`Delete ${ids.length} ${ids.length === 1 ? 'entry' : 'entries'}? They move to the recycle bin and can be restored.`, 'Delete', true))) return;
-  const gone = [];
-  commit((d) => { for (const t of d.txs) if (ids.includes(t.id) && !t.deleted) { softDelete(t); gone.push(t.id); } });
+  const gone = deleteWithMates(ids, `${ids.length} moved to the recycle bin`);      // shared bills go as a whole
   ui.selecting = false; ui.sel = new Set();
-  toast(`${gone.length} moved to the recycle bin`, { undo: () => commit((d) => { for (const t of d.txs) if (gone.includes(t.id)) { t.deleted = false; delete t.deletedAt; stamp(t); } }) });
 };
 ACT.filter = (el) => { ui.filter = el.dataset.v; const h = document.getElementById('filterhint'); if (h) h.textContent = FILTER_HINTS[ui.filter] || ''; ui.limit = 120; window.dispatchEvent(new Event('sukli-render')); };
 export function bindLedger() {

@@ -18,6 +18,20 @@ export function splitGroups(db) {
   return g;
 }
 export const splitOf = (db, txId) => { for (const x of splitGroups(db).values()) if (x.byId.has(txId)) return x; return null; };
+// every entry that belongs to the same shared bill as any of these ids (your part and each person's part), plus cashback entries of them
+export function withMates(db, ids) {
+  const out = new Set(ids);
+  for (const x of splitGroups(db).values()) if ([...x.byId].some((i) => out.has(i))) for (const i of x.byId) out.add(i);
+  for (const t of db.txs) if (!t.deleted && t.cashbackOf && out.has(t.cashbackOf)) out.add(t.id);
+  return out;
+}
+// delete (to the recycle bin) these entries together with the rest of their shared bill; one Undo brings all of it back
+export function deleteWithMates(ids, label = 'Moved to the recycle bin') {
+  const all = [...withMates(get(), ids)], gone = [];
+  commit((d) => { for (const t of d.txs) if (all.includes(t.id) && !t.deleted) { softDelete(t); gone.push(t.id); } });
+  toast(gone.length > ids.length ? `Whole shared bill (${gone.length} entries) moved to the recycle bin` : label, { undo: () => commit((d) => { for (const t of d.txs) if (gone.includes(t.id)) { t.deleted = false; delete t.deletedAt; stamp(t); } }) });
+  return gone;
+}
 export const splitOpen = new Set();
 // the small bar under the bill's row, and the shares when it is open
 export function splitExtra(g) {
@@ -29,13 +43,18 @@ export function splitExtra(g) {
 ACT['split-toggle'] = (el) => { const id = el.dataset.id; if (splitOpen.has(id)) splitOpen.delete(id); else splitOpen.add(id); window.dispatchEvent(new Event('sukli-render')); };
 export function openSplit(txId) {
   const g = splitOf(get(), txId); if (!g) return false;
-  const st = { name: g.name, total: g.total, shares: g.people.map((p) => ({ ...p })), msg: '' };
+  const hd = g.head, st = { name: g.name, total: g.total, shares: g.people.map((p) => ({ ...p })), msg: '', date: String(hd.date).slice(0, 10), acct: hd.acct, cat: g.mine ? g.mine.cat || '' : '', notes: hd.notes || '' };
+  const db0 = get(), fromAccts = db0.accounts.filter((a) => !a.deleted && !a.archived && a.type !== 'owed' && (a.cur === g.cur || a.id === hd.acct)), expCats = (db0.categories || []).filter((c) => !c.deleted && c.kind === 'expense');
   const s = sheet('<div id="sb"></div>', { title: 'Shared Bill', wide: true }), root = s.el.querySelector('#sb');
   const mineOf = () => r2(st.total - st.shares.reduce((q, x) => q + x.amt, 0));
   const draw = () => { const m = mineOf(), hasMine = !!g.mine;
     root.innerHTML = `<p class="hint">One bill, saved in linked parts. Change the name or the total here and every part follows. The parts must always add up to the bill.</p>
       <label class="field"><span>What Is It?</span><input data-sb="name" value="${esc(st.name)}"></label>
       <label class="field"><span>Whole Bill (${esc(g.cur)})</span><input data-sb="total" inputmode="decimal" value="${st.total}"></label>
+      <label class="field"><span>Date</span><input type="date" data-sb="date" value="${esc(st.date)}"></label>
+      <label class="field"><span>Paid From</span><select data-sb="acct">${fromAccts.map((a) => `<option value="${a.id}" ${a.id === st.acct ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
+      ${hasMine ? `<label class="field"><span>Category (Your Part)</span><select data-sb="cat"><option value="">None</option>${expCats.map((c) => `<option value="${c.id}" ${c.id === st.cat ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>` : ''}
+      <label class="field"><span>Notes</span><input data-sb="notes" value="${esc(st.notes)}"></label>
       <h3>Who Owes What</h3>
       ${st.shares.map((x, i) => `<label class="field"><span>${esc(x.who)}</span><input data-sb="share" data-i="${i}" inputmode="decimal" value="${x.amt}"></label>`).join('')}
       <div class="facts"><div><span>${hasMine ? 'Your Part (the rest)' : 'Left to Divide'}</span><b class="${m < -0.005 || (!hasMine && Math.abs(m) > 0.005) ? 'neg' : ''}">${fmt(m, g.cur)}</b></div><div><span>Whole Bill</span><b>${fmt(st.total, g.cur)}</b></div></div>
@@ -44,11 +63,15 @@ export function openSplit(txId) {
   draw();
   root.addEventListener('change', (e) => { const k = e.target.dataset.sb, v = e.target.value;
     if (k === 'name') st.name = v;
+    if (k === 'date' && v) st.date = v;
+    if (k === 'acct') st.acct = v;
+    if (k === 'cat') st.cat = v;
+    if (k === 'notes') st.notes = v;
     if (k === 'total') { const nt = r2(num(v)); if (nt > 0 && st.total > 0) { const ratio = nt / st.total; st.shares = st.shares.map((x) => ({ ...x, amt: r2(x.amt * ratio) })); let over = r2(st.shares.reduce((q, x) => q + x.amt, 0) - nt); if (!g.mine && st.shares.length) st.shares[st.shares.length - 1].amt = r2(st.shares[st.shares.length - 1].amt - over); st.total = nt; } }
     if (k === 'share') st.shares[+e.target.dataset.i].amt = Math.max(0, r2(num(v)));
     st.msg = ''; draw(); });
   root.addEventListener('click', async (e) => { const b = e.target.closest('[data-sb]'); if (!b) return;
-    if (b.dataset.sb === 'del') { if (!(await confirmDialog('Delete this whole bill and all of its parts?', 'Delete', true))) return; commit((d) => { for (const t of d.txs) if (g.byId.has(t.id)) softDelete(t); }); toast('Deleted'); s.close(); return; }
+    if (b.dataset.sb === 'del') { if (!(await confirmDialog('Delete this whole bill and all of its parts?', 'Delete', true))) return; deleteWithMates([...g.byId]); s.close(); return; }
     if (b.dataset.sb !== 'save') return;
     const m = mineOf(), name = st.name.trim() || 'Shared bill', sum = r2(st.shares.reduce((q, x) => q + x.amt, 0));
     if (!(st.total > 0)) { st.msg = 'Type the whole bill.'; return draw(); }
@@ -58,7 +81,10 @@ export function openSplit(txId) {
       const hx = (c) => homeFx(d, c) || 1, accts = new Map(d.accounts.map((a) => [a.id, a]));
       for (const x of st.shares) { const t = d.txs.find((q) => q.id === x.id); if (!t) continue; const pp = accts.get(t.toAcct);
         t.amount = x.amt; t.toAmount = pp && pp.cur !== t.cur ? r2(x.amt * (t.cur === HOME ? 1 : (t.fx || hx(t.cur)) / (homeRate(d, t.date) || 1)) / hx(pp.cur)) : x.amt; t.name = `Paid for ${x.who}: ${name}`; t.autoName = false; stamp(t); }
-      if (g.mine) { const t = d.txs.find((q) => q.id === g.mine.id); t.name = name; t.autoName = false; t.paidFor = { ...t.paidFor, total: st.total }; if (m > 0.004) t.amount = m; else softDelete(t); stamp(t); }
+      for (const id of g.byId) { const t = d.txs.find((q) => q.id === id); if (!t) continue;       // the same date, account and notes on every part of the bill
+        if (st.date && st.date !== String(t.date).slice(0, 10)) t.date = st.date + String(t.date).slice(10);
+        if (st.acct) t.acct = st.acct; if (st.notes) t.notes = st.notes; else delete t.notes; stamp(t); }
+      if (g.mine) { const t = d.txs.find((q) => q.id === g.mine.id); if (st.cat !== undefined) t.cat = st.cat; t.name = name; t.autoName = false; t.paidFor = { ...t.paidFor, total: st.total }; if (m > 0.004) t.amount = m; else softDelete(t); stamp(t); }
     });
     toast('Saved'); s.close(); });
   return true;

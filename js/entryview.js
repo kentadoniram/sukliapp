@@ -1,6 +1,7 @@
 // Tapping an entry in a list opens it here first, to read only. Nothing can change by accident: Edit and Delete are separate buttons.
 import { get, commit, stamp, softDelete, fmt, HOME, homeRate } from './core.js';
 import { esc, ACT, sheet, toast, confirmDialog } from './ui.js';
+import { splitOf, openSplit, deleteWithMates } from './splitbill.js';
 
 const KIND = { expense: 'Spending', income: 'Income', transfer: 'Transfer' };
 const pretty = (d) => { const s = String(d || ''), dt = new Date(s.slice(0, 10) + 'T12:00:00'); return isNaN(dt) ? s : dt.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) + (s.length > 10 ? ' · ' + s.slice(11, 16) : ''); };
@@ -29,20 +30,19 @@ export function entryFacts(db, t) {
 
 export function openEntryView(id) {
   const db = get(), t = db.txs.find((x) => x.id === id); if (!t) return false;
-  const f = entryFacts(db, t), big = `${t.kind === 'income' ? '+' : t.kind === 'expense' ? '−' : ''}${fmt(t.amount, t.cur)}`;
+  const g = splitOf(db, id), f = entryFacts(db, t), big = `${t.kind === 'income' ? '+' : t.kind === 'expense' ? '−' : ''}${fmt(t.amount, t.cur)}`;
   const s = sheet(`<div class="evw"><div class="evtop"><h3>${esc(t.name || 'Untitled')}</h3><b class="ramt ${t.kind}">${esc(big)}</b></div>
     <ul class="calfacts">${f.rows.map(([k, v]) => `<li><span>${esc(k)}</span><b>${esc(v)}</b></li>`).join('')}</ul>
     ${f.items.length ? `<h4>Items</h4><ul class="calfacts">${f.items.map((i) => `<li><span>${esc(i.n || 'Item')}${i.q > 1 ? ` × ${i.q}` : ''}</span><b>${esc(fmt(i.amt, t.cur))}</b></li>`).join('')}</ul>` : ''}
-    <p class="hint">Read only. Tap Edit to change this entry.</p>
-    <div class="btnrow"><button type="button" class="btn danger ghost" data-ev="del">Delete</button><button type="button" class="btn" data-ev="edit">Edit</button></div></div>`, { title: 'Entry', wide: true });
+    ${g ? `<h4>Part of a Shared Bill</h4><ul class="calfacts"><li><span>Whole bill</span><b>${esc(fmt(g.total, g.cur))}</b></li>${g.mine ? `<li><span>You</span><b>${esc(fmt(g.mine.amount, g.cur))}</b></li>` : ''}${g.people.map((p) => `<li><span>${esc(p.who)}</span><b>${esc(fmt(p.amt, g.cur))}</b></li>`).join('')}</ul>
+      <p class="hint">This entry is one share of a single bill. Editing or deleting it changes the whole bill, all ${g.people.length + (g.mine ? 1 : 0)} entries together.</p>` : '<p class="hint">Read only. Tap Edit to change this entry.</p>'}
+    <div class="btnrow"><button type="button" class="btn danger ghost" data-ev="del">${g ? 'Delete Whole Bill' : 'Delete'}</button><button type="button" class="btn" data-ev="edit">${g ? 'Edit Whole Bill' : 'Edit'}</button></div></div>`, { title: 'Entry', wide: true });
   s.el.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-ev]'); if (!b) return;
     if (b.dataset.ev === 'edit') { s.close(); ACT['edit-now']({ dataset: { id } }); return; }
     if (b.dataset.ev === 'del') {
-      if (!(await confirmDialog('Move this entry to the recycle bin?', 'Delete', true))) return;
-      const cbs = get().txs.filter((x) => !x.deleted && x.cashbackOf === t.id), cur = get().txs.find((x) => x.id === id);
-      commit(() => { softDelete(cur); for (const c of cbs) softDelete(c); }); s.close();
-      toast('Moved to the recycle bin', { undo: () => commit(() => { for (const x of [cur, ...cbs]) { x.deleted = false; delete x.deletedAt; stamp(x); } }) });
+      if (!(await confirmDialog(g ? `Delete the whole shared bill (${g.people.length + (g.mine ? 1 : 0)} entries)? It moves to the recycle bin.` : 'Move this entry to the recycle bin?', 'Delete', true))) return;
+      deleteWithMates([id]); s.close();
     }
   });
   return true;

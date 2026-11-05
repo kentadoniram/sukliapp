@@ -12,6 +12,7 @@ import { parseTags, joinTags, tagCounts } from './tags.js';
 import { tipBtn } from './interest.js';
 import { captureLoc, hereWhy, permState, parsePt } from './loc.js';
 import { pickOnMap } from './mappick.js';
+import { splitOf, openSplit, deleteWithMates } from './splitbill.js';
 import { guessItemCat, itemCatIndex, itemsForWhat, knownItemNames } from './itemcat.js';
 import { cachedAddress, lookupAddress, saveAddress } from './geo.js';
 import { isLiability, isOwed, lockInfo, periodFor, addDay } from './finance.js';
@@ -146,6 +147,7 @@ function debtFix(f) {
 
 export function openEntry(opts = {}) {
   const db = get();
+  if (opts.id && !opts.preset && splitOf(db, opts.id) && openSplit(opts.id)) return;      // a part of a shared bill is always managed as the whole bill
   const existing = opts.id ? db.txs.find((t) => t.id === opts.id) : null;
   const f = existing ? fromTx(existing) : { ...blank(), ...(opts.preset || {}) };
   if (f.debt && !f.flow) f.flow = 'pay'; if (f.flow) f.debt = true;
@@ -949,10 +951,8 @@ export function openEntry(opts = {}) {
       case 'save-again': save(true); break;
       case 'del': {
         const t = get().txs.find((x) => x.id === f.id);
-        const cbs = get().txs.filter((x) => !x.deleted && x.cashbackOf === t.id);
-        commit(() => { softDelete(t); for (const c of cbs) softDelete(c); });
+        deleteWithMates([t.id]);      // a part of a shared bill takes the whole bill with it
         s.close();
-        toast('Moved to the recycle bin', { undo: () => commit(() => { for (const x of [t, ...cbs]) { x.deleted = false; delete x.deletedAt; stamp(x); } }) });
         break;
       }
     }
