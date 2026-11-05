@@ -39,5 +39,29 @@ export function guessItemCat(db, name, index = itemCatIndex(db)) {
   }
   return null;
 }
+// Items that usually belong on this kind of entry: what you listed before under the same (or nearly the same) "What is it?", else under the same category.
+// Most used first. { n, cat, price } where price is the latest one you paid for it. Nothing is guessed from thin air: no history means no chips.
+export function itemsForWhat(db, what, catId, skip = [], max = 8) {
+  const k = norm(what || ''), skipSet = new Set(skip.map((x) => norm(x)).filter(Boolean));
+  const live = (db.txs || []).filter((t) => !t.deleted && t.items && t.items.length);
+  const pick = (test) => {
+    const rows = new Map();
+    for (const t of live) if (test(t)) for (const i of t.items) {
+      const nk = norm(i.n || ''); if (!nk || skipSet.has(nk)) continue;
+      const r = rows.get(nk) || { n: i.n, cats: new Map(), count: 0, price: '', at: '' };
+      r.count++; if (i.cat) r.cats.set(i.cat, (r.cats.get(i.cat) || 0) + 1); if (t.date > r.at) { r.at = t.date; r.price = i.amt || ''; r.n = i.n; }
+      rows.set(nk, r);
+    }
+    return [...rows.values()].sort((a, b) => b.count - a.count || (a.at < b.at ? 1 : -1)).slice(0, max).map((r) => ({ n: r.n, cat: [...r.cats.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0])[0] || '', price: r.price, count: r.count }));
+  };
+  let out = k.length >= 2 ? pick((t) => { const tk = norm(t.name || ''); return tk && (tk === k || tk.includes(k) || k.includes(tk) || similarity(tk, k) >= 0.8); }) : [];
+  if (!out.length && catId) out = pick((t) => t.cat === catId);
+  return out;
+}
+// every item name you have used, most used first (for the typing list)
+export function knownItemNames(db, max = 80) {
+  const m = new Map(); for (const t of db.txs || []) if (!t.deleted && t.items) for (const i of t.items) { const k = norm(i.n || ''); if (!k) continue; const r = m.get(k) || { n: i.n, c: 0 }; r.c++; m.set(k, r); }
+  return [...m.values()].sort((a, b) => b.c - a.c).slice(0, max).map((r) => r.n);
+}
 // remember a correction made in the scanner
 export function learnItemCat(d, name, catId) { const k = norm(name); if (!k || !catId) return; d.settings.itemCats = { ...(d.settings.itemCats || {}), [k]: catId }; }

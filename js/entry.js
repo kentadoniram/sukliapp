@@ -12,6 +12,7 @@ import { parseTags, joinTags, tagCounts } from './tags.js';
 import { tipBtn } from './interest.js';
 import { captureLoc, hereWhy, permState, parsePt } from './loc.js';
 import { pickOnMap } from './mappick.js';
+import { guessItemCat, itemCatIndex, itemsForWhat, knownItemNames } from './itemcat.js';
 import { cachedAddress, lookupAddress, saveAddress } from './geo.js';
 import { isLiability, isOwed, lockInfo, periodFor, addDay } from './finance.js';
 import { budgetAlerts, newAlertsSince } from './budgetsetup.js';
@@ -202,7 +203,9 @@ export function openEntry(opts = {}) {
   // Merchant: where it was bought. Only for expenses; one fixed-height row, so nothing moves while typing.
   function renderMerch() {
     const el = $f('merchrow'); el.hidden = f.kind !== 'expense'; el.classList.toggle('keep', !!f.merchant); if (el.hidden) return;   // Simple mode hides this row unless the entry already has a merchant
-    el.innerHTML = `<span>Merchant (optional) ${f.merchSuggested && f.merchant ? '<small class="sugnote">· suggested</small>' : ''}</span><button type="button" class="acctbtn" data-e="merchpick">${f.merchant ? esc(f.merchant) : '<span class="muted">Where did you buy it? (Shopee, wet market…)</span>'} ▾</button>`;
+    // Merchant and Branch share one row (they belong together); the row keeps its height, Branch just waits until a merchant is chosen
+    el.innerHTML = `<div class="mbpair"><div class="mbcell"><span>Merchant (optional) ${f.merchSuggested && f.merchant ? '<small class="sugnote">· suggested</small>' : ''}</span><button type="button" class="acctbtn" data-e="merchpick">${f.merchant ? esc(f.merchant) : '<span class="muted">Where? (Shopee, market…)</span>'} ▾</button></div><div class="mbcell" id="branchcell"></div></div>`;
+    renderBranch();
   }
   function suggestMerchant() {
     if (f.merchTouched || existing) return;
@@ -447,16 +450,24 @@ export function openEntry(opts = {}) {
     if (f.kind !== 'expense') { el.innerHTML = ''; return; }
     if (!f.showItems) { el.innerHTML = `<button type="button" class="linkbtn split" data-e="items-on">${ic('split')} Split into items (groceries, receipts)</button>`; return; }
     el.innerHTML = `<div class="field items"><span>Items on This Receipt <small class="hint">price of one, then tap + for more of the same</small></span>
+      <div class="chips itemsugg" id="itemsugg" aria-label="Items you often add"></div><datalist id="itemnames">${knownItemNames(get()).map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
       <div id="itemlist">${f.items.map((it, i) => `<div class="item" data-i="${i}">
-        <input class="in-n" placeholder="Item" value="${esc(it.n)}" aria-label="Item name">
-        <input class="in-a" inputmode="decimal" placeholder="0.00" value="${esc(it.amt)}" aria-label="Price of one">
-        <button type="button" class="iconbtn" data-e="item-del" data-v="${i}" aria-label="Remove item">${ic('x')}</button>
+        <input class="in-n" list="itemnames" autocomplete="off" placeholder="Item" value="${esc(it.n)}" aria-label="Item name">
         <select class="in-c" aria-label="Item category"><option value="">Same as above</option>${catOptions(it.cat, 'expense')}</select>
+        <button type="button" class="iconbtn" data-e="item-del" data-v="${i}" aria-label="Remove item">${ic('x')}</button>
+        <input class="in-a" inputmode="decimal" placeholder="0.00" value="${esc(it.amt)}" aria-label="Price of one">
         <div class="qty" role="group" aria-label="Quantity"><button type="button" data-e="item-q" data-v="${i}:-1" aria-label="One less">−</button><b>${it.q > 0 ? it.q : 1}</b><button type="button" data-e="item-q" data-v="${i}:1" aria-label="One more">+</button></div>
         <small class="muted iline">${it.q > 1 ? `${it.q} × ${esc(it.amt || 0)} = ${esc(String(lineOf(it)))}` : ''}</small></div>`).join('')}</div>
       <div class="itemfoot"><button type="button" class="linkbtn" data-e="item-add">+ Add item</button><span id="itemleft"></span></div></div>`;
     el.querySelectorAll('select.in-c').forEach((sel) => enhanceSelect(sel, { title: 'Category', addLabel: 'Add a new category', onAdd: () => openCategoryForm({ kind: 'expense', onDone: (c) => { sel.add(new Option(c.name, c.id)); sel.value = c.id; sel.dispatchEvent(new Event('change', { bubbles: true })); } }) }));
-    updateItemLeft();
+    updateItemLeft(); fillItemSugg();
+  }
+  // chips of items you usually list for this "What is it?" (or category); tap one to add it with its usual category
+  function fillItemSugg() {
+    const el = $f('itemsugg'); if (!el) return;
+    const list = itemsForWhat(get(), f.name, f.cat, f.items.map((x) => x.n));
+    el.innerHTML = list.length ? `<small class="hint">${f.name.trim() ? `Often on "${esc(f.name.trim())}"` : 'Often listed'}:</small>` + list.map((s, k) => `<button type="button" class="chip" data-e="item-sug" data-v="${k}">+ ${esc(s.n)}</button>`).join('') : '';
+    el._list = list;
   }
   function updateItemLeft() {
     const el = $f('itemleft'); if (!el) return;
@@ -664,8 +675,9 @@ export function openEntry(opts = {}) {
   const updCb = () => { const c = $f('cbcalc'); if (c) c.textContent = cbText(); };
   // Branch of the merchant (Life > Tsukagoshi): below the keypad, shown once a merchant is chosen
   function renderBranch() {
-    const el = $f('branchrow'); if (!el) return; el.hidden = f.kind !== 'expense' || !f.merchant; if (el.hidden) return;
-    el.innerHTML = `<span>Branch of ${esc(f.merchant)} (optional)</span><button type="button" class="acctbtn" data-e="branchpick">${f.branch ? esc(f.branch) : '<span class="muted">Which branch?</span>'} ▾</button>`;
+    const bh = $f('branchrow'); if (bh) bh.hidden = true;   // the old separate row is no longer used
+    const el = form.querySelector('#branchcell'); if (!el) return;
+    el.innerHTML = f.merchant ? `<span>Branch (optional)</span><button type="button" class="acctbtn" data-e="branchpick">${f.branch ? esc(f.branch) : '<span class="muted">Which branch?</span>'} ▾</button>` : `<span>Branch (optional)</span><button type="button" class="acctbtn" disabled><span class="muted">Pick a merchant first</span></button>`;
   }
   async function pickBranch() {
     const { branchesOf } = await import('./merchantset.js'); const list = branchesOf(get(), f.merchant);
@@ -785,7 +797,7 @@ export function openEntry(opts = {}) {
     else if (id === 'f-from' || id === 'f-to') { if (id === 'f-from') f.from = e.target.value; else f.to = e.target.value; tripName(); tripChips(); }
     else if (id === 'f-place') { f.place = e.target.value.trim(); if (f.loc) saveAddress(f.loc, f.place); f.locUi.msg = f.place ? 'Address saved for this place.' : ''; }
     else if (id === 'f-loc') { const q = parsePt(e.target.value); if (q) { f.loc = q; f.place = ''; fillAddr(); f.locUi.msg = 'Saved with this entry.'; if (!f.place) setTimeout(getAddr, 0); } else if (!e.target.value.trim()) { f.loc = null; f.locUi.msg = 'Location removed.'; } else f.locUi.msg = 'Type latitude and longitude, like 35.53, 139.69.'; renderLoc(); }
-    else if (id === 'f-what') { f.name = e.target.value; renderNameHelp(); if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('#countsrow')) renderCounts(); suggestAcct(); suggestMerchant(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
+    else if (id === 'f-what') { f.name = e.target.value; if (f.showItems) fillItemSugg(); renderNameHelp(); if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('#countsrow')) renderCounts(); suggestAcct(); suggestMerchant(); refreshPred(); renderSugg(); if (f.kind !== 'transfer' && !f.qtabManual) renderFreq(); }
     else if (id === 'f-fx') { f.fx = e.target.value; f.fxMode = 'rate'; updateFxVal(); }
     else if (id === 'f-peso') { f.peso = e.target.value; f.fxMode = 'peso'; updateFxVal(); }
     else if (id === 'f-crate') { f.cRate = e.target.value; syncCross('rate'); }
@@ -797,9 +809,10 @@ export function openEntry(opts = {}) {
       if (e.target.classList.contains('in-n')) {
         it.n = e.target.value;
         if (!it.catTouched) {
-          const p = predict(modelFor('expense'), it.n, num(it.amt) || 0, {});
-          const sel = row.querySelector('.in-c');
-          if (p.cats[0] && it.n.trim().length > 2 && p.conf > 0.35) { it.cat = p.cats[0].id; sel.value = it.cat; } else { it.cat = ''; sel.value = ''; }
+          const sel = row.querySelector('.in-c'); let c = '';
+          const g = it.n.trim().length > 1 ? guessItemCat(get(), it.n) : null;           // what you chose before, then a word list (Meat, Rice, Coke...)
+          if (g) c = g.cat; else { const p = predict(modelFor('expense'), it.n, num(it.amt) || 0, {}); if (p.cats[0] && it.n.trim().length > 2 && p.conf > 0.35) c = p.cats[0].id; }
+          if (c !== it.cat) { it.cat = c; f._autoCat = true; sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); f._autoCat = false; }
         }
       } else if (e.target.classList.contains('in-a')) { it.amt = e.target.value; updateItemLeft(); const ln = row.querySelector('.iline'); if (ln) ln.textContent = it.q > 1 ? `${it.q} × ${it.amt || 0} = ${lineOf(it)}` : ''; }
     }
@@ -835,7 +848,7 @@ export function openEntry(opts = {}) {
       else await choose(cur);
     }
     else if (id === 'f-feecat') { f.feeCat = e.target.value; f.feeTouched = true; f.feeSuggested = false; renderFee(); }
-    else if (e.target.classList.contains('in-c')) { const it = f.items[+e.target.closest('.item').dataset.i]; it.cat = e.target.value; it.catTouched = true; }
+    else if (e.target.classList.contains('in-c')) { const it = f.items[+e.target.closest('.item').dataset.i]; it.cat = e.target.value; if (!f._autoCat) it.catTouched = true; }
     else if (e.target.classList.contains('oth-who')) { const i = +e.target.closest('.othrow').dataset.i; if (e.target.value === '__new') othNew(i); else { f.others.rows[i].who = e.target.value; othSum(); } }
     else if (e.target.classList.contains('oth-me')) { f.others.me = !e.target.checked; othSum(); }
     else if (e.target.classList.contains('cnt-g')) { const c = f.counts[+e.target.closest('.cnt').dataset.i]; c.g = e.target.value; const inp = e.target.closest('.cnt').querySelector('.cnt-n'); if (inp) inp.placeholder = c.g && unitOf(get(), c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'; }
@@ -908,7 +921,8 @@ export function openEntry(opts = {}) {
       case 'allcats': openCategoryPicker(f.kind, (id) => { pickCat(id); renderCats(); }); break;
       case 'items-on': f.showItems = true; if (!f.items.length) f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); break;
       case 'item-add': f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); form.querySelectorAll('.item .in-n')[f.items.length - 1].focus(); break;
-      case 'item-del': f.items.splice(+v, 1); renderItems(); break;
+      case 'item-sug': { const s = ($f('itemsugg')._list || [])[+v]; if (!s) break; const blank = f.items.findIndex((x) => !x.n && !x.amt); const row = { n: s.n, amt: '', q: 1, cat: s.cat || '', catTouched: !!s.cat }; if (blank >= 0) f.items[blank] = row; else f.items.push(row); renderItems(); break; }
+      case 'item-del': f.items.splice(+v, 1); if (!f.items.length) f.showItems = false; renderItems(); break;   // removing the last row closes the section, back to the Split into items link
       case 'item-q': { const [i, dq] = v.split(':').map(Number), it = f.items[i]; if (it) { it.q = Math.max(1, Math.min(99, (it.q > 0 ? it.q : 1) + dq)); renderItems(); } break; }
       case 'parts-use': { const pts = splitParts(f.name) || []; f.parts = pts; f.counts = countsFromParts(get(), pts); f.showCounts = true; renderCounts(); const open = f.counts.filter((c) => !c.g).length; toast(open ? `Pick a group for ${open} of them.` : 'Counted by group. Check it, then save.'); break; }
       case 'parts-off': f.partsOff = f.name; f.parts = []; renderCounts(); break;
@@ -930,7 +944,7 @@ export function openEntry(opts = {}) {
       case 'loc-edit': f.locUi.edit = !f.locUi.edit; renderLoc(); break;
       case 'counts-on': f.showCounts = true; if (!f.counts.length) f.counts.push({ g: '', n: '' }); renderCounts(); break;
       case 'count-add': f.counts.push({ g: '', n: '' }); renderCounts(); break;
-      case 'count-del': f.counts.splice(+v, 1); renderCounts(); break;
+      case 'count-del': f.counts.splice(+v, 1); if (!f.counts.length) f.showCounts = false; renderCounts(); break;
       case 'save': save(false); break;
       case 'save-again': save(true); break;
       case 'del': {

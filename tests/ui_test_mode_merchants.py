@@ -1,0 +1,41 @@
+# v13.5: Simple/Advanced mode saved at first run and in Settings; Merchants settings (add, rename, join, remove)
+from playwright.sync_api import sync_playwright
+res=[]
+def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
+G="(async()=>{const c=await import('/js/core.js');return c.get().settings.mode})()"
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':390,'height':844},has_touch=True,service_workers='block'); errs=[]
+    pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('[data-act=wz-new]')
+    pg.tap('[data-act=wz-new]'); pg.wait_for_timeout(300)
+    t=pg.inner_text('#view'); ok('mode choice shown first, with both options', 'How do you want Sukli' in t and pg.locator('[data-act=wz-lvl]').count()==2 and 'change this any time' in t)
+    pg.tap('[data-act=wz-lvl][data-v=simple]'); pg.wait_for_timeout(300); ok('then question 1 of 5', 'Question 1 of 5' in pg.inner_text('#view'))
+    pg.tap('[data-act=wz-back]'); pg.wait_for_timeout(300); ok('back from question 1 returns to the mode choice', 'How do you want Sukli' in pg.inner_text('#view'))
+    pg.tap('[data-act=wz-lvl][data-v=simple]'); pg.wait_for_timeout(300)
+    pg.tap('#wz-what'); pg.keyboard.type('lunch'); pg.tap('#wz-next'); pg.wait_for_timeout(300)
+    pg.tap('#wz-amt'); pg.keyboard.type('500'); pg.tap('#wz-next'); pg.wait_for_timeout(300)
+    pg.tap('[data-act=wz-pay][data-v=cash]'); pg.wait_for_timeout(300); pg.tap('#wz-next'); pg.wait_for_timeout(300)
+    pg.tap('#wz-now'); pg.keyboard.type('1500'); pg.tap('#wz-next'); pg.wait_for_timeout(300)
+    pg.tap('[data-act=wz-when][data-v="0"]'); pg.wait_for_timeout(300); pg.tap('#wz-next'); pg.wait_for_timeout(900)
+    ok('Simple saved after the first entry', pg.evaluate(G)=='simple')
+    pg.goto('http://localhost:8123/#/settings'); pg.wait_for_selector('#merch-set',state='attached'); pg.wait_for_timeout(300)
+    pg.evaluate("document.querySelectorAll('details.sgroup').forEach(d=>d.open=true)")
+    ok('Settings shows Simple selected', pg.locator('[data-act=set-mode][data-v=simple].on').count()==1)
+    pg.tap('[data-act=set-mode][data-v=advanced]'); pg.wait_for_timeout(500); ok('switch to Advanced saved, nothing lost', pg.evaluate(G)=='advanced' and pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.get().txs.filter(t=>!t.deleted).length})()")==1)
+    pg.evaluate("document.querySelectorAll('details.sgroup').forEach(d=>d.open=true)")
+    # merchants
+    pg.tap('[data-act=mer-add]'); pg.wait_for_selector('.sheet form'); pg.fill('input[name=m]','shopee'); pg.tap('.sheet form .btn:not(.ghost)'); pg.wait_for_timeout(500)
+    ml=pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.get().settings.merchants})()"); ok('added merchant is Title-Cased and saved: %s'%ml, ml==['Shopee'])
+    pg.evaluate("document.querySelectorAll('details.sgroup').forEach(d=>d.open=true)"); ok('shown in the list as not used yet', 'Added by you' in pg.inner_text('#merch-set'))
+    # use it on an entry, rename, join
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{const t=d.txs.find(x=>!x.deleted);t.merchant='Shopee';c.stamp(t)})})()"); pg.wait_for_timeout(400)
+    pg.evaluate("document.querySelectorAll('details.sgroup').forEach(d=>d.open=true)")
+    pg.tap('[data-act=mer-edit]'); pg.wait_for_selector('.sheet form'); pg.fill('input[name=m]','Shopee PH'); pg.tap('.sheet form .btn:not(.ghost)'); pg.wait_for_timeout(600)
+    mm=pg.evaluate("(async()=>{const c=await import('/js/core.js');return [c.get().txs.find(x=>!x.deleted).merchant,c.get().settings.merchants]})()"); ok('rename changes the entry and the list: %s'%mm, mm[0]=='Shopee PH' and mm[1]==['Shopee PH'])
+    pg.evaluate("document.querySelectorAll('details.sgroup').forEach(d=>d.open=true)")
+    pg.tap('[data-act=mer-edit]'); pg.wait_for_selector('.sheet form'); pg.tap('[data-rm]'); pg.wait_for_timeout(400)
+    pg.tap('[data-yes]')
+    pg.wait_for_timeout(600)
+    mm=pg.evaluate("(async()=>{const c=await import('/js/core.js');return [c.get().txs.find(x=>!x.deleted).merchant,c.get().settings.merchants||null]})()"); ok('remove clears the entry and the list: %s'%mm, mm[0] is None and not mm[1])
+    ok('no errors', not errs)
+print('fails=%d'%len([r for r in res if not r]))

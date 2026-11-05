@@ -12,7 +12,8 @@ import { pendingReview } from './tradereview.js';
 const live = (l) => l.filter((x) => !x.deleted);
 // The Investments tab can show its values in its own currency (Settings: invCur), apart from the home currency used elsewhere.
 let invC = HOME, invK = 1;
-const money = (n) => fmt(n * invK, invC);
+const f2 = (n, cur, o = {}) => fmt(n, cur, { ...o, dp2: true });   // Investments cards: money always shows exactly 2 decimals
+const money = (n) => f2(n * invK, invC);
 function setInvCur(db) { const c = (db.settings && db.settings.invCur) || HOME, r = c === HOME ? 1 : homeFx(db, c); if (c !== HOME && r > 0) { invC = c; invK = 1 / r; } else { invC = HOME; invK = 1; } }
 export const inInvest = (a) => !a.archived && (a.type === 'crypto' || a.type === 'invest' || a.invtab);
 const val = (db, a, v) => v * (homeFx(db, a.cur) || 0);
@@ -65,13 +66,13 @@ ACT['inv-group'] = (el) => { try { localStorage.setItem('sukli-invgroup', el.dat
 const COINS = ['USDT', 'USDC', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'TON', 'ADA'];
 
 // the same amount in the other currency (USD, or the home currency when the tab already shows USD)
-function altOf(db, n) { const other = invC === 'USD' ? HOME : 'USD', r = other === HOME ? 1 : homeFx(db, other); return r > 0 && other !== invC ? `${fmt(n / r, other)}` : ''; }
+function altOf(db, n) { const other = invC === 'USD' ? HOME : 'USD', r = other === HOME ? 1 : homeFx(db, other); return r > 0 && other !== invC ? `${f2(n / r, other)}` : ''; }
 const emptyOn = () => { try { return localStorage.getItem('sukli-invempty') === '1'; } catch { return false; } };
 ACT['inv-empty'] = () => { try { localStorage.setItem('sukli-invempty', emptyOn() ? '0' : '1'); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
 // a second line with the same value in USD (or in the home currency when the tab already shows USD)
 function eqLine(db, total) {
   const other = invC === 'USD' ? HOME : 'USD', r = other === HOME ? 1 : homeFx(db, other); if (!(r > 0) || other === invC) return '';
-  return `<small class="muted">≈ ${fmt(total / r, other)} ${esc(other)}</small>`;
+  return `<small class="muted">≈ ${f2(total / r, other)} ${esc(other)}</small>`;
 }
 ACT['inv-cur'] = () => {
   const db = get(), cur = (db.settings && db.settings.invCur) || HOME, ok = (c) => c === HOME || homeFx(db, c) > 0, common = [...new Set([HOME, 'USD', 'USDT', 'JPY', 'KRW', 'PHP', 'EUR', 'HKD'])].filter(ok);
@@ -125,24 +126,24 @@ ACT['inv-graph'] = () => {
     const t0 = Date.parse(pts[0].d), t1 = Date.parse(pts[pts.length - 1].d) || t0 + 1, X = (d) => PL + ((Date.parse(d) - t0) / ((t1 - t0) || 1)) * (W - PL - PR), Y = (v) => PT + (1 - (v - y0) / (y1 - y0)) * (H - PT - PB);
     const line = pts.map((p, i) => `${i ? 'L' : 'M'}${X(p.d).toFixed(1)} ${Y(p.v * invK).toFixed(1)}`).join(''), area = `${line}L${X(pts[pts.length - 1].d).toFixed(1)} ${H - PB}L${X(pts[0].d).toFixed(1)} ${H - PB}Z`;
     const first = pts[0], last = pts[pts.length - 1], ch = (last.v - first.v) * invK, pc = first.v ? (last.v - first.v) / Math.abs(first.v) * 100 : 0;
-    const gridY = [0, 0.5, 1].map((f) => { const v = y0 + (y1 - y0) * f; return `<line x1="${PL}" x2="${W - PR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--rule)" stroke-width="1"/><text x="${PL + 2}" y="${(Y(v) - 3).toFixed(1)}" class="ivax">${esc(fmt(v, invC))}</text>`; }).join('');
+    const gridY = [0, 0.5, 1].map((f) => { const v = y0 + (y1 - y0) * f; return `<line x1="${PL}" x2="${W - PR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--rule)" stroke-width="1"/><text x="${PL + 2}" y="${(Y(v) - 3).toFixed(1)}" class="ivax">${esc(f2(v, invC))}</text>`; }).join('');
     cur = pts[pts.length - 1];
     box.innerHTML = `<div class="ivseg seg sm small" role="group" aria-label="Range">${RANGES.map(([l]) => `<button type="button" data-rg="${l}" class="${l === range ? 'on' : ''}" aria-pressed="${l === range}">${l}</button>`).join('')}</div>
-      <div class="ivread"><b id="ivv">${esc(fmt(last.v * invK, invC))}</b> <small id="ivd" class="muted">${esc(last.d)}</small><br><small id="ivc" class="${ch >= 0 ? 'cg' : 'cr'}">${ch >= 0 ? '+' : '−'}${esc(fmt(Math.abs(ch), invC))} (${pc >= 0 ? '+' : '−'}${Math.abs(pc).toFixed(1)}%) since ${esc(first.d)}</small></div>
+      <div class="ivread"><b id="ivv">${esc(f2(last.v * invK, invC))}</b> <small id="ivd" class="muted">${esc(last.d)}</small><br><small id="ivc" class="${ch >= 0 ? 'cg' : 'cr'}">${ch >= 0 ? '+' : '−'}${esc(f2(Math.abs(ch), invC))} (${pc >= 0 ? '+' : '−'}${Math.abs(pc).toFixed(2)}%) since ${esc(first.d)}</small></div>
       <svg id="ivsvg" class="ivchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Market value over time" style="touch-action:pan-y">${gridY}<path d="${area}" fill="var(--iv-rec)" opacity=".12"/><path d="${line}" fill="none" stroke="var(--iv-rec)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
         ${pts.length <= 60 ? pts.map((p) => `<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v * invK).toFixed(1)}" r="2.6" fill="var(--sheet)" stroke="var(--iv-rec)" stroke-width="1.6"/>`).join('') : ''}
         <g id="ivx" hidden><line id="ivxl" y1="${PT}" y2="${H - PB}" stroke="var(--ink2)" stroke-dasharray="3 3"/><circle id="ivxc" r="4.5" fill="var(--iv-rec)" stroke="var(--sheet)" stroke-width="2"/></g>
         <text x="${PL}" y="${H - 6}" class="ivax">${esc(first.d)}</text><text x="${W - PR}" y="${H - 6}" text-anchor="end" class="ivax">${esc(last.d)}</text></svg>
       <small class="muted">Touch or drag the graph to read a day. Each point is a day something was recorded (an entry, or a price you set, traded at or that loaded live): what you held that day times the last price recorded by then. Nothing is estimated between points. Prices in other currencies use today’s exchange rate.</small>
-      <ul class="calfacts"><li><span>Highest</span><b>${esc(fmt(Math.max(...vals), invC))}</b></li><li><span>Lowest</span><b>${esc(fmt(Math.min(...vals), invC))}</b></li><li><span>Points</span><b>${pts.length}</b></li></ul>
+      <ul class="calfacts"><li><span>Highest</span><b>${esc(f2(Math.max(...vals), invC))}</b></li><li><span>Lowest</span><b>${esc(f2(Math.min(...vals), invC))}</b></li><li><span>Points</span><b>${pts.length}</b></li></ul>
       <div class="btnrow"><button type="button" class="btn" data-x>Close</button></div>`;
     box.querySelectorAll('[data-rg]').forEach((b) => { b.onclick = () => { range = b.dataset.rg; draw(); }; });
     box.querySelector('[data-x]').onclick = () => s.close();
     const svg = box.querySelector('#ivsvg'), g = box.querySelector('#ivx'), xl = box.querySelector('#ivxl'), xc = box.querySelector('#ivxc');
     const at = (ev) => { const r = svg.getBoundingClientRect(), px = ((ev.clientX - r.left) / r.width) * W; let best = pts[0], bd = 1e9; for (const p of pts) { const d = Math.abs(X(p.d) - px); if (d < bd) { bd = d; best = p; } }
       g.removeAttribute('hidden'); xl.setAttribute('x1', X(best.d)); xl.setAttribute('x2', X(best.d)); xc.setAttribute('cx', X(best.d)); xc.setAttribute('cy', Y(best.v * invK));
-      box.querySelector('#ivv').textContent = fmt(best.v * invK, invC); box.querySelector('#ivd').textContent = best.d;
-      const c2 = (best.v - first.v) * invK, p2 = first.v ? (best.v - first.v) / Math.abs(first.v) * 100 : 0, el = box.querySelector('#ivc'); el.className = c2 >= 0 ? 'cg' : 'cr'; el.textContent = `${c2 >= 0 ? '+' : '−'}${fmt(Math.abs(c2), invC)} (${p2 >= 0 ? '+' : '−'}${Math.abs(p2).toFixed(1)}%) since ${first.d}`; };
+      box.querySelector('#ivv').textContent = f2(best.v * invK, invC); box.querySelector('#ivd').textContent = best.d;
+      const c2 = (best.v - first.v) * invK, p2 = first.v ? (best.v - first.v) / Math.abs(first.v) * 100 : 0, el = box.querySelector('#ivc'); el.className = c2 >= 0 ? 'cg' : 'cr'; el.textContent = `${c2 >= 0 ? '+' : '−'}${f2(Math.abs(c2), invC)} (${p2 >= 0 ? '+' : '−'}${Math.abs(p2).toFixed(2)}%) since ${first.d}`; };
     svg.addEventListener('pointerdown', at); svg.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' || e.buttons) at(e); });
   };
   draw();
@@ -166,7 +167,7 @@ ACT['inv-pie'] = () => {
     const all = distribution(db, mode), total = all.reduce((t, x) => t + x.v, 0), box = s.el.querySelector('#ivp');
     const top = all.slice(0, 8), rest = all.slice(8), slices = top.map((x, i) => ({ ...x, c: mode === 'platform' ? platColor(x.name) : PIE_COLORS[i % PIE_COLORS.length] }));
     if (rest.length) slices.push({ name: 'Everything else', v: rest.reduce((t, x) => t + x.v, 0), list: rest.flatMap((x) => x.list), c: PIE_COLORS[8], other: true });
-    const pct = (v) => (total ? Math.round((v / total) * 100) : 0), C = 2 * Math.PI * 52; let acc = 0;
+    const pct = (v) => (total ? (v / total * 100).toFixed(2) : "0.00"), C = 2 * Math.PI * 52; let acc = 0;
     const arcs = slices.map((x) => { const len = total ? (x.v / total) * C : 0, d = Math.max(0, len - 1.5);
       const el = `<circle class="slice ${sel === x.name ? 'picked' : ''}" data-pk="${esc(x.name)}" data-tip="${esc(`${x.name}: ${money(x.v)} (${pct(x.v)}%)`)}" cx="70" cy="70" r="52" fill="none" stroke="${x.c}" stroke-width="${sel === x.name ? 32 : 26}" stroke-dasharray="${d.toFixed(2)} ${(C - d).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 70 70)"></circle>`; acc += len; return el; }).join('');
     const labels = pieLabels(slices.map((x) => (total ? x.v / total : 0))), cur = slices.find((x) => x.name === sel);
@@ -194,7 +195,7 @@ export function investments(db) {
   const exSum = (l) => l.reduce((s, a) => s + val(db, a, bal.get(a.id) || 0), 0);
   const qty = (n, cur) => `${n.toLocaleString('en-US', { maximumFractionDigits: Math.max(2, Math.min(8, (CUR[cur] || { dec: 2 }).dec)) })} ${cur}`;
   const paidTxt = (a) => { const p = book.pos.get(a.id); if (!p || !(p.qty > 0)) return ''; const e = Object.entries(p.paid || {}).filter(([, v]) => v > 0); return e.length ? ` · paid ${e.map(([c, v]) => qty(v, c)).join(' + ')}` : ''; };
-  const basis = (a) => { const p = book.pos.get(a.id), px = homeFx(db, a.cur) || 0; if (!p || !(p.qty > 0) || !(p.cost > 0) || !px) return ''; const un = p.qty * px - p.cost; return ` · cost ${money(p.cost)} · <span class="${un >= 0 ? 'cg' : 'cr'}">${un >= 0 ? '+' : '−'}${money(Math.abs(un))} (${(un / p.cost * 100).toFixed(1)}%)</span>`; };
+  const basis = (a) => { const p = book.pos.get(a.id), px = homeFx(db, a.cur) || 0; if (!p || !(p.qty > 0) || !(p.cost > 0) || !px) return ''; const un = p.qty * px - p.cost; return ` · cost ${money(p.cost)} · <span class="${un >= 0 ? 'cg' : 'cr'}">${un >= 0 ? '+' : '−'}${money(Math.abs(un))} (${(un / p.cost * 100).toFixed(2)}%)</span>`; };
   const yr = String(new Date().getFullYear()), thisYear = book.realized.filter((x) => x.date.startsWith(yr)).reduce((q, x) => q + x.gain, 0), nm = (id) => (db.accounts.find((a) => a.id === id) || { name: '?' }).name;
   // Unrealized profit (still held, on paper), Realized profit (locked in by selling) and Earned (interest paid by Earn products). Earned counts as realized income.
   const earnedTx = db.txs.filter((t) => !t.deleted && t.earnDay && t.kind === 'income'), eVal = (t) => (t.amount || 0) * (t.fx || homeFx(db, t.cur) || 1);
@@ -224,7 +225,7 @@ export function investments(db) {
   if (crypto.length && ui.collapsed['i-crypto'] === undefined) ui.collapsed['i-crypto'] = byEx.size >= 3;
   const cryptoCard = crypto.length ? `<div class="ivgroup">${coll('i-crypto', `Crypto <small class="muted gsum">${money(exSum(crypto))} · ${byEx.size} ${byEx.size === 1 ? 'place' : 'places'}</small>`, exHtml)}</div>` : exHtml;
   const otherHtml = other.length ? coll('i-other', `Bonds, Savings, and Other Investments <small class="muted gsum">${money(exSum(other))}</small>`, `<div class="rows plain">${other.sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0)).map((a) => { const b = bal.get(a.id) || 0;
-    return `<button class="row acct" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:var(--line)">${esc((a.name || '?').slice(0, 1))}</i><span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(a.exchange || (a.type === 'invest' ? 'Investment' : 'Other product'))} · ${fmt(b, a.cur)}</small></span><span class="ramt"><b>${priced(db, a) ? money(val(db, a, b)) : '<small class="muted">no rate</small>'}</b></span></button>`; }).join('')}</div>`, '') : '';
+    return `<button class="row acct" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:var(--line)">${esc((a.name || '?').slice(0, 1))}</i><span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(a.exchange || (a.type === 'invest' ? 'Investment' : 'Other product'))} · ${f2(b, a.cur)}</small></span><span class="ramt"><b>${priced(db, a) ? money(val(db, a, b)) : '<small class="muted">no rate</small>'}</b></span></button>`; }).join('')}</div>`, '') : '';
   setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
   return `<div class="invpage">${hdr('Investments', `<button class="btn sm iv-rec" data-act="inv-add">Record activity</button> <button class="btn sm ghost iv-add" data-act="inv-new">Add asset</button>${pendingReview(db).length ? ` <button class="btn sm ghost" data-act="trade-review">Review trades (${pendingReview(db).length})</button>` : ''} <button class="btn sm ghost curchip" data-act="inv-cur" aria-label="Show Investments in ${esc(invC)}. Tap to change." title="Currency shown in Investments">${esc(invC)} ▾</button>`)}
     <section class="nwcard one"><div class="nwmain nwsplit"><div class="nwl"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${byEx.size} ${mode === 'type' ? 'type' : mode === 'risk' ? 'group' : 'place'}${byEx.size === 1 ? '' : 's'} · ${other.length} other</small></div><button type="button" class="ivgraph" data-act="inv-graph" aria-label="Open the graph of your market value over time"><span id="ivmini" class="ivmini"></span></button><small class="updated">${updatedLine(db)}</small></div></section>
@@ -242,7 +243,7 @@ function tickerCard(db, tickers) {
   const used = new Set(db.accounts.filter((x) => !x.deleted).map((x) => x.cur)), list = Object.entries(tickers).filter(([k, t]) => used.has(k) && (t.price > 0 || t.live || t.history));
   if (!list.length) return '';
   return coll('i-tick', 'Tickers and Prices <Small Class="muted Gsum">tap One for Its History</small>', `<ul class="calfacts">${list.map(([k, t]) => { const a = db.accounts.find((x) => !x.deleted && x.cur === k), now = a ? priceNow(db, a) : null;
-    return `<li><span><button type="button" class="linkbtn" data-act="inv-ticker" data-sym="${esc(k)}"><b>${esc(t.ticker || k)}</b></button> <small class="muted">${esc(t.name || '')}${t.market ? ' · ' + esc(t.market) : ''}</small><br><small class="muted">${a ? esc(priceStamp(db, a)) : ''}</small></span><b>${now ? fmt(now.v, now.quote) : (t.price > 0 ? fmt(t.price, t.quote) : 'no price')} ${t.live || t.cgId ? '' : `<button type="button" class="linkbtn" data-act="inv-price" data-sym="${esc(k)}">${t.price > 0 ? 'Update' : 'Set price'}</button>`}</b></li>`; }).join('')}</ul>
+    return `<li><span><button type="button" class="linkbtn" data-act="inv-ticker" data-sym="${esc(k)}"><b>${esc(t.ticker || k)}</b></button> <small class="muted">${esc(t.name || '')}${t.market ? ' · ' + esc(t.market) : ''}</small><br><small class="muted">${a ? esc(priceStamp(db, a)) : ''}</small></span><b>${now ? f2(now.v, now.quote) : (t.price > 0 ? f2(t.price, t.quote) : 'no price')} ${t.live || t.cgId ? '' : `<button type="button" class="linkbtn" data-act="inv-price" data-sym="${esc(k)}">${t.price > 0 ? 'Update' : 'Set price'}</button>`}</b></li>`; }).join('')}</ul>
     <p class="hint">Coins with a price feed update by themselves when you are online. For shares and other assets, enter the price from time to time (or trade): each entry is kept so you can see how it moved.</p>`, '');
 }
 ACT['inv-price'] = async (el) => {
@@ -400,10 +401,10 @@ function performanceCard(db, bal, book, items) {
   if (!rows.length) return '';
   const known = rows.filter((r) => r.cost > 0), unk = rows.filter((r) => !(r.cost > 0)), tc = known.reduce((x, r) => x + r.cost, 0), tv = known.reduce((x, r) => x + r.v, 0), mx = Math.max(1, ...known.map((r) => Math.max(r.cost, r.v)));
   const nm = (a) => ((db.settings.tickers || {})[a.cur] || {}).ticker || a.cur;
-  const bar = (r) => `<div class="perf"><div class="perfhead"><b>${esc(nm(r.a))}</b> <small class="muted">${esc(r.a.exchange || '')}</small><span class="${r.v >= r.cost ? 'cg' : 'cr'}">${r.v >= r.cost ? '+' : '−'}${money(Math.abs(r.v - r.cost))} (${((r.v - r.cost) / r.cost * 100).toFixed(1)}%)</span></div>
-    <div class="perfbars"><i class="pb paid" style="width:${(r.cost / mx * 100).toFixed(1)}%"></i><small>paid ${money(r.cost)}${r.own ? ` (your figure) <button type="button" class="linkbtn" data-act="inv-cost" data-id="${r.a.id}">Change</button> <button type="button" class="linkbtn rmx" data-act="inv-cost-clear" data-id="${r.a.id}">Remove</button>` : ''}</small></div>
-    <div class="perfbars"><i class="pb now ${r.v >= r.cost ? 'up' : 'down'}" style="width:${(r.v / mx * 100).toFixed(1)}%"></i><small>now ${money(r.v)}</small></div></div>`;
-  return coll('i-perf', `Performance <small class="muted gsum">${tc > 0 ? `${tv >= tc ? '+' : '−'}${money(Math.abs(tv - tc))} (${((tv - tc) / tc * 100).toFixed(1)}%)` : ''}</small>`,
+  const bar = (r) => `<div class="perf"><div class="perfhead"><b>${esc(nm(r.a))}</b> <small class="muted">${esc(r.a.exchange || '')}</small><span class="${r.v >= r.cost ? 'cg' : 'cr'}">${r.v >= r.cost ? '+' : '−'}${money(Math.abs(r.v - r.cost))} (${((r.v - r.cost) / r.cost * 100).toFixed(2)}%)</span></div>
+    <div class="perfbars"><i class="pb paid" style="width:${(r.cost / mx * 100).toFixed(2)}%"></i><small>paid ${money(r.cost)}${r.own ? ` (your figure) <button type="button" class="linkbtn" data-act="inv-cost" data-id="${r.a.id}">Change</button> <button type="button" class="linkbtn rmx" data-act="inv-cost-clear" data-id="${r.a.id}">Remove</button>` : ''}</small></div>
+    <div class="perfbars"><i class="pb now ${r.v >= r.cost ? 'up' : 'down'}" style="width:${(r.v / mx * 100).toFixed(2)}%"></i><small>now ${money(r.v)}</small></div></div>`;
+  return coll('i-perf', `Performance <small class="muted gsum">${tc > 0 ? `${tv >= tc ? '+' : '−'}${money(Math.abs(tv - tc))} (${((tv - tc) / tc * 100).toFixed(2)}%)` : ''}</small>`,
     `${known.sort((x, y) => y.v - x.v).map(bar).join('') || '<p class="hint">Buy through Buy / sell, or tell Sukli what you paid, to compare.</p>'}
     ${unk.length ? `<p class="hint">No known cost: ${unk.slice(0, 8).map((r) => `${esc((r.a.exchange ? r.a.exchange + ' ' : '') + nm(r.a))} <button type="button" class="linkbtn" data-act="inv-cost" data-id="${r.a.id}">I paid…</button>`).join(', ')}${unk.length > 8 ? ` and ${unk.length - 8} more` : ''}</p>` : ''}
     <p class="hint">Value uses today’s price: live for coins with a price feed, otherwise the price you last set or traded at (tap a ticker below to update it and see its history).</p>`, '');
@@ -415,7 +416,7 @@ ACT['inv-cost'] = async (el) => {
 };
 ACT['inv-cost-clear'] = async (el) => {
   const a = get().accounts.find((x) => x.id === el.dataset.id); if (!a || !a.costHome) return;
-  if (!(await confirmDialog(`Remove the figure you entered for ${a.cur} (${fmt(a.costHome, HOME)})? Performance will show it as having no known cost until you enter one or buy through Buy / sell.`, 'Remove', true))) return;
+  if (!(await confirmDialog(`Remove the figure you entered for ${a.cur} (${f2(a.costHome, HOME)})? Performance will show it as having no known cost until you enter one or buy through Buy / sell.`, 'Remove', true))) return;
   commit((d) => { const x = d.accounts.find((q) => q.id === a.id); if (x) { delete x.costHome; stamp(x); } }); toast('Removed.');
 };
 // income from investments: staking, airdrops, dividends, yield: any date, any amount
@@ -436,7 +437,7 @@ function incomeCard(db) {
   const nm = (id) => { const a = db.accounts.find((x) => x.id === id); return a ? ((db.settings.tickers || {})[a.cur] || {}).ticker || a.cur : '?'; };
   return coll('i-inc', `Investment Income <small class="muted gsum">${money(list.reduce((q, t) => q + v(t), 0))}</small>`,
     `<ul class="calfacts"><li><span>This year</span><b class="cg">${money(list.filter((t) => t.date.startsWith(yr)).reduce((q, t) => q + v(t), 0))}</b></li>${[...by.entries()].map(([k, x]) => `<li><span>${esc(k)}</span><b>${money(x)}</b></li>`).join('')}</ul>
-    <h3 class="subh">Latest</h3><ul class="calfacts">${list.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6).map((t) => `<li><span>${esc(t.date.slice(0, 10))} · ${esc(t.invIncome.type)} · ${esc(nm(t.invIncome.asset))}</span><b>${fmt(t.amount, t.cur)}</b></li>`).join('')}</ul>`, '<button type="button" class="btn sm ghost" data-act="inv-income">+ Income</button>');
+    <h3 class="subh">Latest</h3><ul class="calfacts">${list.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6).map((t) => `<li><span>${esc(t.date.slice(0, 10))} · ${esc(t.invIncome.type)} · ${esc(nm(t.invIncome.asset))}</span><b>${f2(t.amount, t.cur)}</b></li>`).join('')}</ul>`, '<button type="button" class="btn sm ghost" data-act="inv-income">+ Income</button>');
 }
 export function openIncome(pre = {}) {
   const db = get(), hold = db.accounts.filter((a) => !a.deleted && !a.archived && inInvest(a)), cash = db.accounts.filter((a) => !a.deleted && !a.archived && !isLiabilityType(a));

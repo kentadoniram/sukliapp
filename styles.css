@@ -165,14 +165,15 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--line); outl
 .sugg button { text-align: left; padding: 11px 14px; border: 0; background: none; cursor: pointer; border-bottom: 1px solid var(--rule); }
 .sugg button:last-child { border-bottom: 0; }
 .sugg small { color: var(--ink2); margin-left: 6px; }
-.items .item { display: grid; grid-template-columns: 1fr 96px 44px; gap: 8px; margin-bottom: 8px; }
-.items .item select { grid-column: 1; min-height: 40px; }
+.items .item { display: grid; grid-template-columns: 1fr 1fr 40px; gap: 8px; margin-bottom: 10px; align-items: center; }   /* row 1: Name, Category, remove; row 2: Amount with the quantity buttons beside it */
+.items .item .in-n, .items .item .in-a { min-height: 40px; min-width: 0; width: 100%; box-sizing: border-box; }
+.items .item select, .items .item .acctbtn { min-height: 40px; min-width: 0; }
 .items .item .qty { grid-column: 2 / 4; display: flex; align-items: center; justify-content: space-between; gap: 4px; border: 1px solid var(--rule, #ccc); border-radius: 10px; min-height: 40px; padding: 0 4px; }
 .items .item .qty button { width: 36px; height: 34px; border: 0; background: var(--tint, #eee); border-radius: 8px; font-size: 1.2rem; line-height: 1; color: inherit; }
 .items .item .qty b { min-width: 24px; text-align: center; }
 .items .item .iline { grid-column: 1 / 4; margin-top: -4px; }
 .items .item .iline:empty { display: none; }
-.items .item .iconbtn { grid-row: 1; grid-column: 3; align-self: center; }
+.items .item .iconbtn { align-self: center; }
 .itemfoot { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: calc(14px * var(--fs, 1)); }
 .itemfoot .ok { color: var(--in); }
 .itemfoot .off { color: var(--warn); font-weight: 600; }
@@ -1268,3 +1269,12 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 .evw .evtop h3 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
 .evw .calfacts b { text-align: right; overflow-wrap: anywhere; }
 .awaynow { margin: 6px 0 0; }
+.mbpair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mbcell { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.mbcell > span { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mbcell .acctbtn { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Paid for others: the amount / percent box is the same size and look as the main Amount box */
+.othrow .oth-n { min-height: 62px; box-sizing: border-box; font-size: calc(30px * var(--fs, 1)); font-weight: 650; letter-spacing: -.015em; padding: 0 14px; border: 1px solid var(--rule); background: var(--sheet); border-radius: 12px; text-align: left; flex: 1 1 0; min-width: 0; width: auto; }
+.othrow select.oth-who, .othrow .acctbtn { min-height: 62px; border-radius: 12px; }
+.itemsugg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 8px; }
+.itemsugg:empty { display: none; }

@@ -1,0 +1,55 @@
+# v12w: outside pie labels, in-place Bars/Pie switch, Change type shortcut, platform rename, category merge
+from playwright.sync_api import sync_playwright
+CSV='/home/claude/Transactions.csv'; res=[]
+def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':390,'height':844},service_workers='block'); errs=[]
+    pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
+    pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
+    # pie on home, with a month that has spending
+    pg.evaluate("localStorage.setItem('sukli-went','pie')")
+    pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(900)
+    while pg.locator('.coll:has([data-id=h-out]) .wentpie svg').count()==0 and pg.locator('[data-act=month][data-d="-1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="-1"]'); pg.wait_for_timeout(300)
+    pg.wait_for_timeout(600)
+    W=".coll:has([data-id=h-out]) .wentpie"
+    ok('home pie has outside labels with leader lines', pg.locator(W+' svg .slice-pct').count()>=2 and pg.locator(W+' svg .pie-lead').count()>=2)
+    ok('pie labels stay inside the drawing', pg.evaluate("""()=>{const s=document.querySelector('.coll:has([data-id=h-out]) .wentpie svg'),vb=s.viewBox.baseVal;return [...s.querySelectorAll('.slice-pct')].every(t=>{const b=t.getBBox();return b.x>=vb.x-0.5&&b.x+b.width<=vb.x+vb.width+0.5&&b.y>=vb.y-0.5&&b.y+b.height<=vb.y+vb.height+0.5})}"""))
+    ok('labels on one side do not overlap', pg.evaluate("""()=>{const t=[...document.querySelectorAll('.coll:has([data-id=h-out]) .wentpie svg .slice-pct')].map(e=>e.getBBox());for(let i=0;i<t.length;i++)for(let j=i+1;j<t.length;j++){const a=t[i],c=t[j];if(a.x<c.x+c.width&&c.x<a.x+a.width&&a.y<c.y+c.height&&c.y<a.y+a.height)return false}return true}"""))
+    pg.evaluate("document.querySelector('.coll:has([data-id=h-out]) .wentpie').__mark=1; document.querySelector('.week').__m2=1")
+    pg.click('[data-act=went-mode][data-v=bars]'); pg.wait_for_timeout(300)
+    ok('Bars/Pie switch keeps the rest of Home', pg.evaluate("!!document.querySelector('.week').__m2") and pg.locator(W).count()==0)
+    pg.click('[data-act=went-mode][data-v=pie]'); pg.wait_for_timeout(300)
+    ok('switching back to pie works', pg.locator(W+' svg').count()==1)
+    # budget donut labels
+    pg.goto('http://localhost:8123/#/budget'); pg.wait_for_timeout(600)
+    while pg.locator('svg.donut .slice').count()==0 and pg.locator('[data-act=month][data-d="-1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="-1"]'); pg.wait_for_timeout(250)
+    ok('budget donut has outside labels', pg.locator('svg.donut .slice-pct').count()>=2 and pg.locator('svg.donut .pie-lead').count()>=2)
+    # change type
+    pg.evaluate("""(async()=>{const m=await import('/js/core.js');m.commit(d=>{d.accounts.push(m.stamp({id:'acx',name:'Bybit Spot',cur:m.HOME,type:'bank',open:0,include:true,archived:false,exchange:'Bybit'}));d.accounts.push(m.stamp({id:'acy',name:'Bybit USDT',cur:m.HOME,type:'crypto',open:0,include:false,archived:false,exchange:'bybit',invtab:true}))})})()""")
+    pg.goto('http://localhost:8123/#/accounts'); pg.wait_for_timeout(500)
+    pg.evaluate("document.querySelector('[data-act=acct][data-id=acx]').click()"); pg.wait_for_selector('[data-ad=reclass]')
+    pg.click('[data-ad=reclass]'); pg.wait_for_selector('.invopts [data-t=crypto]'); pg.click('.invopts [data-t=crypto]'); pg.wait_for_timeout(400)
+    a=pg.evaluate("window.sukli.get().accounts.find(x=>x.id==='acx')")
+    ok('Change type moves it to crypto and the Investments tab', a['type']=='crypto' and a['invtab'] is True and a['include'] is False)
+    ok('balance and name untouched', a['open']==0 and a['name']=='Bybit Spot')
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    # rename platform (Bybit and bybit are one platform)
+    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(800)
+    btn=pg.locator('[data-act=inv-rename][data-ex=Bybit]')
+    ok('platform card has Rename platform', btn.count()>=1)
+    pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
+    pg.locator('[data-act=inv-rename][data-ex=Bybit]').first.evaluate("e=>e.click()"); pg.wait_for_selector('.sheet input'); pg.fill('.sheet input','Bybit Global'); pg.keyboard.press('Enter'); pg.wait_for_timeout(500)
+    r=pg.evaluate("window.sukli.get().accounts.filter(x=>x.id==='acx'||x.id==='acy').map(x=>[x.exchange,x.name])")
+    ok('rename moved every account and its name', all(e=='Bybit Global' for e,_ in r) and all(n.startswith('Bybit Global') for _,n in r))
+    # category merge
+    pg.evaluate("""(async()=>{const m=await import('/js/core.js');m.commit(d=>{const a=d.accounts.find(x=>!x.deleted&&x.cur===m.HOME);d.categories.push(m.stamp({id:'cA',group:'Merge G',name:'Alpha',kind:'expense'}),m.stamp({id:'cB',group:'Merge G',name:'Beta',kind:'expense'}));d.txs.push(m.stamp({id:'mt1',kind:'expense',acct:a.id,cat:'cA',amount:5,cur:m.HOME,date:m.nowStamp(),name:'merge me'}))})})()""")
+    pg.goto('http://localhost:8123/#/categories?k=expense'); pg.wait_for_timeout(600)
+    pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
+    pg.evaluate("document.querySelector('[data-act=cat-edit][data-id=cA]').click()"); pg.wait_for_selector('#catform [name=n]')
+    pg.fill('#catform [name=n]','beta'); pg.click('#catform .btn:not(.ghost):not(.danger)'); pg.wait_for_selector('.sheet [data-yes]'); pg.click('.sheet [data-yes]'); pg.wait_for_timeout(500)
+    t=pg.evaluate("window.sukli.get()")
+    ok('category merge moved entries and removed the old one', next(x for x in t['txs'] if x['id']=='mt1')['cat']=='cB' and next(c for c in t['categories'] if c['id']=='cA').get('deleted'))
+    ok('no page errors', not errs); print(errs[:3])
+    b.close()
+print('SUMMARY', sum(res), '/', len(res)); raise SystemExit(0 if all(res) else 1)
