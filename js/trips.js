@@ -36,8 +36,32 @@ export function tripReport(db) {
       t.entries.push(x.id); t.forced.push(x.id); t.trueCost += amt; t.onTrip += amt;
     }
   }
+  // a "booking" from a shop you pay every month (an e-SIM plan, say) is a subscription, not a trip to come
+  const months = new Map(); for (const x of db.txs || []) { if (x.deleted || x.kind !== 'expense') continue; const b = brandOf(x.name); if (!b) continue; if (!months.has(b)) months.set(b, new Set()); months.get(b).add(String(x.date).slice(0, 7)); }
+  const monthly = (p) => { const b = brandOf(p.name); return b && months.has(b) && months.get(b).size >= 3; };
   const active = new Set(rows.map((r) => String(r.date).slice(0, 10))).size;
-  return { res, trips, rejected: res.trips.length - trips.length, learning: active < 21 || rows.length < 40, planned: res.planned.filter((p) => p.amount >= 1000) };
+  return { res, trips, rejected: res.trips.length - trips.length, learning: active < 21 || rows.length < 40, planned: res.planned.filter((p) => p.amount >= 1000 && !monthly(p)) };
+}
+// entries that belong to a trip or event (flights and hotels paid ahead, spending on the trip above what a usual day costs). Cached until the entries change.
+let tripCache = { key: '', ids: new Set() };
+export function tripEntryIds(db) {
+  const key = `${(db.txs || []).length}|${Math.max(0, ...(db.txs || []).map((t) => t.updatedAt || 0))}|${JSON.stringify((db.settings || {}).tripNotes || {})}|${JSON.stringify((db.settings || {}).tripPick || {}).length}`;
+  if (tripCache.key === key) return tripCache.ids;
+  const ids = new Set(); try { for (const t of tripReport(db).trips) { const usual = new Set(t.usual || []); for (const id of t.entries) if (!usual.has(id)) ids.add(id); } } catch { /* no trips */ }
+  tripCache = { key, ids }; return ids;
+}
+// Daily needs: what an ordinary day costs, from the last 90 days with trips, events and fixed bills (same amount again and again, such as rent) left out
+export function dailyNeeds(db, days = 90) {
+  const ex = (db.txs || []).filter((t) => !t.deleted && t.kind === 'expense' && !t.trade && !t.tradeOf);
+  if (!ex.length) return { perDay: 0, perMonth: 0, days: 0, left: 0 };
+  const last = ex.reduce((m, t) => (String(t.date).slice(0, 10) > m ? String(t.date).slice(0, 10) : m), ''), from = new Date(new Date(last + 'T12:00:00').getTime() - (days - 1) * 864e5).toISOString().slice(0, 10);
+  const inR = ex.filter((t) => String(t.date).slice(0, 10) >= from), trip = tripEntryIds(db), by = new Map();
+  for (const t of ex) { if (!by.has(t.cat)) by.set(t.cat, []); by.get(t.cat).push(t.amount * (homeFx(db, t.cur) || t.fx || 1)); }
+  const med = (a) => { const b = a.slice().sort((x, y) => x - y); return b[Math.floor(b.length / 2)] || 0; };
+  const fixed = new Set([...by].filter(([, a]) => a.length >= 3 && a.filter((v) => Math.abs(v - med(a)) <= 0.05 * med(a)).length >= a.length * 0.8).map(([k]) => k));
+  let sum = 0, left = 0; for (const t of inR) { const v = t.amount * (homeFx(db, t.cur) || t.fx || 1); if (trip.has(t.id) || fixed.has(t.cat)) left += v; else sum += v; }
+  const n = Math.min(days, Math.max(1, Math.round((new Date(last + 'T12:00:00') - new Date(from + 'T12:00:00')) / 864e5) + 1));
+  return { perDay: sum / n, perMonth: sum / n * 30, days: n, left };
 }
 const title = (t) => (t.note && t.note.name) || (t.tags.length ? t.tags.join(' / ') : 'Trip or event');
 
@@ -58,6 +82,7 @@ function card(t) {
 export function trips(db) {
   const r = tripReport(db), yr = nowStamp().slice(0, 4), thisYear = r.trips.filter((t) => t.from.startsWith(yr));
   let body = '';
+  { const dn = dailyNeeds(db); if (dn.perDay > 0) body += `<section class="card"><h2>Daily Needs</h2><ul class="calfacts"><li><span>An ordinary day</span><b>${money(dn.perDay)}</b></li><li><span>About a month of ordinary days</span><b>${money(dn.perMonth)}</b></li></ul><p class="hint">From the last ${dn.days} days. Trips, events and fixed bills (such as rent) are left out (${money(dn.left)} in that time). The Debts plan uses this as your usual spending.</p></section>`; }
   if (r.learning) body += `<section class="card"><p class="hint"><b>Still learning.</b> Sukli needs about three weeks of entries to know what a usual day looks like for you. Until then, anything it shows here is a guess.</p></section>`;
   if (!r.trips.length) body += `<section class="card"><h2>How It Works</h2><p>Just add your entries as usual: the shop, the amount, the date, and a tag like <i>Vacation</i> or <i>Birthday</i> if you want. Sukli learns what a normal day costs you, then notices days that are different: another currency, a flight or hotel, lots of new places, or a tag you added.</p><p>It then shows what a trip cost and how much was <b>extra</b> compared with a usual day. Nothing is changed in your entries.</p></section>`;
   else {

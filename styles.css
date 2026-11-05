@@ -1255,3 +1255,11 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 .locbox .acctbtn{flex:1 1 100%}
 .exname[data-act]{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
 .platset .btnrow{margin:8px 0}
+
+/* trade review */
+.trvrow{padding:12px 2px;border-top:1px solid var(--rule);display:grid;gap:4px}
+.trvrow:first-child{border-top:0}
+.trvtop{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.trvtop strong{min-width:0}
+.trvrow .btnrow{margin:6px 0 0;flex-wrap:wrap}
+.trvrow .btn.sm{min-height:38px;padding:0 12px}

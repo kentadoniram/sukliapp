@@ -16,6 +16,7 @@ import { money, eq, hdr, coll, ui, tradeKids, effectLine } from './screens.js';
 import { openEntry } from './entry.js';
 import './earnui.js';
 import './platform.js';
+import './tradereview.js';
 
 import { loanBox } from './loans.js';
 import { favCurs, openCurrencyPicker, flagOf } from './curpicker.js';

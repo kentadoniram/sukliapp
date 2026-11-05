@@ -219,7 +219,7 @@ export function importBluecoins(db, text, opts = {}) {
         autoRoute: /^(.+?)\s*(→|->|\sto\s)\s*(.+)$/i.test(col(o.r, 'Name')) && col(o.r, 'Name').toLowerCase().includes(o.a.name.toLowerCase()) && col(o.r, 'Name').toLowerCase().includes(i.a.name.toLowerCase()) || undefined, toAcct: i.a.id, toAmount: i.amt, toFx: fxOf(i.r, i.cu), notes: col(o.r, 'Notes'), labels: col(o.r, 'Labels'), src,
       });
       db.txs.push(made);
-      if (opts.trades !== false) rebuildTrade(made, o, i_);
+      if (opts.trades !== false && (db.settings || {}).rebuildTrades !== false) rebuildTrade(made, o, i_);
       stats.added++;
     }
     // a lone half of a transfer is kept as plain income/expense so balances still add up

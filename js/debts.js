@@ -4,6 +4,7 @@ import { get, commit, stamp, balances, homeFx, fmt, HOME, nowStamp, thisMonth, s
 import { classOf } from './budgetsetup.js';
 import { ACT, sheet, esc, toast, confirmDialog, ic } from './ui.js';
 import { hdr, coll } from './screens.js';
+import { tripEntryIds } from './trips.js';
 import { openEntry } from './entry.js';
 import { cardBilling, isLiability, lockInfo, interestTaxPct, today as todayStr } from './finance.js';
 import { rateAt, hasRate } from './interest.js';
@@ -61,7 +62,8 @@ export function debtList(db) {
 // what a normal month looks like (income, living costs) and how much can go to debts this month
 export function budgetInfo(db) {
   const own = +db.settings.debtBudget > 0 ? +db.settings.debtBudget : null, force = !!db.settings.debtForce, cm = catMap(db);
-  const learned = learnMonths(live(db.txs), (t) => t.amount * (t.fx || 1), thisMonth(), shiftMonth, (t) => { const c = cm.get(t.cat); return { name: c ? c.name : 'Other', cls: classOf(c) }; });
+  const tripIds = (() => { try { return tripEntryIds(db); } catch { return new Set(); } })();   // trips and events are not "usual spending"
+  const learned = learnMonths(live(db.txs).filter((t) => !tripIds.has(t.id)), (t) => t.amount * (t.fx || 1), thisMonth(), shiftMonth, (t) => { const c = cm.get(t.cat); return { name: c ? c.name : 'Other', cls: classOf(c) }; });
   const known = learned && learned.income > 0 ? learned : null, r = cashRoom({ income: known ? known.income : null, spend: known ? known.spend : 0, typed: own, force });
   return { own, force, learned, known, ...r, value: r.use };
 }

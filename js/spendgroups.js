@@ -8,6 +8,7 @@ import { openEntry } from './entry.js';
 import { estimateSpending, DEFAULT_CATS } from './catsolve.js';
 import { parseQty } from './itemsolve.js';
 import { canon } from './textnorm.js';
+import { tripEntryIds } from './trips.js';
 
 const live = (l) => l.filter((x) => !x.deleted);
 const money = (n) => fmt(n, HOME, { round: true });
@@ -53,24 +54,24 @@ export function rangeOf(key) {
 export function spendReport(db, key = 'month') {
   const rg = rangeOf(key), guess = {};
   for (const [k, v] of Object.entries(groupsOf(db))) guess[k] = v.price;
-  const purchases = [], inRange = new Set(); let spentAll = 0;
+  const purchases = [], inRange = new Set(); let spentAll = 0, onTrips = 0; const tripIds = (() => { try { return tripEntryIds(db); } catch { return new Set(); } })();
   for (const t of live(db.txs)) {
     if (t.kind !== 'expense') continue;
     const fx = homeFx(db, t.cur) || 1, d = String(t.date).slice(0, 10), inR = d >= rg.from && d <= rg.to;
-    if (inR) spentAll += t.amount * fx;
+    if (inR) { spentAll += t.amount * fx; if (tripIds.has(t.id)) onTrips += t.amount * fx; }
     if (!(t.counts && t.counts.length)) continue;
     purchases.push({ id: t.id, date: d, shop: t.merchant || canon(t.name), total: t.amount * fx, lines: t.counts.map((c) => ({ cat: c.g, n: c.n })) });
     if (inR) inRange.add(t.id);
   }
   const res = estimateSpending(purchases, { cats: guess, seed: 7, boot: 80, report: (r) => inRange.has(r.id) });
-  return { res, range: rg, spentAll, counted: inRange.size, countedAll: purchases.length };
+  return { res, range: rg, spentAll, onTrips, counted: inRange.size, countedAll: purchases.length };
 }
 
 const QUALITY = { good: 'fairly sure', rough: 'rough', 'very rough': 'very rough', guess: 'starting guess only' };
 const RANGES = [['month', 'This month'], ['last', 'Last month'], ['3m', '3 months'], ['year', 'This year'], ['all', 'All']];
 
 export function spend(db) {
-  const key = ui.spendRange || 'month', { res, range, spentAll, counted, countedAll } = spendReport(db, key), groups = groupsOf(db);
+  const key = ui.spendRange || 'month', { res, range, spentAll, onTrips, counted, countedAll } = spendReport(db, key), groups = groupsOf(db);
   const chips = `<div class="chips" role="group" aria-label="Period">${RANGES.map(([k, l]) => `<button type="button" class="chip ${key === k ? 'on' : ''}" data-act="spend-range" data-k="${k}" aria-pressed="${key === k}">${l}</button>`).join('')}</div>`;
   let body;
   if (!countedAll) {
@@ -82,6 +83,7 @@ export function spend(db) {
     const rows = Object.entries(res.spend).filter(([, v]) => v.amount > 0.5).sort((a, b) => b[1].amount - a[1].amount), top = rows.length ? rows[0][1].amount : 1;
     const share = spentAll > 0 ? Math.round(res.total / spentAll * 100) : 0;
     body = `<section class="card"><p class="hint">${counted ? `${counted} receipt${counted === 1 ? '' : 's'} with counts in ${range.label}, ${money(res.total)}${spentAll > 0 ? ` (${share}% of your spending then)` : ''}.` : `No receipts with counts in ${range.label}.`}
+      ${onTrips > 0.5 ? ` Of all your spending then, ${money(onTrips)} was on trips or events.` : ''}
       ${counted && counted < 8 ? ' Only a few receipts so far, so treat these as rough.' : ''}</p>
       ${rows.map(([g, v]) => { const p = res.prices[g], u = UNIT_WORD[(groups[g] || {}).unit || 'pc'];
         return `<div class="sgrow"><div class="sgtop"><b>${esc(g)}</b><span>about ${money(v.amount)}</span></div>
