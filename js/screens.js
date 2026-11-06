@@ -120,15 +120,16 @@ export function tradeKids(db) {
   _kidsKey = key; return { parentOf: _kids, kidsOf: _kidsOf };
 }
 // the small line under an entry: what it did to your records
+const m2 = (n, cur = HOME) => fmt(n, cur, { dp2: true });   /* the Entries list shows asset changes with at most 2 decimals (display only) */
 export function effectLine(t, accts) {
   const db = get(), { kidsOf, parentOf } = tradeKids(db);
   let feeTxt = '';
-  if (t.kind === 'transfer' && t.fee > 0) feeTxt = ` · fee ${money(t.fee, t.feeCur || t.cur)} recorded as an expense`;
-  const kids = kidsOf.get(t.id) || []; for (const k of kids) feeTxt += ` · fee ${money(k.amount, k.cur)} recorded as an expense`;
+  if (t.kind === 'transfer' && t.fee > 0) feeTxt = ` · fee ${m2(t.fee, t.feeCur || t.cur)} recorded as an expense`;
+  const kids = kidsOf.get(t.id) || []; for (const k of kids) feeTxt += ` · fee ${m2(k.amount, k.cur)} recorded as an expense`;
   if (t._eff) return t._eff;
   if (t._feeOf) return `Fee of “${esc(t._feeOf)}”, saved with it. Tap to open the whole entry`;
   if (parentOf.has(t.id)) return `Fee of “${esc(parentOf.get(t.id).name)}” recorded as an expense`;
-  if (t.loanNet) return `Loan: borrowed ${money(t.loanNet.principal, t.cur)}${t.loanNet.fees > 0 ? `, fees ${money(t.loanNet.fees, t.cur)} deducted` : ''}, received ${money(t.loanNet.net, t.cur)}`;
+  if (t.loanNet) return `Loan: borrowed ${m2(t.loanNet.principal, t.cur)}${t.loanNet.fees > 0 ? `, fees ${m2(t.loanNet.fees, t.cur)} deducted` : ''}, received ${m2(t.loanNet.net, t.cur)}`;
   if (t.trade) return `Trade, not counted as spending${feeTxt}`;
   if (t.debtPay) return `Debt payment: lowers what you owe, not counted as spending${feeTxt}`;
   if (t.debtBorrow) return 'Borrowed money: adds to what you owe, not counted as income';
@@ -142,7 +143,7 @@ export function effectLine(t, accts) {
   if (t.autoDebt) return 'Interest on a debt, added automatically';
   if (t.auto && t.kind === 'income') return 'Interest posted automatically';
   if (t.cashbackOf) return 'Cashback from a purchase, counted as income';
-  { const cb = t.cashback && db.txs.find((x) => x.id === t.cashback.id && !x.deleted); if (cb && t.kind === 'expense') return `Expense recorded · cashback ${money(cb.amount, cb.cur)} saved as its own income`; }
+  { const cb = t.cashback && db.txs.find((x) => x.id === t.cashback.id && !x.deleted); if (cb && t.kind === 'expense') return `Expense recorded · cashback ${m2(cb.amount, cb.cur)} saved as its own income`; }
   return t.kind === 'income' ? 'Income recorded' : 'Expense recorded';
 }
 // "balance after": what each affected account holds right after this entry, with an arrow and colour for up or down
@@ -150,7 +151,7 @@ function balLines(t, accts, trail) {
   if (!trail || t._feeOf) return '';
   const l = trail.get(t.id); if (!l) return '';
   return l.map((x) => { const a = accts.get(x.id), up = x.after > x.before + 0.00001, dn = x.after < x.before - 0.00001, cur = a ? a.cur : '';
-    return `<small class="bal ${up ? 'up' : dn ? 'dn' : ''}"><i aria-hidden="true">${up ? '▲' : dn ? '▼' : '•'}</i><span class="sr">${up ? 'Up' : dn ? 'Down' : 'No change'}: </span><span class="bn">${esc(a ? a.name : '?')}</span> <span class="bv">${money(x.before, cur)} → <b>${money(x.after, cur)}</b></span></small>`; }).join('');
+    return `<small class="bal ${up ? 'up' : dn ? 'dn' : ''}"><i aria-hidden="true">${up ? '▲' : dn ? '▼' : '•'}</i><span class="sr">${up ? 'Up' : dn ? 'Down' : 'No change'}: </span><span class="bn">${esc(a ? a.name : '?')}</span> <span class="bv">${m2(x.before, cur)} → <b>${m2(x.after, cur)}</b></span></small>`; }).join('');
 }
 export function row(t, accts, cats, sel, trail) {
   const a = accts.get(t.acct), c = cats.get(t.cat), tr = t.kind === 'transfer';

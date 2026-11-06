@@ -2,6 +2,7 @@
 // The Entries list shows the bill once (expandable); this window edits the whole bill so every share stays in step with the total.
 import { get, commit, stamp, softDelete, fmt, homeFx, homeRate, homePer, HOME } from './core.js';
 import { esc, ACT, sheet, toast, confirmDialog } from './ui.js';
+import { openDatePicker, prettyDate } from './datepicker.js';
 import { fxBlockHtml, openConverter } from './fxview.js';
 const r2 = (n) => Math.round(n * 100) / 100;
 const num = (v) => parseFloat(String(v).replace(/,/g, '')) || 0;
@@ -44,7 +45,7 @@ export function splitExtra(g) {
 ACT['split-toggle'] = (el) => { const id = el.dataset.id; if (splitOpen.has(id)) splitOpen.delete(id); else splitOpen.add(id); window.dispatchEvent(new Event('sukli-render')); };
 export function openSplit(txId) {
   const g = splitOf(get(), txId); if (!g) return false;
-  const hd = g.head, home = (n) => (g.cur !== HOME && st.rate > 0 ? ` <small class="homeeq">≈ ${esc(fmt(n * st.rate, HOME))}</small>` : ''), st = { name: g.name, total: g.total, shares: g.people.map((p) => ({ ...p })), msg: '', rate: hd.cur === HOME ? 1 : homePer(get(), hd), date: String(hd.date).slice(0, 10), acct: hd.acct, cat: g.mine ? g.mine.cat || '' : '', notes: hd.notes || '' };
+  const hd = g.head, home = (n) => (g.cur !== HOME && st.rate > 0 ? ` <small class="homeeq">≈ ${esc(fmt(n * st.rate, HOME))}</small>` : ''), st = { name: g.name, total: g.total, shares: g.people.map((p) => ({ ...p })), msg: '', rate: hd.cur === HOME ? 1 : homePer(get(), hd), date: String(hd.date), acct: hd.acct, cat: g.mine ? g.mine.cat || '' : '', notes: hd.notes || '' };
   const db0 = get(), fromAccts = db0.accounts.filter((a) => !a.deleted && !a.archived && a.type !== 'owed' && (a.cur === g.cur || a.id === hd.acct)), expCats = (db0.categories || []).filter((c) => !c.deleted && c.kind === 'expense');
   const s = sheet('<div id="sb"></div>', { title: 'Shared Bill', wide: true }), root = s.el.querySelector('#sb');
   const mineOf = () => r2(st.total - st.shares.reduce((q, x) => q + x.amt, 0));
@@ -52,20 +53,21 @@ export function openSplit(txId) {
     root.innerHTML = `<p class="hint">One bill, saved in linked parts. Change the name or the total here and every part follows. The parts must always add up to the bill.</p>
       <label class="field"><span>What Is It?</span><input data-sb="name" value="${esc(st.name)}"></label>
       <label class="field"><span>Whole Bill (${esc(g.cur)})</span><input data-sb="total" inputmode="decimal" value="${st.total}"></label>
-      <label class="field"><span>Date</span><input type="date" data-sb="date" value="${esc(st.date)}"></label>
+      <div class="field"><span>Date and Time</span><button type="button" class="acctbtn sbdate" data-sb="datepick">${esc(prettyDate(st.date))} ▾</button></div>
       <label class="field"><span>Paid From</span><select data-sb="acct">${fromAccts.map((a) => `<option value="${a.id}" ${a.id === st.acct ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
       ${hasMine ? `<label class="field"><span>Category (Your Part)</span><select data-sb="cat"><option value="">None</option>${expCats.map((c) => `<option value="${c.id}" ${c.id === st.cat ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>` : ''}
       <label class="field"><span>Notes</span><input data-sb="notes" value="${esc(st.notes)}"></label>
       ${g.cur !== HOME ? `<div id="sbfx">${fxBlockHtml({ from: g.cur, to: HOME, amount: st.total, rate: st.rate, open: 'data-sb="fxopen"', always: true })}<p class="hint">This rate is kept with the bill. It is the rate used to show every part in ${esc(HOME)}, and it never changes by itself.</p></div>` : ''}
       <h3>Who Owes What</h3>
       ${st.shares.map((x, i) => `<label class="field"><span>${esc(x.who)}${home(x.amt)}</span><input data-sb="share" data-i="${i}" inputmode="decimal" value="${x.amt}"></label>`).join('')}
+      ${hasMine ? `<label class="field"><span>Your Part${home(m)}</span><input data-sb="mine" inputmode="decimal" value="${m}"><small class="hint">Type your own share here. The whole bill becomes your share plus what everyone else owes.</small></label>` : ''}
       <div class="facts"><div><span>${hasMine ? 'Your Part (the rest)' : 'Left to Divide'}</span><b class="${m < -0.005 || (!hasMine && Math.abs(m) > 0.005) ? 'neg' : ''}">${fmt(m, g.cur)}${home(m)}</b></div><div><span>Whole Bill</span><b>${fmt(st.total, g.cur)}${home(st.total)}</b></div></div>
       ${st.msg ? `<p class="hint warnline">${esc(st.msg)}</p>` : ''}
       <div class="btnrow"><button class="btn" data-sb="save">Save</button><button class="btn ghost" data-sb="del">Delete the Whole Bill</button></div>`; };
   draw();
   root.addEventListener('change', (e) => { const k = e.target.dataset.sb, v = e.target.value;
     if (k === 'name') st.name = v;
-    if (k === 'date' && v) st.date = v;
+    if (k === 'mine') { const mv = Math.max(0, r2(num(v))); st.total = r2(mv + st.shares.reduce((q, x) => q + x.amt, 0)); }
     if (k === 'acct') st.acct = v;
     if (k === 'cat') st.cat = v;
     if (k === 'notes') st.notes = v;
@@ -73,6 +75,7 @@ export function openSplit(txId) {
     if (k === 'share') st.shares[+e.target.dataset.i].amt = Math.max(0, r2(num(v)));
     st.msg = ''; draw(); });
   root.addEventListener('click', async (e) => { const b = e.target.closest('[data-sb]'); if (!b) return;
+    if (b.dataset.sb === 'datepick') { openDatePicker(st.date, (v) => { st.date = v; st.msg = ''; draw(); }, { title: 'When Was It?' }); return; }
     if (b.dataset.sb === 'fxopen') { openConverter({ from: g.cur, to: HOME, amount: st.total, rate: st.rate, applyLabel: 'Use this rate', onApply: ({ rate }) => { if (rate > 0) { st.rate = rate; st.msg = ''; draw(); } } }); return; }
     if (b.dataset.sb === 'del') { if (!(await confirmDialog('Delete this whole bill and all of its parts?', 'Delete', true))) return; deleteWithMates([...g.byId]); s.close(); return; }
     if (b.dataset.sb !== 'save') return;
@@ -83,7 +86,7 @@ export function openSplit(txId) {
     commit((d) => {
       const hx = (c) => homeFx(d, c) || 1, accts = new Map(d.accounts.map((a) => [a.id, a]));
       for (const id of g.byId) { const t = d.txs.find((q) => q.id === id); if (!t) continue;       // the same date, account and notes on every part of the bill
-        if (st.date && st.date !== String(t.date).slice(0, 10)) t.date = st.date + String(t.date).slice(10);
+        if (st.date && st.date !== String(t.date)) t.date = st.date;
         if (st.acct) t.acct = st.acct;
         if (t.cur !== HOME && st.rate > 0) { t.hfx = st.rate; t.fx = st.rate * homeRate(d, t.date); }  /* one rate for the whole bill, kept with it */
         if (st.notes) t.notes = st.notes; else delete t.notes; stamp(t); }

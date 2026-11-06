@@ -1294,3 +1294,14 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 .othrow .oth-n { min-height: 46px; font-size: calc(20px * var(--fs, 1)); padding: 0 10px; }
 .othrow select.oth-who, .othrow .acctbtn { min-height: 46px; border-radius: 10px; font-size: 1rem; }
 .sugnote.warn { color: #b3261e; }
+/* 13.51: analog clock in the date picker */
+.dptime { flex-wrap: wrap; } .dpclock { margin: 8px auto 0; max-width: 260px; text-align: center; }
+.dpclockhead { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 1.6rem; font-weight: 650; }
+.dpcbig { border: 0; background: var(--tint, #eef); border-radius: 10px; padding: 4px 12px; font: inherit; color: inherit; } .dpcbig.on { background: var(--accent, #1a7f5a); color: #fff; }
+.dpampm { display: flex; flex-direction: column; gap: 2px; margin-left: 8px; font-size: .8rem; }
+.dpface { width: 100%; max-width: 240px; touch-action: none; user-select: none; -webkit-user-select: none; }
+.dpfacebg { fill: var(--tint, #f1f1f1); } .dphand { stroke: var(--accent, #1a7f5a); stroke-width: 2.5; } .dphub { fill: var(--accent, #1a7f5a); } .dpknob { fill: var(--accent, #1a7f5a); opacity: .3; pointer-events: none; }
+.dpnum { font-size: 12px; fill: currentColor; pointer-events: none; }
+/* Paid for Others: name a little bigger, amount shorter */
+.othrow select.oth-who { flex: 0 1 60%; min-height: 50px; font-size: 1.1rem; } .othrow .oth-n { min-height: 40px; font-size: 1.1rem; font-weight: 600; }
+.sbdate { width: 100%; text-align: left; }

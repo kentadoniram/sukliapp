@@ -20,8 +20,8 @@ with sync_playwright() as p:
     # open one share: read-only view shows the whole bill and group buttons
     J("const s=await import('/js/entryview.js');s.openEntryView('%s')"%lent); pg.wait_for_timeout(400)
     tx=pg.inner_text('.sheet'); ok('a share opens with the whole bill and group buttons', 'Part of a Shared Bill' in tx and 'Edit Whole Bill' in tx and 'Delete Whole Bill' in tx and 'Ana' in tx and 'Ben' in tx)
-    pg.evaluate("document.querySelector('[data-ev=edit]').click()"); pg.wait_for_selector('[data-sb=date]'); pg.wait_for_timeout(300)
-    pg.evaluate("(()=>{const e=document.querySelector('[data-sb=date]');e.value='2026-10-01';e.dispatchEvent(new Event('change',{bubbles:true}))})()"); pg.wait_for_timeout(200)
+    pg.evaluate("document.querySelector('[data-ev=edit]').click()"); pg.wait_for_selector('[data-sb=datepick]'); pg.wait_for_timeout(300)
+    pg.evaluate("document.querySelector('[data-sb=datepick]').click()"); pg.wait_for_selector('#dp'); pg.evaluate("document.querySelector('#dp [data-m=\"-1\"]').click()"); pg.wait_for_timeout(150); pg.evaluate("document.querySelector('#dp [data-d=\"2026-10-01\"]').click()"); pg.evaluate("document.querySelector('#dp [data-ok]').click()"); pg.wait_for_timeout(300)
     pg.evaluate("(()=>{const e=document.querySelector('[data-sb=notes]');e.value='office';e.dispatchEvent(new Event('change',{bubbles:true}))})()"); pg.wait_for_timeout(200)
     pg.evaluate("document.querySelector('[data-sb=save]').click()"); pg.wait_for_timeout(600)
     m=mem(); ok('date and notes changed on every part %s'%m, all(x[3]=='2026-10-01' and x[5]=='office' for x in m))
