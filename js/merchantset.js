@@ -39,6 +39,22 @@ export function branchesOf(db, m) {
   for (const t of db.txs) if (!t.deleted && t.merchant && t.branch && norm(t.merchant) === norm(m)) { const o = out.get(t.branch) || { name: t.branch, n: 0, sum: 0 }; o.n++; out.set(t.branch, o); }
   return [...out.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
 }
+// where a branch is: the place saved on the branch, else the middle of the entries that were saved there with a location
+import { distKm as _dk } from './loc.js';
+export function branchLoc(db, m, b) {
+  const sv = ((infoOf(db, m).branches || {})[b] || {}).loc; if (sv && sv.la != null) return sv;
+  const pts = db.txs.filter((t) => !t.deleted && t.loc && t.branch === b && t.merchant && norm(t.merchant) === norm(m)).map((t) => t.loc); if (!pts.length) return null;
+  return { la: pts.reduce((x, p) => x + +p.la, 0) / pts.length, lo: pts.reduce((x, p) => x + +p.lo, 0) / pts.length };
+}
+// the branch to suggest: the nearest one when the entry has a place (within 1.5 km), else the one used last, else the busiest
+export function suggestBranch(db, m, loc) {
+  const list = branchesOf(db, m); if (!list.length) return null;
+  if (loc && loc.la != null) { let best = null; for (const b of list) { const p = branchLoc(db, m, b.name); if (!p) continue; const d = _dk(loc, p); if (d <= 1.5 && (!best || d < best.d)) best = { name: b.name, d }; } if (best) return { name: best.name, why: 'near here' }; }
+  const last = db.txs.filter((t) => !t.deleted && t.branch && t.merchant && norm(t.merchant) === norm(m)).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+  if (last) return { name: last.branch, why: 'used last time' };
+  return { name: list[0].name, why: 'used most' };
+}
+export const branchFar = (db, m, b, loc) => { if (!b || !loc || loc.la == null) return 0; const p = branchLoc(db, m, b); if (!p) return 0; const d = _dk(loc, p); return d > 2 ? d : 0; };
 const setInfo = (d, m, fn) => { const all = (d.settings.merchantInfo = d.settings.merchantInfo || {}); const o = (all[m] = all[m] || { branches: {} }); o.branches = o.branches || {}; fn(o); };
 async function placeFields(cur) {
   return `<label class="field"><span>Place (Optional)</span><input name="place" autocomplete="off" value="${esc(cur.place || '')}" placeholder="e.g. Tsukagoshi, Saiwai Ward, Kawasaki, Kanagawa"></label>

@@ -1,5 +1,5 @@
 // Currency picker: favourites on top, search through every currency, pick one to add it to the quick list.
-import { get, commit, allCurrencies, curName, ensureCurrency, CUR } from './core.js';
+import { get, commit, allCurrencies, curName, ensureCurrency, CUR, CRYPTO } from './core.js';
 import { esc, sheet } from './ui.js';
 
 // every fiat currency belongs to a country: search "japan" or "thailand" and flags make the list easy to scan
@@ -7,6 +7,11 @@ const REGION = (() => { try { return new Intl.DisplayNames(['en'], { type: 'regi
 const ISO = (() => { try { return new Set(Intl.supportedValuesOf('currency')); } catch { return new Set(); } })();
 const regionOf = (c) => { if (c === 'EUR') return 'EU'; if (!ISO.has(c) || c[0] === 'X') return ''; const r = c.slice(0, 2); return REGION.of(r) === r ? '' : r; };
 export const flagOf = (c) => { const r = regionOf(c); return r ? String.fromCodePoint(...[...r].map((ch) => 127397 + ch.charCodeAt(0))) : ''; };
+// coins get a small round badge in their own colour, so USDT, USDC, BTC… are easy to tell apart from money (fiat) at a glance
+const COIN = { USDT: ['#26A17B', '₮'], USDC: ['#2775CA', '$'], DAI: ['#F5AC37', '◈'], FDUSD: ['#2A5BD7', '$'], USDE: ['#5B5B5B', '$'], BTC: ['#F7931A', '₿'], ETH: ['#627EEA', 'Ξ'], BNB: ['#F0B90B', 'B'], SOL: ['#9945FF', 'S'], XRP: ['#23292F', 'X'], DOGE: ['#C2A633', 'Ð'], TON: ['#0098EA', 'T'], TRX: ['#EB0029', 'T'], ADA: ['#0033AD', '₳'], LTC: ['#345D9D', 'Ł'], MATIC: ['#8247E5', 'M'], POL: ['#8247E5', 'P'] };
+export const isCoin = (c) => !!COIN[c] || (CRYPTO.includes(c));
+export const coinIcon = (c) => { const k = COIN[c] || ['#6b7280', String(c || '?')[0]]; return `<i class="coin" style="--coin:${k[0]}" title="${esc(c)}" aria-hidden="true">${esc(k[1])}</i>`; };
+export const curIcon = (c) => (isCoin(c) ? coinIcon(c) : flagOf(c));
 const ALSO = { EUR: 'Europe Eurozone Germany France Italy Spain', USD: 'United States America USA', GBP: 'United Kingdom Britain England UK', USDT: 'tether dollar', USDC: 'circle dollar', CNY: 'China yuan renminbi', JPY: 'Japan yen' };
 export const regionName = (c) => { const r = regionOf(c); if (!r) return ''; try { return REGION.of(r) || ''; } catch { return ''; } };
 export const countryOf = (c) => { const r = regionOf(c); let n = ''; try { n = r ? REGION.of(r) || '' : ''; } catch { /* ignore */ } return ((ALSO[c] || '') + ' ' + n).trim(); };
@@ -18,7 +23,7 @@ export function addFav(c) { commit((d) => { const f = [...(Array.isArray(d.setti
 export function openCurrencyPicker(onPick, { title = 'Choose a currency', keep = true } = {}) {
   const s = sheet(`<input type="search" id="curq" class="search" data-noclear="1" placeholder="Search currency or country: peso, Japan, THB, bitcoin…" autocomplete="off" autofocus><div id="curlist" class="curlist"></div>`, { title });
   const list = s.el.querySelector('#curlist');
-  const row = (c) => `<button type="button" class="row cur" data-c="${c}"><i class="badge sm" style="background:var(--tint);color:var(--line)">${flagOf(c) || esc((CUR[c].sym || c).trim().slice(0, 3))}</i><span class="rmain"><strong>${c}</strong><small>${esc(curName(c))}${regionName(c) ? ' · ' + esc(regionName(c)) : ''}</small></span></button>`;
+  const row = (c) => `<button type="button" class="row cur" data-c="${c}"><i class="badge sm" style="background:var(--tint);color:var(--line)">${isCoin(c) ? coinIcon(c) : flagOf(c) || esc((CUR[c].sym || c).trim().slice(0, 3))}</i><span class="rmain"><strong>${c}</strong><small>${esc(curName(c))}${regionName(c) ? ' · ' + esc(regionName(c)) : ''}</small></span></button>`;
   const draw = (q = '') => {
     q = q.trim().toLowerCase();
     const favs = favCurs();

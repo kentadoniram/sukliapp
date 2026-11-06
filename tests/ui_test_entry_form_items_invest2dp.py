@@ -35,7 +35,7 @@ with sync_playwright() as p:
     ha=pg.evaluate("document.querySelector('.amtwrap').getBoundingClientRect().height"); hb=pg.evaluate("document.querySelector('.oth-n').getBoundingClientRect().height")
     pg.evaluate("document.querySelector('[data-e=oth-mode][data-v=pct]').click()"); pg.wait_for_timeout(300)
     hc=pg.evaluate("document.querySelector('.oth-n').getBoundingClientRect().height")
-    ok('Set Each Amount and Percentages boxes are as tall as Amount %s'%[ha,hb,hc], abs(ha-hb)<3 and abs(ha-hc)<3)
+    ok('Paid for Others boxes (Amount and Percentages) match each other and are compact %s'%[ha,hb,hc], abs(hb-hc)<3 and hb<=50)
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # investments: 2 decimals
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(800)

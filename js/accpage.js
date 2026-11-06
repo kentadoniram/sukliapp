@@ -19,7 +19,7 @@ import './platform.js';
 import './tradereview.js';
 
 import { loanBox } from './loans.js';
-import { favCurs, openCurrencyPicker, flagOf } from './curpicker.js';
+import { favCurs, openCurrencyPicker, flagOf, curIcon } from './curpicker.js';
 import { openDatePicker } from './datepicker.js';
 
 // where each kind of account shows up, in plain words (used by the Change type shortcut)
@@ -440,7 +440,7 @@ export function openAccount(id, preset = {}) {
     <label class="field"><span>Name</span><input name="name" value="${esc(a.name)}" required ${id ? '' : 'autofocus'}></label>
     <label class="field"><span>Exchange or platform (optional)</span><select name="exchange" data-keep="${esc(exchangeOf(a))}">${(() => { const cur = exchangeOf(a), pn = platformNames(), all = [...new Set([...(cur ? [cur] : []), ...pn.used])]; return `<option value="">None</option><optgroup label="Yours">${all.map((x) => `<option value="${esc(x)}" ${x === cur ? 'selected' : ''}>${esc(x)}</option>`).join('')}</optgroup><optgroup label="Popular">${pn.popular.map((x) => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}</optgroup>`; })()}</select></label>
     <label class="field" id="walletf" ${exchangeOf(a) ? '' : 'hidden'}><span>Trading Account Inside the Platform</span><select name="wallet">${[...new Set([...WALLETS, ...Object.values(db.settings.acctTypes || {}).flat(), ...db.accounts.map((x) => x.wallet).filter(Boolean)])].map((w) => `<option value="${esc(w)}" ${(a.wallet || 'Spot') === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select><small class="muted" id="wallet-h">One coin can sit in several trading accounts, for example USDT in Spot and USDT in Earn. Each keeps its own balance.</small></label>
-    <div class="two"><label class="field"><span>Currency</span><input type="hidden" name="cur" value="${esc(a.cur)}"><button type="button" class="curbtn wide" data-act="acct-cur" ${used ? 'disabled' : ''}>${flagOf(a.cur)} ${esc(a.cur)} ▾</button></label>
+    <div class="two"><label class="field"><span>Currency</span><input type="hidden" name="cur" value="${esc(a.cur)}"><button type="button" class="curbtn wide" data-act="acct-cur" ${used ? 'disabled' : ''}>${curIcon(a.cur)} ${esc(a.cur)} ▾</button></label>
     <label class="field"><span>Type</span><select name="type" data-prev="${esc(a.type)}">${Object.entries(typeNames).map(([v, l]) => `<option value="${v}" ${v === a.type ? 'selected' : ''}>${esc(l)}</option>`).join('')}<option value="__new">＋ New account type…</option></select></label></div>
     <div class="two"><label class="field"><span id="open-l">${isLiability(a) ? 'Amount You Owe Now' : 'Balance on the Opening Date'} ${tipBtn('openbal')}</span><input name="open" inputmode="decimal" value="${isLiability(a) ? (a.open < 0 ? -a.open : a.open || 0) : (a.open || 0)}"></label>
     <label class="field"><span>Opening Date ${tipBtn('opendate')}</span><input name="openDate" type="date" value="${esc(openDateOf(a))}"></label></div>
@@ -549,7 +549,7 @@ export function openAccount(id, preset = {}) {
   };
 }
 
-ACT['acct-cur'] = (el) => openCurrencyPicker((c) => { el.closest('form').elements.cur.value = c; el.textContent = `${flagOf(c)} ${c} ▾`; }, { title: 'Currency', keep: false });
+ACT['acct-cur'] = (el) => openCurrencyPicker((c) => { el.closest('form').elements.cur.value = c; el.innerHTML = `${curIcon(c)} ${c} ▾`; }, { title: 'Currency', keep: false });
 
 // a type that does not exist yet can be made right inside the account form
 export function createAccountType(name, liab) {

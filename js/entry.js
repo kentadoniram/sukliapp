@@ -12,6 +12,7 @@ import { parseTags, joinTags, tagCounts } from './tags.js';
 import { tipBtn } from './interest.js';
 import { captureLoc, hereWhy, permState, parsePt } from './loc.js';
 import { pickOnMap } from './mappick.js';
+import { suggestBranch, branchFar } from './merchantset.js';
 import { splitOf, openSplit, deleteWithMates } from './splitbill.js';
 import { guessItemCat, itemCatIndex, itemsForWhat, knownItemNames } from './itemcat.js';
 import { cachedAddress, lookupAddress, saveAddress } from './geo.js';
@@ -25,7 +26,7 @@ import { predictFee, safetyCheck, typeGroupName, typeGroupOrder, transferHints }
 import { esc, sheet, toast, ic, confirmDialog, promptDialog } from './ui.js';
 import { applyHide } from './appearance.js';
 import { openDatePicker, prettyDate } from './datepicker.js';
-import { openCurrencyPicker, favCurs, flagOf } from './curpicker.js';
+import { openCurrencyPicker, favCurs, flagOf, curIcon } from './curpicker.js';
 import { openAccountPicker } from './acctpicker.js';
 import { pickerList, enhanceSelect } from './picker.js';
 import { similarNames } from './merchants.js';
@@ -212,7 +213,7 @@ export function openEntry(opts = {}) {
   function suggestMerchant() {
     if (f.merchTouched || existing) return;
     const g = guessMerchant(get(), f.name);
-    if (g && g !== f.merchant) { f.merchant = g; f.merchSuggested = true; renderMerch(); renderBranch(); } else if (!g && f.merchSuggested) { f.merchant = ''; f.merchSuggested = false; renderMerch(); renderBranch(); }
+    if (g && g !== f.merchant) { f.merchant = g; f.merchSuggested = true; f.branch = ''; f.branchTouched = false; renderMerch(); renderBranch(); autoBranch(); } else if (!g && f.merchSuggested) { f.merchant = ''; f.merchSuggested = false; renderMerch(); renderBranch(); }
   }
   const isPersonSide = (to) => (to ? FLOWS[f.flow].person === 'to' : FLOWS[f.flow].person === 'from');
   async function addPerson() {
@@ -278,7 +279,7 @@ export function openEntry(opts = {}) {
   function renderCur() {
     const a = acctOf(f.acct), list = currencies(), cur = (a && a.cur) || list[0];
     if (!list.includes(cur)) list.push(cur);
-    $f('curwrap').innerHTML = `<button type="button" class="curbtn sm" data-e="curpick" aria-label="Choose currency" title="Currency">${flagOf(cur)} ${cur} ▾</button><select id="f-cur" hidden aria-hidden="true">${list.map((c) => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join('')}</select>`;
+    $f('curwrap').innerHTML = `<button type="button" class="curbtn sm" data-e="curpick" aria-label="Choose currency" title="Currency">${curIcon(cur)} ${cur} ▾</button><select id="f-cur" hidden aria-hidden="true">${list.map((c) => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join('')}</select>`;
   }
   function updateNamePh() {                                             // a transfer left unnamed will be called "from - to"
     const el = form.querySelector('#f-what'); if (!el) return;
@@ -679,16 +680,23 @@ export function openEntry(opts = {}) {
   function renderBranch() {
     const bh = $f('branchrow'); if (bh) bh.hidden = true;   // the old separate row is no longer used
     const el = form.querySelector('#branchcell'); if (!el) return;
-    el.innerHTML = f.merchant ? `<span>Branch (optional)</span><button type="button" class="acctbtn" data-e="branchpick">${f.branch ? esc(f.branch) : '<span class="muted">Which branch?</span>'} ▾</button>` : `<span>Branch (optional)</span><button type="button" class="acctbtn" disabled><span class="muted">Pick a merchant first</span></button>`;
+    const far = f.merchant && f.branch ? branchFar(get(), f.merchant, f.branch, f.loc) : 0, note = f.branchSuggested && f.branch ? `<small class="sugnote">· ${esc(f.branchSuggested)}</small>` : far ? `<small class="sugnote warn">· ${far.toFixed(1)} km from here</small>` : '';
+    el.innerHTML = f.merchant ? `<span>Branch (optional) ${note}</span><button type="button" class="acctbtn" data-e="branchpick">${f.branch ? esc(f.branch) : '<span class="muted">Which branch?</span>'} ▾</button>` : `<span>Branch (optional)</span><button type="button" class="acctbtn" disabled><span class="muted">Pick a merchant first</span></button>`;
+  }
+  function autoBranch() {   /* suggest a branch for the merchant: the one near this place, else the one used last; never over a branch the person chose */
+    if (f.branchTouched || !f.merchant || f.kind !== 'expense' || (existing && existing.branch)) return;
+    const g = suggestBranch(get(), f.merchant, f.loc);
+    if (g && g.name !== f.branch) { f.branch = g.name; f.branchSuggested = g.why; renderBranch(); } else if (!g && f.branchSuggested) { f.branch = ''; f.branchSuggested = ''; renderBranch(); }
   }
   async function pickBranch() {
     const { branchesOf } = await import('./merchantset.js'); const list = branchesOf(get(), f.merchant);
     const s = sheet(`<div class="rows plain"><button type="button" class="row cur" data-b=""><span class="rmain"><strong>No branch</strong></span></button>${list.map((b) => `<button type="button" class="row cur" data-b="${esc(b.name)}"><span class="rmain"><strong>${esc(b.name)}</strong><small>${b.n} ${b.n === 1 ? 'entry' : 'entries'}</small></span></button>`).join('')}</div><div class="btnrow left"><button type="button" class="btn ghost" data-new>Add a New Branch</button></div>`, { title: `${f.merchant}: Branch` });
-    s.el.addEventListener('click', async (e) => { const r = e.target.closest('[data-b]'); if (r) { s.close(); f.branch = r.dataset.b; renderBranch(); return; }
-      if (e.target.closest('[data-new]')) { s.dispose(); const v = ((await promptDialog('New branch', '', { okLabel: 'Add', hint: `A place of ${f.merchant}, for example Kawasaki Station.` })) || '').replace(/\s+/g, ' ').trim(); if (!v) return; f.branch = v; f.newBranch = v; renderBranch(); } });
+    s.el.addEventListener('click', async (e) => { const r = e.target.closest('[data-b]'); if (r) { s.close(); f.branch = r.dataset.b; f.branchTouched = true; f.branchSuggested = ''; renderBranch(); return; }
+      if (e.target.closest('[data-new]')) { s.dispose(); const v = ((await promptDialog('New branch', '', { okLabel: 'Add', hint: `A place of ${f.merchant}, for example Kawasaki Station.` })) || '').replace(/\s+/g, ' ').trim(); if (!v) return; f.branch = v; f.newBranch = v; f.branchTouched = true; f.branchSuggested = ''; renderBranch(); } });
   }
   // Current Location: below the keypad, so nothing above it moves
   function renderLoc() {
+    autoBranch();
     const el = $f('locrow'); if (!el) return; const L = f.locUi || (f.locUi = { perm: 'unknown', msg: '', edit: false });
     const pt = f.loc, permTxt = { granted: 'Location permission: allowed', denied: 'Location permission: blocked. Allow it in your phone’s settings for this app, or type a place below.', prompt: 'Location permission: will ask when you tap', unknown: 'Location permission: not known yet (your phone asks when you tap)' }[L.perm];
     el.innerHTML = `<span>Location (optional)</span><div class="locbox"><button type="button" class="acctbtn" data-e="loc-get">${pt ? `📍 ${f.place ? esc(f.place) : L.busy ? 'Finding the address…' : 'Location saved, address not found yet'}` : 'Add Location'}</button>
@@ -883,7 +891,7 @@ export function openEntry(opts = {}) {
       case 'flow': { setFlow(f, v); debtFix(f); f.feeTouched = true; f.fee = ''; f.convert = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; renderSeg(); renderFreq(); renderAccts(); renderFx(); renderSugg(); renderSafety(); break; }
       case 'addperson': addPerson(); break;
       case 'debtamt': { f.amount = String(+(+v).toFixed(6)); const fa = $f('f-amount'); fa.value = commasOn() ? withCommas(f.amount) : f.amount; fa.dispatchEvent(new Event('input', { bubbles: true })); break; }
-      case 'merchpick': openMerchantPicker({ selected: f.merchant }, (v) => { if (v !== f.merchant) { f.branch = ''; } f.merchant = v; f.merchTouched = true; f.merchSuggested = false; renderMerch(); renderBranch(); }); break;
+      case 'merchpick': openMerchantPicker({ selected: f.merchant }, (v) => { if (v !== f.merchant) { f.branch = ''; f.branchTouched = false; f.branchSuggested = ''; } f.merchant = v; f.merchTouched = true; f.merchSuggested = false; renderMerch(); renderBranch(); autoBranch(); }); break;
       case 'swapacct': { const t = f.acct; f.acct = f.toAcct; f.toAcct = t; f.acctTouched = true; f.acctSuggested = false; f.feeTouched = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; f.cRate = ''; renderAccts(); renderFx(); syncCross(); renderSugg(); break; }
       case 'smart': smartAct(v); break;
       case 'qtab': f.qtab = v; f.qtabManual = true; renderFreq(); break;
@@ -1117,6 +1125,7 @@ export function openEntry(opts = {}) {
         else { const base = { kind: 'income', date: sa.date, acct: sa.acct, cur: sa.cur, amount: cbAmt, fx: sa.fx, cat: findOrAddCategory(d, 'Earn', 'Cashback', 'income').id, name: `Cashback: ${sa.name || 'purchase'}`, cashbackOf: sa.id, auto: false };
           if (old) { Object.assign(old, base, { deleted: false }); delete old.deletedAt; stamp(old); } else d.txs.push(stamp({ id: cbId, ...base, createdAt: Date.now() })); } }
       d.settings.lastAcct = a.id;
+      if (rec.merchant && rec.branch && rec.loc) { const all = (d.settings.merchantInfo = d.settings.merchantInfo || {}), mi = (all[rec.merchant] = all[rec.merchant] || { branches: {} }); mi.branches = mi.branches || {}; const bi = (mi.branches[rec.branch] = mi.branches[rec.branch] || {}); if (!bi.loc) bi.loc = rec.loc; }   /* a new branch remembers where it is */
     });
     // say so when this entry pushed a budget past the warning line (once per budget per month)
     try { const fresh = newAlertsSince(alertsBefore, budgetAlerts(get(), rec.date.slice(0, 7))); if (fresh.length && rec.kind === 'expense') setTimeout(() => toast(fresh[0].text, { ms: 7000 }), 900); } catch { /* alerts are a bonus */ }
