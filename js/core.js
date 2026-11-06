@@ -470,6 +470,9 @@ export function factorFor(db, t, cur = t.cur, fx = t.fx) {
   if (cur === HOME) return 1;
   return (fx > 0 ? fx : (rateFor(db, cur) || 1)) / homeRate(db, t.date);
 }
+// what one unit of this entry's currency was worth in HOME when the entry was made: the rate saved with the entry (hfx), never today's.
+// Older entries without hfx use the rate they were saved with (fx) against the home rate of their own date.
+export const homePer = (db, t) => (t.cur === HOME ? 1 : t.hfx > 0 ? t.hfx : factorFor(db, t));
 // what one unit of an account currency is worth in HOME today
 export const homeFx = (db, cur) => (cur === HOME ? 1 : (rateFor(db, cur) || 0) / (rateFor(db, HOME) || 1));
 

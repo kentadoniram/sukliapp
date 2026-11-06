@@ -1,0 +1,52 @@
+# v13.49: exchange-rate window (one row, Reverse, Manual Set), a shared bill keeps and edits its own rate, old entries keep the rate they were made with
+from playwright.sync_api import sync_playwright
+CSV='/home/claude/Transactions.csv'; res=[]
+def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch(); ctx=b.new_context(viewport={'width':390,'height':844},service_workers='block'); pg=ctx.new_page(); errs=[]
+    pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
+    pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900)
+    J=lambda js: pg.evaluate("(async()=>{const c=await import('/js/core.js');"+js+"})()")
+    J("c.commit(d=>{d.settings.mode='advanced';const home=d.settings.homeCur||'PHP';d.accounts.push(c.stamp({id:'wu',name:'Wallet USD',cur:'USD',type:'cash',open:500,include:true,archived:false}));for(const [i,n] of [['pa','Ana'],['pb','Ben']])d.accounts.push(c.stamp({id:i,name:n,cur:home,type:'owed',open:0,include:true,archived:false}));const hr=c.homeRate(d,'2025-11-10');d.txs.push(c.stamp({id:'old1',kind:'expense',date:'2025-11-10 12:00',acct:'wu',cur:'USD',amount:15,fx:58*hr,hfx:58,name:'Old Dinner',cat:(d.categories.find(x=>x.kind==='expense')||{}).id}))})")
+    # rate window
+    pg.evaluate("document.querySelector('[data-act=add]').click()"); pg.wait_for_selector('#entry'); pg.wait_for_timeout(400)
+    pg.evaluate("(()=>{const e=document.querySelector('#f-acct');e.value='wu';e.dispatchEvent(new Event('change',{bubbles:true}))})()"); pg.wait_for_timeout(300)
+    pg.evaluate("document.querySelector('[data-e=fxopen]').click()"); pg.wait_for_selector('#cv-a'); pg.wait_for_timeout(300)
+    Y=lambda s: pg.evaluate("(s)=>Math.round(document.querySelector(s).getBoundingClientRect().top)",s)
+    ok('both currencies on one row', abs(Y('#cv-a')-Y('#cv-b'))<3 and pg.locator('#cv-rev').count()==1)
+    ok('rate is locked until Manual Set', pg.evaluate("document.querySelector('#cv-r').readOnly") and pg.locator('#cv-latest').inner_text().lower().startswith('get latest') and pg.locator('#cv-manual').count()==1)
+    la=pg.inner_text('#cv-la'); pg.evaluate("document.querySelector('#cv-rev').click()"); pg.wait_for_timeout(200)
+    ok('Reverse swaps the currencies %s -> %s'%(la,pg.inner_text('#cv-la')), pg.inner_text('#cv-la')!=la and pg.inner_text('#cv-lb')==la)
+    pg.evaluate("document.querySelector('#cv-rev').click()"); pg.evaluate("document.querySelector('#cv-manual').click()"); pg.wait_for_timeout(200)
+    ok('Manual Set unlocks the rate', not pg.evaluate("document.querySelector('#cv-r').readOnly"))
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    # a foreign shared bill: 10.16 USD paid, 630 PHP actual
+    pg.evaluate("location.hash='#/'"); pg.wait_for_timeout(300)
+    pg.evaluate("document.querySelector('[data-act=add]').click()"); pg.wait_for_selector('#entry'); pg.wait_for_timeout(400)
+    pg.fill('#f-what','Team Lunch'); pg.evaluate("(()=>{const e=document.querySelector('#f-acct');e.value='wu';e.dispatchEvent(new Event('change',{bubbles:true}))})()"); pg.wait_for_timeout(300); pg.fill('#f-amount','10.16'); pg.wait_for_timeout(300)
+    pg.evaluate("(()=>{const e=document.querySelector('#f-peso');e.value='630';e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))})()"); pg.wait_for_timeout(300)
+    pg.evaluate("document.querySelector('[data-e=oth-on]').click()"); pg.wait_for_timeout(300); pg.evaluate("document.querySelector('[data-e=oth-add]').click()"); pg.wait_for_timeout(200)
+    pg.locator('.oth-who').nth(0).select_option('pa'); pg.locator('.oth-who').nth(1).select_option('pb'); pg.wait_for_timeout(200)
+    pg.evaluate("document.querySelector('#btns [data-e=save]').click()"); pg.wait_for_timeout(1200)
+    m=J("return c.get().txs.filter(t=>!t.deleted&&t.splitId).map(t=>[t.id,t.kind,t.amount,+t.hfx.toFixed(4)])"); ok('bill saved with one rate on every part %s'%m, len(m)==3 and all(abs(x[3]-62.0079)<0.001 for x in m))
+    lent=[x for x in m if x[1]=='transfer'][0][0]
+    J("const s=await import('/js/entryview.js');s.openEntryView('%s')"%lent); pg.wait_for_timeout(400)
+    tx=pg.inner_text('.sheet'); ok('summary: You is your part (not the whole bill) and each line shows its home value %s'%tx.replace('\n',' | ')[150:420], '$3.38' in tx.replace(' ','') and '₱210.21' in tx and '₱630.00' in tx and '$10.16' in tx)
+    # edit the rate of the bill
+    pg.evaluate("document.querySelector('[data-ev=edit]').click()"); pg.wait_for_selector('[data-sb=fxopen]'); pg.wait_for_timeout(300)
+    pg.evaluate("document.querySelector('[data-sb=fxopen]').click()"); pg.wait_for_selector('#cv-r'); pg.evaluate("document.querySelector('#cv-manual').click()")
+    pg.fill('#cv-r','60'); pg.dispatch_event('#cv-r','input'); pg.evaluate("document.querySelector('#cv-apply').click()"); pg.wait_for_timeout(400)
+    pg.evaluate("document.querySelector('[data-sb=save]').click()"); pg.wait_for_timeout(600)
+    m=J("return c.get().txs.filter(t=>!t.deleted&&t.splitId).map(t=>[t.kind,+t.hfx.toFixed(4),t.toAmount||null,t.amount])")
+    ok('rate edited on all parts and the home amounts follow %s'%m, all(abs(x[1]-60)<1e-6 for x in m) and all(abs(x[2]-x[3]*60)<0.02 for x in m if x[2]))
+    # history: a later rate never touches old entries
+    J("c.commit(d=>{d.settings.rates=Object.assign({},d.settings.rates,{USD:1/70*(c.rateFor(d,d.settings.homeCur||'PHP')||1)})})")
+    J("const s=await import('/js/entryview.js');s.openEntryView('old1')"); pg.wait_for_timeout(400)
+    ok('old entry still shows its own rate of 58', '58' in pg.inner_text('.sheet') and '= 58 ' in pg.inner_text('.sheet').replace('\n',' '))
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    J("const e=await import('/js/entry.js');e.openEntry({id:'old1'})"); pg.wait_for_selector('#f-fx',state='attached'); pg.wait_for_timeout(500)
+    ok('editing it also shows 58', abs(float(pg.input_value('#f-fx'))-58)<1e-6)
+    ok('no errors %s'%errs, not errs)
+    b.close()
+print('fails',res.count(False))

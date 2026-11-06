@@ -1278,3 +1278,12 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 .othrow select.oth-who, .othrow .acctbtn { min-height: 62px; border-radius: 12px; }
 .itemsugg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 8px; }
 .itemsugg:empty { display: none; }
+.homeeq { display: block; font-weight: 500; font-size: .8em; opacity: .75; }
+.fxconv .fxbtns { display: flex; gap: 8px; margin: 6px 0; }
+.fxconv .fxbtns .btn { flex: 1; }
+.fxpair { display: grid; grid-template-columns: 1fr 44px 1fr; gap: 8px; align-items: end; margin-bottom: 6px; }
+.fxpair .field { min-width: 0; margin: 0; }
+.fxpair .field span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.fxpair input { width: 100%; box-sizing: border-box; min-width: 0; }
+.fxrev { height: 44px; width: 44px; border-radius: 12px; border: 1px solid var(--rule); background: var(--sheet); color: inherit; font-size: 1.2rem; cursor: pointer; }
+.fxconv #cv-r[readonly] { opacity: .75; }
