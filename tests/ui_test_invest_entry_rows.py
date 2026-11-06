@@ -53,9 +53,9 @@ with sync_playwright() as p:
     ok('back to Spot hides them again', not pg.is_visible('#intfields'))
     pg.evaluate("document.querySelectorAll('.scrim').forEach(e=>e.remove())")
     # Move to Earn makes the Earn account and opens a transfer with it
-    pg.evaluate("(async()=>{const m=await import('/js/accpage.js');m.openAccountDetail('sp1')})()"); pg.wait_for_selector('[data-act=wallet-xfer]')
-    ok('Move to Earn offered, Move to Spot not (it is already Spot)', pg.locator('[data-act=wallet-xfer][data-w=Earn]').count()==1 and pg.locator('[data-act=wallet-xfer][data-w=Spot]').count()==0)
-    pg.click('[data-act=wallet-xfer][data-w=Earn]'); pg.wait_for_selector('#f-all', timeout=5000); pg.wait_for_timeout(400)
+    pg.evaluate("(async()=>{const m=await import('/js/accpage.js');m.openAccountDetail('sp1')})()"); pg.wait_for_timeout(900)
+    ok('Move to Earn / Move to Spot buttons are gone from the account page (13.52)', pg.locator('[data-act=wallet-xfer]').count()==0)
+    pg.evaluate("(async()=>{const u=await import('/js/ui.js');await import('/js/accpage.js');u.ACT['wallet-xfer']({dataset:{id:'sp1',w:'Earn'}})})()"); pg.wait_for_selector('#f-all', timeout=5000); pg.wait_for_timeout(400)
     earn=pg.evaluate("window.sukli.get().accounts.find(a=>a.exchange==='Zeta'&&a.cur==='XRP'&&a.wallet==='Earn')")
     ok(f'Earn account for XRP created: {earn and earn["name"]}', earn and earn['name']=='Zeta Earn XRP')
     ok('transfer opened From Spot To Earn', pg.is_visible('[data-e=swapacct]') and 'Zeta XRP' in pg.inner_text('#acctrow') and 'Earn' in pg.inner_text('#acctrow'))

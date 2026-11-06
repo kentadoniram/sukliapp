@@ -1,5 +1,6 @@
 // Investments tab: crypto grouped by exchange (every coin is its own balance with its own market value), plus investments and
 // other financial products such as MP2. First rough version: valuation and structure; buy/sell comes next.
+import { isCoin, coinIcon, flagOf } from './curpicker.js';
 import { enhanceSelect, pickAll, pickerList } from './picker.js';
 import { tipBtn } from './interest.js';
 import { compact, WALLETS, WALLET_INFO, walletOf, accLabel, get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, findOrAddCategory, factorFor, allCurrencies, ensureCurrency } from './core.js';
@@ -214,7 +215,7 @@ export function investments(db) {
     if (mode !== 'platform' || (ws.size === 1 && (ws.has('Spot') || ws.has('')))) return `<div class="rows plain">${srt(list).map((a) => holding(a, t)).join('')}</div>`;
     return [...ws.entries()].sort((x, y) => (WALLETS.indexOf(x[0]) + 1 || 99) - (WALLETS.indexOf(y[0]) + 1 || 99) || x[0].localeCompare(y[0])).map(([w, l]) => `<h4 class="wlt w-${esc((w || 'other').toLowerCase())}">${esc(w || 'Other')} <small class="muted">${money(exSum(l))}${earnedTxt(l)}</small></h4><div class="rows plain">${srt(l).map((a) => holding(a, t)).join('')}</div>`).join(''); };
   const holding = (a, tot) => { const b = bal.get(a.id) || 0, v = val(db, a, b), ok = priced(db, a), px = homeFx(db, a.cur) || 0;
-    return `<button class="row acct hold" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:var(--xfer)">${esc(a.cur.slice(0, 1))}</i>
+    return `<button class="row acct hold" data-act="acct" data-id="${a.id}"><i class="badge sm ${isCoin(a.cur) ? 'coinbadge' : ''}" style="background:${isCoin(a.cur) ? 'transparent' : 'var(--xfer)'}">${isCoin(a.cur) ? coinIcon(a.cur) : esc(flagOf(a.cur) || a.cur.slice(0, 1))}</i>
       <span class="rmain"><strong>${a.cur === 'USD' || a.cur === HOME ? esc(a.name) : `${esc((tickers[a.cur] && tickers[a.cur].ticker) || a.cur)} <small class="muted">${esc(curName(a.cur) || '')}${a.market ? ` · ${esc(a.market)}` : ''}</small>`}</strong><small>${qty(b, a.cur)}${paidTxt(a)}${ok && a.cur !== HOME ? ` · price ${money(px)}` : ''}${tot > 0 && ok ? ` · ${Math.round((v / tot) * 100)}%` : ''}${basis(a)}</small></span>
       <span class="ramt"><b>${ok ? money(v) : '<small class="muted">no price</small>'}</b></span></button>`; };
   const exHtml = [...byEx.entries()].sort((x, y) => mode === 'risk' ? (((RISK_GROUPS.indexOf(x[0]) + 1) || 99) - ((RISK_GROUPS.indexOf(y[0]) + 1) || 99)) || x[0].localeCompare(y[0]) : exSum(y[1]) - exSum(x[1])).map(([ex, list]) => {

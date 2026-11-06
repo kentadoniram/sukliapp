@@ -1,7 +1,7 @@
 // Internal Transfer: move one coin between two wallets (Spot, Earn, Futures, Margin…) of the SAME platform.
 // Free, same coin, no fee. Both balances change; the destination account is only made when that wallet has no account for the coin yet.
 // Moving between DIFFERENT platforms (Binance to Bybit) is Transfer/Move in the + menu.
-import { r9, qtyR, get, commit, uid, stamp, nowStamp, balances, exactAmt, walletOf, WALLETS, HOME, fmt, rateFor } from './core.js';
+import { softDelete, r9, qtyR, get, commit, uid, stamp, nowStamp, balances, exactAmt, walletOf, WALLETS, HOME, fmt, rateFor } from './core.js';
 import { sheet, esc, toast } from './ui.js';
 import { inInvest, exchangeOf } from './invest.js';
 import { ensureAsset, accountTypesOf, assetChoices } from './tokens.js';
@@ -35,7 +35,7 @@ export function internalMove({ platform, cur, from, to, amount, when }) {
   return { ok: true, id: tid, made, msg: `Moved ${exactAmt(amt)} ${cur} from ${from} to ${to}${made ? ` (made the ${to} account)` : ''}. No fee.` };
 }
 
-export function openInternal({ asset = '', platform = '' } = {}) {
+export function openInternal({ asset = '', platform = '', replaceId = '', amount = '' } = {}) {
   const db0 = get(), a0 = db0.accounts.find((x) => x.id === asset);
   const plats = [...new Set(live(db0.accounts).filter((x) => inInvest(x) && exchangeOf(x)).map(exchangeOf))].sort();
   if (!plats.length) { toast('Add an asset on a platform first.'); return; }
@@ -87,7 +87,8 @@ export function openInternal({ asset = '', platform = '' } = {}) {
   el('it-all').onclick = () => { q('amt').value = exactAmt(r8(Math.max(0, bal()))); };
   el('it-save').onclick = () => {
     const r = internalMove({ platform: plat, cur, from, to, amount: q('amt').value, when });
-    if (!r.ok) { toast(r.msg); return; } s.close(); toast(r.msg);
+    if (!r.ok) { toast(r.msg); return; } if (replaceId) commit((d) => { const o = d.txs.find((x) => x.id === replaceId); if (o && !o.deleted) softDelete(o); }); s.close(); toast(r.msg + (replaceId ? ' The old entry is in the recycle bin.' : ''));
   };
   draw();
+  if (amount > 0) q('amt').value = exactAmt(amount);
 }

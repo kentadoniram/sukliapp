@@ -1,4 +1,5 @@
 // Accounts page (grouped and sorted), account detail with history, net worth, interest and credit-card details.
+import { catIcon } from './caticons.js';
 import { pickAll } from './picker.js';
 import { openDateOf, openDates, WALLETS, WALLET_INFO, walletOf } from './core.js';
 import { tipBtn, calcHtml, bindCalc, COMP_LABEL, rateAt, hasRate } from './interest.js';
@@ -303,7 +304,7 @@ export function openAccountDetail(id) {
       const dShow = h.d + feeD, balShow = top.bal;
       const feeTxt = kids.length ? kids.map((k) => `fee ${money(k.t.amount, k.t.cur)}`).join(', ') : (t.fee > 0 ? `fee ${money(t.fee, t.feeCur || t.cur)}` : '');
       const sub = `${dayLabel(t.date)} · ${tr ? (t.acct === id ? 'to ' : 'from ') + esc(other || '?') : esc(c ? c.name : 'No category')}${t.auto || t.autoDebt ? ' · automatic' : ''}${t.posted && t.posted > String(t.date).slice(0, 10) ? ' · posted ' + esc(dayLabel(t.posted + ' 00:00:00').split(',')[0]) : ''}${feeTxt ? ' · ' + esc(feeTxt) : ''}`;
-      return `<button class="row" data-act="edit" data-id="${t.id}"><i class="badge sm" style="background:${tr ? 'var(--xfer)' : groupColor(c ? c.group : 'Uncategorized')}">${groupLetter(tr ? 'Transfer' : (c ? c.group : 'U'))}</i>
+      return `<button class="row" data-act="edit" data-id="${t.id}"><i class="badge sm" style="background:${tr ? 'var(--xfer)' : groupColor(c ? c.group : 'Uncategorized')}">${tr || !c ? groupLetter(tr ? 'Transfer' : 'U') : catIcon(c)}</i>
         <span class="rmain"><strong>${esc(title)}</strong><small>${sub}</small><small class="eff">${effectLine(t, null)}</small></span>
         <span class="ramt ${dShow >= 0 ? 'income' : 'expense'}"><b>${dShow >= 0 ? '+' : ''}${money(dShow, a.cur)}</b><small>${money(balShow, a.cur)}</small></span></button>`;
     };
@@ -318,7 +319,6 @@ export function openAccountDetail(id) {
       <div class="btnrow tight"><button class="btn sm" data-ad="add">Add entry</button>${isLiability(a) ? `<button class="btn sm ghost" data-act="loan-charge" data-id="${a.id}">Add charge</button>` : ''}
         ${['asset', 'invest', 'other'].includes(a.type) ? '<button class="btn sm ghost" data-ad="reval">Update value</button>' : ''}
         <button class="btn sm ghost" data-ad="edit">Edit</button></div>
-      ${a.exchange && a.type === 'crypto' ? `<div class="wmove"><span class="muted">${esc(walletOf(a))} wallet on ${esc(a.exchange)}: move coins between wallets as a transfer</span><div class="chips">${walletOf(a) !== 'Earn' ? `<button type="button" class="btn sm" data-act="wallet-xfer" data-id="${a.id}" data-w="Earn">Move to Earn</button>` : ''}</div></div>` : ''}
       ${a.exchange && a.type === 'crypto' && walletOf(a) === 'Earn' ? `<div class="btnrow tight subbtn"><button class="btn sm ghost" data-act="earn-open" data-id="${a.id}">Subscription Settings</button><label class="switch" aria-label="Subscription Settings On or Off"><input type="checkbox" data-act="earn-toggle" data-id="${a.id}" ${a.earn && a.earn.on ? 'checked' : ''}><span>${a.earn && a.earn.on ? 'On' : 'Off'}</span></label></div>` : ''}
       ${a.exchange ? `<details class="wmove"><summary class="muted">Wrong wallet on ${esc(a.exchange)}? Change this account’s wallet</summary><div class="chips">${[...new Set([...WALLETS, ...db.accounts.filter((x) => !x.deleted && x.exchange === a.exchange).map(walletOf)])].map((w) => `<button type="button" class="chip ${walletOf(a) === w ? 'on' : ''}" data-act="wallet-move" data-id="${a.id}" data-w="${esc(w)}" aria-pressed="${walletOf(a) === w}">${esc(w)}</button>`).join('')}<button type="button" class="chip" data-act="wallet-move" data-id="${a.id}" data-w="__new">+ New wallet</button></div></details>` : ''}
       <div class="rangebar seg sm" role="group" aria-label="Chart range">${[[30, '30 days'], [90, '90 days'], [365, '1 year'], [0, 'All']].map(([v, l]) => `<button type="button" data-ad="range" data-v="${v}" class="${st.range === v ? 'on' : ''}" aria-pressed="${st.range === v}">${l}</button>`).join('')}</div>
@@ -450,7 +450,7 @@ export function openAccount(id, preset = {}) {
       <div class="two"><label class="field"><span>Statement closes on day</span><input name="stmtDay" inputmode="numeric" value="${a.stmtDay || ''}" placeholder="1–31"></label>
       <label class="field"><span>Payment due on day</span><input name="dueDay" inputmode="numeric" value="${a.dueDay || ''}" placeholder="1–31"></label></div>
       <p class="hint">Sukli shows a banner on Home when the payment is near, and can give you calendar reminders (.ics) from the account page.</p></div>
-    <p class="hint" id="earnnote" hidden>Exchanges pay interest on coins in <b>Earn</b>, not in Spot. To earn interest, move this coin to an Earn account (the account page has a “Move to Earn” button), and set the rate on that account.</p>
+    <p class="hint" id="earnnote" hidden>Exchanges pay interest on coins in <b>Earn</b>, not in Spot. To earn interest, move this coin to an Earn account with an Internal Transfer (the + menu), and set the rate on that account.</p>
     <div id="intfields" class="${(+a.apy > 0 || (a.promos || []).length || (a.rates || []).length) ? 'keep' : 'adv-only'}" ${isLiability(a) ? 'hidden' : ''}><div class="field"><span>Interest (optional) ${tipBtn('rate')}${tipBtn('start')}${tipBtn('tax')}</span>
       <small class="hint">For Maya Savings, Binance Earn and the like. Sukli adds one small entry a day (Interest, or Crypto earned for crypto accounts) based on that day’s balance. It is an estimate, so set the rate your app shows.</small></div>
       <div class="two ifld"><label class="field"><span>Rate (% a year)</span><input name="apy" inputmode="decimal" value="${a.apy || ''}" placeholder="0" aria-label="Yearly interest percent"></label>

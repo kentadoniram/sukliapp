@@ -1,4 +1,5 @@
 // The five screens: Home, Ledger, Review, Accounts, Reports, and Settings.
+import { catIcon } from './caticons.js';
 import { softDelete, appMode } from './core.js';
 import { safetyCfg, balanceTrail } from './finance.js';
 import {
@@ -167,7 +168,7 @@ export function row(t, accts, cats, sel, trail) {
   const on = sel && ui.sel.has(t.id);
   return `<button class="row ${sel ? 'selrow' : ''} ${on ? 'picked' : ''}" data-act="${sel ? 'sel-toggle' : 'edit'}" data-id="${t.id}" ${sel ? `role="checkbox" aria-checked="${!!on}"` : ''}>
     ${sel ? `<i class="selbox ${on ? 'on' : ''}">${on ? ic('check') : ''}</i>` : ''}
-    <i class="badge" style="background:${tr ? 'var(--xfer)' : groupColor(group)}">${groupLetter(group)}</i>
+    <i class="badge" style="background:${tr ? 'var(--xfer)' : groupColor(group)}">${tr || !c ? groupLetter(group) : catIcon(c)}</i>
     <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub2}</small><small class="eff">${effectLine(t, accts)}</small>${balLines(t, accts, trail)}</span>
     <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}${arr}</span></button>`;
 }
@@ -612,7 +613,7 @@ export function review(db) {
     const opts = p.cats.slice(0, 3).filter((x) => cats.has(x.id));
     return `<article class="rcard"><div class="rtop"><strong>${esc(t.name || 'Untitled')}</strong><b>${money(t.kind === 'income' ? t.amount : -t.amount, t.cur)}${eq(t.amount, t.cur, t.fx) ? `<small class="eqs"> ${eq(t.amount, t.cur, t.fx)}</small>` : ''}</b></div>
       <small>${dayLabel(t.date)} · ${esc(a ? a.name : '')}${t.autoName ? ' · label was left blank and guessed, tap Edit to rename' : ''}${t.items && t.items.length ? ' · items do not add up to the total' : ''}</small>
-      <div class="chips">${opts.map((x) => { const c = cats.get(x.id); return `<button class="chip cat" data-act="confirm" data-id="${t.id}" data-cat="${x.id}"><i style="background:${groupColor(c.group)}">${groupLetter(c.group)}</i>${esc(c.name)} <small>${Math.round(x.p * 100)}%</small></button>`; }).join('')}
+      <div class="chips">${opts.map((x) => { const c = cats.get(x.id); return `<button class="chip cat cattile" data-act="confirm" data-id="${t.id}" data-cat="${x.id}"><i style="background:${groupColor(c.group)}">${catIcon(c)}</i><span>${esc(c.name)}</span><small>${Math.round(x.p * 100)}%</small></button>`; }).join('')}
       <button class="chip more" data-act="edit-now" data-id="${t.id}">Edit</button></div></article>`;
   });
   const sure = list.filter((t) => { const p = predict(modelFor(t.kind === 'income' ? 'income' : 'expense'), t.name, t.amount, { acct: t.acct, cur: t.cur, hour: +t.date.slice(11, 13) }); return p.conf >= 0.8 && !(t.items && t.items.length); }).length;

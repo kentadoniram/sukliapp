@@ -1,4 +1,5 @@
 // The extra windows: menu drawer, Calendar, Budget (donut), Cash flow, Categories, and the detail sheets.
+import { catIcon } from './caticons.js';
 import { softDelete, scopeIds, scopeOptionsHtml, withScope, appMode } from './core.js';
 import { undoMenuHtml } from './undoui.js';
 import {
@@ -340,8 +341,8 @@ export function categories(db) {
     <button class="btn wide" data-act="cat-new">+ New ${label} category</button>
     ${[...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([g, cs]) => coll(`cg:${kind}:${g}`,
       `<i class="badge sm" style="background:${groupColor(g)}">${groupLetter(g)}</i> ${esc(g)} <small class="muted">${cs.length}</small>`,
-      `<div class="chips">${cs.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<button type="button" class="chip" data-act="cat-edit" data-id="${c.id}">${esc(c.name)}${c.keywords ? '<small title="has keywords"> ✎</small>' : ''}<small> ${used.get(c.id) || 0}</small></button>`).join('')}
-        <button type="button" class="chip more" data-act="cat-new" data-g="${esc(g)}">+ add</button></div>
+      `<div class="chips cattiles">${cs.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<button type="button" class="chip cattile" data-act="cat-edit" data-id="${c.id}"><i style="background:${groupColor(g)}">${catIcon(c)}</i><span>${esc(c.name)}${c.keywords ? '<small title="has keywords"> ✎</small>' : ''}</span><small>${used.get(c.id) || 0}</small></button>`).join('')}
+        <button type="button" class="chip more cattile" data-act="cat-new" data-g="${esc(g)}"><i class="ghosti">+</i><span>Add</span></button></div>
         <div class="btnrow left"><button class="linkbtn sm" data-act="cat-ren" data-g="${esc(g)}">Rename group</button><button class="linkbtn sm neg" data-act="cat-delgroup" data-g="${esc(g)}">Delete group</button></div>`)).join('') || '<p class="empty">No categories yet.</p>'}
     <p class="hint">The small number is how many entries use a category. Tap one to rename it, move it to another group, edit its keywords or delete it. Keywords make the app guess it as you type.</p>`;
 }

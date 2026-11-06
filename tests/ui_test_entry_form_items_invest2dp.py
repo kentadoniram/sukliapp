@@ -20,7 +20,7 @@ with sync_playwright() as p:
     pg.evaluate("[...document.querySelectorAll('[data-e=item-sug]')].find(x=>/Rice/.test(x.textContent)).click()"); pg.wait_for_timeout(300)
     ok('tapping a chip fills the item name', pg.input_value('.item .in-n')=='Rice')
     yn=Y('.item .in-n'); yc=pg.evaluate("(()=>{const k=[...document.querySelector('.item').children].filter(e=>e.getBoundingClientRect().height>10&&e!==document.querySelector('.item .in-n'));return Math.round(k[0].getBoundingClientRect().top)})()"); ya=Y('.item .in-a'); yq=Y('.item .qty')
-    ok('row 1 = name and category, row 2 = amount with the quantity buttons %s'%[yn,yc,ya,yq], abs(yn-yc)<4 and ya>yn+20 and abs(ya-yq)<4)
+    ok('row 1 = name and category, row 2 = amount with the quantity buttons %s'%[yn,yc,ya,yq], abs(yn-yc)<4 and ya>yn+20 and abs(ya-yq)<12)
     pg.fill('.item .in-n','Meat'); pg.wait_for_timeout(300)
     ok('typing Meat picks a category', J("return c.get().categories.length>0") and pg.evaluate("document.querySelector('.item .in-c').value")!='' )
     pg.evaluate("document.querySelector('[data-e=item-del]').click()"); pg.wait_for_timeout(300)

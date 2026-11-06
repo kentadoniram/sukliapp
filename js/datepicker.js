@@ -30,12 +30,12 @@ export function openDatePicker(value, onPick, { time = true, title = 'Choose a d
     }
     root.innerHTML = `<div class="dpquick"><button type="button" class="chip" data-q="0">Today</button><button type="button" class="chip" data-q="-1">Yesterday</button><button type="button" class="chip" data-q="-7">A week ago</button></div>
       ${time ? `<div class="dpquick dpago"><span class="muted">Hours ago</span>${[1, 2, 3, 6, 12].map((n) => `<button type="button" class="chip" data-ago="${n}">${n} h</button>`).join('')}<input id="dp-ago" inputmode="numeric" placeholder="other" aria-label="Hours ago" data-noclear="1"></div>` : ''}
+      ${time ? `<div class="dptime"><span>Time</span><select id="dp-h" aria-label="Hour">${Array.from({ length: 24 }, (_, i) => `<option ${i === hh ? 'selected' : ''} value="${i}">${p2(i)}</option>`).join('')}</select>:<select id="dp-m" aria-label="Minute">${Array.from({ length: 60 }, (_, i) => `<option ${i === mm ? 'selected' : ''} value="${i}">${p2(i)}</option>`).join('')}</select><button type="button" class="chip" data-now>Now</button><button type="button" class="chip ${clock ? 'on' : ''}" data-clock aria-pressed="${clock}" title="Pick the time on an analog clock">🕒 Clock</button></div>
+      ${clock ? '<div id="dp-clock" class="dpclock"></div>' : ''}` : ''}
       <div class="dphead"><button type="button" class="iconbtn" data-m="-12" aria-label="Previous year">«</button><button type="button" class="iconbtn" data-m="-1" aria-label="Previous month">‹</button>
         <strong>${esc(monthLabel(view))}</strong><button type="button" class="iconbtn" data-m="1" aria-label="Next month">›</button><button type="button" class="iconbtn" data-m="12" aria-label="Next year">»</button></div>
       <div class="dpgrid dpdow">${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((x) => `<span>${x}</span>`).join('')}</div>
       <div class="dpgrid">${cells.join('')}</div>
-      ${time ? `<div class="dptime"><span>Time</span><select id="dp-h" aria-label="Hour">${Array.from({ length: 24 }, (_, i) => `<option ${i === hh ? 'selected' : ''} value="${i}">${p2(i)}</option>`).join('')}</select>:<select id="dp-m" aria-label="Minute">${Array.from({ length: 60 }, (_, i) => `<option ${i === mm ? 'selected' : ''} value="${i}">${p2(i)}</option>`).join('')}</select><button type="button" class="chip" data-now>Now</button><button type="button" class="chip ${clock ? 'on' : ''}" data-clock aria-pressed="${clock}" title="Pick the time on an analog clock">🕒 Clock</button></div>
-      ${clock ? '<div id="dp-clock" class="dpclock"></div>' : ''}` : ''}
       <p class="dpsel">${esc(prettyDate(sel, false))}</p>
       <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button type="button" class="btn" data-ok>Set</button></div>`;
   };

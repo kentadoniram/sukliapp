@@ -1,4 +1,5 @@
 // The add / edit sheet, the category picker and the "add many at once" sheet.
+import { catIcon, ICONS, ICON_KEYS, iconKeyOf, iconSvg, guessIcon } from './caticons.js';
 import {
   get, commit, undoLast, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
   findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt, r9, qtyR, commitQuiet,
@@ -232,11 +233,11 @@ export function openEntry(opts = {}) {
   }
   function renderSeg() {
     const dOn = f.flow === 'pay' || f.flow === 'borrow', lOn = f.flow === 'lend' || f.flow === 'back', on3 = (v) => (v === 'transfer' ? f.kind === 'transfer' && !f.flow : f.kind === v);
-    const b3 = [['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']].map(([v, l]) => `<button type="button" data-e="kind" data-v="${v}" aria-pressed="${on3(v)}" class="${on3(v) ? 'on' : ''}">${l}</button>`).join('');
+    const b3 = [['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']].map(([v, l]) => `<button type="button" data-e="kind" data-v="${v}" aria-pressed="${on3(v)}" class="${on3(v) ? 'on' : ''}">${l}</button>`).join('') + `<button type="button" data-e="internal" aria-pressed="false" class="segint" title="Move a coin between wallets of the same platform (Spot, Earn, Futures…)">Internal</button>`;
     const big = (v, l, sub, on) => `<button type="button" data-e="kind" data-v="${v}" aria-pressed="${on}" class="${on ? 'on' : ''}"><b>${l}</b><small>${sub}</small></button>`;
     const sub = (items) => `<div class="chips segsub" role="group">${items.map(([v, l]) => `<button type="button" class="chip ${f.flow === v ? 'on' : ''}" data-e="flow" data-v="${v}" aria-pressed="${f.flow === v}">${l}</button>`).join('')}</div>`;
     const note = f.kind === 'transfer' && !f.flow ? SEGNOTE.transfer : dOn ? SEGNOTE.debt : lOn ? SEGNOTE.lent : '';
-    $f('seg').innerHTML = `<div class="seg three">${b3}</div><div class="seg two segloan">${big('debt', 'Debt', 'Pay or borrow', dOn)}${big('lent', 'Lent', 'Lend or get paid back', lOn)}</div>${dOn ? sub([['pay', 'I paid a debt'], ['borrow', 'I borrowed money']]) : lOn ? sub([['lend', 'I lent money'], ['back', 'They paid me back']]) : ''}${note ? `<p class="segnote">${note}</p>` : ''}`;
+    $f('seg').innerHTML = `<div class="seg four">${b3}</div><div class="seg two segloan">${big('debt', 'Debt', 'Pay or borrow', dOn)}${big('lent', 'Lent', 'Lend or get paid back', lOn)}</div>${dOn ? sub([['pay', 'I paid a debt'], ['borrow', 'I borrowed money']]) : lOn ? sub([['lend', 'I lent money'], ['back', 'They paid me back']]) : ''}${note ? `<p class="segnote">${note}</p>` : ''}`;
     $f('namelabel').textContent = f.kind === 'transfer' ? (f.debt ? 'Note (optional)' : 'Label (optional, remembers the route)') : f.kind === 'income' ? 'Where from?' : 'What was it?';
     $f('f-what').placeholder = f.kind === 'transfer' ? (f.debt ? FLOWS[f.flow].ph : 'e.g. Card payment, Top up Maya') : 'e.g. Life Tsukagoshi, bus, salary';
   }
@@ -440,12 +441,13 @@ export function openEntry(opts = {}) {
     const nofit = typed.length >= 2 && !cands.length && !(f.pred && f.pred.cats.length && f.pred.conf >= 0.35);
     el.innerHTML = `<div class="field"><span>Category ${guess ? `<small class="muted">· guessed: ${esc(f.guessWhy || guess)}</small>` : ''}</span>
       ${guess && f.pred && f.pred.via ? `<small class="muted via">Matched through: ${esc(explain({ path: f.pred.via.path }))}</small>` : ''}
-      <div class="chips">${list.map((x) => { const c = cm.get(x.id); return ` <button type="button" class="chip cat ${f.cat === x.id ? 'on' : ''} ${guess && f.cat === x.id ? 'guess' : ''}" data-e="cat" data-v="${x.id}"><i style="background:${groupColor(c.group)}">${groupLetter(c.group)}</i>${esc(c.name)}</button>`; }).join('')}
-      <button type="button" class="chip more" data-e="allcats">All</button>
-      <button type="button" class="chip more" data-e="newcat">+ New</button></div>
+      <div class="chips cattiles">${list.map((x) => { const c = cm.get(x.id); return ` <button type="button" class="chip cat cattile ${f.cat === x.id ? 'on' : ''} ${guess && f.cat === x.id ? 'guess' : ''}" data-e="cat" data-v="${x.id}"><i style="background:${groupColor(c.group)}">${catIcon(c)}</i><span>${esc(c.name)}</span></button>`; }).join('')}
+      <button type="button" class="chip more cattile" data-e="allcats"><i class="ghosti">${iconSvg('dots')}</i><span>All</span></button>
+      <button type="button" class="chip more cattile" data-e="newcat"><i class="ghosti"><svg class="cico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></i><span>New</span></button></div>
       ${!f.cat || nofit ? groupSuggest(cm) : ''}
       ${nofit ? `<button type="button" class="linkbtn nofit" data-e="newcat">No category fits “${esc(typed.slice(0, 24))}”. Add it as a new category</button>` : ''}</div>`;
   }
+  const itemPh = () => { const a = acctOf(f.acct); return fmt(0, a ? a.cur : HOME, { force: true }); };   /* the empty price shows the account's own currency, like ₱0.00 or ¥0 */
   const lineOf = (i) => Math.round((num(i.amt) || 0) * (i.q > 0 ? i.q : 1) * 100) / 100;
   function itemSum() { return f.items.reduce((s2, i) => s2 + lineOf(i), 0); }
   function renderItems() {
@@ -458,7 +460,7 @@ export function openEntry(opts = {}) {
         <input class="in-n" list="itemnames" autocomplete="off" placeholder="Item" value="${esc(it.n)}" aria-label="Item name">
         <select class="in-c" aria-label="Item category"><option value="">Same as above</option>${catOptions(it.cat, 'expense')}</select>
         <button type="button" class="iconbtn" data-e="item-del" data-v="${i}" aria-label="Remove item">${ic('x')}</button>
-        <input class="in-a" inputmode="decimal" placeholder="0.00" value="${esc(it.amt)}" aria-label="Price of one">
+        <div class="inamt"><input class="in-a" inputmode="decimal" placeholder="${esc(itemPh())}" value="${esc(it.amt)}" aria-label="Price of one, you can type a sum like 120+45"><button type="button" class="calcin" data-e="item-calc" data-v="${i}" aria-label="Calculator: type a sum such as 120+45*2, then tap = " title="Calculator">=</button></div>
         <div class="qty" role="group" aria-label="Quantity"><button type="button" data-e="item-q" data-v="${i}:-1" aria-label="One less">−</button><b>${it.q > 0 ? it.q : 1}</b><button type="button" data-e="item-q" data-v="${i}:1" aria-label="One more">+</button></div>
         <small class="muted iline">${it.q > 1 ? `${it.q} × ${esc(it.amt || 0)} = ${esc(String(lineOf(it)))}` : ''}</small></div>`).join('')}</div>
       <div class="itemfoot"><button type="button" class="linkbtn" data-e="item-add">+ Add item</button><span id="itemleft"></span></div></div>`;
@@ -824,7 +826,7 @@ export function openEntry(opts = {}) {
           if (g) c = g.cat; else { const p = predict(modelFor('expense'), it.n, num(it.amt) || 0, {}); if (p.cats[0] && it.n.trim().length > 2 && p.conf > 0.35) c = p.cats[0].id; }
           if (c !== it.cat) { it.cat = c; f._autoCat = true; sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); f._autoCat = false; }
         }
-      } else if (e.target.classList.contains('in-a')) { it.amt = e.target.value; updateItemLeft(); const ln = row.querySelector('.iline'); if (ln) ln.textContent = it.q > 1 ? `${it.q} × ${it.amt || 0} = ${lineOf(it)}` : ''; }
+      } else if (e.target.classList.contains('in-a')) { it.amt = e.target.value; updateItemLeft(); const ln = row.querySelector('.iline'); if (ln && isExpr(it.amt) && num(it.amt) > 0) ln.textContent = '= ' + tidy(num(it.amt)) + (it.q > 1 ? `  ·  ${it.q} × = ${lineOf(it)}` : ''); else if (ln) ln.textContent = it.q > 1 ? `${it.q} × ${it.amt || 0} = ${lineOf(it)}` : ''; }
     }
   });
   async function newAccountFor(cur) {
@@ -864,6 +866,7 @@ export function openEntry(opts = {}) {
     else if (e.target.classList.contains('cnt-g')) { const c = f.counts[+e.target.closest('.cnt').dataset.i]; c.g = e.target.value; const inp = e.target.closest('.cnt').querySelector('.cnt-n'); if (inp) inp.placeholder = c.g && unitOf(get(), c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'; }
   });
   form.addEventListener('focusout', (e) => {
+    if (e.target.classList && e.target.classList.contains('in-a')) { const it = f.items[+e.target.closest('.item').dataset.i]; if (it && isExpr(it.amt) && num(it.amt) > 0) { const v = tidy(num(it.amt)); it.amt = v; e.target.value = v; updateItemLeft(); const ln = e.target.closest('.item').querySelector('.iline'); if (ln) ln.textContent = it.q > 1 ? `${it.q} × ${v} = ${lineOf(it)}` : ''; } }
     if (e.target.id === 'f-amount' && isExpr(f.amount) && !f.calc) { const v = num(f.amount); if (v > 0) { f.amount = tidy(v); e.target.value = f.amount; showCalcRes(); updateFxVal(); } }
   });
   // tapping a suggestion must not take focus from the text box (no blur, no re-focus, so Safari never shows the contact bar)
@@ -876,12 +879,15 @@ export function openEntry(opts = {}) {
     if (b !== d.b || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return; sgDone = Date.now(); applyPick(b.dataset.v); });
   form.addEventListener('focusout', () => setTimeout(() => { const el = $f('sugg'); if (el && !el.contains(document.activeElement) && document.activeElement !== $f('f-what')) el.hidden = true; }, 150));
   form.addEventListener('submit', (e) => { e.preventDefault(); save(false); });
-  form.addEventListener('click', (e) => {
+  form.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-e]');
     if (!b) return;
     if (Date.now() - sgDone < 600 && b.dataset.e !== 'pick') return;   // the synthesized click after a touch pick lands on whatever moved up under the finger
     const v = b.dataset.v;
     switch (b.dataset.e) {
+      case 'internal': { const a = acctOf(f.acct), id = existing ? existing.id : '', ok = existing && (existing.internal || true);
+        if (existing && !(await confirmDialog('Replace this entry with an Internal Transfer? The entry goes to the recycle bin once the transfer is saved.', 'Continue'))) break;
+        const { openInternal } = await import('./internal.js'); s.close(); openInternal({ asset: a && a.id, platform: a ? (a.exchange || '') : '', replaceId: id, amount: existing ? existing.amount : '' }); break; }
       case 'kind':
         { const was = f.debt; if (v === 'debt') { if (f.flow !== 'pay' && f.flow !== 'borrow') setFlow(f, 'pay'); f.kind = 'transfer'; } else if (v === 'lent') { if (f.flow !== 'lend' && f.flow !== 'back') setFlow(f, 'lend'); f.kind = 'transfer'; } else { f.flow = ''; f.kind = v; } f.debt = !!f.flow; if (was && !f.debt) { f.feeTouched = false; f.fee = ''; } } if (f.debt) { debtFix(f); f.feeTouched = true; f.fee = ''; f.convert = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; } if (v !== 'expense') { f.items = []; f.showItems = false; }
         f.qtab = ''; f.qtabManual = false;
@@ -933,6 +939,7 @@ export function openEntry(opts = {}) {
       case 'item-add': f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); form.querySelectorAll('.item .in-n')[f.items.length - 1].focus(); break;
       case 'item-sug': { const s = ($f('itemsugg')._list || [])[+v]; if (!s) break; const blank = f.items.findIndex((x) => !x.n && !x.amt); const row = { n: s.n, amt: '', q: 1, cat: s.cat || '', catTouched: !!s.cat }; if (blank >= 0) f.items[blank] = row; else f.items.push(row); renderItems(); break; }
       case 'item-del': f.items.splice(+v, 1); if (!f.items.length) f.showItems = false; renderItems(); break;   // removing the last row closes the section, back to the Split into items link
+      case 'item-calc': { const it = f.items[+v], inp = form.querySelector(`.item[data-i="${v}"] .in-a`); if (!it || !inp) break; if (isExpr(it.amt) && num(it.amt) > 0) { it.amt = tidy(num(it.amt)); renderItems(); updateItemLeft(); } else { inp.inputMode = 'text'; inp.focus(); toast('Type a sum like 120+45, then tap = again.'); } break; }
       case 'item-q': { const [i, dq] = v.split(':').map(Number), it = f.items[i]; if (it) { it.q = Math.max(1, Math.min(99, (it.q > 0 ? it.q : 1) + dq)); renderItems(); } break; }
       case 'parts-use': { const pts = splitParts(f.name) || []; f.parts = pts; f.counts = countsFromParts(get(), pts); f.showCounts = true; renderCounts(); const open = f.counts.filter((c) => !c.g).length; toast(open ? `Pick a group for ${open} of them.` : 'Counted by group. Check it, then save.'); break; }
       case 'parts-off': f.partsOff = f.name; f.parts = []; renderCounts(); break;
@@ -1157,7 +1164,7 @@ export function openCategoryPicker(kind, onPick) {
     q = q.toLowerCase();
     list.innerHTML = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([g, cs]) => {
       const m = cs.filter((c) => !q || c.name.toLowerCase().includes(q) || g.toLowerCase().includes(q));
-      return m.length ? `<div class="catgroup"><h3><i style="background:${groupColor(g)}">${groupLetter(g)}</i>${esc(g)}</h3><div class="chips">${m.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<button type="button" class="chip" data-id="${c.id}">${esc(c.name)}</button>`).join('')}</div></div>` : '';
+      return m.length ? `<div class="catgroup"><h3><i style="background:${groupColor(g)}">${groupLetter(g)}</i>${esc(g)}</h3><div class="chips cattiles">${m.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<button type="button" class="chip cattile" data-id="${c.id}"><i style="background:${groupColor(g)}">${catIcon(c)}</i><span>${esc(c.name)}</span></button>`).join('')}</div></div>` : '';
     }).join('') || '<p class="muted">Nothing matches.</p>';
   };
   draw();
@@ -1177,6 +1184,7 @@ export function openCategoryForm({ id = null, kind = 'expense', group = '', name
     <div class="chips pickchips" id="gchips" aria-label="Existing groups"></div>
     <label class="field"><span>Category (the detail)</span><input name="n" value="${esc(c ? c.name : name)}" placeholder="${isInc ? 'e.g. Bonus, Freelance, Refund' : 'e.g. Gym, Vet, Gifts'}" required autocomplete="off" ${id ? '' : 'autofocus'}></label>
     <div class="chips pickchips" id="nchips" aria-label="Existing categories in this group"></div>
+    <div class="field"><span>Picture</span><button type="button" class="acctbtn icopick" id="icopick"></button><input type="hidden" name="ico" value="${esc(c && c.icon ? c.icon : '')}"></div>
     <label class="field"><span>Words that should land here (optional)</span><input name="k" value="${esc(c ? c.keywords || '' : keywords)}" placeholder="${isInc ? 'e.g. bonus, 13th month' : 'e.g. gym, fitness, anytime'}" autocomplete="off" autocapitalize="off"></label>
     ${id ? '<div class="chips pickchips" id="kchips" aria-label="Words from your entries"></div>' : ''}
     <p class="hint">Separate words with commas. Next time a name contains one of them, this category is guessed. It also learns from every entry you put here.${id ? ' Tap a suggested word to add it.' : ''}</p>
@@ -1198,7 +1206,11 @@ export function openCategoryForm({ id = null, kind = 'expense', group = '', name
       if (b.dataset.g != null) { gi.value = b.dataset.g; drawG(); drawN(); ni.focus(); }
       else if (b.dataset.n != null) { ni.value = b.dataset.n; drawN(); }
       else { ki.value = [ki.value.trim().replace(/,\s*$/, ''), b.dataset.k].filter(Boolean).join(', '); drawK(); } });
-    drawG(); drawN(); drawK(); }
+    const icoBtn = fm.querySelector('#icopick'), icoIn = fm.ico;
+    const drawI = () => { const k = icoIn.value || guessIcon(ni.value || (c && c.name) || '', gi.value || (c && c.group) || ''); icoBtn.innerHTML = `<i class="icoprev" style="background:${groupColor(gi.value || (c && c.group) || 'x')}">${iconSvg(k)}</i> <span>${esc(ICONS[k][0])}${icoIn.value ? '' : ' (automatic)'}</span> ▾`; };
+    icoBtn.onclick = () => openIconLibrary(icoIn.value, (k) => { icoIn.value = k; drawI(); });
+    gi.addEventListener('input', drawI); ni.addEventListener('input', drawI);
+    drawG(); drawN(); drawK(); drawI(); }
   s.el.querySelector('#catform').onsubmit = (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -1221,10 +1233,11 @@ export function openCategoryForm({ id = null, kind = 'expense', group = '', name
       if (c) {
         const x = d.categories.find((q) => q.id === c.id);
         if (x.group !== g) { for (const b of d.budgets) if (!b.deleted && b.group === x.group && !d.categories.some((o) => o !== x && !o.deleted && o.group === x.group)) { b.group = g; stamp(b); } }
-        Object.assign(x, { group: g, name: n, keywords: k }); stamp(x); out = x;
+        Object.assign(x, { group: g, name: n, keywords: k }); if (fd.get('ico')) x.icon = fd.get('ico'); else delete x.icon; stamp(x); out = x;
       } else {
         out = findOrAddCategory(d, g, n, kind);
         if (k) { out.keywords = [out.keywords, k].filter(Boolean).join(', '); stamp(out); }
+        if (fd.get('ico')) { out.icon = fd.get('ico'); stamp(out); }
       }
     });
     s.close(); if (onDone) onDone(out);
@@ -1236,6 +1249,14 @@ export function openCategoryForm({ id = null, kind = 'expense', group = '', name
     commit((d) => { const x = d.categories.find((q) => q.id === c.id); softDelete(x); });
     s.close(); toast('Category removed. Old entries keep their label.'); if (onDone) onDone(null);
   };
+}
+
+// the picture library: tap a picture to use it for this category; Automatic goes back to the guessed one
+export function openIconLibrary(current, onPick) {
+  const s = sheet(`<div class="icolib"><p class="hint">Pick a picture for this category. It is used everywhere the category is shown.</p>
+    <button type="button" class="btn ghost wide" data-ico="">Automatic (guess from the name)</button>
+    <div class="icogrid">${ICON_KEYS.map((k) => `<button type="button" class="icocell ${k === current ? 'on' : ''}" data-ico="${k}" aria-label="${esc(ICONS[k][0])}"><i>${iconSvg(k)}</i><span>${esc(ICONS[k][0])}</span></button>`).join('')}</div></div>`, { title: 'Category Pictures', wide: true });
+  s.el.addEventListener('click', (e) => { const b = e.target.closest('[data-ico]'); if (!b) return; s.close(); onPick(b.dataset.ico); });
 }
 
 // ---------- add many at once ----------

@@ -1305,3 +1305,26 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 /* Paid for Others: name a little bigger, amount shorter */
 .othrow select.oth-who { flex: 0 1 60%; min-height: 50px; font-size: 1.1rem; } .othrow .oth-n { min-height: 40px; font-size: 1.1rem; font-weight: 600; }
 .sbdate { width: 100%; text-align: left; }
+
+/* 13.52: smaller item quantity buttons, calculator inside the item price, clock first */
+.items .item .qty { min-height: 34px; } .items .item .qty button { width: 28px; height: 26px; font-size: 1rem; border-radius: 7px; }
+.items .item .inamt { position: relative; display: flex; align-items: center; } .items .item .inamt .in-a { width: 100%; padding-right: 40px; }
+.items .item .calcin { position: absolute; right: 4px; width: 32px; height: 30px; border: 0; border-radius: 8px; background: var(--tint, #eee); color: inherit; font-size: 1.1rem; font-weight: 700; }
+.seg.four { grid-template-columns: repeat(4, 1fr); } .seg.four button { font-size: .92rem; padding: 0 2px; } .seg button.segint { color: var(--accent, #1a7f5a); }
+
+/* 13.52: category pictures in coloured circles with the name underneath */
+.cico { width: 60%; height: 60%; display: block; } .badge .cico { width: 62%; height: 62%; margin: auto; }
+.badge:has(> .cico) { display: grid; place-items: center; }
+.chips.cattiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 10px 6px; }
+.chip.cattile { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 2px; min-height: 0; background: none; border: 0; box-shadow: none; text-align: center; border-radius: 12px; font-size: .74rem; line-height: 1.15; color: inherit; }
+.chip.cattile > i { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-style: normal; flex: none; }
+.chip.cattile > i .cico { width: 26px; height: 26px; }
+.chip.cattile > i.ghosti { background: var(--tint, #eee); color: var(--ink2, #555); font-size: 1.4rem; }
+.chip.cattile > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; max-width: 100%; }
+.chip.cattile > small { opacity: .65; font-size: .68rem; }
+.chip.cattile.on { background: none; } .chip.cattile.on > i { outline: 3px solid var(--accent, #1a7f5a); outline-offset: 2px; } .chip.cattile.on > span { font-weight: 700; }
+.chip.cattile.guess > i { outline: 2px dashed var(--accent, #1a7f5a); outline-offset: 2px; }
+.icopick { display: flex; align-items: center; gap: 8px; } .icoprev { width: 32px; height: 32px; border-radius: 50%; display: inline-grid; place-items: center; color: #fff; } .icoprev .cico { width: 18px; height: 18px; }
+.icogrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; margin-top: 10px; }
+.icocell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 2px; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); color: inherit; font-size: .72rem; } .icocell i { width: 40px; height: 40px; border-radius: 50%; background: var(--line, #1d4e89); color: #fff; display: grid; place-items: center; } .icocell i .cico { width: 22px; height: 22px; } .icocell.on { outline: 3px solid var(--accent, #1a7f5a); }
+.chip.cattile.guess { border: 0; background: none; }

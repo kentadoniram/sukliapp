@@ -14,7 +14,7 @@ with sync_playwright() as p:
       d.txs.push(c.stamp({id:'p1',kind:'expense',amount:10000,cur:c.HOME,fx:1,date:c.nowStamp().slice(0,10)+' 08:00:00',name:'card buy',cat:d.categories.find(x=>!x.deleted&&x.kind==='expense').id,acct:'pc'}))})})()""")
     pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(600)
     pg.click('[data-act=add]'); pg.wait_for_selector('#entry')
-    btns=pg.eval_on_selector_all('#seg button','b=>b.map(x=>x.textContent)'); ok('five options in two rows %s'%btns, btns[:3]==['Expense','Income','Transfer'] and btns[3].startswith('Debt') and btns[4].startswith('Lent'))
+    btns=pg.eval_on_selector_all('#seg button','b=>b.map(x=>x.textContent)'); ok('five options in two rows %s'%btns, btns[:4]==['Expense','Income','Transfer','Internal'] and btns[4].startswith('Debt') and btns[5].startswith('Lent'))
     sw=pg.evaluate("(()=>{const s=document.querySelector('#seg').getBoundingClientRect();return [s.width,...[...document.querySelectorAll('#seg button')].map(b=>b.getBoundingClientRect().width)]})()"); ok('main row has three equal buttons, loan row two %s'%sw, max(sw[1:4])<=sw[0]/3+2 and max(sw[4:])<=sw[0]/2+2)
     pg.click('[data-e=kind][data-v=debt]'); pg.wait_for_timeout(300); t=pg.inner_text('#entry')
     ok('plain questions', 'What will you pay?' in t and 'Paid from' in t and 'not counted as spending' in t)
