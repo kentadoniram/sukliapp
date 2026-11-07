@@ -1,0 +1,1 @@
+Coin logos: web3icons by 0xa3k5 (MIT licence, https://github.com/0xa3k5/web3icons). Logos remain trademarks of their owners; they are used only to tell coins apart. Some originate from cryptocurrency-icons (CC0).

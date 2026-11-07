@@ -165,7 +165,7 @@ export function openEntry(opts = {}) {
     <div class="segbox" id="seg" role="group" aria-label="Entry type"></div>
     <div id="freq" class="qp"></div>
     <div class="field" id="namefield"><span id="namelabel">What was it?</span>
-      <input id="f-what" name="memo" type="text" role="combobox" aria-autocomplete="list" aria-controls="sugg" aria-expanded="false" autocomplete="off" data-form-type="other" data-lpignore="true" value="${esc(f.name)}" placeholder="e.g. Life Tsukagoshi, bus, salary" ${existing ? '' : 'autofocus'}>
+      <input id="f-what" name="memo" type="text" role="combobox" aria-autocomplete="list" aria-controls="sugg" aria-expanded="false" autocomplete="off" data-form-type="other" data-lpignore="true" value="${esc(f.name)}" placeholder="e.g. Grab, Matcha, Cheesecake, . . ." ${existing ? '' : 'autofocus'}>
       <div id="sugg" class="sugg" hidden></div></div>
     <div class="field adv-only" id="merchrow" hidden></div>
     <div class="field amount" id="amountbox"><span class="amtlabel">Amount <button type="button" class="linkbtn eye" data-e="eye" aria-label="Hide or show amounts">${priv.on ? 'Show' : 'Hide'} amounts</button></span>
@@ -239,7 +239,7 @@ export function openEntry(opts = {}) {
     const note = f.kind === 'transfer' && !f.flow ? SEGNOTE.transfer : dOn ? SEGNOTE.debt : lOn ? SEGNOTE.lent : '';
     $f('seg').innerHTML = `<div class="seg four">${b3}</div><div class="seg two segloan">${big('debt', 'Debt', 'Pay or borrow', dOn)}${big('lent', 'Lent', 'Lend or get paid back', lOn)}</div>${dOn ? sub([['pay', 'I paid a debt'], ['borrow', 'I borrowed money']]) : lOn ? sub([['lend', 'I lent money'], ['back', 'They paid me back']]) : ''}${note ? `<p class="segnote">${note}</p>` : ''}`;
     $f('namelabel').textContent = f.kind === 'transfer' ? (f.debt ? 'Note (optional)' : 'Label (optional, remembers the route)') : f.kind === 'income' ? 'Where from?' : 'What was it?';
-    $f('f-what').placeholder = f.kind === 'transfer' ? (f.debt ? FLOWS[f.flow].ph : 'e.g. Card payment, Top up Maya') : 'e.g. Life Tsukagoshi, bus, salary';
+    $f('f-what').placeholder = f.kind === 'transfer' ? (f.debt ? FLOWS[f.flow].ph : 'e.g. Card payment, Top up Maya') : f.kind === 'income' ? 'e.g. Salary, Bonus, Refund, . . .' : 'e.g. Grab, Matcha, Cheesecake, . . .';
   }
   // quick picks: tap one and the name, amount, account and category are filled in
   function renderFreq() {
@@ -284,7 +284,7 @@ export function openEntry(opts = {}) {
   }
   function updateNamePh() {                                             // a transfer left unnamed will be called "from - to"
     const el = form.querySelector('#f-what'); if (!el) return;
-    el.placeholder = f.kind === 'transfer' && f.debt ? 'Optional. Blank is filled in for you' : f.kind === 'transfer' ? (acctOf(f.acct) && acctOf(f.toAcct) ? `Leave blank: ${acctOf(f.acct).name} - ${acctOf(f.toAcct).name}` : 'Leave blank to use the two account names') : 'e.g. Life Tsukagoshi, bus, salary (blank is filled in for you)';
+    el.placeholder = f.kind === 'transfer' && f.debt ? 'Optional. Blank is filled in for you' : f.kind === 'transfer' ? (acctOf(f.acct) && acctOf(f.toAcct) ? `Leave blank: ${acctOf(f.acct).name} - ${acctOf(f.toAcct).name}` : 'Leave blank to use the two account names') : f.kind === 'income' ? 'e.g. Salary, Bonus, Refund, . . .' : 'e.g. Grab, Matcha, Cheesecake, . . .';
   }
   // what the account holds right now, shown under its name in a transfer
   const balLine = (id) => { const a = acctOf(id); if (!a) return ''; const v = balances(get()).get(id) || 0; return `<small class="acctbal ${v < 0 ? 'neg' : ''}">Balance ${esc(fmt(v, a.cur, { force: !priv.on }))}</small>`; };
@@ -527,11 +527,14 @@ export function openEntry(opts = {}) {
       <p class="hint" id="oth-sum"></p>
       <div class="itemfoot"><button type="button" class="linkbtn" data-e="oth-off">Not paid for others</button></div></div>`;
   }
+  /* each person can be in the bill only once: choosing someone again takes them out of the row they were in before */
+  function othOnce(i) { const w = f.others.rows[i].who; if (!w) return; const gone = []; f.others.rows.forEach((r, j) => { if (j !== i && r.who === w) gone.push(j); });
+    if (!gone.length) return; for (const j of gone.reverse()) { if (f.others.rows.length > 1) { f.others.rows.splice(j, 1); if (j < i) i -= 1; } else f.others.rows[j].who = ''; } toast('That person was already in this bill, so the earlier line was removed.'); renderCounts(); }
   async function othNew(i) {
     const n = (await promptDialog('Who did you pay for?', '', { okLabel: 'Add', hint: 'A name is enough, for example Ana or Kuya Ben.' }))?.trim(); if (!n) { f.others.rows[i].who = ''; renderCounts(); return; }
     const ex = get().accounts.find((x) => !x.deleted && isOwed(x) && x.name.toLowerCase() === n.toLowerCase()); const id = ex ? ex.id : uid();
     if (!ex) commit((d) => { d.accounts.push(stamp({ id, name: n, cur: HOME, type: 'owed', open: 0, include: true, archived: false })); });
-    f.others.rows[i].who = id; renderCounts();
+    f.others.rows[i].who = id; othOnce(i); renderCounts();
   }
   function renderCounts() {
     const el = $f('countsrow');
@@ -692,9 +695,9 @@ export function openEntry(opts = {}) {
   }
   async function pickBranch() {
     const { branchesOf } = await import('./merchantset.js'); const list = branchesOf(get(), f.merchant);
-    const s = sheet(`<div class="rows plain"><button type="button" class="row cur" data-b=""><span class="rmain"><strong>No branch</strong></span></button>${list.map((b) => `<button type="button" class="row cur" data-b="${esc(b.name)}"><span class="rmain"><strong>${esc(b.name)}</strong><small>${b.n} ${b.n === 1 ? 'entry' : 'entries'}</small></span></button>`).join('')}</div><div class="btnrow left"><button type="button" class="btn ghost" data-new>Add a New Branch</button></div>`, { title: `${f.merchant}: Branch` });
+    const s = sheet(`<div class="rows plain"><button type="button" class="row cur" data-b=""><span class="rmain"><strong class="onel">No branch</strong></span></button>${list.map((b) => `<button type="button" class="row cur" data-b="${esc(b.name)}"><span class="rmain"><strong>${esc(b.name)}</strong><small>${b.n} ${b.n === 1 ? 'entry' : 'entries'}</small></span></button>`).join('')}</div><div class="btnrow left"><button type="button" class="btn ghost" data-new>Add a New Branch</button></div>`, { title: `${f.merchant}: Branch`, cls: 'pickfix' });
     s.el.addEventListener('click', async (e) => { const r = e.target.closest('[data-b]'); if (r) { s.close(); f.branch = r.dataset.b; f.branchTouched = true; f.branchSuggested = ''; renderBranch(); return; }
-      if (e.target.closest('[data-new]')) { s.dispose(); const v = ((await promptDialog('New branch', '', { okLabel: 'Add', hint: `A place of ${f.merchant}, for example Kawasaki Station.` })) || '').replace(/\s+/g, ' ').trim(); if (!v) return; f.branch = v; f.newBranch = v; f.branchTouched = true; f.branchSuggested = ''; renderBranch(); } });
+      if (e.target.closest('[data-new]')) { s.dispose(); let v = ((await promptDialog('New branch', '', { okLabel: 'Add', hint: `A place of ${f.merchant}, for example Kawasaki Station.` })) || '').replace(/\s+/g, ' ').trim(); if (!v) return; v = titleCase(v);   /* branch names are saved in Title Case */ f.branch = v; f.newBranch = v; f.branchTouched = true; f.branchSuggested = ''; renderBranch(); } });
   }
   // Current Location: below the keypad, so nothing above it moves
   function renderLoc() {
@@ -861,7 +864,7 @@ export function openEntry(opts = {}) {
     }
     else if (id === 'f-feecat') { f.feeCat = e.target.value; f.feeTouched = true; f.feeSuggested = false; renderFee(); }
     else if (e.target.classList.contains('in-c')) { const it = f.items[+e.target.closest('.item').dataset.i]; it.cat = e.target.value; if (!f._autoCat) it.catTouched = true; }
-    else if (e.target.classList.contains('oth-who')) { const i = +e.target.closest('.othrow').dataset.i; if (e.target.value === '__new') othNew(i); else { f.others.rows[i].who = e.target.value; othSum(); } }
+    else if (e.target.classList.contains('oth-who')) { const i = +e.target.closest('.othrow').dataset.i; if (e.target.value === '__new') othNew(i); else { f.others.rows[i].who = e.target.value; othOnce(i); othSum(); } }
     else if (e.target.classList.contains('oth-me')) { f.others.me = !e.target.checked; othSum(); }
     else if (e.target.classList.contains('cnt-g')) { const c = f.counts[+e.target.closest('.cnt').dataset.i]; c.g = e.target.value; const inp = e.target.closest('.cnt').querySelector('.cnt-n'); if (inp) inp.placeholder = c.g && unitOf(get(), c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'; }
   });
@@ -1101,7 +1104,7 @@ export function openEntry(opts = {}) {
       const list = []; for (const x of P.list) { const pp = acctOf(x.who); if (!pp || !isOwed(pp)) return fail('Choose who you paid for, or tap "Not paid for others".'); if (!(x.amt > 0)) return fail(`Type ${pp.name}'s part of the bill.`); list.push({ pp, theirs: x.amt, lid: uid() }); }
       const theirsAll = list.reduce((q, x) => q + x.theirs, 0); if (theirsAll > amount0 + 0.005) return fail('Their parts are more than the whole bill.');
       oth = { list, mine: P.mine, eid: uid(), gid: uid() };
-      rec.amount = P.mine > 0 ? P.mine : amount0; rec.paidFor = { total: amount0, who: list.map((x) => x.pp.name).join(', '), me: P.mine > 0 };
+      rec.amount = P.mine > 0 ? P.mine : amount0; rec.paidFor = { total: amount0, who: list.map((x) => x.pp.name).join(', '), me: P.mine > 0, mode: f.others.mode };
       rec.splitId = oth.gid;
       if (rec.counts && rec.counts.length) { rec.counts = []; delete rec.parts; }          // the groups were counted on the whole bill; they would not add up to your part
     }
@@ -1123,7 +1126,7 @@ export function openEntry(opts = {}) {
       else if (oth) {
         const hx = (c) => homeFx(d, c) || 1, hA = a.cur === HOME ? 1 : fx / (homeRate(d, rec.date) || 1), toAmt = (pp0, v) => (pp0.cur === a.cur ? v : +(v * hA / hx(pp0.cur)).toFixed(2));   // the bill's own (possibly hand-set) rate, not today's
         if (oth.mine > 0) { savedAs = stamp({ id: oth.eid, ...rec, createdAt: Date.now() }); d.txs.push(savedAs); }
-        for (const x of oth.list) { const lent = stamp({ id: x.lid, kind: 'transfer', amount: x.theirs, cur: a.cur, fx, hfx: hfxV > 0 ? hfxV : undefined, date: rec.date, name: `Paid for ${x.pp.name}${label ? ': ' + label : ''}`, autoName: false, cat: '', acct: a.id, toAcct: x.pp.id, toAmount: toAmt(x.pp, x.theirs), fee: 0, feeBy: '', notes: '', labels: '', items: [], counts: [], flag: null, lent: true, splitId: oth.gid, createdAt: Date.now() }); d.txs.push(lent); if (!savedAs) savedAs = lent; }
+        for (const x of oth.list) { const lent = stamp({ id: x.lid, kind: 'transfer', amount: x.theirs, cur: a.cur, fx, hfx: hfxV > 0 ? hfxV : undefined, date: rec.date, name: `Paid for ${x.pp.name}${label ? ': ' + label : ''}`, autoName: false, cat: '', acct: a.id, toAcct: x.pp.id, toAmount: toAmt(x.pp, x.theirs), fee: 0, feeBy: '', notes: '', labels: '', items: [], counts: [], flag: null, lent: true, splitId: oth.gid, ...(rec.merchant ? { merchant: rec.merchant } : {}), ...(rec.branch ? { branch: rec.branch } : {}), createdAt: Date.now() }); d.txs.push(lent); if (!savedAs) savedAs = lent; }
       }
       else { savedAs = stamp({ id: uid(), ...rec, createdAt: Date.now() }); d.txs.push(savedAs);
         if (extraAmt > 0) d.txs.push(stamp({ id: uid(), kind: 'income', date: rec.date, name: `${f.extraKind} from ${a.name}`, amount: extraAmt, cur: a.cur, fx, cat: findOrAddCategory(d, 'Income', f.extraKind, 'income').id, acct: f.toAcct, toAcct: '', toAmount: null, fee: 0, notes: '', labels: '', items: [], flag: null, createdAt: Date.now() })); }

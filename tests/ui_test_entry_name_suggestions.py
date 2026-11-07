@@ -72,7 +72,7 @@ with sync_playwright() as p:
     pg.wait_for_selector('.chart g.hit', timeout=15000); pg.wait_for_timeout(400); pg.locator('.chart g.hit').nth(3).click(); pg.wait_for_selector('#fd'); ok('home month bar opens month detail', 'Net income' in pg.inner_text('.sheet-head'))
     pg.screenshot(path=S+'v4-month.png'); pg.click('[data-close]')
     pg.goto('http://localhost:8123/index.html#/reports'); pg.wait_for_selector('.chart')
-    ok('reports has 12 clickable months', pg.locator('.chart g.hit').count()==12)
+    ok('reports has 12 clickable months', (pg.wait_for_timeout(800) or pg.locator('.chart g.hit').count()==12))
     pg.locator('.chart g.hit').nth(5).click(); pg.wait_for_selector('#fd'); pg.click('[data-go]'); pg.wait_for_timeout(300)
     ok('"Open this month" jumps home', pg.evaluate("location.hash")=='#/home')
     # 9 collapse + group by

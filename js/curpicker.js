@@ -8,9 +8,11 @@ const ISO = (() => { try { return new Set(Intl.supportedValuesOf('currency')); }
 const regionOf = (c) => { if (c === 'EUR') return 'EU'; if (!ISO.has(c) || c[0] === 'X') return ''; const r = c.slice(0, 2); return REGION.of(r) === r ? '' : r; };
 export const flagOf = (c) => { const r = regionOf(c); return r ? String.fromCodePoint(...[...r].map((ch) => 127397 + ch.charCodeAt(0))) : ''; };
 // coins get a small round badge in their own colour, so USDT, USDC, BTC… are easy to tell apart from money (fiat) at a glance
-const COIN = { USDT: ['#26A17B', '₮'], USDC: ['#2775CA', '$'], DAI: ['#F5AC37', '◈'], FDUSD: ['#2A5BD7', '$'], USDE: ['#5B5B5B', '$'], BTC: ['#F7931A', '₿'], ETH: ['#627EEA', 'Ξ'], BNB: ['#F0B90B', 'B'], SOL: ['#9945FF', 'S'], XRP: ['#23292F', 'X'], DOGE: ['#C2A633', 'Ð'], TON: ['#0098EA', 'T'], TRX: ['#EB0029', 'T'], ADA: ['#0033AD', '₳'], LTC: ['#345D9D', 'Ł'], MATIC: ['#8247E5', 'M'], POL: ['#8247E5', 'P'] };
-export const isCoin = (c) => !!COIN[c] || (CRYPTO.includes(c));
-export const coinIcon = (c) => { const k = COIN[c] || ['#6b7280', String(c || '?')[0]]; return `<i class="coin" style="--coin:${k[0]}" title="${esc(c)}" aria-hidden="true">${esc(k[1])}</i>`; };
+const COIN_LOGOS = new Set('aave ada algo apt arb atom avax bch bnb btc cro dai doge dot etc eth fdusd fet fil hbar icp jup link ltc matic near op pepe pol render sei shib sol sui tao tia ton trx uni usdc usde usdt vet xlm xmr xrp'.split(' '));   /* real logos in vendor/coins (open-licence web3icons pack) */
+export const isCoin = (c) => COIN_LOGOS.has(String(c || '').toLowerCase()) || CRYPTO.includes(c);
+export const coinIcon = (c) => COIN_LOGOS.has(String(c || '').toLowerCase())
+  ? `<img class="coin coinimg" src="vendor/coins/${esc(String(c).toLowerCase())}.svg" alt="${esc(c)}" title="${esc(c)}" width="24" height="24" loading="lazy" decoding="async">`
+  : `<i class="coin" title="${esc(c)}" aria-hidden="true">${esc(String(c || '?')[0])}</i>`;   /* no logo on file: a plain grey letter, never a made-up colour */
 export const curIcon = (c) => (isCoin(c) ? coinIcon(c) : flagOf(c));
 const ALSO = { EUR: 'Europe Eurozone Germany France Italy Spain', USD: 'United States America USA', GBP: 'United Kingdom Britain England UK', USDT: 'tether dollar', USDC: 'circle dollar', CNY: 'China yuan renminbi', JPY: 'Japan yen' };
 export const regionName = (c) => { const r = regionOf(c); if (!r) return ''; try { return REGION.of(r) || ''; } catch { return ''; } };

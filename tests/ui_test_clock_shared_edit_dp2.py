@@ -32,6 +32,7 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelector('#dp [data-ok]').click()"); pg.wait_for_timeout(300)
     ok('date button shows the clock time', '15:30' in pg.inner_text('[data-sb=datepick]'))
     # my own share is editable (whole bill = my share + others)
+    pg.evaluate("document.querySelector('[data-sb=mode][data-v=amount]').click()"); pg.wait_for_timeout(200)
     pg.evaluate("(()=>{const e=document.querySelector('[data-sb=mine]');e.value='100';e.dispatchEvent(new Event('change',{bubbles:true}))})()"); pg.wait_for_timeout(200)
     tot=pg.input_value('[data-sb=total]'); ok('typing Your Part 100 makes the bill 100 + 600 = 700 (%s)'%tot, abs(float(tot)-700)<0.01)
     pg.evaluate("document.querySelector('[data-sb=save]').click()"); pg.wait_for_timeout(600)

@@ -1328,3 +1328,17 @@ body.simple .adv-only:not(.keep) { display: none !important; }
 .icogrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; margin-top: 10px; }
 .icocell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 2px; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); color: inherit; font-size: .72rem; } .icocell i { width: 40px; height: 40px; border-radius: 50%; background: var(--line, #1d4e89); color: #fff; display: grid; place-items: center; } .icocell i .cico { width: 22px; height: 22px; } .icocell.on { outline: 3px solid var(--accent, #1a7f5a); }
 .chip.cattile.guess { border: 0; background: none; }
+
+/* real coin logos */
+img.coin.coinimg { display: inline-block; width: 1.3em; height: 1.3em; border-radius: 50%; background: transparent; object-fit: cover; vertical-align: -.25em; margin-right: .2em; padding: 0; }
+.badge img.coin.coinimg, .chip.cattile > i img.coin { width: 100%; height: 100%; margin: 0; }
+.coin:not(.coinimg) { background: #8a8f98; }
+
+/* 13.53: shared-bill editor rows, readable pickers */
+.sbrow2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .sbrow2 .field { min-width: 0; } .sbrow2 input, .sbrow2 select { width: 100%; min-width: 0; }
+.sbfixed { font-weight: 650; }
+.pickfix .row.cur { display: flex; align-items: center; justify-content: center; text-align: center; gap: 10px; padding: 14px 16px; min-height: 52px; position: relative; }
+.pickfix .row.cur .rmain { flex: 1 1 auto; justify-items: center; text-align: center; }
+.pickfix .row.cur .rmain strong { justify-content: center; white-space: normal; font-size: 1.05rem; }
+.pickfix .row.cur .ramt { position: absolute; right: 14px; }
+.rmain strong.onel { white-space: nowrap; }
