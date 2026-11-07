@@ -1,6 +1,8 @@
 // Core data layer: one JSON database kept in IndexedDB, plus the money maths.
 // Every record has an id and updatedAt so two phones can merge their copies.
 
+import { iconSvg, ICONS, guessGroupIcon } from './caticons.js';
+
 const DB_NAME = 'sukli';
 const STORE = 'kv';
 const KEY = 'db';
@@ -109,9 +111,12 @@ export function groupColor(g) {
   for (const ch of String(g)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return BADGE[h % BADGE.length];
 }
+// the picture for a category group (Food & Drinks, Travel...): the one you chose, else a default. Non-category names (account kinds) still get their first letter.
+export function groupIconKey(g) { const m = (((get() || {}).settings || {}).groupIcons) || {}; return m[g] && ICONS[m[g]] ? m[g] : guessGroupIcon(g); }
 export function groupLetter(g) {
   if (g === 'Transfer') return '⇄';
   if (g === 'Adjustments') return '±';
+  { const db = get() || {}, cust = ((db.settings || {}).groupIcons || {})[g]; if (cust || (db.categories || []).some((c) => !c.deleted && c.group === g)) return iconSvg(groupIconKey(g)); }
   const m = String(g).match(/[A-Za-z0-9]/);
   return m ? m[0].toUpperCase() : '·';
 }

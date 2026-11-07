@@ -1063,19 +1063,20 @@ function settingsGrouped(html) {
 
 // ---------------- Arrange tabs and Home cards (Settings) ----------------
 export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Entries', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash Flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'], invest: ['Invest', 'spark'], debts: ['Debts', 'calc'], owed: ['Owed to You', 'wallet'] };
-export const DEFAULT_TABS = ['home', 'ledger', 'calendar', 'accounts'];
+export const MAX_TABS = 5;
+export const DEFAULT_TABS = ['home', 'ledger', 'calendar', 'invest', 'accounts'];
 export function tabIds(db) {
-  const t = ((db.settings && db.settings.tabs) || []).filter((x, i, a) => TAB_DEFS[x] && a.indexOf(x) === i).slice(0, 4);
+  const t = ((db.settings && db.settings.tabs) || []).filter((x, i, a) => TAB_DEFS[x] && a.indexOf(x) === i).slice(0, MAX_TABS);
   return t.length ? t : DEFAULT_TABS;
 }
 function arrangeSection(db) {
   const tb = tabIds(db), more = Object.keys(TAB_DEFS).filter((x) => !tb.includes(x)), lay = homeLayout(db);
   const mv = (kind, id, i, n) => `<span class="mv"><button type="button" class="btn sm ghost" data-act="arr-up" data-kind="${kind}" data-id="${id}" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="btn sm ghost" data-act="arr-down" data-kind="${kind}" data-id="${id}" aria-label="Move down" ${i === n - 1 ? 'disabled' : ''}>↓</button></span>`;
   return `<section id="arrange"><h2>Tabs and Home Cards</h2>
-    <p class="hint">The bottom bar holds up to 4 tabs, with the + button always in the middle. Anything not in the bar is still reachable from Home and the menus.</p>
-    <h3>Bottom Tabs (${tb.length}/4)</h3>
+    <p class="hint">The bottom bar holds up to 5 tabs, with the + button always in the middle. Anything not in the bar is still reachable from Home and the menus.</p>
+    <h3>Bottom Tabs (${tb.length}/${MAX_TABS})</h3>
     ${tb.map((id, i) => `<div class="arow"><span>${ic(TAB_DEFS[id][1])} ${TAB_DEFS[id][0]}</span>${mv('tab', id, i, tb.length)}<button type="button" class="btn sm ghost" data-act="arr-tab-off" data-id="${id}" ${tb.length <= 2 ? 'disabled' : ''}>Remove</button></div>`).join('')}
-    ${more.length ? `<p class="hint">Add to the bar${tb.length >= 4 ? ' (remove one first)' : ''}:</p><div class="btnrow left">${more.map((id) => `<button type="button" class="btn sm ghost" data-act="arr-tab-on" data-id="${id}" ${tb.length >= 4 ? 'disabled' : ''}>+ ${TAB_DEFS[id][0]}</button>`).join('')}</div>` : ''}
+    ${more.length ? `<p class="hint">Add to the bar${tb.length >= MAX_TABS ? ' (remove one first)' : ''}:</p><div class="btnrow left">${more.map((id) => `<button type="button" class="btn sm ghost" data-act="arr-tab-on" data-id="${id}" ${tb.length >= MAX_TABS ? 'disabled' : ''}>+ ${TAB_DEFS[id][0]}</button>`).join('')}</div>` : ''}
     <h3>Home Cards, Top to Bottom</h3>
     ${lay.order.map((id, i) => { const nm = (HOME_SECTIONS.find((x) => x[0] === id) || [])[1], off = lay.hidden.includes(id);
       return `<div class="arow ${off ? 'off' : ''}"><label class="check"><input type="checkbox" data-act="arr-show" data-id="${id}" ${off ? '' : 'checked'}> ${esc(nm)}${SIMPLE_HIDDEN.includes(id) ? ' <small class="muted">(not shown in Simple mode)</small>' : ''}</label>${mv('home', id, i, lay.order.length)}</div>`; }).join('')}
@@ -1091,7 +1092,7 @@ function arrMove(el, dir) {
     else d.settings.homeLayout = { ...homeLayout(d), order: moveIn(homeLayout(d).order, id, dir) }; });
 }
 ACT['arr-tab-off'] = (el) => commit((d) => { d.settings.tabs = tabIds(d).filter((x) => x !== el.dataset.id); });
-ACT['arr-tab-on'] = (el) => commit((d) => { const t = tabIds(d); if (t.length < 4) d.settings.tabs = [...t, el.dataset.id]; });
+ACT['arr-tab-on'] = (el) => commit((d) => { const t = tabIds(d); if (t.length < MAX_TABS) d.settings.tabs = [...t, el.dataset.id]; });
 ACT['arr-show'] = (el) => commit((d) => { const L = homeLayout(d), id = el.dataset.id; d.settings.homeLayout = { order: L.order, hidden: el.checked ? L.hidden.filter((x) => x !== id) : [...L.hidden, id] }; });
 ACT['arr-reset'] = () => commit((d) => { delete d.settings.tabs; delete d.settings.homeLayout; });
 

@@ -206,7 +206,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--line); outl
 .toast .linkbtn { color: var(--paper); text-decoration: underline; }
 
 /* ---------- tab bar ---------- */
-.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: grid; grid-template-columns: 1fr 1fr 76px 1fr 1fr; max-width: 560px; margin: 0 auto; background: var(--paper); border-top: 1px solid var(--rule); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; align-items: stretch; max-width: 560px; margin: 0 auto; background: var(--paper); border-top: 1px solid var(--rule); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
 .tabs a { position: relative; display: grid; justify-items: center; gap: 2px; padding: 6px 0; font-size: calc(12px * var(--fs, 1)); color: var(--ink2); text-decoration: none; font-weight: 550; }
 .tabs a.on { color: var(--line); }
 .tabs a.on::before { content: ""; position: absolute; top: -7px; width: 28px; height: 3px; border-radius: 0 0 3px 3px; background: var(--line); }
@@ -1342,3 +1342,15 @@ img.coin.coinimg { display: inline-block; width: 1.3em; height: 1.3em; border-ra
 .pickfix .row.cur .rmain strong { justify-content: center; white-space: normal; font-size: 1.05rem; }
 .pickfix .row.cur .ramt { position: absolute; right: 14px; }
 .rmain strong.onel { white-space: nowrap; }
+
+/* 13.54: five tabs plus the + button */
+.tabs a { flex: 1 1 0; min-width: 0; font-size: calc(11px * var(--fs, 1)); } .tabs a span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabs .fab { flex: 0 0 62px; width: 56px; height: 56px; }
+.tabs a .ic { padding: 3px 12px; box-sizing: content-box; width: 22px; height: 22px; border-radius: 14px; transition: background .15s; }
+.tabs a.on .ic { background: color-mix(in srgb, var(--line) 14%, transparent); }
+/* suggested categories sheet */
+.sugg-g { border-top: 1px solid var(--rule); padding: 6px 0; } .sugg-g > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; padding: 6px 0; } .sugg-g > summary::-webkit-details-marker { display: none; }
+.sugg-g .badge { flex: none; } .sugg-list { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; } .sugg-list .linkbtn { grid-column: 1 / -1; justify-self: start; }
+.sugg-i { display: flex; align-items: center; gap: 8px; padding: 7px 0; font-size: .95rem; min-width: 0; } .sugg-i.have { opacity: .6; }
+.sugg-ic { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--tint, #e6e9f0); } .sugg-ic .cico { width: 16px; height: 16px; }
+.sugg-i input { flex: none; width: 18px; height: 18px; }

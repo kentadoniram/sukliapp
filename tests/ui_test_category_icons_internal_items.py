@@ -15,7 +15,7 @@ with sync_playwright() as p:
     pg.evaluate("(()=>{const e=document.querySelector('#f-acct');e.value='wy';e.dispatchEvent(new Event('change',{bubbles:true}))})()"); pg.wait_for_timeout(200)
     pg.fill('#f-what','Bus fare'); pg.wait_for_timeout(700)
     ok('category tiles show a picture and the name as caption', pg.locator('.cattile > i svg.cico').count()>=1 and pg.locator('.cattile > span').count()>=1)
-    ok('Internal option is in the kind row', pg.locator('[data-e=internal]').count()==1)
+    ok('Internal option is hidden outside the Investment tab (13.54)', pg.locator('[data-e=internal]').count()==0)
     # items: placeholder follows the currency, smaller buttons, calculator
     pg.fill('#f-amount','1000'); pg.wait_for_timeout(200)
     pg.evaluate("document.querySelector('[data-e=items-on]')?.click()"); pg.wait_for_timeout(300)
@@ -26,10 +26,6 @@ with sync_playwright() as p:
         ok('calculator inside the item amount gives 210', pg.input_value('.in-a')=='210')
         h=pg.evaluate("Math.round(document.querySelector('.item .qty button')?.getBoundingClientRect().height||0)"); ok('plus/minus buttons are small (%s)'%h, 0<h<=30)
     else: ok('items editor reachable',False)
-    # internal option opens the Internal Transfer window
-    pg.evaluate("document.querySelector('[data-e=internal]').click()"); pg.wait_for_timeout(700)
-    ok('Internal Transfer window opens', 'Internal Transfer' in pg.inner_text('body'))
-    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # category editor: pick a picture from the library, kept everywhere
     pg.evaluate("location.hash='#/categories'"); pg.wait_for_timeout(600)
     ok('Categories page uses picture tiles', pg.locator('.cattile > i svg.cico').count()>3)

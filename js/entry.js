@@ -1,4 +1,5 @@
 // The add / edit sheet, the category picker and the "add many at once" sheet.
+import { suggestedGroups } from './catsuggest.js';
 import { catIcon, ICONS, ICON_KEYS, iconKeyOf, iconSvg, guessIcon } from './caticons.js';
 import {
   get, commit, undoLast, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
@@ -233,11 +234,11 @@ export function openEntry(opts = {}) {
   }
   function renderSeg() {
     const dOn = f.flow === 'pay' || f.flow === 'borrow', lOn = f.flow === 'lend' || f.flow === 'back', on3 = (v) => (v === 'transfer' ? f.kind === 'transfer' && !f.flow : f.kind === v);
-    const b3 = [['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']].map(([v, l]) => `<button type="button" data-e="kind" data-v="${v}" aria-pressed="${on3(v)}" class="${on3(v) ? 'on' : ''}">${l}</button>`).join('') + `<button type="button" data-e="internal" aria-pressed="false" class="segint" title="Move a coin between wallets of the same platform (Spot, Earn, Futures…)">Internal</button>`;
+    const b3 = [['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']].map(([v, l]) => `<button type="button" data-e="kind" data-v="${v}" aria-pressed="${on3(v)}" class="${on3(v) ? 'on' : ''}">${l}</button>`).join('') + (/^#\/invest/.test(location.hash) || (existing && existing.internal) ? `<button type="button" data-e="internal" aria-pressed="false" class="segint" title="Move a coin between wallets of the same platform (Spot, Earn, Futures…)">Internal</button>` : '');   /* Internal Transfer only lives in the Investment tab */
     const big = (v, l, sub, on) => `<button type="button" data-e="kind" data-v="${v}" aria-pressed="${on}" class="${on ? 'on' : ''}"><b>${l}</b><small>${sub}</small></button>`;
     const sub = (items) => `<div class="chips segsub" role="group">${items.map(([v, l]) => `<button type="button" class="chip ${f.flow === v ? 'on' : ''}" data-e="flow" data-v="${v}" aria-pressed="${f.flow === v}">${l}</button>`).join('')}</div>`;
     const note = f.kind === 'transfer' && !f.flow ? SEGNOTE.transfer : dOn ? SEGNOTE.debt : lOn ? SEGNOTE.lent : '';
-    $f('seg').innerHTML = `<div class="seg four">${b3}</div><div class="seg two segloan">${big('debt', 'Debt', 'Pay or borrow', dOn)}${big('lent', 'Lent', 'Lend or get paid back', lOn)}</div>${dOn ? sub([['pay', 'I paid a debt'], ['borrow', 'I borrowed money']]) : lOn ? sub([['lend', 'I lent money'], ['back', 'They paid me back']]) : ''}${note ? `<p class="segnote">${note}</p>` : ''}`;
+    $f('seg').innerHTML = `<div class="seg ${/^#\/invest/.test(location.hash) || (existing && existing.internal) ? 'four' : 'three'}">${b3}</div><div class="seg two segloan">${big('debt', 'Debt', 'Pay or borrow', dOn)}${big('lent', 'Lent', 'Lend or get paid back', lOn)}</div>${dOn ? sub([['pay', 'I paid a debt'], ['borrow', 'I borrowed money']]) : lOn ? sub([['lend', 'I lent money'], ['back', 'They paid me back']]) : ''}${note ? `<p class="segnote">${note}</p>` : ''}`;
     $f('namelabel').textContent = f.kind === 'transfer' ? (f.debt ? 'Note (optional)' : 'Label (optional, remembers the route)') : f.kind === 'income' ? 'Where from?' : 'What was it?';
     $f('f-what').placeholder = f.kind === 'transfer' ? (f.debt ? FLOWS[f.flow].ph : 'e.g. Card payment, Top up Maya') : f.kind === 'income' ? 'e.g. Salary, Bonus, Refund, . . .' : 'e.g. Grab, Matcha, Cheesecake, . . .';
   }
@@ -1180,7 +1181,7 @@ export function openCategoryPicker(kind, onPick) {
 export function openCategoryForm({ id = null, kind = 'expense', group = '', name = '', keywords = '', onDone } = {}) {
   const db = get();
   const c = id ? db.categories.find((x) => x.id === id) : null;
-  const groups = [...new Set(db.categories.filter((x) => !x.deleted && (x.kind === kind || x.kind === 'both')).map((x) => x.group))].sort();
+  const groups = [...new Set([...db.categories.filter((x) => !x.deleted && (x.kind === kind || x.kind === 'both')).map((x) => x.group), ...suggestedGroups(kind)])].sort();   /* your groups plus suggested ones to start a new group with one tap */
   const isInc = (c ? c.kind : kind) === 'income';
   const s = sheet(`<form id="catform">
     <label class="field"><span>Group (the bigger heading)</span><input name="g" value="${esc(c ? c.group : group)}" placeholder="${isInc ? 'e.g. Employer, Side income' : 'e.g. Food &amp; Drinks, Health'}" required autocomplete="off"></label>

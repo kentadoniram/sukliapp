@@ -339,16 +339,20 @@ export function categories(db) {
   return `${hdr(kind === 'income' ? 'Income categories' : 'Expense categories')}
     <div class="seg two" role="group">${[['expense', 'Expense'], ['income', 'Income']].map(([v, l]) => `<button type="button" data-act="catkind" data-v="${v}" class="${kind === v ? 'on' : ''}" aria-pressed="${kind === v}">${l}</button>`).join('')}</div>
     <button class="btn wide" data-act="cat-new">+ New ${label} category</button>
+    <button class="btn ghost wide" data-act="cat-suggest">Add Suggested Groups and Categories</button>
     ${[...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([g, cs]) => coll(`cg:${kind}:${g}`,
       `<i class="badge sm" style="background:${groupColor(g)}">${groupLetter(g)}</i> ${esc(g)} <small class="muted">${cs.length}</small>`,
       `<div class="chips cattiles">${cs.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<button type="button" class="chip cattile" data-act="cat-edit" data-id="${c.id}"><i style="background:${groupColor(g)}">${catIcon(c)}</i><span>${esc(c.name)}${c.keywords ? '<small title="has keywords"> ✎</small>' : ''}</span><small>${used.get(c.id) || 0}</small></button>`).join('')}
         <button type="button" class="chip more cattile" data-act="cat-new" data-g="${esc(g)}"><i class="ghosti">+</i><span>Add</span></button></div>
-        <div class="btnrow left"><button class="linkbtn sm" data-act="cat-ren" data-g="${esc(g)}">Rename group</button><button class="linkbtn sm neg" data-act="cat-delgroup" data-g="${esc(g)}">Delete group</button></div>`)).join('') || '<p class="empty">No categories yet.</p>'}
+        <div class="btnrow left"><button class="linkbtn sm" data-act="grp-icon" data-g="${esc(g)}">Group picture</button><button class="linkbtn sm" data-act="cat-ren" data-g="${esc(g)}">Rename group</button><button class="linkbtn sm neg" data-act="cat-delgroup" data-g="${esc(g)}">Delete group</button></div>`)).join('') || '<p class="empty">No categories yet.</p>'}
     <p class="hint">The small number is how many entries use a category. Tap one to rename it, move it to another group, edit its keywords or delete it. Keywords make the app guess it as you type.</p>`;
 }
 ACT.catkind = (el) => { location.hash = `#/categories?k=${el.dataset.v}`; };
 ACT['cat-new'] = (el) => openCategoryForm({ kind: ui.catKind || 'expense', group: el.dataset.g || '' });
 ACT['cat-edit'] = (el) => openCategoryForm({ id: el.dataset.id, kind: ui.catKind || 'expense' });
+ACT['cat-suggest'] = async () => (await import('./catsuggest.js')).openSuggestions(ui.catKind || 'expense');
+ACT['grp-icon'] = async (el) => { const g = el.dataset.g, { openIconLibrary } = await import('./entry.js'), { groupIconKey } = await import('./core.js');
+  openIconLibrary(groupIconKey(g), (k) => commit((d) => { d.settings = d.settings || {}; const m = { ...(d.settings.groupIcons || {}) }; if (k) m[g] = k; else delete m[g]; d.settings.groupIcons = m; })); };
 ACT['cat-ren'] = async (el) => {
   const old = el.dataset.g, kind = ui.catKind || 'expense', db0 = get();
   const others = [...new Set(db0.categories.filter((c) => !c.deleted && c.group !== old && (c.kind === kind || c.kind === 'both')).map((c) => c.group))];
@@ -357,6 +361,7 @@ ACT['cat-ren'] = async (el) => {
   const merging = others.includes(v);
   commit((d) => {
     for (const c of d.categories) if (!c.deleted && c.group === old && (c.kind === kind || c.kind === 'both')) { c.group = v; stamp(c); }
+    { const gi = { ...((d.settings || {}).groupIcons || {}) }; if (gi[old] && !gi[v]) { gi[v] = gi[old]; } delete gi[old]; if (d.settings) d.settings.groupIcons = gi; }   /* the group picture follows the rename */
     if (!d.categories.some((c) => !c.deleted && c.group === old)) {
       const mine = d.budgets.find((b) => !b.deleted && b.group === old), tgt = d.budgets.find((b) => !b.deleted && b.group === v && b !== mine);
       if (mine) { if (tgt) { tgt.amount = (tgt.amount || 0) + (mine.amount || 0); stamp(tgt); mine.deleted = true; stamp(mine); } else { mine.group = v; stamp(mine); } }
