@@ -24,7 +24,7 @@ with sync_playwright() as p:
         ph=pg.get_attribute('.in-a','placeholder'); ok('item price placeholder is yen style (%s)'%ph, ph and '0.0' not in ph and ('¥' in ph or '￥' in ph or 'JP' in ph))
         pg.fill('.in-a','120+45*2'); pg.dispatch_event('.in-a','input'); pg.evaluate("document.querySelector('[data-e=item-calc]').click()"); pg.wait_for_timeout(200)
         ok('calculator inside the item amount gives 210', pg.input_value('.in-a')=='210')
-        h=pg.evaluate("Math.round(document.querySelector('.item .qty button')?.getBoundingClientRect().height||0)"); ok('plus/minus buttons are small (%s)'%h, 0<h<=30)
+        h=pg.evaluate("Math.round(document.querySelector('.item .qty button')?.getBoundingClientRect().height||0)"); ok('plus/minus buttons are as tall as the inputs (%s)'%h, 30<=h<=40)
     else: ok('items editor reachable',False)
     # category editor: pick a picture from the library, kept everywhere
     pg.evaluate("location.hash='#/categories'"); pg.wait_for_timeout(600)

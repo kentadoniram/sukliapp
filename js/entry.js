@@ -209,7 +209,7 @@ export function openEntry(opts = {}) {
   function renderMerch() {
     const el = $f('merchrow'); el.hidden = f.kind !== 'expense'; el.classList.toggle('keep', !!f.merchant); if (el.hidden) return;   // Simple mode hides this row unless the entry already has a merchant
     // Merchant and Branch share one row (they belong together); the row keeps its height, Branch just waits until a merchant is chosen
-    el.innerHTML = `<div class="mbpair"><div class="mbcell"><span>Merchant (optional) ${f.merchSuggested && f.merchant ? '<small class="sugnote">· suggested</small>' : ''}</span><button type="button" class="acctbtn" data-e="merchpick">${f.merchant ? esc(f.merchant) : '<span class="muted">Where? (Shopee, market…)</span>'} ▾</button></div><div class="mbcell" id="branchcell"></div></div>`;
+    el.innerHTML = `<div class="mbpair"><div class="mbcell"><span>Merchant (optional) ${f.merchSuggested && f.merchant ? '<small class="sugnote">· suggested</small>' : ''}</span><button type="button" class="acctbtn" data-e="merchpick">${f.merchant ? esc(f.merchant) : '<span class="muted">e.g. 7-Eleven, Starbucks, McDo, ...</span>'} ▾</button></div><div class="mbcell" id="branchcell"></div></div>`;
     renderBranch();
   }
   function suggestMerchant() {
@@ -520,13 +520,13 @@ export function openEntry(opts = {}) {
     if (f.kind !== 'expense' || existing) return '';
     if (!f.others || !f.others.on) return `<button type="button" class="linkbtn split" data-e="oth-on">${ic('split')} Paid for others? (they pay you back later)</button>`;
     const o = f.others, ppl = owedPeople(), mode = o.mode, ph = mode === 'pct' ? '%' : 'Amount';
-    return `<div class="field items othbox" id="othbox"><span>Paid for others <small class="hint">Their parts are not your spending. Each waits under Owed to You until that person pays you back.</small></span>
+    return `<div class="field items othbox" id="othbox"><div class="othhead"><b>Paid for Others</b><button type="button" class="btn sm ghost" data-e="oth-off">Cancel</button></div><small class="hint">Their parts are not your spending. Each waits under Owed to You until that person pays you back.</small>
       <div class="chips othmode">${[['equal', 'Split Equally'], ['amount', 'Set Each Amount'], ['pct', 'Percentages']].map(([k, l]) => `<button type="button" class="chip ${mode === k ? 'on' : ''}" data-e="oth-mode" data-v="${k}">${l}</button>`).join('')}</div>
-      <div id="othrows">${o.rows.map((r, i) => `<div class="cnt othrow" data-i="${i}"><select class="oth-who" aria-label="Who owes you"><option value="">Choose a person</option>${ppl.map((x) => `<option value="${x.id}" ${r.who === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}<option value="__new">+ Add a new person</option></select>${mode === 'equal' ? '' : `<input class="oth-n" inputmode="decimal" placeholder="${ph}" value="${esc(r.v || '')}" aria-label="${mode === 'pct' ? 'Percent they owe' : 'Amount they owe'}">`}${o.rows.length > 1 ? `<button type="button" class="iconbtn" data-e="oth-del" data-v="${i}" aria-label="Remove person">${ic('x')}</button>` : ''}</div>`).join('')}</div>
+      <div id="othrows">${o.rows.map((r, i) => `<div class="cnt othrow" data-i="${i}"><select class="oth-who" aria-label="Who owes you"><option value="">Choose a person</option>${ppl.filter((x) => x.id === r.who || !o.rows.some((q, j) => j !== i && q.who === x.id)).map((x) => `<option value="${x.id}" ${r.who === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}<option value="__new">+ Add a new person</option></select>${mode === 'equal' ? '' : `<div class="inamt othamt"><input class="oth-n" data-noclear="1" inputmode="decimal" placeholder="${ph}" value="${esc(r.v || '')}" aria-label="${mode === 'pct' ? 'Percent they owe, you can type a sum' : 'Amount they owe, you can type a sum like 120+45'}"><button type="button" class="calcin" data-e="oth-calc" data-v="${i}" aria-label="Calculator: type a sum such as 120+45, then tap =" title="Calculator">=</button></div>`}${o.rows.length > 1 ? `<button type="button" class="iconbtn" data-e="oth-del" data-v="${i}" aria-label="Remove person">${ic('x')}</button>` : ''}</div>`).join('')}</div>
       <div class="itemfoot"><button type="button" class="linkbtn" data-e="oth-add">+ Add another person</button></div>
       <label class="check"><input type="checkbox" class="oth-me" ${o.me ? '' : 'checked'}> <span>I paid the bill but I am not part of it (I did not use any of it)</span></label>
       <p class="hint" id="oth-sum"></p>
-      <div class="itemfoot"><button type="button" class="linkbtn" data-e="oth-off">Not paid for others</button></div></div>`;
+</div>`;
   }
   /* each person can be in the bill only once: choosing someone again takes them out of the row they were in before */
   function othOnce(i) { const w = f.others.rows[i].who; if (!w) return; const gone = []; f.others.rows.forEach((r, j) => { if (j !== i && r.who === w) gone.push(j); });
@@ -865,7 +865,7 @@ export function openEntry(opts = {}) {
     }
     else if (id === 'f-feecat') { f.feeCat = e.target.value; f.feeTouched = true; f.feeSuggested = false; renderFee(); }
     else if (e.target.classList.contains('in-c')) { const it = f.items[+e.target.closest('.item').dataset.i]; it.cat = e.target.value; if (!f._autoCat) it.catTouched = true; }
-    else if (e.target.classList.contains('oth-who')) { const i = +e.target.closest('.othrow').dataset.i; if (e.target.value === '__new') othNew(i); else { f.others.rows[i].who = e.target.value; othOnce(i); othSum(); } }
+    else if (e.target.classList.contains('oth-who')) { const i = +e.target.closest('.othrow').dataset.i; if (e.target.value === '__new') othNew(i); else { f.others.rows[i].who = e.target.value; renderCounts(); } }
     else if (e.target.classList.contains('oth-me')) { f.others.me = !e.target.checked; othSum(); }
     else if (e.target.classList.contains('cnt-g')) { const c = f.counts[+e.target.closest('.cnt').dataset.i]; c.g = e.target.value; const inp = e.target.closest('.cnt').querySelector('.cnt-n'); if (inp) inp.placeholder = c.g && unitOf(get(), c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'; }
   });
@@ -948,6 +948,7 @@ export function openEntry(opts = {}) {
       case 'parts-use': { const pts = splitParts(f.name) || []; f.parts = pts; f.counts = countsFromParts(get(), pts); f.showCounts = true; renderCounts(); const open = f.counts.filter((c) => !c.g).length; toast(open ? `Pick a group for ${open} of them.` : 'Counted by group. Check it, then save.'); break; }
       case 'parts-off': f.partsOff = f.name; f.parts = []; renderCounts(); break;
       case 'oth-on': f.others = newOth(); renderCounts(); break;
+      case 'oth-calc': { const r = f.others.rows[+v], inp = form.querySelector(`.othrow[data-i="${v}"] .oth-n`); if (!r || !inp) break; if (isExpr(r.v) && num(r.v) > 0) { r.v = tidy(num(r.v)); renderCounts(); } else { inp.inputMode = 'text'; inp.focus(); toast('Type a sum like 120+45, then tap = again.'); } break; }
       case 'oth-off': f.others = { on: false, mode: 'equal', me: true, rows: [] }; renderCounts(); break;
       case 'oth-mode': f.others.mode = v; renderCounts(); break;
       case 'oth-add': f.others.rows.push({ who: '', v: '' }); renderCounts(); break;
@@ -1168,7 +1169,7 @@ export function openCategoryPicker(kind, onPick) {
     q = q.toLowerCase();
     list.innerHTML = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([g, cs]) => {
       const m = cs.filter((c) => !q || c.name.toLowerCase().includes(q) || g.toLowerCase().includes(q));
-      return m.length ? `<div class="catgroup"><h3><i style="background:${groupColor(g)}">${groupLetter(g)}</i>${esc(g)}</h3><div class="chips cattiles">${m.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<button type="button" class="chip cattile" data-id="${c.id}"><i style="background:${groupColor(g)}">${catIcon(c)}</i><span>${esc(c.name)}</span></button>`).join('')}</div></div>` : '';
+      return m.length ? `<div class="catgroup"><h3><i class="ghd" style="background:${groupColor(g)}">${groupLetter(g)}</i>${esc(g)}</h3><div class="chips cattiles">${m.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<button type="button" class="chip cattile" data-id="${c.id}"><i style="background:${groupColor(g)}">${catIcon(c)}</i><span>${esc(c.name)}</span></button>`).join('')}</div></div>` : '';
     }).join('') || '<p class="muted">Nothing matches.</p>';
   };
   draw();

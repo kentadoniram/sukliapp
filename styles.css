@@ -1361,3 +1361,28 @@ img.coin.coinimg { display: inline-block; width: 1.3em; height: 1.3em; border-ra
 
 .wsday { list-style: none; padding: 8px 10px; margin: 8px 0 2px; border-radius: 10px; background: var(--tint, #eef4f0); display: grid; gap: 2px; }
 .wsday.daytrip b { color: var(--accent, #1a7f5a); } .wsday.commute { opacity: .8; }
+
+/* 15.1: group pictures are section headers: bigger rounded squares with a solid edge, bold names */
+.ghd, .badge.sm.ghd { width: 40px !important; height: 40px !important; border-radius: 12px !important; display: inline-grid; place-items: center; color: #fff; font-style: normal; box-shadow: 0 2px 0 rgba(0,0,0,.22), inset 0 0 0 2px rgba(255,255,255,.22) !important; flex: none; }
+.ghd .cico { width: 24px; height: 24px; }
+.catgroup h3 { font-size: 1.02rem; font-weight: 800; letter-spacing: .01em; padding-bottom: 4px; border-bottom: 2px solid var(--rule, #ddd); margin-bottom: 8px; gap: 10px; }
+.ghn { font-weight: 800; font-size: 1.02rem; }
+.grptiles .chip.cattile > i { width: 40px; height: 40px; border-radius: 12px; box-shadow: 0 2px 0 rgba(0,0,0,.2); } .grptiles .chip.cattile > span { font-weight: 700; }
+/* merchant list: left aligned and scrolls by itself */
+.pickfix #mlist { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.pickfix .row.cur.mpr, .pickfix .row.cur.mpr .rmain { justify-content: flex-start; text-align: left; justify-items: start; }
+.pickfix .row.cur.mpr .rmain strong { justify-content: flex-start; }
+.mbcell .acctbtn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* split into items: narrow quantity buttons, as tall as the inputs */
+.items .item .qty { min-height: 40px; padding: 0 3px; gap: 2px; }
+.items .item .qty button { width: 26px; height: 34px; border-radius: 8px; font-size: 1.1rem; }
+/* paid for others: its own look */
+.othbox { background: var(--tint, #eef4f0); border: 2px solid var(--accent, #1a7f5a); border-radius: 16px; padding: 12px; display: grid; gap: 10px; }
+.othhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; } .othhead b { font-size: 1.05rem; color: var(--accent, #1a7f5a); }
+.othrow { display: flex; gap: 6px; align-items: stretch; margin-bottom: 6px; }
+.othrow select.oth-who, .othrow .acctbtn { flex: 0 0 34%; min-width: 0; min-height: 48px; height: 48px; box-sizing: border-box; border-radius: 10px; font-size: .95rem; }
+.othrow .othamt { flex: 1 1 0; min-width: 0; position: relative; display: flex; align-items: center; }
+.othrow .othamt .oth-n { width: 100%; min-height: 48px; height: 48px; box-sizing: border-box; font-size: 1.15rem; font-weight: 600; padding: 0 42px 0 10px; border-radius: 10px; text-align: left; }
+.othrow .othamt .calcin { position: absolute; right: 5px; width: 32px; height: 34px; border: 0; border-radius: 8px; background: var(--tint, #eee); color: inherit; font-size: 1.1rem; font-weight: 700; }
+.othrow .iconbtn { align-self: center; flex: none; }
+.items .item .qty { align-self: stretch; min-height: 46px; } .items .item .qty button { height: 100%; max-height: 40px; }

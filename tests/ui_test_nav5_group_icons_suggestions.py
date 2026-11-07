@@ -8,7 +8,7 @@ with sync_playwright() as p:
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900)
     names=pg.evaluate("[...document.querySelectorAll('#tabs a span')].map(x=>x.textContent)")
-    ok('bottom bar: five tabs with Invest %s'%names, len(names)==5 and 'Invest' in names and pg.locator('#tabs .fab').count()==1)
+    ok('bottom bar: four tabs with Invest %s'%names, len(names)==4 and 'Invest' in names and pg.locator('#tabs .fab').count()==1)
     fits=pg.evaluate("(()=>{const t=document.querySelector('#tabs').getBoundingClientRect();return [...document.querySelectorAll('#tabs a, #tabs .fab')].every(e=>{const r=e.getBoundingClientRect();return r.left>=t.left-1&&r.right<=t.right+1&&r.width>40})})()")
     ok('all five tabs and + fit the phone width', fits)
     # icons: guesses and library size

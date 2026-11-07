@@ -341,7 +341,7 @@ export function categories(db) {
     <button class="btn wide" data-act="cat-new">+ New ${label} category</button>
     <button class="btn ghost wide" data-act="cat-suggest">Add Suggested Groups and Categories</button>
     ${[...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([g, cs]) => coll(`cg:${kind}:${g}`,
-      `<i class="badge sm" style="background:${groupColor(g)}">${groupLetter(g)}</i> ${esc(g)} <small class="muted">${cs.length}</small>`,
+      `<i class="badge sm ghd" style="background:${groupColor(g)}">${groupLetter(g)}</i> <b class="ghn">${esc(g)}</b> <small class="muted">${cs.length}</small>`,
       `<div class="chips cattiles">${cs.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<button type="button" class="chip cattile" data-act="cat-edit" data-id="${c.id}"><i style="background:${groupColor(g)}">${catIcon(c)}</i><span>${esc(c.name)}${c.keywords ? '<small title="has keywords"> ✎</small>' : ''}</span><small>${used.get(c.id) || 0}</small></button>`).join('')}
         <button type="button" class="chip more cattile" data-act="cat-new" data-g="${esc(g)}"><i class="ghosti">+</i><span>Add</span></button></div>
         <div class="btnrow left"><button class="linkbtn sm" data-act="grp-icon" data-g="${esc(g)}">Group picture</button><button class="linkbtn sm" data-act="cat-ren" data-g="${esc(g)}">Rename group</button><button class="linkbtn sm neg" data-act="cat-delgroup" data-g="${esc(g)}">Delete group</button></div>`)).join('') || '<p class="empty">No categories yet.</p>'}

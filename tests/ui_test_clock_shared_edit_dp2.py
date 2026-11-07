@@ -43,7 +43,7 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelector('[data-act=add]').click()"); pg.wait_for_selector('#entry'); pg.wait_for_timeout(400)
     pg.fill('#f-amount','500'); pg.evaluate("document.querySelector('[data-e=oth-on]').click()"); pg.wait_for_timeout(300); pg.evaluate("document.querySelector('[data-e=oth-mode][data-v=amount]').click()"); pg.wait_for_selector('.oth-n',state='attached')
     hs=pg.evaluate("[Math.round(document.querySelector('.oth-who').getBoundingClientRect().height),Math.round(document.querySelector('.oth-n').getBoundingClientRect().height),Math.round(document.querySelector('.oth-who').getBoundingClientRect().width),Math.round(document.querySelector('.oth-n').getBoundingClientRect().width)]")
-    ok('name box is taller and wider than amount box %s'%hs, hs[0]>hs[1] and hs[2]>hs[3])
+    ok('person and amount boxes are the same height, amount wider %s'%hs, hs[0]==hs[1] and hs[3]>hs[2])
     # Entries list: asset change lines show at most 2 decimals (coin balance has many)
     J("c.commit(d=>{d.accounts.push(c.stamp({id:'wu2',name:'Coin Wallet',cur:'USDT',type:'cash',open:10.123456,include:true,archived:false}));d.txs.push(c.stamp({id:'cx1',kind:'expense',date:'2026-11-05 10:00:00',name:'Coin Spend',amount:1.123456,cur:'USDT',fx:1,acct:'wu2'}))})")
     pg.evaluate("location.hash='#/ledger'"); pg.wait_for_timeout(1200)
