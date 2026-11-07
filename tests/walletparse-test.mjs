@@ -30,9 +30,9 @@ ok('balance 809', r.balance === 809); ok('clock 23:28', r.clock && r.clock.h ===
 ok('5 full rows, cut-off row skipped', r.rows.length === 5 && r.skipped === 1);
 const [a, b, c, d, e] = r.rows;
 ok('first ride Kita-Senju to Kawasaki 528', a.kind === 'transit' && a.from === 'Kita-Senju' && a.to === 'Kawasaki' && a.amount === 528);
-ok('second ride Tobu-nikko to Kita-Senju 1393', b.from === 'Tobu-nikko' && b.to === 'Kita-Senju' && b.amount === 1393);
-ok('return ride the other way', c.from === 'Kita-Senju' && c.to === 'Tobu-nikko');
-ok('short From line without ellipsis', d.from === 'Yako' && d.to === 'Kita-Senju' && d.amount === 616);
+ok('second ride Tobu-nikko to Kita-Senju 1393', b.from === 'Tobu-Nikko' && b.to === 'Kita-Senju' && b.amount === 1393);
+ok('return ride the other way', c.from === 'Kita-Senju' && c.to === 'Tobu-Nikko');
+ok('short From line without ellipsis', d.from === 'Yakō' && d.to === 'Kita-Senju' && d.amount === 616);
 ok('purchase is not a ride', e.kind === 'purchase' && e.place === 'Kawasaki, Kanagawa' && e.amount === 494);
 ok('2 hours ago at 21:29', a.when.getHours() === 21 && a.when.getMinutes() === 29 && a.exactTime);
 ok('yesterday is 31 Oct, time unknown', e.when.getDate() === 31 && !e.exactTime);
@@ -65,6 +65,14 @@ ok('weekday rows all read: %d' .replace('%d', L.rows.length), L.rows.length === 
 ok('Saturday on a Monday is 31 Oct', L.rows[0].when.getDate() === 31);
 ok('Friday is 30 Oct, Thursday 29 Oct', L.rows[3].when.getDate() === 30 && L.rows[4].when.getDate() === 29);
 ok('Credit row is a top-up of 5,000', L.rows[2].kind === 'topup' && L.rows[2].amount === 5000);
-ok('long station names kept', L.rows[4].from === 'Nihombashi' && L.rows[4].to === 'Keikyu Kawasaki');
+ok('long station names kept', L.rows[4].from === 'Nihombashi' && L.rows[4].to === 'Keikyū Kawasaki');
 ok('truncated From name kept as read', L.rows[5].from.startsWith('Minami-sunamachi'));
+// 13.55: marks lost or misread by the reader are repaired from the station list
+const P2 = parseWalletText;
+const t2 = (s) => P2(`Latest Transactions\nKawasaki Station ¥300 >\nFrom ${s} Station — Transit\n2 hours ago`, new Date('2026-11-07T12:00:00')).rows[0].from;
+ok('Keikyu without mark repaired', t2('Keikyu Kawasaki') === 'Keikyū Kawasaki');
+ok('Keikyuu double vowel repaired', t2('Keikyuu Kawasaki') === 'Keikyū Kawasaki');
+ok('Keikyi (mark misread) repaired', t2('Keikyi Kawasaki') === 'Keikyū Kawasaki');
+ok('Yakou repaired', t2('Yakou') === 'Yakō');
+ok('unknown station kept, marks dropped', t2('Zzūzz Foo') === 'Zzuzz Foo');
 console.log('fails', fails); process.exit(fails ? 1 : 0);

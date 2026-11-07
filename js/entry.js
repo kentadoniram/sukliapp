@@ -425,7 +425,7 @@ export function openEntry(opts = {}) {
     for (const c of get().categories) if (!c.deleted && c.group !== 'Adjustments' && (c.kind === f.kind || c.kind === 'both') && !use.has(c.group)) use.set(c.group, 0);
     const gs = [...use.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8).map(([g]) => g);
     if (!gs.length) return '';
-    return `<small class="muted">Not sure which category? Choose a group first:</small><div class="chips grp">${gs.map((g) => `<button type="button" class="chip" data-e="catgroup" data-v="${esc(g)}"><i style="background:${groupColor(g)}">${groupLetter(g)}</i>${esc(g)}</button>`).join('')}</div>`;
+    return `<small class="muted">Not sure which category? Choose a group first:</small><div class="chips cattiles grptiles">${gs.map((g) => `<button type="button" class="chip cattile" data-e="catgroup" data-v="${esc(g)}"><i style="background:${groupColor(g)}">${groupLetter(g)}</i><span>${esc(g)}</span></button>`).join('')}</div>`;
   }
   function renderCats() {
     const el = $f('catrow');

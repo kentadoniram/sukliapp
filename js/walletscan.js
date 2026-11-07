@@ -8,8 +8,12 @@ import { parseWalletText } from './walletparse.js';
 import { isTransportCat, tripLabel } from './route.js';
 import { loadSource, releaseSource } from './receiptimg.js';
 import { engine, readCanvas, releaseEngine } from './scan.js';
+import { stationKey } from './stations.js';
+import { classifyDays } from './daytrip.js';
+import { placesOf } from './loc.js';
+import { parseTags, joinTags } from './tags.js';
 
-let cur = null, S = null;
+let cur = null, S = null, S0 = null;
 const live = (l) => l.filter((x) => !x.deleted);
 const p2 = (n) => String(n).padStart(2, '0');
 const stampOf = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}:00`;
@@ -18,7 +22,7 @@ const cardAccts = (db) => live(db.accounts).filter((a) => !a.archived && a.cur =
 const isCard = (a) => a.type === 'ic' || /pasmo|suica|icoca|ic card|パスモ|スイカ/i.test(a.name);
 
 // what a ride between two stations has cost you before (a suggestion only: JR fares follow the distance of the shortest route, other railways add their own, and fares change)
-const pairKey = (a, b) => [String(a || '').trim().toLowerCase(), String(b || '').trim().toLowerCase()].sort().join('|');
+const pairKey = (a, b) => [stationKey(a) || String(a || '').trim().toLowerCase(), stationKey(b) || String(b || '').trim().toLowerCase()].sort().join('|');   /* Keikyū, Keikyu and Keikyuu are one station */
 export function fareStats(db) {
   const m = new Map(), cut = new Date(Date.now() - 3 * 365 * 864e5).toISOString().slice(0, 10);
   for (const t of db.txs || []) {
@@ -84,6 +88,14 @@ function catFor(db, r) {
   return (cats.find((c) => /^(other|misc|shopping|uncategori)/i.test(c.name)) || cats[0] || {}).id || '';
 }
 
+const dkey = (r) => stampOf(r.when).slice(0, 10);
+const KIND = { daytrip: 'Day trip', maybe: 'Maybe a day trip', commute: 'Commute', regular: 'Regular rides' };
+function dayHead(rows, i) {
+  const r = rows[i]; if (r.kind !== 'transit' || !S.days || (i > 0 && rows[i - 1].kind === 'transit' && dkey(rows[i - 1]) === dkey(r))) return '';
+  const d = dkey(r), v = S.days.get(d); if (!v || v.kind === 'regular') return '';
+  const on = !!S.trip[d], q = v.km != null ? ` · about ${v.km} km from home` : '';
+  return `<li class="wsday ${v.kind}"><b>${KIND[v.kind]}${esc(q)}</b><small class="muted">${esc(v.why)}</small>${v.kind === 'commute' ? '' : `<button type="button" class="linkbtn" data-act="ws-day" data-d="${d}">${on ? 'Tagged as Day Trip. Tap to undo' : 'Tag this day as a Day Trip'}</button>`}</li>`;
+}
 function render() {
   if (!cur) return; const db = get(), body = cur.el;
   if (!S) return;
@@ -91,7 +103,7 @@ function render() {
   const shown = (r) => `${r.exactTime ? 'about ' + p2(r.when.getHours()) + ':' + p2(r.when.getMinutes()) + ' · ' : ''}${r.when.getMonth() + 1}/${r.when.getDate()}${r.exactTime ? '' : ' (time not shown)'}`;
   body.innerHTML = `<p class="hint">Read from your screenshot${S.balance != null ? `. Wallet balance: <b>${yen(S.balance)}</b>` : ''}. Rides become <b>Train</b> entries with both stations. A <b>Purchase</b> is not a ride: pick what it was for. A <b>top-up</b> is a transfer into the card from the account you choose. Entries you already have are left unticked.</p>
     <label class="field"><span>Card account</span><select id="ws-acct">${accts.map((a) => `<option value="${a.id}" ${a.id === S.acct ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
-    <ul class="wslist">${rows.map((r, i) => `<li class="wsrow ${r.known ? 'known' : ''}"><label class="wsl"><input type="checkbox" data-i="${i}" ${r.on ? 'checked' : ''}>
+    <ul class="wslist">${rows.map((r, i) => `${dayHead(rows, i)}<li class="wsrow ${r.known ? 'known' : ''}"><label class="wsl"><input type="checkbox" data-i="${i}" ${r.on ? 'checked' : ''}>
       <span class="wst"><b>${r.kind === 'transit' ? `${esc(r.from)} to ${esc(r.to)}` : r.kind === 'topup' ? `Top-up of the card (a transfer, not spending)` : `Purchase: ${esc(r.place)}`}</b><small class="muted">${yen(r.amount)} · ${esc(shown(r))}${r.known ? ' · already in your entries' : ''}</small></span></label>
       ${(() => { if (r.kind !== 'transit') return ''; const n = fareNote(S.fares, r); return n ? `<p class="hint wsfare">${esc(n.text)}${n.differs ? ` <button type="button" class="linkbtn" data-act="ws-fare" data-i="${i}" data-v="${n.usual}">Use ${yen(n.usual)}</button>` : ''}</p>` : ''; })()}
       ${r.kind === 'topup' ? `<select class="wssrc" data-i="${i}" aria-label="Where the money came from">${live(db.accounts).filter((a) => !a.archived && a.id !== S.acct).map((a) => `<option value="${a.id}" ${a.id === r.src ? 'selected' : ''}>From ${esc(a.name)}</option>`).join('')}</select>` : ''}
@@ -132,8 +144,10 @@ function start() {
       markKnown(db, p.rows);
       const accts = cardAccts(db), acct = (accts.find(isCard) || accts[0] || {}).id || '';
       const src = topupSource(db, acct);
+      { const hist = live(db.txs).filter((t) => t.kind === 'expense' && t.from && t.to).map((t) => ({ from: t.from, to: t.to, when: new Date(String(t.date).replace(' ', 'T')) })), pl = placesOf(db);
+        S0 = { days: classifyDays(p.rows.filter((r) => r.kind === 'transit'), pl.home, hist), homeKnown: !!pl.home, trip: {} }; for (const [d, v] of S0.days) S0.trip[d] = v.kind === 'daytrip'; }
       for (const r of p.rows) { r.on = !r.known; r.cat = r.kind === 'topup' ? '' : catFor(db, r); r.src = src; }
-      S = { ...p, fares: fareStats(db), acct, ref: new Date(Math.max(0, ...files.map((f) => (f.lastModified && Date.now() - f.lastModified < 6 * 864e5 && f.lastModified <= Date.now()) ? f.lastModified : 0)) || Date.now()) };
+      S = { ...p, ...S0, fares: fareStats(db), acct, ref: new Date(Math.max(0, ...files.map((f) => (f.lastModified && Date.now() - f.lastModified < 6 * 864e5 && f.lastModified <= Date.now()) ? f.lastModified : 0)) || Date.now()) };
       if (!acct) { stat('Add a card account in yen first (for example "Pasmo"), then try again.'); S = null; return; }
       render();
     } catch (err) { stat('Could not read that picture. ' + (err && err.message ? err.message : '')); }
@@ -143,6 +157,7 @@ function start() {
 export function openWalletScan() { cur = sheet('', { title: 'Read a Pasmo or Suica Screenshot', wide: true, onClose: () => { cur = null; S = null; releaseEngine(); } }); start(); }
 ACT['wallet-scan'] = () => setTimeout(openWalletScan, 90);
 ACT['ws-fare'] = (el) => { if (!S) return; const r = S.rows[+el.dataset.i]; if (r) { r.amount = +el.dataset.v; render(); } };
+ACT['ws-day'] = (el) => { if (!S) return; const d = el.dataset.d; S.trip[d] = !S.trip[d]; render(); };
 ACT['ws-again'] = () => { if (cur) start(); };
 ACT['ws-add'] = () => {
   if (!cur || !S) return; const picked = S.rows.filter((r) => r.on), gap = S.fixBal !== false ? (S.gap || 0) : 0; if (!picked.length && !gap) { toast('Nothing ticked.'); return; }
@@ -152,7 +167,7 @@ ACT['ws-add'] = () => {
     for (const r of picked) {
       const base = { id: uid(), kind: 'expense', amount: r.amount, cur: 'JPY', fx, date: stampOf(r.when), cat: r.cat, acct: S.acct, notes: 'From a Wallet screenshot', labels: '', items: [], counts: [] };
       if (r.kind === 'topup') { const a = d.accounts.find((x) => x.id === r.src), c = d.accounts.find((x) => x.id === S.acct); d.txs.push(stamp({ id: uid(), kind: 'transfer', amount: r.amount, cur: (a && a.cur) || 'JPY', fx, date: stampOf(r.when), name: transferLabel(a, c), autoName: true, cat: '', acct: r.src, toAcct: S.acct, toAmount: r.amount, fee: 0, feeBy: '', notes: 'From a Wallet screenshot', labels: '', items: [], counts: [] })); continue; }
-      if (r.kind === 'transit') d.txs.push(stamp({ ...base, name: tripLabel('Train', r.from, r.to), autoName: true, from: r.from, to: r.to }));
+      if (r.kind === 'transit') { const dk = dkey(r), v = S.days && S.days.get(dk), tag = S.trip && S.trip[dk]; d.txs.push(stamp({ ...base, name: tripLabel('Train', r.from, r.to), autoName: true, from: r.from, to: r.to, ...(tag ? { labels: joinTags([...parseTags(base.labels), 'Day Trip']) } : {}), ...(tag && v && v.far ? { loc: { la: Math.round(v.far.la * 100) / 100, lo: Math.round(v.far.lo * 100) / 100 } } : {}) })); }
       else { d.txs.push(stamp({ ...base, name: `Purchase: ${r.place}`, flag: 'review' })); d.settings.walletCats[r.place] = r.cat; }
     }
   });

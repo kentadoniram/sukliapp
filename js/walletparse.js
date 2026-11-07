@@ -6,7 +6,9 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 const plain = (s) => String(s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[|_]+/g, ' ').replace(/\s+/g, ' ').trim();
 const Y = '[¥￥\\\\]';                                                // the reader often turns the yen sign into a backslash
 const yen = (s) => { const m = String(s).match(new RegExp(Y + '\\s?([\\d][\\d,\\.]*)')); return m ? Math.round(parseFloat(m[1].replace(/,/g, ''))) : null; };
-const station = (s) => plain(s).replace(/\s+stat(i(on?)?)?\.{0,3}\s*$/i, '').replace(/[>›»\s]+$/, '').trim();
+import { findStation } from './stations.js';
+const station = (s) => { const r = rawStation(s), k = findStation(r); return k ? k.name : plain(r); };   /* known station: its own spelling; unknown: marks dropped so names match older entries */
+const rawStation = (s) => String(s || '').normalize('NFC').replace(/[|_]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/\s+stat(i(on?)?)?\.{0,3}\s*$/i, '').replace(/[>›»\s]+$/, '').trim();
 
 // "2 hours ago", "17 hours ago", "Yesterday", "3 days ago", "Oct 28", "Oct 28, 2026", "Just now"
 export function parseWhen(text, now = new Date()) {

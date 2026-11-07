@@ -109,8 +109,8 @@ def part1(p,b,ctx,pg,errs):
     # entry form: group suggestions when no category
     pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(500); pg.click('#tabs .fab'); pg.wait_for_selector('#f-what')
     pg.fill('#f-what','zzqx unknown thing'); pg.wait_for_timeout(500)
-    ok('entry offers existing groups when no category fits', pg.locator('#catrow .chips.grp .chip').count()>=3)
-    pg.locator('#catrow .chips.grp .chip').first.click(); pg.wait_for_selector('.pk-list .pk-opt')
+    ok('entry offers existing groups when no category fits', pg.locator('#catrow .chips.grptiles .chip').count()>=3)
+    pg.locator('#catrow .chips.grptiles .chip').first.click(); pg.wait_for_selector('.pk-list .pk-opt')
     ok('a group opens its categories with add-new', pg.locator('.pk-add').count()==1)
     ok('no page errors', not errs); print(errs[:3])
 
