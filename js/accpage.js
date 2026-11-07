@@ -5,6 +5,7 @@ import { openDateOf, openDates, WALLETS, WALLET_INFO, walletOf } from './core.js
 import { tipBtn, calcHtml, bindCalc, COMP_LABEL, rateAt, hasRate } from './interest.js';
 import { exchangeOf, canonPlatform, nearPlatform, platformNames } from './invest.js';
 import { softDelete, subscribe } from './core.js';
+import { acctPic, isImg } from './pictures.js';
 import {
   get, commit, uid, stamp, nowStamp, rateFor, fmt, BASE, HOME, homeFx, allCurrencies, curName, CUR, balances, catMap, accountMap, live, groupColor, groupLetter,
   adjustmentCategory, shiftMonth, thisMonth, monthLabel, monthParts, deltaFor, dayLabel,
@@ -137,7 +138,7 @@ export function accounts(db) {
     if (c && c.due && c.owed > 0) meta.push(c.days === 0 ? 'due today' : `due in ${c.days}d`);
     if (!a.include && !isLiability(a)) meta.push('not in spendable');
     const bar = c && c.limit ? `<span class="util ${c.used >= 80 ? 'hot' : c.used >= 50 ? 'mid' : ''}" role="img" aria-label="${c.used}% of limit used"><i style="width:${c.used}%"></i></span>` : '';
-    return `<button class="row acct" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:${groupColor(a.type)}">${groupLetter(typeNames[a.type] || a.type)}</i>
+    return `<button class="row acct" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:${groupColor(a.type)}">${acctPic(a)}</i>
       <span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(meta.join(' · '))}</small>${bar}</span>
       <span class="ramt"><b class="${v < 0 ? 'neg' : ''}">${money(v, a.cur)}</b>${eq(v, a.cur, rateFor(db, a.cur)) ? `<small>${eq(v, a.cur, rateFor(db, a.cur))}</small>` : ''}</span></button>`;
   };
@@ -218,7 +219,7 @@ function openNetWorth() {
       <rect x="${i * bw + 4}" y="${p.v >= 0 ? mid - h : mid}" width="${bw - 8}" height="${Math.max(h, 1)}" rx="2" fill="${p.v >= 0 ? (i === 11 ? 'var(--line)' : 'var(--bar)') : 'var(--bad)'}"/>
       <text x="${i * bw + bw / 2}" y="${H - 3}" text-anchor="middle" class="axis">${monthLabel(p.ym).slice(0, 1)}</text></g>`;
   }).join('');
-  const rowOf = (i) => `<button class="row acct" data-act="acct" data-id="${i.a.id}"><i class="badge sm" style="background:${groupColor(i.a.type)}">${groupLetter(typeNames[i.a.type] || i.a.type)}</i>
+  const rowOf = (i) => `<button class="row acct" data-act="acct" data-id="${i.a.id}"><i class="badge sm" style="background:${groupColor(i.a.type)}">${acctPic(i.a)}</i>
     <span class="rmain"><strong>${esc(i.a.name)}</strong><small>${esc(typeNames[i.a.type] || i.a.type)}</small></span>
     <span class="ramt"><b class="${i.base < 0 ? 'neg' : ''}">${money(i.base)}</b>${i.a.cur !== HOME ? `<small>${money(i.v, i.a.cur)}</small>` : ''}</span></button>`;
   s.el.querySelector('#nw').innerHTML = `
@@ -438,6 +439,7 @@ export function openAccount(id, preset = {}) {
   const curs = [...new Set([...favCurs(), ...db.accounts.map((x) => x.cur), ...allCurrencies()])];
   const s = sheet(`<form id="acct-form">
     <label class="field"><span>Name</span><input name="name" value="${esc(a.name)}" required ${id ? '' : 'autofocus'}></label>
+    <div class="field"><span>Picture</span><input type="hidden" name="icon" value="${isImg(a.icon) ? '' : esc(a.icon || '')}"><button type="button" class="picbtn" id="acct-pic" aria-label="Choose a picture for this account"><i class="badge sm" style="background:${groupColor(a.type)}">${acctPic(a)}</i><span>${a.icon ? (isImg(a.icon) ? 'Your own image' : 'Chosen picture') : 'Automatic'} · tap to change</span></button></div>
     <label class="field"><span>Exchange or platform (optional)</span><select name="exchange" data-keep="${esc(exchangeOf(a))}">${(() => { const cur = exchangeOf(a), pn = platformNames(), all = [...new Set([...(cur ? [cur] : []), ...pn.used])]; return `<option value="">None</option><optgroup label="Yours">${all.map((x) => `<option value="${esc(x)}" ${x === cur ? 'selected' : ''}>${esc(x)}</option>`).join('')}</optgroup><optgroup label="Popular">${pn.popular.map((x) => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}</optgroup>`; })()}</select></label>
     <label class="field" id="walletf" ${exchangeOf(a) ? '' : 'hidden'}><span>Trading Account Inside the Platform</span><select name="wallet">${[...new Set([...WALLETS, ...Object.values(db.settings.acctTypes || {}).flat(), ...db.accounts.map((x) => x.wallet).filter(Boolean)])].map((w) => `<option value="${esc(w)}" ${(a.wallet || 'Spot') === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select><small class="muted" id="wallet-h">One coin can sit in several trading accounts, for example USDT in Spot and USDT in Earn. Each keeps its own balance.</small></label>
     <div class="two"><label class="field"><span>Currency</span><input type="hidden" name="cur" value="${esc(a.cur)}"><button type="button" class="curbtn wide" data-act="acct-cur" ${used ? 'disabled' : ''}>${curIcon(a.cur)} ${esc(a.cur)} ▾</button></label>
@@ -492,6 +494,16 @@ export function openAccount(id, preset = {}) {
     if (rm) rm.closest('[data-row]').remove(); });
   const dOn = form.querySelector('[name=d-on]'); if (dOn) dOn.onchange = () => { s.el.querySelector('[data-debtbox]').hidden = !dOn.checked; };
   s.el.querySelectorAll('#intfields, #debtfields').forEach((box) => bindCalc(box, { onUse: (nm, comp) => { const inp = box.id === 'intfields' ? form.apy : form['d-rate']; inp.value = String(+nm.toFixed(4)); const sel = box.id === 'intfields' ? form.compound : form['d-comp']; if (sel && [...sel.options].some((o) => o.value === comp)) sel.value = comp; toast('Rate filled in.'); } }));
+  let ownImg = isImg(a.icon) ? a.icon : '';
+  const picBtn = form.querySelector('#acct-pic');
+  if (picBtn) picBtn.onclick = async () => {
+    const { openIconLibrary } = await import('./entry.js');
+    openIconLibrary(form.icon.value, (v) => {
+      if (v.startsWith('data:')) { ownImg = v; form.icon.value = ''; } else { ownImg = ''; form.icon.value = v; }
+      const cur = { ...a, name: form.name.value, type: form.type.value, icon: ownImg || form.icon.value };
+      picBtn.innerHTML = `<i class="badge sm" style="background:${groupColor(cur.type)}">${acctPic(cur)}</i><span>${cur.icon ? (ownImg ? 'Your own image' : 'Chosen picture') : 'Automatic'} · tap to change</span>`;
+    }, { own: true, title: 'Account Pictures', hint: 'Pick a picture for this account. It shows in your accounts list and pickers.', auto: 'Automatic (from the name and type)' });
+  };
   form.onsubmit = (e) => {
     e.preventDefault();
     const fd = new FormData(form);
@@ -506,6 +518,7 @@ export function openAccount(id, preset = {}) {
       exchange: canonPlatform(fd.get('exchange') || ''), wallet: fd.get('exchange') ? (fd.get('wallet') || 'Spot') : '', invtab: fd.has('invtab'),
       interestFrom: fd.get('interestFrom') || today(),
       openDate: fd.get('openDate') || '',
+      icon: ownImg || fd.get('icon') || '',
     };
     const rcF = fd.getAll('rc-from'), rcR = fd.getAll('rc-rate'), pF = fd.getAll('pr-from'), pT = fd.getAll('pr-to'), pR = fd.getAll('pr-rate'), pU = fd.getAll('pr-until'), pL = fd.getAll('pr-lock'), pLE = fd.getAll('pr-lockend');
     extra.compound = fd.get('compound') || 'daily';

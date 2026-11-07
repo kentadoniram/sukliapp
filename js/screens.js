@@ -21,6 +21,7 @@ import { feedbackCfg, testBuzz, iosVersion } from './feedback.js';
 import './glossary.js';
 import { helpBtn } from './tabhelp.js';
 import { merchantsSection } from './merchantset.js';
+import { picturesSection } from './picsettings.js';
 import { undoSection } from './undoui.js';
 import { locSection } from './loc.js';
 import { splitGroups, splitExtra, openSplit, deleteWithMates, withMates } from './splitbill.js';
@@ -746,6 +747,7 @@ export function settings(db) {
       ${appMode(db) === 'simple' ? '<p class="hint" id="simplelist"><b>Hidden in Simple mode:</b> Investments, Cash flow, Outlook and Analytics in the menu; Loan planner; the Home cards that analyse your spending (Worth knowing, Pace, Spending vs expected income, Daily average, Next month outlook, Money lost to fees and interest, Last 6 months); the Merchant row on new entries; interest settings on new accounts; Name matching, Coins and tokens and Cloud sync in Settings. Anything you already set up stays visible. Choose Advanced to see them all.</p>' : ''}
       <div class="seg two" role="group" aria-label="Mode"><button type="button" data-act="set-mode" data-v="simple" class="${appMode(db) === 'simple' ? 'on' : ''}" aria-pressed="${appMode(db) === 'simple'}">Simple</button><button type="button" data-act="set-mode" data-v="advanced" class="${appMode(db) === 'advanced' ? 'on' : ''}" aria-pressed="${appMode(db) === 'advanced'}">Advanced</button></div></section>
     ${merchantsSection(db)}
+    ${picturesSection()}
     ${undoSection()}
     ${locSection(db)}
     <section><h2>Categories</h2>
@@ -1035,7 +1037,7 @@ ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
 const SET_GROUPS = [
   ['look', 'Look and Feel', 'Simple or Advanced, tabs, Home cards, colours, text size', ['Mode', 'Tabs and Home Cards', 'Appearance', 'Display']],
   ['money', 'Money and Alerts', 'Home currency, spending warnings', ['Currency', 'Spending Safety', 'Left Out of Cash Outflow']],
-  ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Account Types', 'Name Matching']],
+  ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Pictures', 'Account Types', 'Name Matching']],
   ['data', 'Backup and Data', 'Undo, reminders, backups, export', ['Undo', 'Backup Reminder', 'Your Data', 'Google Backup (Optional)']],
   ['adv', 'Advanced', 'Most people never need these', ['Exchange Rates', 'Live exchange rates', 'Coins and Tokens: Decimals', 'Cloud Sync', 'Erase']],
   ['help', 'Help', 'Glossary, install on your phone', ['Glossary', 'Put It on Your Phone']],

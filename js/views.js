@@ -352,7 +352,7 @@ ACT['cat-new'] = (el) => openCategoryForm({ kind: ui.catKind || 'expense', group
 ACT['cat-edit'] = (el) => openCategoryForm({ id: el.dataset.id, kind: ui.catKind || 'expense' });
 ACT['cat-suggest'] = async () => (await import('./catsuggest.js')).openSuggestions(ui.catKind || 'expense');
 ACT['grp-icon'] = async (el) => { const g = el.dataset.g, { openIconLibrary } = await import('./entry.js'), { groupIconKey } = await import('./core.js');
-  openIconLibrary(groupIconKey(g), (k) => commit((d) => { d.settings = d.settings || {}; const m = { ...(d.settings.groupIcons || {}) }; if (k) m[g] = k; else delete m[g]; d.settings.groupIcons = m; })); };
+  openIconLibrary(groupIconKey(g), (k) => commit((d) => { d.settings = d.settings || {}; const m = { ...(d.settings.groupIcons || {}) }; if (k) m[g] = k; else delete m[g]; d.settings.groupIcons = m; }), { group: true, title: 'Group Pictures', hint: 'Pick a picture for this group. It shows on the group header.', auto: 'Automatic (guess from the group name)' }); };
 ACT['cat-ren'] = async (el) => {
   const old = el.dataset.g, kind = ui.catKind || 'expense', db0 = get();
   const others = [...new Set(db0.categories.filter((c) => !c.deleted && c.group !== old && (c.kind === kind || c.kind === 'both')).map((c) => c.group))];

@@ -1,6 +1,7 @@
 // The add / edit sheet, the category picker and the "add many at once" sheet.
 import { suggestedGroups } from './catsuggest.js';
 import { catIcon, ICONS, ICON_KEYS, iconKeyOf, iconSvg, guessIcon } from './caticons.js';
+import { GICONS, GKEYS, gsvg, pickOwnImage, merchPic } from './pictures.js';
 import {
   get, commit, undoLast, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
   findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt, r9, qtyR, commitQuiet,
@@ -209,7 +210,7 @@ export function openEntry(opts = {}) {
   function renderMerch() {
     const el = $f('merchrow'); el.hidden = f.kind !== 'expense'; el.classList.toggle('keep', !!f.merchant); if (el.hidden) return;   // Simple mode hides this row unless the entry already has a merchant
     // Merchant and Branch share one row (they belong together); the row keeps its height, Branch just waits until a merchant is chosen
-    el.innerHTML = `<div class="mbpair"><div class="mbcell"><span>Merchant (optional) ${f.merchSuggested && f.merchant ? '<small class="sugnote">· suggested</small>' : ''}</span><button type="button" class="acctbtn" data-e="merchpick">${f.merchant ? esc(f.merchant) : '<span class="muted">e.g. 7-Eleven, Starbucks, McDo, ...</span>'} ▾</button></div><div class="mbcell" id="branchcell"></div></div>`;
+    el.innerHTML = `<div class="mbpair"><div class="mbcell"><span>Merchant (optional) ${f.merchSuggested && f.merchant ? '<small class="sugnote">· suggested</small>' : ''}</span><button type="button" class="acctbtn" data-e="merchpick">${f.merchant ? `<i class="minipic">${merchPic(get(), f.merchant)}</i>${esc(f.merchant)}` : '<span class="muted">e.g. 7-Eleven, Starbucks, McDo, ...</span>'} ▾</button></div><div class="mbcell" id="branchcell"></div></div>`;
     renderBranch();
   }
   function suggestMerchant() {
@@ -1257,11 +1258,18 @@ export function openCategoryForm({ id = null, kind = 'expense', group = '', name
 }
 
 // the picture library: tap a picture to use it for this category; Automatic goes back to the guessed one
-export function openIconLibrary(current, onPick) {
-  const s = sheet(`<div class="icolib"><p class="hint">Pick a picture for this category. It is used everywhere the category is shown.</p>
-    <button type="button" class="btn ghost wide" data-ico="">Automatic (guess from the name)</button>
-    <div class="icogrid">${ICON_KEYS.map((k) => `<button type="button" class="icocell ${k === current ? 'on' : ''}" data-ico="${k}" aria-label="${esc(ICONS[k][0])}"><i>${iconSvg(k)}</i><span>${esc(ICONS[k][0])}</span></button>`).join('')}</div></div>`, { title: 'Category Pictures', wide: true });
-  s.el.addEventListener('click', (e) => { const b = e.target.closest('[data-ico]'); if (!b) return; s.close(); onPick(b.dataset.ico); });
+export function openIconLibrary(current, onPick, o = {}) {
+  /* o.group: show the solid group pictures first; o.own: let the person use an image of their own; o.auto: label of the automatic button; o.hint */
+  const cell = (k, svg, label) => `<button type="button" class="icocell ${k === current ? 'on' : ''}" data-ico="${k}" aria-label="${esc(label)}"><i>${svg}</i><span>${esc(label)}</span></button>`;
+  const s = sheet(`<div class="icolib"><p class="hint">${esc(o.hint || 'Pick a picture for this category. It is used everywhere the category is shown.')}</p>
+    <button type="button" class="btn ghost wide" data-ico="">${esc(o.auto || 'Automatic (guess from the name)')}</button>
+    ${o.own ? '<button type="button" class="btn ghost wide" data-own>Use My Own Image…</button><p class="hint">Your image stays on this device. Sukli does not include company logos, because they are trademarks.</p>' : ''}
+    ${o.group ? `<h3>Group Pictures</h3><div class="icogrid">${GKEYS.map((k) => cell(k, gsvg(k), GICONS[k][0])).join('')}</div><h3>More Pictures</h3>` : ''}
+    <div class="icogrid">${ICON_KEYS.map((k) => cell(k, iconSvg(k), ICONS[k][0])).join('')}</div></div>`, { title: o.title || 'Category Pictures', wide: true });
+  s.el.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-own]')) { const v = await pickOwnImage(); if (v) { s.close(); onPick(v); } return; }
+    const b = e.target.closest('[data-ico]'); if (!b) return; s.close(); onPick(b.dataset.ico);
+  });
 }
 
 // ---------- add many at once ----------

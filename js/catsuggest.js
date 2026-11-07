@@ -1,7 +1,8 @@
 // Suggested groups and categories. Nothing here is added until you tick it and tap Add.
 import { get, commit, findOrAddCategory, groupColor } from './core.js';
 import { esc, sheet, toast } from './ui.js';
-import { catIcon, iconSvg, guessGroupIcon } from './caticons.js';
+import { catIcon, iconSvg } from './caticons.js';
+import { gsvg, guessGroupG } from './pictures.js';
 
 export const SUGGESTED = {
   expense: {
@@ -51,7 +52,7 @@ export function openSuggestions(kind0 = 'expense') {
     root.innerHTML = `<p class="hint">Tick what you want and tap Add. Categories you already have are marked. You can rename, move or delete any of them later.</p>
       <div class="seg two" role="group">${[['expense', 'Expense'], ['income', 'Income']].map(([v, l]) => `<button type="button" data-k="${v}" class="${kind === v ? 'on' : ''}">${l}</button>`).join('')}</div>
       ${Object.entries(SUGGESTED[kind]).map(([g, names]) => { const free = names.filter((n) => !h.has(`${g.toLowerCase()}|${n.toLowerCase()}`));
-        return `<details class="sugg-g" ${free.length ? 'open' : ''}><summary><i class="badge sm" style="background:${groupColor(g)}">${iconSvg(guessGroupIcon(g))}</i> <b>${esc(g)}</b> <small class="muted">${free.length ? `${free.length} new` : 'all added'}</small></summary>
+        return `<details class="sugg-g" ${free.length ? 'open' : ''}><summary><i class="badge sm" style="background:${groupColor(g)}">${gsvg(guessGroupG(g))}</i> <b>${esc(g)}</b> <small class="muted">${free.length ? `${free.length} new` : 'all added'}</small></summary>
           <div class="sugg-list">${free.length > 1 ? `<button type="button" class="linkbtn sm" data-all="${esc(g)}">Tick all</button>` : ''}${names.map((n) => { const has = h.has(`${g.toLowerCase()}|${n.toLowerCase()}`), key = `${g}|${n}`;
             return `<label class="check sugg-i ${has ? 'have' : ''}"><input type="checkbox" data-k2="${esc(key)}" ${has ? 'checked disabled' : ''} ${picked.has(key) ? 'checked' : ''}> <span class="sugg-ic">${catIcon({ name: n, group: g })}</span> ${esc(n)}${has ? ' <small class="muted">✓</small>' : ''}</label>`; }).join('')}</div></details>`; }).join('')}
       <div class="btnrow"><button type="button" class="btn" data-add ${picked.size ? '' : 'disabled'}>Add ${picked.size || ''} Selected</button></div>`; };

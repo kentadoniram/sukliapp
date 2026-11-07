@@ -25,7 +25,7 @@ with sync_playwright() as p:
     # items buttons
     pg.evaluate("document.querySelector('[data-e=items-on]').click()"); pg.wait_for_timeout(300)
     h=pg.evaluate("(()=>{const i=document.querySelector('.items .item .in-a').getBoundingClientRect(),q=document.querySelector('.items .item .qty').getBoundingClientRect(),b=document.querySelector('.items .item .qty button').getBoundingClientRect();return [Math.round(i.height),Math.round(q.height),Math.round(b.width),Math.round(b.height)]})()")
-    ok('qty box as tall as the input, narrow buttons %s'%h, abs(h[0]-h[1])<=2 and h[2]<=28 and h[3]>=30)
+    ok('qty box as tall as the input, narrow buttons %s'%h, abs(h[0]-h[1])<=2 and h[2]<=22 and h[3]>=30)
     pg.evaluate("document.querySelector('[data-e=item-del]').click()"); pg.wait_for_timeout(200)
     # paid for others
     pg.evaluate("document.querySelector('[data-e=oth-on]').click()"); pg.wait_for_timeout(300)

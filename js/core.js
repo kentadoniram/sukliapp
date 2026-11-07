@@ -1,7 +1,8 @@
 // Core data layer: one JSON database kept in IndexedDB, plus the money maths.
 // Every record has an id and updatedAt so two phones can merge their copies.
 
-import { iconSvg, ICONS, guessGroupIcon } from './caticons.js';
+import { iconSvg, ICONS } from './caticons.js';
+import { GICONS, gsvg, guessGroupG } from './pictures.js';
 
 const DB_NAME = 'sukli';
 const STORE = 'kv';
@@ -112,11 +113,12 @@ export function groupColor(g) {
   return BADGE[h % BADGE.length];
 }
 // the picture for a category group (Food & Drinks, Travel...): the one you chose, else a default. Non-category names (account kinds) still get their first letter.
-export function groupIconKey(g) { const m = (((get() || {}).settings || {}).groupIcons) || {}; return m[g] && ICONS[m[g]] ? m[g] : guessGroupIcon(g); }
+export function groupIconKey(g) { const m = (((get() || {}).settings || {}).groupIcons) || {}; return m[g] && (GICONS[m[g]] || ICONS[m[g]]) ? m[g] : guessGroupG(g); }
+const gpic = (k) => (GICONS[k] ? gsvg(k) : iconSvg(k));
 export function groupLetter(g) {
   if (g === 'Transfer') return '⇄';
   if (g === 'Adjustments') return '±';
-  { const db = get() || {}, cust = ((db.settings || {}).groupIcons || {})[g]; if (cust || (db.categories || []).some((c) => !c.deleted && c.group === g)) return iconSvg(groupIconKey(g)); }
+  { const db = get() || {}, cust = ((db.settings || {}).groupIcons || {})[g]; if (cust || (db.categories || []).some((c) => !c.deleted && c.group === g)) return gpic(groupIconKey(g)); }
   const m = String(g).match(/[A-Za-z0-9]/);
   return m ? m[0].toUpperCase() : '·';
 }

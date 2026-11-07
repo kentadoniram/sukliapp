@@ -3,6 +3,8 @@ import { get, commit, stamp } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { norm } from './merchants.js';
 import { cachedAddress } from './geo.js';
+import { merchPic, picHtml, guessMerchIcon, isImg } from './pictures.js';
+import { groupColor } from './core.js';
 // a saved point shows as its address when one is known; the numbers stay out of sight
 const ptTxt = (p) => cachedAddress(get(), p) || 'saved (the address shows once an entry at this spot has looked it up)';
 import { merchantList, canonMerchant } from './merchantpick.js';
@@ -15,7 +17,7 @@ export function merchantsSection(db) {
   const list = merchantList(db);
   return `<section id="merch-set"><h2>Merchants</h2>
     <p class="hint">Where you bought something (Shopee, Lazada, wet market, mall). The category still says what it was. Add one here, or tap one to rename it or take it off your entries.</p>
-    ${list.length ? `<div class="rows plain">${list.map((m) => `<button type="button" class="row cur ln1" data-act="mer-edit" data-m="${esc(m.name)}"><span class="rmain"><strong>${esc(m.name)}</strong><small>${m.n ? `${m.n} ${m.n === 1 ? 'entry' : 'entries'}` : 'Added by you, not used yet'}</small></span></button>`).join('')}</div>` : '<p class="hint">No merchants yet. They appear here once you use the Merchant row on an expense.</p>'}
+    ${list.length ? `<div class="rows plain">${list.map((m) => `<button type="button" class="row cur ln1" data-act="mer-edit" data-m="${esc(m.name)}"><i class="badge sm" style="background:${groupColor(m.name)}">${merchPic(db, m.name)}</i><span class="rmain"><strong>${esc(m.name)}</strong><small>${m.n ? `${m.n} ${m.n === 1 ? 'entry' : 'entries'}` : 'Added by you, not used yet'}</small></span></button>`).join('')}</div>` : '<p class="hint">No merchants yet. They appear here once you use the Merchant row on an expense.</p>'}
     <div class="btnrow left"><button type="button" class="btn ghost" data-act="mer-add">Add a merchant</button></div></section>`;
 }
 
@@ -80,13 +82,15 @@ ACT['mer-edit'] = (el) => {
   const db = get(), name = el.dataset.m, n = count(db, name), info = infoOf(db, name), bl = branchesOf(db, name); let loc = info.loc || null;
   placeFields({ place: info.place, loc }).then((pf) => {
   const s = sheet(`<form novalidate><label class="field"><span>Merchant Name</span><input name="m" autocomplete="off" autocapitalize="words" value="${esc(name)}" autofocus></label>
+    <div class="field"><span>Picture</span><button type="button" class="picbtn" id="mer-pic" aria-label="Choose a picture for this merchant"><i class="badge sm" style="background:${groupColor(name)}">${merchPic(db, name)}</i><span>${info.icon ? (isImg(info.icon) ? 'Your own image' : 'Chosen picture') : 'Automatic'} · tap to change</span></button></div>
     <label class="field"><span>Branch (Optional)</span><input name="br" autocomplete="off" autocapitalize="words" placeholder="e.g. Tsukagoshi"></label>
     <p class="hint">${n ? `Renaming changes it on ${n} ${n === 1 ? 'entry' : 'entries'}. If the new name is already in your list, the two are joined.` : 'Not used on any entry yet.'} For a name like “Life Tsukagoshi”, type <b>Life</b> as the merchant and <b>Tsukagoshi</b> as the branch: all ${n || ''} entries keep their link and get the branch.</p>
     ${pf}
     ${bl.length ? `<h3>Branches</h3><div class="rows plain">${bl.map((b) => `<button type="button" class="row cur" data-act="mer-branch" data-m="${esc(name)}" data-b="${esc(b.name)}"><span class="rmain"><strong>${esc(b.name)}</strong><small>${b.n} ${b.n === 1 ? 'entry' : 'entries'}${((infoOf(db, name).branches || {})[b.name] || {}).place ? ' · ' + esc(infoOf(db, name).branches[b.name].place) : ''}</small></span></button>`).join('')}</div>` : ''}
     <div class="btnrow left"><button type="button" class="btn ghost sm" data-addbr>Add a Branch</button></div>
     <div class="btnrow"><button type="button" class="btn ghost danger" data-rm>${n ? 'Remove from entries' : 'Delete'}</button><button class="btn">Save</button></div></form>`, { title: name });
-  const q = s.el.querySelector('form');
+  const q = s.el.querySelector('form'); let ico = info.icon || '';
+  q.querySelector('#mer-pic').onclick = async () => { const { openIconLibrary } = await import('./entry.js'); openIconLibrary(ico, (v) => { ico = v; q.querySelector('#mer-pic').innerHTML = `<i class="badge sm" style="background:${groupColor(name)}">${picHtml(ico, guessMerchIcon(q.m.value || name))}</i><span>${ico ? (isImg(ico) ? 'Your own image' : 'Chosen picture') : 'Automatic'} · tap to change</span>`; }, { own: true, title: 'Merchant Pictures', hint: 'Pick a picture for this merchant. It shows in the merchant list and pickers.', auto: 'Automatic (from the merchant name)' }); };
   q.querySelector('[data-here]').onclick = async () => { const { hereWhy } = await import('./loc.js'); const r = await hereWhy(); if (r.p) { loc = r.p; q.querySelector('[data-pt]').textContent = `Saved location: ${ptTxt(r.p)}`; } else toast('Could not get your location. Type the place instead.'); };
   q.querySelector('[data-addbr]').onclick = async () => { const v = clean((await promptDialog('New branch', '', { okLabel: 'Add', hint: `A place of ${name}, for example Kawasaki Station.` })) || ''); if (!v) return; s.dispose(); commit((d) => setInfo(d, name, (o) => { o.branches[v] = o.branches[v] || {}; })); toast('Branch added.'); };
   q.querySelector('[data-rm]').onclick = async () => {
@@ -110,8 +114,8 @@ ACT['mer-edit'] = (el) => {
       if (had && !l.some((x) => norm(x) === norm(to))) l.push(to); if (l.length) d.settings.merchants = l; else delete d.settings.merchants;
       // the place information moves with the name; a typed branch gets the place, otherwise the merchant does
       const all = (d.settings.merchantInfo = d.settings.merchantInfo || {}), old = all[name];
-      if (to !== name && old) { const dst = (all[to] = all[to] || { branches: {} }); dst.branches = { ...(old.branches || {}), ...(dst.branches || {}) }; if (old.place && !dst.place) dst.place = old.place; if (old.loc && !dst.loc) dst.loc = old.loc; delete all[name]; }
-      setInfo(d, to, (o) => { if (br) { o.branches[br] = { ...(o.branches[br] || {}), ...(place ? { place } : {}), ...(loc ? { loc } : {}) }; } else { if (place) o.place = place; if (loc) o.loc = loc; } });
+      if (to !== name && old) { const dst = (all[to] = all[to] || { branches: {} }); dst.branches = { ...(old.branches || {}), ...(dst.branches || {}) }; if (old.place && !dst.place) dst.place = old.place; if (old.loc && !dst.loc) dst.loc = old.loc; if (old.icon && !dst.icon) dst.icon = old.icon; delete all[name]; }
+      setInfo(d, to, (o) => { if (ico) o.icon = ico; else if (name === to || !o.icon) delete o.icon; if (br) { o.branches[br] = { ...(o.branches[br] || {}), ...(place ? { place } : {}), ...(loc ? { loc } : {}) }; } else { if (place) o.place = place; if (loc) o.loc = loc; } });
     });
     toast(br ? `${to}, branch ${br}.` : `Saved ${to}.`, { ms: 6000, undo: () => commit((d) => { for (const t of d.txs) if (ids.includes(t.id)) { t.merchant = name; if (br) delete t.branch; stamp(t); } if (keep.length) d.settings.merchants = keep; else delete d.settings.merchants; d.settings.merchantInfo = JSON.parse(keepInfo); if (!d.settings.merchantInfo) delete d.settings.merchantInfo; }) });
   };

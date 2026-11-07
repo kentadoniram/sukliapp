@@ -137,6 +137,8 @@ export const ICONS = {
   backpack: ['Backpack', '<path d="M8 6a4 4 0 018 0v1H8zM6 8h12v12a1 1 0 01-1 1H7a1 1 0 01-1-1zM9 14h6M10 10h4"/>'],
   toolbox: ['Tools', '<rect x="3" y="8" width="18" height="12" rx="2"/><path d="M9 8V5a1 1 0 011-1h4a1 1 0 011 1v3M3 13h18M11 13v2h2v-2"/>'],
   heartpulse: ['Checkup', '<path d="M12 21s-8-5-8-11a4.5 4.5 0 018-2.8A4.5 4.5 0 0120 10c0 6-8 11-8 11zM7 12h3l1.5-3 2 5 1.5-2h2"/>'],
+  ewallet: ['E-wallet', '<rect x="6" y="2" width="12" height="20" rx="2.500"/><circle cx="12" cy="11" r="3"/><path d="M12 9.600v2.800M10.600 11h2.800M10 18.500h4"/>'],
+  iccard: ['IC card', '<rect x="3" y="5" width="18" height="14" rx="2.500"/><path d="M9 10a3 3 0 010 4M12 8.500a5.500 5.500 0 010 7M15 7a8 8 0 010 10"/>'],
   dots: ['Other', '<circle cx="6" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="18" cy="12" r="1"/>']
 };
 export const ICON_KEYS = Object.keys(ICONS);
