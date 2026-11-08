@@ -14,7 +14,7 @@ import { predict } from './predict.js';
 import { modelFor, openEntry, openBulk, openCategoryForm } from './entry.js';
 import { syncNow, status as syncStatus } from './drive.js';
 import { REMOVED_UI } from './features.js';
-import { fxBlockHtml, openConverter } from './fxview.js';
+import { fxBlockHtml, openConverter, rateTxt } from './fxview.js';
 import { tipBtn } from './interest.js';
 import { parseTags, hasTag, tagCounts } from './tags.js';
 import { feedbackCfg, testBuzz, iosVersion } from './feedback.js';
@@ -715,12 +715,7 @@ ACT['budget-clear'] = (el) => commit((d) => { const b = d.budgets.find((x) => !x
 // ---------------- Settings ----------------
 const segBtns = (act, k, opts, cur) => `<div class="seg sm" role="group">${opts.map(([v, l]) => `<button type="button" data-act="${act}" data-k="${k}" data-v="${v}" class="${String(cur) === String(v) ? 'on' : ''}" aria-pressed="${String(cur) === String(v)}">${l}</button>`).join('')}</div>`;
 ACT['rates-now'] = async () => { try { await fetchRates(); } catch (e) { /* status already shown */ } };
-ACT['rate-live'] = (el) => commit((d) => { delete d.settings.rates[el.dataset.c]; });
-// Settings: open the converter for one currency; saving makes it a manual rate, "Back to live" removes the override
-ACT['rate-open'] = (el) => { const c = el.dataset.c, db = get();
-  openConverter({ from: c, to: HOME, amount: 1, rate: homeFx(db, c), applyLabel: 'Save as my rate',
-    onApply: ({ rate }) => commit((d) => { const hr = (d.settings.rates && d.settings.rates[HOME] > 0 ? d.settings.rates[HOME] : rateFor(d, HOME)) || 1; d.settings.rates = d.settings.rates || {}; d.settings.rates[c] = rate * (HOME === BASE ? 1 : hr); }),
-    onReset: () => commit((d) => { if (d.settings.rates) delete d.settings.rates[c]; }) }); };
+ACT['rate-live'] = (el) => commit((d) => { if (d.settings.rates) delete d.settings.rates[el.dataset.c]; });   // removes an old Settings override only; saved entries keep their own rate
 ACT['home-cur'] = () => openCurrencyPicker(async (c) => {
   const db = get(); if (c === HOME) return;
   if (!(await confirmDialog(`Show totals in ${c} (${curName(c)}) from now on? Budgets and limits you set will be converted at today’s rate. Nothing else is rewritten.`, 'Change'))) return;
@@ -834,9 +829,10 @@ export function settings(db) {
       <label class="check"><input type="checkbox" id="liverates" ${s.liveRates === false ? '' : 'checked'}> Update rates automatically (free, about once a day)</label>
       <div class="btnrow left"><button class="btn ghost sm" data-act="rates-now">Update now</button></div>
       <p class="status" id="ratesstatus" role="status">${esc(ratesStatus.text || (s.live ? 'Last updated ' + new Date(s.live.ts).toLocaleString() : 'Not updated yet.'))}</p>
-      <p class="hint">Rates are used for new entries and for today’s balances. An entry you saved keeps the rate it was saved with, so old reports do not change. Type a rate below to override the live one; tap ✕ to go back to live. ${esc(RATE_CREDIT)}.</p>
-      ${curs.map((c) => `<div class="ratebox">${fxBlockHtml({ from: c, to: HOME, amount: 0, rate: homeFx(db, c), open: `data-act="rate-open" data-c="${c}"`, db })}</div>`).join('')}
-      <p class="hint">Tap “Exchange Rate” to convert an amount, type your own rate, or get the latest one. Each entry also lets you set the ${HOME} value from your bill.</p></section>
+      <p class="hint">These are today’s rates, used to suggest a rate for a new entry and to value your accounts today. <b>Each entry saves its own rate</b> (you can type one inside the entry with “Exchange Rate”), so nothing here changes an entry you already saved, and typed rates are never collected here. ${esc(RATE_CREDIT)}.</p>
+      ${curs.map((c) => `<div class="ratebox">${fxBlockHtml({ from: c, to: HOME, amount: 0, rate: homeFx(db, c), plain: true, db })}</div>`).join('')}
+      ${(() => { const old = Object.keys(s.rates || {}).filter((c) => s.rates[c] > 0); return old.length ? `<div class="oldrates"><h3>Rates Typed Here Before</h3><p class="hint">An older version let you type a rate here. These still replace the live rate for new entries and today’s balances. Removing one does not change any saved entry.</p>${old.map((c) => `<div class="oldrate"><span>1 ${esc(c)} = ${rateTxt(homeFx(db, c))} ${esc(HOME)}</span><button type="button" class="btn ghost sm" data-act="rate-live" data-c="${esc(c)}">Remove</button></div>`).join('')}</div>` : ''; })()}
+    </section>
     <section><h2>Glossary</h2><p class="hint">What the words mean: accounts, cards (statement, billing period, posted date), interest, investments, and common words on Japanese receipts with kanji, romaji and English.</p><div class="btnrow left"><button type="button" class="btn ghost" data-act="glossary">Open the glossary</button></div></section>
     <section><h2>Put It on Your Phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
     <section><h2>Erase</h2><button class="btn danger ghost" data-act="erase">Erase everything on this device</button>

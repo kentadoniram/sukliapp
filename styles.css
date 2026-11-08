@@ -1408,7 +1408,6 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 /* 15.3: the + button is a true circle (a fixed 62 px basis used to stretch it sideways); rate window mode buttons */
 .tabs .fab { flex: 0 0 58px; width: 58px; height: 58px; min-width: 58px; max-width: 58px; aspect-ratio: 1 / 1; padding: 0; box-sizing: border-box; }
 .fxconv .fxbtns { flex-wrap: wrap; } .fxconv .fxbtns .btn { flex: 1 1 30%; white-space: nowrap; padding-inline: 6px; }
-.fxconv .fxbtns .btn.on { background: var(--accent-soft, #dbeee5); border-color: var(--accent, #1a7f5a); font-weight: 600; }
 .fxconv input[readonly] { opacity: .75; }
 /* every picker list (currencies, accounts, merchants, branches) is left aligned */
 .pickfix .row.cur, .pickfix .row.cur .rmain, .pickfix .row.cur .rmain strong, .pickfix .row.cur .rmain small { justify-content: flex-start; text-align: left; justify-items: start; }
@@ -1429,3 +1428,11 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .fxconv .fxp-rate input { height: 54px; font-size: 1.4rem; }
 .fxconv .fxp-amount input, .fxconv .fxp-rate input { border: 2px solid var(--accent, #1a7f5a); border-radius: 12px; background: var(--sheet, #fff); box-sizing: border-box; width: 100%; padding: 0 12px; }
 .fxconv .fxp-amount input { height: 46px; }
+
+/* 15.8 the three Exchange Rate options share one theme in light and dark */
+.fxconv .fxbtns .btn { background: var(--sheet); color: var(--ink); border: 1.5px solid var(--rule); font-weight: 500; }
+.fxconv .fxbtns .btn.on { background: var(--tint); color: var(--ink); border-color: var(--line); font-weight: 700; }
+.fxconv .fxp-amount input, .fxconv .fxp-rate input { border-color: var(--line); color: var(--ink); }
+.fxlink.plain { font-weight: 600; color: var(--ink2); }
+.oldrates { border-top: 1px solid var(--rule); margin-top: 10px; padding-top: 6px; } .oldrates h3 { margin: 4px 0; font-size: 1rem; }
+.oldrate { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; }

@@ -24,7 +24,7 @@ export function rateSource(db, from, to, rate) {
   const s = db.settings, manual = [from, to].some((c) => c !== BASE && s.rates && s.rates[c] > 0);
   const base = pairRate(db, from, to);
   if (rate > 0 && base > 0 && Math.abs(rate - base) / base > 1e-4) return { kind: 'manual', text: 'Manual rate (typed by you)' };
-  if (manual) return { kind: 'manual', text: 'Manual rate (set in Settings)' };
+  if (manual) return { kind: 'manual', text: 'Manual rate (typed earlier in Settings)' };
   if (livePair(db, from, to) > 0 && s.live) return { kind: 'live', text: `Live rate · updated ${ago(s.live.ts)}` };
   return { kind: 'entry', text: 'From your latest entry (not live)' };
 }
@@ -33,9 +33,9 @@ const sumLines = (from, to, amount, rate, always = false) => rate > 0
   ? `${amount > 0 || always ? `<li>${moneyCode(amount || 0, from)} = ${moneyCode((amount || 0) * rate, to)}</li>` : ''}<li>1 ${esc(from)} = ${rateTxt(rate)} ${esc(to)}</li><li>1 ${esc(to)} = ${rateTxt(1 / rate)} ${esc(from)}</li>`
   : `<li class="muted">No rate yet. Tap Exchange Rate to set one.</li>`;
 // the compact viewer. `open` is the attribute that makes the text clickable (for example data-e="fxopen")
-export function fxBlockHtml({ from, to, amount, rate, open, always = false, db = get() }) {
+export function fxBlockHtml({ from, to, amount, rate, open, plain = false, always = false, db = get() }) {
   const src = rateSource(db, from, to, rate);
-  return `<div class="fxblock"><div class="fxtop"><button type="button" class="fxlink" ${open}>Exchange Rate</button><span class="fxsrc ${src.kind}" data-fxsrc>${esc(src.text)}</span></div><ul class="fxsum" data-fxsum aria-live="polite">${sumLines(from, to, amount, rate, always)}</ul></div>`;
+  return `<div class="fxblock"><div class="fxtop">${plain ? '<span class="fxlink plain">Exchange Rate</span>' : `<button type="button" class="fxlink" ${open}>Exchange Rate</button>`}<span class="fxsrc ${src.kind}" data-fxsrc>${esc(src.text)}</span></div><ul class="fxsum" data-fxsum aria-live="polite">${sumLines(from, to, amount, rate, always)}</ul></div>`;
 }
 // refresh an existing viewer without touching the layout
 export function fxBlockUpdate(root, { from, to, amount, rate, always = true, db = get() }) {
