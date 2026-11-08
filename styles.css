@@ -1414,3 +1414,7 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .pickfix .row.cur, .pickfix .row.cur .rmain, .pickfix .row.cur .rmain strong, .pickfix .row.cur .rmain small { justify-content: flex-start; text-align: left; justify-items: start; }
 .pickfix .row.cur { padding-inline: 14px 44px; }
 .pickfix #aclist, .pickfix #clist, .pickfix .pk-list { overflow-y: auto; overscroll-behavior: contain; }
+/* 15.5: Savings goals */
+.goalhead { display: flex; align-items: center; gap: 10px; } .goalhead .badge { width: 44px; height: 44px; flex: none; } .goalhead small { display: block; }
+.goalbar { height: 12px; border-radius: 999px; background: var(--rule, #dfe6e2); overflow: hidden; margin: 10px 0 6px; } .goalbar > i { display: block; height: 100%; border-radius: 999px; background: var(--accent, #1a7f5a); transition: width .3s; }
+.goalnum { margin: 0 0 6px; } .goalcard.reached .goalbar > i { background: #d99a1e; }

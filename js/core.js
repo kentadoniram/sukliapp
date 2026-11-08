@@ -159,7 +159,7 @@ export function emptyDb() {
       showHome: true, remindDays: 3, home: BASE, liveRates: true, live: null, rates: {}, binDays: 30, excludeGroups: ['Capital Loss/Distribution', 'Crypto Buy'], lastAcct: '',
       cloud: { url: '', key: '', email: '', auto: true },
     },
-    accounts: [], categories: [], txs: [], budgets: [],
+    accounts: [], categories: [], txs: [], budgets: [], goals: [],
   };
 }
 
@@ -203,6 +203,7 @@ export async function load() {
   state = raw && raw.v ? raw : emptyDb();
   try { fixRouteNames(state); } catch { /* old data without accounts */ }
   state.settings = { ...emptyDb().settings, ...state.settings };
+  if (!Array.isArray(state.goals)) state.goals = [];
   applyCurDec(state.settings);
   syncHome();
   return state;
@@ -253,7 +254,7 @@ export function fixRouteNames(d) {
 // text becomes one undo step. Quick commits within 0.8 s are one step. Undoing puts the old records back with a new "updated" time so sync carries the change,
 // and entries that were added are moved to the Recycle bin instead of being erased.
 const UNDO_MAX = 25, UNDO_BYTES = 30e6, undoStack = [], redoStack = []; let undoAt = 0;
-const undoPartsOf = (d) => JSON.stringify({ txs: d.txs, accounts: d.accounts, categories: d.categories, budgets: d.budgets, merchants: d.settings.merchants || null, merchantInfo: d.settings.merchantInfo || null, customTypes: d.settings.customTypes || null, typeLabels: d.settings.typeLabels || null });
+const undoPartsOf = (d) => JSON.stringify({ txs: d.txs, accounts: d.accounts, categories: d.categories, budgets: d.budgets, goals: d.goals || [], merchants: d.settings.merchants || null, merchantInfo: d.settings.merchantInfo || null, customTypes: d.settings.customTypes || null, typeLabels: d.settings.typeLabels || null });
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 function undoLabel(t0, nTx) {
   const touched = state.txs.filter((t) => t.updatedAt >= t0), added = state.txs.length - nTx, dels = touched.filter((t) => t.deleted).length;
@@ -289,6 +290,7 @@ function describeChange(beforeJson, d) {
     for (const r of d[k]) { const o = w.get(r.id); if (!o) { if (!r.deleted) out.push(`Added ${word}: ${nameOf(r)}`); } else if (JSON.stringify(o) !== JSON.stringify(r)) out.push(r.deleted && !o.deleted ? `Deleted ${word}: ${nameOf(o)}` : `Changed ${word}: ${nameOf(r)}`); }
   }
   if (JSON.stringify(b.budgets || []) !== JSON.stringify(d.budgets || [])) out.push('Changed budgets');
+  if (JSON.stringify(b.goals || []) !== JSON.stringify(d.goals || [])) out.push('Changed savings goals');
   if (JSON.stringify(b.merchants || null) !== JSON.stringify(d.settings.merchants || null)) out.push('Changed the merchant list');
   return out.length > 8 ? [...out.slice(0, 7), `and ${out.length - 7} more`] : out;
 }
@@ -325,7 +327,7 @@ function applyParts(json) {
     }
     for (const [id, w] of want) if (!have.has(id)) cur.push({ ...w, updatedAt: now });
   }
-  state.budgets = t.budgets || [];
+  state.budgets = t.budgets || []; state.goals = t.goals || [];
   for (const k of ['merchants', 'customTypes', 'typeLabels']) { if (t[k] == null) delete state.settings[k]; else state.settings[k] = t[k]; }
   fixRouteNames(state); syncHome(); clearTimeout(saveTimer); saveTimer = setTimeout(() => writeRaw(state), 150); subs.forEach((f) => f(state));
 }
@@ -623,7 +625,7 @@ export function adjustmentCategory(db) {
 // ---------- merging two copies (used by Google Drive sync) ----------
 export function mergeDbs(a, b) {
   const out = { ...a, settings: { ...a.settings } };
-  for (const k of ['accounts', 'categories', 'txs', 'budgets']) {
+  for (const k of ['accounts', 'categories', 'txs', 'budgets', 'goals']) {
     const m = new Map();
     for (const r of [...(a[k] || []), ...(b[k] || [])]) {
       const prev = m.get(r.id);
@@ -641,8 +643,8 @@ export function restoreRec(rec) { rec.deleted = false; delete rec.deletedAt; rec
 export function purgeRec(rec) { for (const k of Object.keys(rec)) if (!['id', 'updatedAt'].includes(k)) delete rec[k]; rec.deleted = true; rec.purged = true; rec.updatedAt = Date.now(); }
 export function binItems(db) {
   const out = [];
-  for (const [coll, kind] of [['txs', 'tx'], ['accounts', 'account'], ['categories', 'category'], ['budgets', 'budget']]) {
-    for (const r of db[coll]) if (r.deleted && !r.purged) out.push({ coll, kind, r, at: r.deletedAt || r.updatedAt || 0 });
+  for (const [coll, kind] of [['txs', 'tx'], ['accounts', 'account'], ['categories', 'category'], ['budgets', 'budget'], ['goals', 'goal']]) {
+    for (const r of (db[coll] || [])) if (r.deleted && !r.purged) out.push({ coll, kind, r, at: r.deletedAt || r.updatedAt || 0 });
   }
   return out.sort((a, b) => b.at - a.at);
 }

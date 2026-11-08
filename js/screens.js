@@ -1064,7 +1064,7 @@ function settingsGrouped(html) {
 }
 
 // ---------------- Arrange tabs and Home cards (Settings) ----------------
-export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Entries', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash Flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'], invest: ['Invest', 'spark'], debts: ['Debts', 'calc'], owed: ['Owed to You', 'wallet'] };
+export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Entries', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash Flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'], invest: ['Invest', 'spark'], debts: ['Debts', 'calc'], owed: ['Owed to You', 'wallet'], savings: ['Savings', 'goal'] };
 export const MAX_TABS = 5;
 export const DEFAULT_TABS = ['home', 'ledger', 'invest', 'accounts'];
 export function tabIds(db) {

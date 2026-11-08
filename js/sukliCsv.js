@@ -13,6 +13,7 @@ const q = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
 const ACC_KNOWN = ['id', 'name', 'type', 'cur', 'open', 'openDate', 'include', 'archived', 'stmtDay', 'dueDay', 'limit', 'exchange', 'wallet', 'apy', 'market', 'updatedAt', 'deleted'];
 const TX_KNOWN = ['id', 'kind', 'date', 'name', 'amount', 'cur', 'fx', 'cat', 'acct', 'toAcct', 'toAmount', 'toFx', 'fee', 'feeBy', 'feeCat', 'feeFx', 'feeCur',
   'notes', 'labels', 'merchant', 'posted', 'from', 'to', 'items', 'flag', 'updatedAt', 'deleted', 'rev'];
+const GOAL_KNOWN = ['id', 'name', 'target', 'due', 'term', 'acct', 'start', 'reachedAck', 'updatedAt', 'deleted'];
 const rest = (o, known) => { const e = {}; for (const [k, v] of Object.entries(o)) if (!known.includes(k) && v !== undefined && v !== '' && v !== null) e[k] = v; return Object.keys(e).length ? JSON.stringify(e) : ''; };
 const itemsOut = (l) => (l || []).map((i) => `${String(i.n).replace(/[;|]/g, ',')}|${i.amt}|${i.cat || ''}`).join(';');
 const itemsIn = (s) => String(s || '').split(';').filter(Boolean).map((x) => { const [n, amt, cat] = x.split('|'); return { n, amt: parseFloat(amt) || 0, cat: cat || '' }; });
@@ -33,6 +34,7 @@ export function exportSukliCSV(db) {
       'Posted Date': t.posted || '', 'Billing Period': per ? `${per.from}..${per.to}` : '', Notes: t.notes || '', Tags: t.labels || '', Merchant: t.merchant || '', 'Trip From': t.from || '', 'Trip To': t.to || '',
       Items: itemsOut(t.items), 'Review Flag': t.flag || '', Updated: t.updatedAt || '', 'Extra (JSON)': rest(t, TX_KNOWN) });
   }
+  for (const g of (db.goals || []).filter((x) => !x.deleted)) push({ ...blank(), Record: 'Goal', Id: g.id, Name: g.name, Date: g.due || '', Kind: g.term || 'short', Amount: g.target || 0, 'Account Id': g.acct || '', 'Opening Balance': g.start || 0, Archived: yn(g.reachedAck), Updated: g.updatedAt || '', 'Extra (JSON)': rest(g, GOAL_KNOWN) });
   return '﻿' + out.join('\r\n');
 }
 
@@ -73,6 +75,14 @@ export function importSukliCSV(db, text) {
     if (g(r, 'Items')) t.items = itemsIn(g(r, 'Items')); if (g(r, 'Review Flag')) t.flag = g(r, 'Review Flag');
     try { Object.assign(t, JSON.parse(g(r, 'Extra (JSON)') || '{}')); } catch { /* ignore */ }
     db.txs.push(stamp(t)); have.add(id); stats.added++;
+  }
+  db.goals = db.goals || [];
+  for (const r of rows.filter((x) => g(x, 'Record') === 'Goal')) {
+    const id = g(r, 'Id') || uid(); if (db.goals.some((x) => x.id === id) || !g(r, 'Name')) continue;
+    const acct = idMap.get(g(r, 'Account Id')) || (live().find((x) => x.id === g(r, 'Account Id')) || {}).id || '';
+    const o = { id, name: g(r, 'Name'), target: n(g(r, 'Amount')) || 0, due: g(r, 'Date'), term: g(r, 'Kind') === 'long' ? 'long' : 'short', acct: acct && acct.id ? acct.id : acct, start: n(g(r, 'Opening Balance')) || 0, reachedAck: g(r, 'Archived') === 'yes', log: [] };
+    try { Object.assign(o, JSON.parse(g(r, 'Extra (JSON)') || '{}')); } catch { /* ignore */ }
+    db.goals.push(stamp(o)); stats.goals = (stats.goals || 0) + 1;
   }
   stats.categories = db.categories.length - catsBefore;
   return stats;

@@ -1,5 +1,5 @@
 // Recycle bin: review, restore or permanently delete accounts, expense groups, categories and entries.
-import { undoHistory, undoSteps, redoLast, undoWipe, get, commit, fmt, restoreRec, purgeRec, binItems, purgeExpired, catMap, accountMap } from './core.js';
+import { undoHistory, undoSteps, redoLast, undoWipe, get, commit, fmt, HOME, restoreRec, purgeRec, binItems, purgeExpired, catMap, accountMap } from './core.js';
 import { esc, ic, ACT, toast, confirmDialog, sheet } from './ui.js';
 import { hdr } from './screens.js';
 
@@ -32,6 +32,7 @@ export function binRows(db) {
       const a = am.get(r.acct), c = cm.get(r.cat);
       rows.push({ type: r.kind === 'transfer' ? 'Transfer' : r.kind === 'income' ? 'Income' : 'Expense', title: r.name || (c ? c.name : 'Entry'), sub: `${fmt(r.amount, r.cur || (a && a.cur) || 'PHP')} · ${r.date.slice(0, 10)}${a ? ' · ' + a.name : ''}`, at: it.at, ids: [[it.coll, r.id]] });
     } else if (it.kind === 'account') rows.push({ type: 'Account', title: r.name, sub: `${r.cur} · its entries stay saved`, at: it.at, ids: [[it.coll, r.id]] });
+    else if (it.kind === 'goal') rows.push({ type: 'Savings Goal', title: r.name, sub: `Target ${fmt(r.target || 0, HOME)}`, at: it.at, ids: [[it.coll, r.id]] });
     else if (it.kind === 'category') rows.push({ type: 'Category', title: r.name, sub: r.group || '', at: it.at, ids: [[it.coll, r.id]] });
     else rows.push({ type: 'Budget', title: r.group || 'Budget', sub: r.amount ? fmt(r.amount, 'PHP') : '', at: it.at, ids: [[it.coll, r.id]] });
   }

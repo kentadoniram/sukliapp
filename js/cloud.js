@@ -38,7 +38,7 @@ create trigger records_touch before insert or update on public.records
   for each row execute function public.touch_synced_at();
 `;
 
-const COLLS = ['accounts', 'categories', 'txs', 'budgets'];
+const COLLS = ['accounts', 'categories', 'txs', 'budgets', 'goals'];
 const AUTH_KEY = 'sukli-auth';
 const META_KEY = 'sukli-cloud-meta';
 
