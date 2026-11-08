@@ -21,7 +21,7 @@ with sync_playwright() as p:
     pg.wait_for_timeout(150); r2=float(pg.input_value('#cv-r')); av=float(pg.input_value('#cv-a'))
     ok(f'PHP amount converts to JPY: a={av} r={r2}', abs(av-200/r2)<0.05)
     ok('source label shown', len(pg.inner_text('#cv-src'))>3)
-    pg.click('#cv-manual'); pg.fill('#cv-r','0.5'); pg.dispatch_event('#cv-r','input')
+    pg.click('#cv-setrate'); pg.fill('#cv-r','0.5'); pg.dispatch_event('#cv-r','input')
     ok('typed rate is marked manual', 'Manual' in pg.inner_text('#cv-src'))
     pg.click('#cv-latest'); pg.wait_for_timeout(2500)
     ok('latest rate says what happened (offline here)', len(pg.inner_text('#cv-msg'))>5)

@@ -31,7 +31,7 @@ with sync_playwright() as p:
     pg.click('.fab'); pg.wait_for_selector('#entry')
     opts=pg.eval_on_selector_all('#f-acct option','os=>os.map(o=>[o.value,o.textContent])'); yen=[o for o in opts if 'JPY' in o[1]][0]
     pg.select_option('#f-acct', yen[0]); pg.fill('#f-amount','10000'); pg.dispatch_event('#f-amount','input'); pg.wait_for_timeout(100)
-    pg.click('[data-e=fxopen]'); pg.wait_for_selector('#cv-r'); pg.click('#cv-manual'); pg.fill('#cv-r','0.4'); pg.dispatch_event('#cv-r','input'); pg.click('#cv-apply'); pg.wait_for_timeout(100)
+    pg.click('[data-e=fxopen]'); pg.wait_for_selector('#cv-r'); pg.click('#cv-setrate'); pg.fill('#cv-r','0.4'); pg.dispatch_event('#cv-r','input'); pg.click('#cv-apply'); pg.wait_for_timeout(100)
     ok('rate -> peso: '+pg.input_value('#f-peso'), abs(float(pg.input_value('#f-peso'))-4000)<0.01)
     pg.click('[data-e=fxopen]'); pg.wait_for_selector('#cv-b'); pg.fill('#cv-b','3850'); pg.dispatch_event('#cv-b','input'); pg.click('#cv-fromamts'); pg.click('#cv-apply'); pg.wait_for_timeout(100)
     ok('peso -> rate: '+pg.input_value('#f-fx'), abs(float(pg.input_value('#f-fx'))-0.385)<1e-6)
@@ -42,7 +42,7 @@ with sync_playwright() as p:
     ok('saved entry has exact rate from peso value: '+str(tx['fx']), abs(tx['fx']*tx['amount']-3850)<0.001)
     # settings inverse rates
     pg.goto('http://localhost:8123/index.html#/settings'); pg.wait_for_selector('[data-act=rate-open][data-c=JPY]')
-    pg.click('[data-act=rate-open][data-c=JPY]'); pg.wait_for_selector('#cv-r'); pg.click('#cv-manual'); pg.fill('#cv-r','0.4'); pg.dispatch_event('#cv-r','input'); pg.click('#cv-apply'); pg.wait_for_timeout(200)
+    pg.click('[data-act=rate-open][data-c=JPY]'); pg.wait_for_selector('#cv-r'); pg.click('#cv-setrate'); pg.fill('#cv-r','0.4'); pg.dispatch_event('#cv-r','input'); pg.click('#cv-apply'); pg.wait_for_timeout(200)
     pg.click('[data-act=rate-open][data-c=JPY]'); pg.wait_for_selector('#cv-r')
     ok('settings: saved 1 JPY = 0.4 PHP shows as manual; 1 PHP = 2.5 JPY', abs(float(pg.input_value('#cv-r'))-0.4)<1e-6 and 'Manual' in pg.inner_text('#cv-src') and '2.5 JPY' in pg.inner_text('#cv-sum'))
     pg.click('#cv-reset'); pg.wait_for_timeout(200)
