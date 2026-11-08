@@ -54,20 +54,22 @@ export function openConverter({ from: from0, to: to0, amount = 0, rate = 0, titl
   const nf = (x) => (x > 0 ? String(Number(x.toPrecision(10))) : '');
   const s = sheet(`<div class="fxconv">
     <p class="fxstat"><span class="fxsrc" id="cv-src"></span></p>
-    <div class="btnrow fxbtns"><button type="button" class="btn sm ghost" id="cv-latest">Get Latest Rate</button><button type="button" class="btn sm ghost on" id="cv-manual" aria-pressed="true">Set Amount</button><button type="button" class="btn sm ghost" id="cv-setrate" aria-pressed="false">Set Rate Instead</button></div>
+    <div class="btnrow fxbtns" role="group" aria-label="How to set the rate"><button type="button" class="btn sm ghost" id="cv-latest" aria-pressed="false">Get Latest Rate</button><button type="button" class="btn sm ghost on" id="cv-manual" aria-pressed="true">Set Amount</button><button type="button" class="btn sm ghost" id="cv-setrate" aria-pressed="false">Set Rate</button></div>
     <p class="status" id="cv-msg" role="status"></p>
-    <div class="fxpair"><label class="field"><span id="cv-la"></span><input id="cv-a" inputmode="decimal" autocomplete="off" value="${nf(a)}"></label>
+    <div class="fxslot" id="cv-rowr"><span class="fxlab" id="cv-rl"></span><input id="cv-r" inputmode="decimal" autocomplete="off" value="${nf(r)}"><div class="fxcalc" id="cv-cr"></div></div>
+    <div class="fxpair"><div class="fxslot"><span class="fxlab" id="cv-la"></span><input id="cv-a" inputmode="decimal" autocomplete="off" value="${nf(a)}"><div class="fxcalc" id="cv-ca"></div></div>
       <button type="button" class="fxrev" id="cv-rev" aria-label="Swap the two amounts. The currencies stay where they are." title="Swap the two amounts">⇄</button>
-      <label class="field"><span id="cv-lb"></span><input id="cv-b" inputmode="decimal" autocomplete="off" value="${nf(b)}"></label></div>
-    <label class="field"><span id="cv-rl"></span><input id="cv-r" inputmode="decimal" autocomplete="off" value="${nf(r)}" readonly></label>
+      <div class="fxslot"><span class="fxlab" id="cv-lb"></span><input id="cv-b" inputmode="decimal" autocomplete="off" value="${nf(b)}"><div class="fxcalc" id="cv-cb"></div></div></div>
+    <p class="fxkey"><span class="fxk edit">Box with a border</span> you type &nbsp; <span class="fxk calc">Tinted line</span> calculated</p>
     <ul class="fxsum" id="cv-sum"></ul>
     <p class="hint" id="cv-bill" hidden></p>
     <div class="btnrow"><button type="button" class="btn ghost" data-close>Close</button>${onReset ? '<button type="button" class="btn ghost" id="cv-reset">Back to live</button>' : ''}${onApply ? `<button type="button" class="btn" id="cv-apply">${esc(applyLabel)}</button>` : ''}</div></div>`, { title });
   const q = (id) => s.el.querySelector('#' + id), A = q('cv-a'), B = q('cv-b'), R = q('cv-r');
-  const labels = () => { q('cv-la').innerHTML = `${coinOrBlank(from)}${esc(from)} (${esc(sym(from).trim())})`; q('cv-lb').innerHTML = `${coinOrBlank(to)}${esc(to)} (${esc(sym(to).trim())})`; q('cv-rl').textContent = `Rate ${from}/${to}: 1 ${from} = ? ${to}${mode === 'amount' ? ' (follows the amounts)' : ''}`; };
-  const paint = () => { const db = get(), src = rateSource(db, from, to, r); const e = q('cv-src'); e.textContent = src.text; e.className = `fxsrc ${src.kind}`; q('cv-sum').innerHTML = sumLines(from, to, a, r); labels(); };
+  const labels = () => { q('cv-la').innerHTML = `<span class="fl">${coinOrBlank(from)}${esc(from)} (${esc(sym(from).trim())})</span>`; q('cv-lb').innerHTML = `<span class="fl">${coinOrBlank(to)}${esc(to)} (${esc(sym(to).trim())})</span>`; q('cv-rl').innerHTML = `Rate ${esc(from)}/${esc(to)}<em>${mode === 'rate' ? 'type it' : 'calculated'}</em>`; q('cv-la').insertAdjacentHTML('beforeend', `<em>${mode === 'amount' ? 'type it' : 'calculated'}</em>`); q('cv-lb').insertAdjacentHTML('beforeend', `<em>${mode === 'amount' ? 'type it' : 'calculated'}</em>`); };
+  const calcs = () => { q('cv-cr').innerHTML = r > 0 ? `<b>${esc(from)}/${esc(to)}</b> &nbsp;1 ${esc(from)} = ${rateTxt(r)} ${esc(to)}` : '<span class="muted">No rate yet</span>'; q('cv-ca').textContent = a > 0 ? nf(a) : '0'; q('cv-cb').textContent = b > 0 ? nf(b) : '0'; };
+  const paint = () => { const db = get(), src = rateSource(db, from, to, r); const e = q('cv-src'); e.textContent = src.text; e.className = `fxsrc ${src.kind}`; q('cv-sum').innerHTML = sumLines(from, to, a, r); labels(); calcs(); };
   const note = (t) => { q('cv-msg').textContent = t || ''; };
-  const setMode = (m) => { mode = m; R.readOnly = m === 'amount'; A.readOnly = B.readOnly = m === 'rate'; q('cv-manual').classList.toggle('on', m === 'amount'); q('cv-setrate').classList.toggle('on', m === 'rate'); q('cv-manual').setAttribute('aria-pressed', String(m === 'amount')); q('cv-setrate').setAttribute('aria-pressed', String(m === 'rate')); labels(); };
+  const setMode = (m) => { mode = m; const ea = m === 'amount', er = m === 'rate'; A.hidden = B.hidden = !ea; q('cv-ca').hidden = q('cv-cb').hidden = ea; R.hidden = !er; q('cv-cr').hidden = er; for (const [id, on] of [['cv-latest', m === 'latest'], ['cv-manual', ea], ['cv-setrate', er]]) { q(id).classList.toggle('on', on); q(id).setAttribute('aria-pressed', String(on)); } labels(); calcs(); };
   const follow = () => { if (a > 0 && b > 0) { r = b / a; R.value = nf(r); billed = true; } paint(); };   /* amount mode: the pair gives the rate, nothing is divided again */
   A.oninput = () => { if (mode !== 'amount') return; a = num(A.value); aKeep = a; follow(); };
   B.oninput = () => { if (mode !== 'amount') return; b = num(B.value); follow(); };
@@ -77,14 +79,14 @@ export function openConverter({ from: from0, to: to0, amount = 0, rate = 0, titl
     if (t.hasAttribute('data-close')) s.close();
     else if (t.id === 'cv-fromamts') { follow(); }
     else if (t.id === 'cv-manual') { setMode('amount'); note('Set Amount: type the two amounts and the rate follows.'); A.focus(); A.select(); }
-    else if (t.id === 'cv-setrate') { setMode('rate'); note('Set Rate: type the rate and the amounts follow.'); R.focus(); R.select(); }
+    else if (t.id === 'cv-setrate') { setMode('rate'); note('Set Rate: type the rate and the amounts are worked out.'); R.focus(); R.select(); }
     else if (t.id === 'cv-rev') { /* only the two values trade places; EUR stays on the left and PHP on the right */ [a, b] = [b, a]; if (mode === 'amount') { if (a > 0 && b > 0) { r = b / a; R.value = nf(r); } } else b = r > 0 ? a * r : b; aKeep = a; billed = false; A.value = nf(a); B.value = nf(b); q('cv-bill').hidden = true; note(''); paint(); }
     else if (t.id === 'cv-latest') {
-      t.disabled = true; note('Getting the latest rate…');
+      setMode('latest'); t.disabled = true; note('Getting the latest rate…');
       try { await fetchRates({ quiet: true }); const lp = livePair(get(), from, to);
-        if (lp > 0) { r = lp; R.value = nf(r); b = a * r; B.value = nf(b); billed = false; note('Latest rate loaded. It is live.'); } else note('The service has no rate for this pair. Tap Set Rate Instead and type one.');
+        if (lp > 0) { r = lp; R.value = nf(r); b = a * r; B.value = nf(b); billed = false; note('Latest rate loaded. It is live. Nothing here is typed by you.'); } else note('The service has no rate for this pair. Tap Set Rate and type one.');
       } catch { note(navigator.onLine === false ? 'You are offline. The rate shown is unchanged.' : 'Could not reach the rate service. The rate shown is unchanged.'); }
-      t.disabled = false; paint();
+      t.disabled = false; paint(); calcs();
     } else if (t.id === 'cv-apply') { if (!(r > 0)) { note('Enter a rate above zero.'); return; } const out = { rate: r, a, b, billed }; s.close(); onApply(out); }
     else if (t.id === 'cv-reset') { s.close(); onReset(); }
   });
