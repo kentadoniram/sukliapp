@@ -49,7 +49,7 @@ export function fxBlockUpdate(root, { from, to, amount, rate, always = true, db 
 // Both currencies sit on one row with a Reverse button between them; the rate is locked until Manual Set is tapped; the answer always comes back in the original direction.
 const coinOrBlank = (c) => (hasCoin(c) ? coinIcon(c) : '');
 export function openConverter({ from: from0, to: to0, amount = 0, rate = 0, title = 'Exchange Rate', applyLabel = 'Use this rate', onApply, onReset }) {
-  const db0 = get(); let from = from0, to = to0, mode = 'amount';   /* the two currencies never change places; mode 'amount': rate fixed, amounts editable. mode 'rate': amounts fixed, rate editable */
+  const db0 = get(); let from = from0, to = to0, mode = 'amount';   /* the two currencies never change places. mode 'amount': you edit the amounts and the rate follows (rate box not editable). mode 'rate': you edit the rate and the amounts follow (amount boxes not editable) */
   let r = rate > 0 ? rate : pairRate(db0, from, to), a = amount > 0 ? amount : 1, b = r > 0 ? a * r : 0, billed = false, aKeep = a;   // aKeep: the amount before the other side was typed, for "this is on my bill"
   const nf = (x) => (x > 0 ? String(Number(x.toPrecision(10))) : '');
   const s = sheet(`<div class="fxconv">
@@ -64,24 +64,25 @@ export function openConverter({ from: from0, to: to0, amount = 0, rate = 0, titl
     <p class="hint" id="cv-bill" hidden></p>
     <div class="btnrow"><button type="button" class="btn ghost" data-close>Close</button>${onReset ? '<button type="button" class="btn ghost" id="cv-reset">Back to live</button>' : ''}${onApply ? `<button type="button" class="btn" id="cv-apply">${esc(applyLabel)}</button>` : ''}</div></div>`, { title });
   const q = (id) => s.el.querySelector('#' + id), A = q('cv-a'), B = q('cv-b'), R = q('cv-r');
-  const labels = () => { q('cv-la').innerHTML = `${coinOrBlank(from)}${esc(from)} (${esc(sym(from).trim())})`; q('cv-lb').innerHTML = `${coinOrBlank(to)}${esc(to)} (${esc(sym(to).trim())})`; q('cv-rl').textContent = `Rate ${from}/${to}: 1 ${from} = ? ${to}${mode === 'amount' ? ' (fixed)' : ''}`; };
+  const labels = () => { q('cv-la').innerHTML = `${coinOrBlank(from)}${esc(from)} (${esc(sym(from).trim())})`; q('cv-lb').innerHTML = `${coinOrBlank(to)}${esc(to)} (${esc(sym(to).trim())})`; q('cv-rl').textContent = `Rate ${from}/${to}: 1 ${from} = ? ${to}${mode === 'amount' ? ' (follows the amounts)' : ''}`; };
   const paint = () => { const db = get(), src = rateSource(db, from, to, r); const e = q('cv-src'); e.textContent = src.text; e.className = `fxsrc ${src.kind}`; q('cv-sum').innerHTML = sumLines(from, to, a, r); labels(); };
   const note = (t) => { q('cv-msg').textContent = t || ''; };
   const setMode = (m) => { mode = m; R.readOnly = m === 'amount'; A.readOnly = B.readOnly = m === 'rate'; q('cv-manual').classList.toggle('on', m === 'amount'); q('cv-setrate').classList.toggle('on', m === 'rate'); q('cv-manual').setAttribute('aria-pressed', String(m === 'amount')); q('cv-setrate').setAttribute('aria-pressed', String(m === 'rate')); labels(); };
-  A.oninput = () => { a = num(A.value); aKeep = a; if (r > 0) { b = a * r; if (document.activeElement !== B) B.value = nf(b); } billed = false; q('cv-bill').hidden = true; paint(); };
-  B.oninput = () => { b = num(B.value); if (r > 0) { a = b / r; A.value = nf(a); } paint(); const hb = q('cv-bill'); hb.hidden = !(aKeep > 0 && b > 0); hb.innerHTML = hb.hidden ? '' : `Is ${esc(moneyCode(b, to))} the amount on your bill for ${esc(moneyCode(aKeep, from))}? <button type="button" class="linkbtn" id="cv-fromamts">Set the rate from these two amounts</button>`; };
-  R.oninput = () => { r = num(R.value); b = a * r; B.value = nf(b); billed = false; paint(); };
+  const follow = () => { if (a > 0 && b > 0) { r = b / a; R.value = nf(r); billed = true; } paint(); };   /* amount mode: the pair gives the rate, nothing is divided again */
+  A.oninput = () => { if (mode !== 'amount') return; a = num(A.value); aKeep = a; follow(); };
+  B.oninput = () => { if (mode !== 'amount') return; b = num(B.value); follow(); };
+  R.oninput = () => { if (mode !== 'rate') return; r = num(R.value); b = a * r; B.value = nf(b); billed = false; paint(); };
   s.el.addEventListener('click', async (e) => {
     const t = e.target.closest('button'); if (!t) return;
     if (t.hasAttribute('data-close')) s.close();
-    else if (t.id === 'cv-fromamts') { if (aKeep > 0 && b > 0) { a = aKeep; A.value = nf(a); r = b / a; R.value = nf(r); billed = true; q('cv-bill').hidden = true; paint(); } }
-    else if (t.id === 'cv-manual') { setMode('amount'); note('Set Amount: the rate stays the same. Change either amount and the other follows.'); A.focus(); A.select(); }
-    else if (t.id === 'cv-setrate') { setMode('rate'); note('Set Rate: the amounts are not edited here. Change the rate and the right amount follows.'); R.focus(); R.select(); }
-    else if (t.id === 'cv-rev') { /* only the two values trade places; EUR stays on the left and PHP on the right */ [a, b] = [b, a]; if (mode === 'rate') { r = a > 0 && b > 0 ? b / a : r; R.value = nf(r); } else { b = r > 0 ? a * r : b; } aKeep = a; billed = false; A.value = nf(a); B.value = nf(b); q('cv-bill').hidden = true; note(''); paint(); }
+    else if (t.id === 'cv-fromamts') { follow(); }
+    else if (t.id === 'cv-manual') { setMode('amount'); note('Set Amount: type the two amounts and the rate follows.'); A.focus(); A.select(); }
+    else if (t.id === 'cv-setrate') { setMode('rate'); note('Set Rate: type the rate and the amounts follow.'); R.focus(); R.select(); }
+    else if (t.id === 'cv-rev') { /* only the two values trade places; EUR stays on the left and PHP on the right */ [a, b] = [b, a]; if (mode === 'amount') { if (a > 0 && b > 0) { r = b / a; R.value = nf(r); } } else b = r > 0 ? a * r : b; aKeep = a; billed = false; A.value = nf(a); B.value = nf(b); q('cv-bill').hidden = true; note(''); paint(); }
     else if (t.id === 'cv-latest') {
       t.disabled = true; note('Getting the latest rate…');
       try { await fetchRates({ quiet: true }); const lp = livePair(get(), from, to);
-        if (lp > 0) { r = lp; R.value = nf(r); setMode('amount'); b = a * r; B.value = nf(b); billed = false; note('Latest rate loaded. It is live.'); } else note('The service has no rate for this pair. Tap Set Rate Instead and type one.');
+        if (lp > 0) { r = lp; R.value = nf(r); b = a * r; B.value = nf(b); billed = false; note('Latest rate loaded. It is live.'); } else note('The service has no rate for this pair. Tap Set Rate Instead and type one.');
       } catch { note(navigator.onLine === false ? 'You are offline. The rate shown is unchanged.' : 'Could not reach the rate service. The rate shown is unchanged.'); }
       t.disabled = false; paint();
     } else if (t.id === 'cv-apply') { if (!(r > 0)) { note('Enter a rate above zero.'); return; } const out = { rate: r, a, b, billed }; s.close(); onApply(out); }

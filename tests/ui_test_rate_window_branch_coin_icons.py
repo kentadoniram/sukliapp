@@ -17,7 +17,6 @@ with sync_playwright() as p:
     pg.evaluate("(()=>{const e=document.querySelector('#f-acct');e.value='wt';e.dispatchEvent(new Event('change',{bubbles:true}))})()"); pg.wait_for_timeout(300)
     pg.evaluate("document.querySelector('[data-e=fxopen]').click()"); pg.wait_for_selector('#cv-a'); pg.wait_for_timeout(300)
     pg.fill('#cv-a','10'); pg.dispatch_event('#cv-a','input'); pg.fill('#cv-b','580'); pg.dispatch_event('#cv-b','input'); pg.wait_for_timeout(200)
-    pg.evaluate("document.querySelector('#cv-fromamts').click()"); pg.wait_for_timeout(200)
     ok('typing both amounts gives the rate (58), amounts untouched', abs(float(pg.input_value('#cv-r'))-58)<1e-6 and float(pg.input_value('#cv-a'))==10 and float(pg.input_value('#cv-b'))==580)
     ok('pair label shows USDT/', 'USDT/' in pg.inner_text('#cv-rl'))
     pg.evaluate("document.querySelector('#cv-setrate').click()"); pg.fill('#cv-r','60'); pg.dispatch_event('#cv-r','input'); pg.wait_for_timeout(150)
