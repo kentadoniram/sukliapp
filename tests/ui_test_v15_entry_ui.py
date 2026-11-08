@@ -24,8 +24,13 @@ with sync_playwright() as p:
     if pg.locator('.mpr').count(): pg.evaluate("document.querySelector('.sheet [data-close], .sheet .close')&&document.querySelector('.sheet [data-close], .sheet .close').click()"); pg.wait_for_timeout(300)
     # items buttons
     pg.evaluate("document.querySelector('[data-e=items-on]').click()"); pg.wait_for_timeout(300)
-    h=pg.evaluate("(()=>{const i=document.querySelector('.items .item .in-a').getBoundingClientRect(),q=document.querySelector('.items .item .qty').getBoundingClientRect(),b=document.querySelector('.items .item .qty button').getBoundingClientRect();return [Math.round(i.height),Math.round(q.height),Math.round(b.width),Math.round(b.height)]})()")
-    ok('qty box as tall as the input, narrow buttons %s'%h, abs(h[0]-h[1])<=2 and h[2]<=22 and h[3]>=30)
+    h=pg.evaluate("""(()=>{const g=(s)=>document.querySelector(s).getBoundingClientRect(),row=g('.items .item'),n=g('.items .item .in-n'),a=g('.items .item .inamt'),q=g('.items .item .qty'),bs=[...document.querySelectorAll('.items .item .qty button')].map(x=>x.getBoundingClientRect().width),c=g('.items .item .in-c, .items .item .picbtn');return {w:row.width,n:n.width/row.width,a:a.width/row.width,q:q.width/row.width,b:bs.map(x=>x/row.width),ah:a.height,qh:q.height,top:g('.itembox .othhead').top<g('.items .item').top,cancel:!!document.querySelector('.itembox [data-e=items-off]'),x:document.querySelectorAll('.itembox .item .iconbtn').length}})()""")
+    ok('Item and Amount about 60 percent, quantity about 40 percent, buttons narrow %s'%h, 0.55<=h['n']<=0.65 and 0.55<=h['a']<=0.65 and 0.35<=h['q']<=0.45 and all(x<=0.2 for x in h['b']) and abs(h['ah']-h['qh'])<=2)
+    ok('Cancel on top like Paid for Others, no X', h['top'] and h['cancel'] and h['x']==0)
+    pg.evaluate("document.querySelector('[data-e=items-off]').click()"); pg.wait_for_timeout(200)
+    ok('Cancel closes the split section', pg.locator('.itembox').count()==0 and pg.locator('[data-e=items-on]').count()==1)
+    pg.evaluate("document.querySelector('[data-e=items-on]').click()"); pg.wait_for_timeout(200)
+    pg.locator('.itembox').scroll_into_view_if_needed(); pg.locator('.itembox').screenshot(path='/tmp/items.png')
     pg.evaluate("document.querySelector('[data-e=item-del]').click()"); pg.wait_for_timeout(200)
     # paid for others
     pg.evaluate("document.querySelector('[data-e=oth-on]').click()"); pg.wait_for_timeout(300)

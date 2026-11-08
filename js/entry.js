@@ -456,15 +456,14 @@ export function openEntry(opts = {}) {
     const el = $f('itemsrow');
     if (f.kind !== 'expense') { el.innerHTML = ''; return; }
     if (!f.showItems) { el.innerHTML = `<button type="button" class="linkbtn split" data-e="items-on">${ic('split')} Split into items (groceries, receipts)</button>`; return; }
-    el.innerHTML = `<div class="field items"><span>Items on This Receipt <small class="hint">price of one, then tap + for more of the same</small></span>
+    el.innerHTML = `<div class="field items othbox itembox"><div class="othhead"><b>Items on This Receipt</b><button type="button" class="btn sm ghost" data-e="items-off">Cancel</button></div><small class="hint">Price of one, then tap + for more of the same.</small>
       <div class="chips itemsugg" id="itemsugg" aria-label="Items you often add"></div><datalist id="itemnames">${knownItemNames(get()).map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
       <div id="itemlist">${f.items.map((it, i) => `<div class="item" data-i="${i}">
         <input class="in-n" list="itemnames" autocomplete="off" placeholder="Item" value="${esc(it.n)}" aria-label="Item name">
         <select class="in-c" aria-label="Item category"><option value="">Same as above</option>${catOptions(it.cat, 'expense')}</select>
-        <button type="button" class="iconbtn" data-e="item-del" data-v="${i}" aria-label="Remove item">${ic('x')}</button>
         <div class="inamt"><input class="in-a" inputmode="decimal" placeholder="${esc(itemPh())}" value="${esc(it.amt)}" aria-label="Price of one, you can type a sum like 120+45"><button type="button" class="calcin" data-e="item-calc" data-v="${i}" aria-label="Calculator: type a sum such as 120+45*2, then tap = " title="Calculator">=</button></div>
         <div class="qty" role="group" aria-label="Quantity"><button type="button" data-e="item-q" data-v="${i}:-1" aria-label="One less">−</button><b>${it.q > 0 ? it.q : 1}</b><button type="button" data-e="item-q" data-v="${i}:1" aria-label="One more">+</button></div>
-        <small class="muted iline">${it.q > 1 ? `${it.q} × ${esc(it.amt || 0)} = ${esc(String(lineOf(it)))}` : ''}</small></div>`).join('')}</div>
+        <div class="itail"><small class="muted iline">${it.q > 1 ? `${it.q} × ${esc(it.amt || 0)} = ${esc(String(lineOf(it)))}` : ''}</small><button type="button" class="linkbtn rm" data-e="item-del" data-v="${i}" aria-label="Remove this item">Remove item</button></div></div>`).join('')}</div>
       <div class="itemfoot"><button type="button" class="linkbtn" data-e="item-add">+ Add item</button><span id="itemleft"></span></div></div>`;
     el.querySelectorAll('select.in-c').forEach((sel) => enhanceSelect(sel, { title: 'Category', addLabel: 'Add a new category', onAdd: () => openCategoryForm({ kind: 'expense', onDone: (c) => { sel.add(new Option(c.name, c.id)); sel.value = c.id; sel.dispatchEvent(new Event('change', { bubbles: true })); } }) }));
     updateItemLeft(); fillItemSugg();
@@ -943,6 +942,7 @@ export function openEntry(opts = {}) {
       case 'items-on': f.showItems = true; if (!f.items.length) f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); break;
       case 'item-add': f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); form.querySelectorAll('.item .in-n')[f.items.length - 1].focus(); break;
       case 'item-sug': { const s = ($f('itemsugg')._list || [])[+v]; if (!s) break; const blank = f.items.findIndex((x) => !x.n && !x.amt); const row = { n: s.n, amt: '', q: 1, cat: s.cat || '', catTouched: !!s.cat }; if (blank >= 0) f.items[blank] = row; else f.items.push(row); renderItems(); break; }
+      case 'items-off': f.showItems = false; f.items = []; renderItems(); break;
       case 'item-del': f.items.splice(+v, 1); if (!f.items.length) f.showItems = false; renderItems(); break;   // removing the last row closes the section, back to the Split into items link
       case 'item-calc': { const it = f.items[+v], inp = form.querySelector(`.item[data-i="${v}"] .in-a`); if (!it || !inp) break; if (isExpr(it.amt) && num(it.amt) > 0) { it.amt = tidy(num(it.amt)); renderItems(); updateItemLeft(); } else { inp.inputMode = 'text'; inp.focus(); toast('Type a sum like 120+45, then tap = again.'); } break; }
       case 'item-q': { const [i, dq] = v.split(':').map(Number), it = f.items[i]; if (it) { it.q = Math.max(1, Math.min(99, (it.q > 0 ? it.q : 1) + dq)); renderItems(); } break; }
