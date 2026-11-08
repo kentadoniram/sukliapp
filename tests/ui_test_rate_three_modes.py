@@ -27,5 +27,8 @@ with sync_playwright() as p:
     L=lines('#cv-sum'); ok('Get Live Rate: three lines %s'%L, len(L)==3 and L[1].startswith('1 USDT =') and L[2].startswith('1 PHP ='))
     pg.screenshot(path='/tmp/fx_latest.png')
     ok('the three panels are different structures', pg.locator('#cv-p-live input').count()==0 and pg.locator('#cv-p-amount input').count()==2 and pg.locator('#cv-p-rate input').count()==1)
+    fs=pg.evaluate("['#cv-sum2 li:first-child','#cv-a','#cv-sum2 li:last-child'].map(i=>parseFloat(getComputedStyle(document.querySelector(i)).fontSize))")
+    pg.click('#cv-setrate'); pg.wait_for_timeout(150); fr=pg.evaluate("parseFloat(getComputedStyle(document.querySelector('#cv-r')).fontSize)")
+    ok('Exchange Rate text is 16 px or less, like the rest of the app %s %s'%(fs,fr), all(x<=16.01 for x in fs) and fr<=16.01)
     ok('no errors %s'%errs, not errs)
 print('fails',res.count(False))

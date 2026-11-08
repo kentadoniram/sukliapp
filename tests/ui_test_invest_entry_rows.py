@@ -58,7 +58,7 @@ with sync_playwright() as p:
     pg.evaluate("(async()=>{const u=await import('/js/ui.js');await import('/js/accpage.js');u.ACT['wallet-xfer']({dataset:{id:'sp1',w:'Earn'}})})()"); pg.wait_for_selector('#f-all', timeout=5000); pg.wait_for_timeout(400)
     earn=pg.evaluate("window.sukli.get().accounts.find(a=>a.exchange==='Zeta'&&a.cur==='XRP'&&a.wallet==='Earn')")
     ok(f'Earn account for XRP created: {earn and earn["name"]}', earn and earn['name']=='Zeta Earn XRP')
-    ok('transfer opened From Spot To Earn', pg.is_visible('[data-e=swapacct]') and 'Zeta XRP' in pg.inner_text('#acctrow') and 'Earn' in pg.inner_text('#acctrow'))
+    ok('transfer opened From Spot To Earn', pg.is_visible('[data-e=swapacct]') and 'Zeta (Spot) XRP' in pg.inner_text('#acctrow') and 'Earn' in pg.inner_text('#acctrow'))
     # 4. All fills the exact balance
     pg.click('#f-all'); pg.wait_for_timeout(300)
     v=pg.input_value('#f-amount'); ok(f'All fills the whole balance without float noise: {v}', v.replace(',','')=='123.45678912')

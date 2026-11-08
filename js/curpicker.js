@@ -1,6 +1,7 @@
 // Currency picker: favourites on top, search through every currency, pick one to add it to the quick list.
-import { get, commit, allCurrencies, curName, ensureCurrency, CUR, CRYPTO } from './core.js';
+import { get, commit, allCurrencies, curName, ensureCurrency, CUR, CRYPTO, platformOf } from './core.js';
 import { esc, sheet } from './ui.js';
+import { picHtml, isImg } from './pictures.js';
 
 // every fiat currency belongs to a country: search "japan" or "thailand" and flags make the list easy to scan
 const REGION = (() => { try { return new Intl.DisplayNames(['en'], { type: 'region' }); } catch { return { of: () => '' }; } })();
@@ -8,10 +9,11 @@ const ISO = (() => { try { return new Set(Intl.supportedValuesOf('currency')); }
 const regionOf = (c) => { if (c === 'EUR') return 'EU'; if (!ISO.has(c) || c[0] === 'X') return ''; const r = c.slice(0, 2); return REGION.of(r) === r ? '' : r; };
 export const flagOf = (c) => { const r = regionOf(c); return r ? String.fromCodePoint(...[...r].map((ch) => 127397 + ch.charCodeAt(0))) : ''; };
 // coins get a small round badge in their own colour, so USDT, USDC, BTC… are easy to tell apart from money (fiat) at a glance
-const COIN_LOGOS = new Set('aave ada algo apt arb atom avax bch bnb btc cro dai doge dot etc eth fdusd fet fil hbar icp jup link ltc matic near op pepe pol render sei shib sol sui tao tia ton trx uni usdc usde usdt vet xlm xmr xrp'.split(' '));   /* real logos in vendor/coins (open-licence web3icons pack) */
+const COIN_LOGOS = new Set(('aave ada algo apt arb atom avax bch bnb btc cro dai doge dot etc eth fdusd fet fil hbar icp jup link ltc matic near op pepe pol render sei shib sol sui tao tia ton trx uni usdc usde usdt vet xlm xmr xrp gt kcs mx ht pyusd tusd usdd dash zec sand mana ape grt rune ldo mkr crv 1inch comp snx imx strk pi xaut paxg wbtc eurc').split(' '));   /* real logos in vendor/coins (open-licence web3icons pack) */
 export const isCoin = (c) => COIN_LOGOS.has(String(c || '').toLowerCase()) || CRYPTO.includes(c);
 export const coinIcon = (c) => COIN_LOGOS.has(String(c || '').toLowerCase())
   ? `<img class="coin coinimg" src="vendor/coins/${esc(String(c).toLowerCase())}.svg" alt="${esc(c)}" title="${esc(c)}" width="24" height="24" loading="lazy" decoding="async">`
+  : /^USD|USD$/i.test(String(c || '')) ? `<i class="coin usdlike" title="${esc(c)}" aria-hidden="true">$</i>`   /* a dollar-pegged coin with no logo on file: a neutral dollar badge, never a country flag */
   : `<i class="coin" title="${esc(c)}" aria-hidden="true">${esc(String(c || '?')[0])}</i>`;   /* no logo on file: a plain grey letter, never a made-up colour */
 export const curIcon = (c) => (isCoin(c) ? coinIcon(c) : flagOf(c));
 const ALSO = { EUR: 'Europe Eurozone Germany France Italy Spain', USD: 'United States America USA', GBP: 'United Kingdom Britain England UK', USDT: 'tether dollar', USDC: 'circle dollar', CNY: 'China yuan renminbi', JPY: 'Japan yen' };
@@ -47,4 +49,19 @@ export function openCurrencyPicker(onPick, { title = 'Choose a currency', keep =
     if (keep) addFav(b.dataset.c);
     s.close(); onPick(b.dataset.c);
   });
+}
+
+// The picture for one investment asset. Order: the picture you chose (never replaced) > the coin logo of its code > of its ticker >
+// of a coin word in its name (an imported asset you renamed) > a neutral badge for dollar-pegged names > the flag/letter of the currency.
+export function assetIcon(a, tickers = {}) {
+  if (!a) return { html: '', coin: false };
+  if (a.icon) return { html: picHtml(a.icon, 'wallet'), coin: isImg(a.icon), manual: true };
+  const logo = (c) => COIN_LOGOS.has(String(c || '').toLowerCase());
+  const tk = (tickers[a.cur] || {}).ticker;
+  const ex = platformOf(a), words = String(a.name || '').toUpperCase().split(/[^A-Z0-9]+/).filter((w) => w && w !== ex.toUpperCase());
+  const hit = [a.cur, tk, ...words].find(logo);
+  if (hit) return { html: coinIcon(hit), coin: true };
+  if (CRYPTO.includes(a.cur) || tickers[a.cur] || (ex && !regionOf(a.cur)) || (ex && /^USD/.test(a.cur))) return { html: coinIcon(a.cur), coin: true };
+  if (ex && words.some((w) => /^USD|USD$/.test(w))) return { html: coinIcon(words.find((w) => /^USD|USD$/.test(w))), coin: true };
+  return isCoin(a.cur) ? { html: coinIcon(a.cur), coin: true } : { html: esc(flagOf(a.cur) || String(a.cur || '?').slice(0, 1)), coin: false };
 }

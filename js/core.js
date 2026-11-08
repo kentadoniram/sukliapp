@@ -380,12 +380,29 @@ export const WALLET_INFO = {
   Other: 'Other: any other account or product on the platform.',
 };
 export const walletOf = (a) => (a && a.exchange ? a.wallet || 'Spot' : '');
+// the platform an investment account sits on: the one you set, or (for imported accounts) the one named in its name, like "Bitget USD"
+const PLAT_NAMES = { bybit: 'Bybit', bitget: 'Bitget', okx: 'OKX', binance: 'Binance', kucoin: 'KuCoin', mexc: 'MEXC', 'gate.io': 'Gate.io', 'coins.ph': 'Coins.ph', phantom: 'Phantom', metamask: 'MetaMask', ledger: 'Ledger', 'trust wallet': 'Trust Wallet' };
+export function platformOf(a) {
+  if (!a) return '';
+  if (a.exchange) return a.exchange;
+  if (!(a.type === 'crypto' || a.type === 'invest' || a.invtab)) return '';
+  const m = String(a.name || '').match(/bybit|bitget|okx|binance|kucoin|mexc|gate\.io|coins\.ph|phantom|metamask|ledger|trust wallet/i);
+  return m ? PLAT_NAMES[m[0].toLowerCase()] || m[0] : '';
+}
+// "Platform (Where) Asset", for example Bitget (Spot) USDT. Accounts outside an exchange keep their own name.
+export function assetName(a) {
+  if (!a) return '';
+  const tk = ((get().settings.tickers || {})[a.cur] || {}).ticker;
+  let n = String(a.name || '');
+  for (const w of [platformOf(a), a.wallet, 'Spot']) if (w) n = n.replace(new RegExp('\\b' + String(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'ig'), ' ');
+  n = n.replace(/[·()\-–—]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return n || tk || a.cur || '';
+}
 export function accLabel(a) {
   if (!a) return '';
-  let n = a.name || '';
-  if (a.exchange && !n.toLowerCase().includes(String(a.exchange).toLowerCase())) n = `${a.exchange} · ${n}`;
-  if (a.exchange && a.wallet && a.wallet !== 'Spot' && !n.toLowerCase().includes(a.wallet.toLowerCase())) n += ` (${a.wallet})`;
-  return n;
+  const ex = platformOf(a);
+  if (ex) return `${ex} (${a.wallet || 'Spot'}) ${assetName(a)}`;
+  return a.name || '';
 }
 export const accountMap = (db) => new Map(db.accounts.map((a) => [a.id, a]));
 export const catMap = (db) => new Map(db.categories.map((c) => [c.id, c]));

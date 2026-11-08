@@ -16,7 +16,7 @@ with sync_playwright() as p:
     def trade(side, qty, total, fee='', asset_text='ZZZ'):
         open_menu(pg,'trade'); pg.wait_for_selector('#tr'); choose(pg,'#tr [name=plat]',text='Binance')
         pg.click(f'[data-side={side}]')
-        choose(pg,'#tr [name=asset]',text='Binance ZZZ')
+        choose(pg,'#tr [name=asset]',text='Binance (Spot) ZZZ')
         pg.fill('#tr [name=qty]',qty); pg.fill('#tr [name=total]',total)
         pg.dispatch_event('#tr [name=total]','input')
         if fee: pg.fill('#tr [name=fee]',fee)
