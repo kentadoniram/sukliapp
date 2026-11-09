@@ -31,7 +31,7 @@ def part1(p,b,ctx,pg,errs):
     pg.keyboard.press('Escape'); pg.keyboard.press('Escape'); pg.evaluate("location.hash='#/'"); pg.wait_for_timeout(300); del errs[:]; pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{delete d.settings.titleCase})})()")
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.titleCase=false})})()")
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='advanced';d.accounts.push(c.stamp({id:'cbw',name:'CB Wallet',type:'cash',cur:'PHP',open:10000,include:true,archived:false}))});const m=await import('/js/entry.js');m.openEntry({preset:{acct:'cbw'}})})()"); pg.wait_for_selector('#cbrow'); pg.wait_for_timeout(400)
-    pg.click('#cbrow [data-e=cb-on]'); pg.fill('#f-amount','1000'); pg.fill('#f-what','CB test'); pg.fill('#f-cbv','5'); pg.press('#f-cbv','Tab'); pg.wait_for_timeout(200)
+    pg.click('#cbrow [data-e=cb-on]'); pg.click('#cbrow [data-e=cb-mode][data-v=pct]'); pg.fill('#f-amount','1000'); pg.fill('#f-what','CB test'); pg.fill('#f-cbv','5'); pg.press('#f-cbv','Tab'); pg.wait_for_timeout(200)
     ok('live calc shows 50 %s'%pg.inner_text('#cbcalc'), '50.00' in pg.inner_text('#cbcalc'))
     pg.fill('#f-amount','2000'); pg.wait_for_timeout(200); ok('recalculates when amount changes', '100.00' in pg.inner_text('#cbcalc'))
     pg.fill('#f-amount','1000'); pg.click('#btns [data-e=save]'); pg.wait_for_timeout(700)

@@ -1478,3 +1478,23 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .feehead .seg button { font-size: calc(12px * var(--fs, 1)); padding: 6px 4px; white-space: nowrap; line-height: 1.2; }
 .feedet { display: grid; gap: 8px; margin-top: 8px; }
 .feedet .seg.two { display: grid; grid-template-columns: 1fr 1fr; } .feedet .seg button { font-size: calc(13px * var(--fs, 1)); padding: 8px 4px; }
+
+/* 15.12 Set Rate: direction, input and both directions shown */
+.fxconv .fxdir { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: calc(14px * var(--fs, 1)); }
+.fxconv .fxdir .btn { white-space: nowrap; flex: 0 0 auto; }
+.fxconv .fxinv li { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.fxconv .fxinv li em { font-style: normal; font-size: .8em; opacity: .75; white-space: nowrap; }
+.fxconv .fxinv li.on b { font-weight: 600; }
+.fxconv .fxp-rate .fxbig { margin-top: 10px; }
+/* 15.12 items: visible +/-, discount and tax; cashback options centred and equal */
+.items.itembox .item .qty button { background: color-mix(in srgb, var(--line, #1b4f8a) 18%, var(--sheet, #fff)); border: 1.5px solid var(--line, #1b4f8a); color: var(--ink); font-weight: 700; }
+.items.itembox .item .qty button:active { background: var(--line, #1b4f8a); color: var(--sheet, #fff); }
+.items.itembox .item .idisc { grid-column: 1 / 3; display: grid; grid-template-columns: minmax(0, 40fr) minmax(0, 60fr); gap: 8px; align-items: center; }
+.items.itembox .item .in-d { height: 42px; box-sizing: border-box; border-radius: 10px; min-width: 0; width: 100%; }
+.items.itembox .item .itail { flex-wrap: wrap; } .items.itembox .item .itail .iline { flex: 1 1 100%; order: 3; }
+.tog { border: 1.5px solid var(--rule); background: var(--sheet); color: var(--ink2); border-radius: 999px; padding: 4px 12px; font-size: calc(13px * var(--fs, 1)); font-weight: 600; cursor: pointer; }
+.tog.on { background: color-mix(in srgb, var(--line, #1b4f8a) 22%, var(--sheet)); border-color: var(--line, #1b4f8a); color: var(--ink); }
+.taxbox { border-top: 1px dashed var(--rule); padding-top: 10px; display: grid; gap: 8px; }
+.taxhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; } .taxhead .feelab { font-size: calc(14px * var(--fs, 1)); color: var(--ink2); }
+.taxdet { display: grid; gap: 8px; } .taxdet input { height: 46px; box-sizing: border-box; border-radius: 10px; width: 100%; }
+.seg.cbseg { display: grid; grid-template-columns: 1fr 1fr; } .seg.cbseg button { text-align: center; justify-content: center; }
