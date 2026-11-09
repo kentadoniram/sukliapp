@@ -1505,3 +1505,9 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .seg.cbseg { display: grid; grid-template-columns: 1fr 1fr; } .seg.cbseg button { text-align: center; justify-content: center; }
 
 .pickfix .chipfold { flex: none; align-self: flex-start; min-height: 32px; display: inline-flex; gap: 6px; align-items: center; padding: 2px 4px; font-weight: 600; }
+
+.goalcheck { display: grid; gap: 4px; padding: 10px 12px; border-radius: var(--r-m); border: 1px solid var(--line); background: var(--tint); margin: 8px 0; }
+.goalcheck.ok { border-color: var(--good); } .goalcheck.warn { border-color: var(--warn); } .goalcheck.bad { border-color: var(--bad); }
+.goalcheck b { font-size: 0.95em; }
+.rem .remlink { display: flex; gap: 10px; align-items: center; flex: 1; color: inherit; text-decoration: none; min-width: 0; }
+.rem:has(.remlink) { display: flex; align-items: center; gap: 8px; }

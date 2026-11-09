@@ -266,7 +266,7 @@ def part6(p,b,ctx,pg,errs):
     pg.evaluate("(async()=>{const m=await import('/js/earnui.js');m.openEarn('ze')})()"); pg.wait_for_selector('#ew'); pg.wait_for_timeout(300)
     t=pg.inner_text('#ew'); ok('window mentions UTC+8 and daily history', 'UTC+8' in t and 'Daily History' in t and '2026-11-02' in t)
     pg.click('#ew [data-ew=day][data-v="2026-11-02"]'); pg.wait_for_timeout(200)
-    ok('day expands to hourly rows', pg.locator('#ew .cardbox li').count()==24)
+    ok('day expands to hourly rows', pg.locator('#ew .cardbox:has([data-ew=day]) li').count()==24)
     ok('no errors %s'%errs, not errs)
 
 with sync_playwright() as p:

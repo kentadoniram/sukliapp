@@ -1,13 +1,39 @@
 // The Earn schedule window of an Earn account: settings, subscriptions, today's hours and the daily history. Times follow each platform’s own clock.
 import { get, commit, stamp, fmt, CUR, walletOf } from './core.js';
 import { esc, sheet, toast, ACT } from './ui.js';
-import { dayHours, cfgOf, e8, e8Ms, e8Label, logOf, subscriptions, H, runEarn, tzOf, tzName, earnStartOf, defaultFrom } from './earn.js';
+import { button } from './components.js';
+import { apyHistOf, dayHours, cfgOf, e8, e8Ms, e8Label, logOf, subscriptions, H, runEarn, tzOf, tzName, earnStartOf, defaultFrom } from './earn.js';
 const dec = (cur) => Math.max(2, Math.min(8, (CUR[cur] || { dec: 8 }).dec));
 const num = (n, cur) => fmt(n, cur);
 export function openEarn(id) {
   let pick = '09:00';
   const s = sheet('<div id="ew"></div>', { title: 'Subscription Settings', wide: true }), root = s.el.querySelector('#ew'), open = new Set();
   const set = (patch) => { commit((d) => { const x = d.accounts.find((q) => q.id === id); x.earn = { ...(x.earn || {}), ...patch }; stamp(x); if (x.earn.on) runEarn(d); }); draw(); };
+  // APR history: every rate with the exact time it took effect (the platform's clock), how long it lasted, and what it earned
+  const dur = (ms) => { const h = Math.round(ms / H); return h < 1 ? 'under an hour' : h < 48 ? `${h} h` : `${Math.floor(h / 24)} d${h % 24 ? ` ${h % 24} h` : ''}`; };
+  const aprHistory = (db, a, c, off, tz, log, cur) => {
+    const h = apyHistOf(c), now = Date.now(), hours = [...log.hours.map((x) => [x.h, x.amt]), ...log.days.flatMap((d) => d.hours)];
+    const rows = (h.length ? h : (c.apy > 0 ? [{ at: 0, apy: c.apy }] : [])).map((x, i, l) => { const end = i + 1 < l.length ? l[i + 1].at : null, earned = hours.filter(([t]) => t - H >= x.at && (end === null || t - H < end)).reduce((q, y) => q + y[1], 0);
+      return { ...x, i, end, earned, n: hours.filter(([t]) => t - H >= x.at && (end === null || t - H < end)).length }; });
+    return `<div class="cardbox" id="aprhist"><b>APR History</b><p class="hint">Each rate with the exact time it took effect (${esc(tz)}). Earnings are worked out hour by hour with the rate that applied in that hour.</p>
+      ${rows.length ? `<ul class="calfacts aprlist">${rows.map((r) => `<li><span><b>${r.apy}%</b> APR<br><small class="muted">${r.at ? `From ${esc(e8Label(r.at, off))}` : 'From the start'} → ${r.end === null ? 'now' : esc(e8Label(r.end, off))} · ${r.at ? dur((r.end === null ? now : r.end) - r.at) : (r.end === null ? 'all along' : `until ${esc(e8Label(r.end, off))}`)}<br>Earned in this period: ${num(r.earned, cur)} (${r.n} hours)</small></span>
+        <span class="aprbtns">${button({ label: 'Edit', kind: 'link', attr: { 'data-ew': 'aprEdit', 'data-v': r.i } })}${rows.length > 1 ? button({ label: 'Remove', kind: 'danger-link', attr: { 'data-ew': 'aprDel', 'data-v': r.i } }) : ''}</span></li>`).join('')}</ul>` : '<p class="muted">No rate yet. Type the current rate above, or add one here.</p>'}
+      <div class="btnrow left">${button({ label: 'Add an APR Change', kind: 'ghost', size: 'sm', attr: { 'data-ew': 'aprAdd' } })}</div></div>`;
+  };
+  const aprSheet = (idx) => {
+    const db = get(), a = db.accounts.find((x) => x.id === id), c = cfgOf(a), off = tzOf(db, a), hist = apyHistOf(c), cur0 = idx != null ? hist[idx] : null, t0 = cur0 && cur0.at ? cur0.at : Date.now(), e0 = e8(t0, off);
+    const sh = sheet(`<label class="field"><span>New Yearly Rate (APR, %)</span><input id="ah-apy" inputmode="decimal" value="${cur0 ? cur0.apy : ''}" placeholder="e.g. 4.5"></label>
+      ${cur0 && !cur0.at ? '<p class="hint">This is the first rate. It applies from the start.</p>' : `<div class="two"><label class="field"><span>Effective Date (${esc(tzName(off))})</span><input id="ah-day" type="date" value="${e0.day}"></label><label class="field"><span>Time</span><input id="ah-time" type="time" value="${e0.hm}"></label></div>`}
+      <p class="hint">Earnings from that moment on are worked out again with this rate. Earlier hours are kept.</p>
+      <div class="btnrow">${button({ label: 'Save', kind: 'primary', id: 'ah-save' })}</div>`, { title: idx != null ? 'Edit APR Change' : 'Add an APR Change' });
+    sh.el.querySelector('#ah-save').onclick = () => {
+      const apy = parseFloat(String(sh.el.querySelector('#ah-apy').value).replace(/,/g, '')); if (!Number.isFinite(apy) || apy < 0) { toast('Type the rate, for example 4.5.'); return; }
+      const dayEl = sh.el.querySelector('#ah-day'), at = dayEl ? e8Ms(dayEl.value, sh.el.querySelector('#ah-time').value || '00:00', off) : 0; if (dayEl && !dayEl.value) { toast('Choose the date.'); return; }
+      commit((d) => { const x = d.accounts.find((q) => q.id === id), e = (x.earn = { ...(x.earn || {}) }); let h = apyHistOf(e); if (!h.length && e.apy > 0) h = [{ at: 0, apy: +e.apy }];
+        if (idx != null) h[idx] = { at, apy }; else h.push({ at, apy });
+        h.sort((p, q) => p.at - q.at); e.apyHist = h; e.apy = h.filter((y) => y.at <= Date.now()).pop() ? h.filter((y) => y.at <= Date.now()).pop().apy : h[0].apy; stamp(x); if (e.on) runEarn(d); });
+      sh.close(); draw(); toast('Saved. Earnings from that time were worked out again.'); };
+  };
   const draw = () => {
     const db = get(), a = db.accounts.find((x) => x.id === id); if (!a) { s.close(); return; }
     const c = cfgOf(a), off = tzOf(db, a), tz = tzName(off), log = (db.settings.earnLog || {})[id] || { hours: [], days: [] }, now = Date.now(), cur = a.cur;
@@ -22,8 +48,9 @@ export function openEarn(id) {
       
       <p class="hint">${esc(a.name)} · every time here uses the clock of ${esc(a.exchange || 'this platform')}, not this phone’s clock. Now: <b>${esc(e8Label(now, off))} (${tz})</b>. Hourly earnings are worked out while the On/Off switch beside Subscription Settings (on the account page) is On. It is now <b>${c.on ? 'On' : 'Off'}</b>.</p>
       <div class="two"><label class="field"><span>Timezone</span><select data-ew="tz">${Array.from({ length: 27 }, (_, i) => i - 12).map((z) => `<option value="${z}" ${z === off ? 'selected' : ''}>${tzName(z)}</option>`).join('')}</select></label>
-      <label class="field"><span>Yearly Rate (APY, %)</span><input data-ew="apy" inputmode="decimal" value="${c.apy || ''}" placeholder="e.g. 4.5"></label></div>
-      <p class="hint">Binance and Bybit use UTC+0, Bitget UTC+8. It applies to every Earn product on ${esc(a.exchange || 'this platform')}. Changing it only affects new times: entries already recorded keep theirs.</p>
+      <label class="field"><span>Current Yearly Rate (APR, %)</span><input data-ew="apy" inputmode="decimal" value="${c.apy || ''}" placeholder="e.g. 4.5"></label></div>
+      <p class="hint">Binance and Bybit use UTC+0, Bitget UTC+8. Changing the rate here starts a new period from now and keeps the earlier ones. To fix a past rate or its time, use APR History below: the hours after it are worked out again.</p>
+      ${aprHistory(db, a, c, off, tz, log, cur)}
       ${true ? `<label class="field"><span>Pay Interest To</span><select data-ew="payTo"><option value="spot" ${c.payTo !== 'earn' ? 'selected' : ''}>Spot (same coin)</option><option value="earn" ${c.payTo === 'earn' ? 'selected' : ''}>This Earn account</option></select></label>
       <label class="field"><span>When Does Earning Start?</span><select data-ew="startRule"><option value="nextHour" ${c.startRule !== 'midnight' ? 'selected' : ''}>At the next full hour</option><option value="midnight" ${c.startRule === 'midnight' ? 'selected' : ''}>At the next midnight (${tz})</option></select></label>
       <div class="two"><div class="field"><span>Deposit Time</span><button type="button" class="btn ghost sm tbtn" data-ew="pickdep">🕒 ${esc(depT)}</button></div>
@@ -47,7 +74,8 @@ export function openEarn(id) {
   };
   draw();
   root.addEventListener('change', (e) => { const k = e.target.dataset.ew; if (!k) return; const v = e.target.value;
-    if (k === 'apy') return set({ apy: Math.max(0, parseFloat(v) || 0) });
+    if (k === 'apy') { const nv = Math.max(0, parseFloat(v) || 0); commit((d) => { const x = d.accounts.find((q) => q.id === id), e = (x.earn = { ...(x.earn || {}) }); let h = apyHistOf(e); if (!h.length && e.apy > 0) h = [{ at: 0, apy: +e.apy }];
+        if ((h.length ? h[h.length - 1].apy : 0) !== nv || !h.length) h.push({ at: h.length ? Date.now() : 0, apy: nv }); e.apyHist = h; e.apy = nv; stamp(x); if (e.on) runEarn(d); }); return draw(); }
     if (k === 'firstLagH') return set({ [k]: Math.max(0, parseInt(v, 10) || 0) });
     if (k === 'from') return set({ from: v });
     if (k === 'payTo') return set({ payTo: v === 'earn' ? 'earn' : 'spot' });
@@ -55,6 +83,9 @@ export function openEarn(id) {
     if (k === 'tz') { const a = get().accounts.find((x) => x.id === id); commit((d) => { const m = (d.settings.platformTz = d.settings.platformTz || {}); m[a.exchange || a.name] = +v; }); return draw(); }
   });
   root.addEventListener('click', (e) => { const b = e.target.closest('button[data-ew]'); if (!b) return; const k = b.dataset.ew, c = cfgOf(get().accounts.find((x) => x.id === id));
+    if (k === 'aprAdd') return aprSheet(null);
+    if (k === 'aprEdit') return aprSheet(+b.dataset.v);
+    if (k === 'aprDel') { const i = +b.dataset.v; commit((d) => { const x = d.accounts.find((q) => q.id === id), e = x.earn; const h = apyHistOf(e); h.splice(i, 1); if (h.length) h[0] = { at: 0, apy: h[0].apy }; e.apyHist = h; e.apy = h.filter((y) => y.at <= Date.now()).pop() ? h.filter((y) => y.at <= Date.now()).pop().apy : (h[0] ? h[0].apy : 0); stamp(x); if (e.on) runEarn(d); }); return draw(); }
     if (k === 'day') { open.has(b.dataset.v) ? open.delete(b.dataset.v) : open.add(b.dataset.v); draw(); }
     if (k === 'suby') return set({ subOn: true });
     if (k === 'subn') return set({ subOn: false });

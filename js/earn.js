@@ -19,6 +19,15 @@ export const tzOf = (db, a) => { const ex = (a && a.exchange) || '', m = (db.set
 export const tzName = (off) => `UTC${off < 0 ? '−' : '+'}${Math.abs(off)}`;
 export const DEFAULT = { on: false, apy: 0, subOn: false, slots: ['03:00', '15:00'], subAmt: 'all', payTo: 'spot', from: '', startRule: 'nextHour', startLagH: 0, firstLagH: 1 };
 export const cfgOf = (a) => ({ ...DEFAULT, ...(a && a.earn ? a.earn : {}) });
+// APR history: c.apyHist = [{ at, apy }] (at = the instant in ms it took effect, 0 = from the start), oldest first. The hour that ends at T earns at the rate in force when that hour began.
+export const apyHistOf = (c) => (Array.isArray(c.apyHist) ? c.apyHist.filter((x) => x && Number.isFinite(+x.at) && Number.isFinite(+x.apy)).map((x) => ({ at: +x.at, apy: +x.apy })).sort((p, q) => p.at - q.at) : []);
+export function apyAt(c, T) { const h = apyHistOf(c); if (!h.length) return +c.apy || 0; let r = h[0].apy; for (const x of h) if (x.at <= T - H) r = x.apy; return r; }
+// the first instant at which two histories give a different rate (null when they never differ)
+export function apyChangeFrom(oldH, newH) {
+  const o = { apyHist: oldH }, n = { apyHist: newH }, pts = [...new Set([...oldH, ...newH].map((x) => +x.at))].sort((p, q) => p - q);
+  for (const t of pts) { const T = t + H; if (apyAt(o, T) !== apyAt(n, T)) return Math.max(0, t); }
+  return null;
+}
 export const isEarnOn = (a) => !!(a && !a.deleted && a.earn && a.earn.on);
 export const logOf = (db, id) => ((db.settings.earnLog = db.settings.earnLog || {})[id] = (db.settings.earnLog[id] || { hours: [], days: [] }));
 // every amount that arrived in this account, with the three times that matter
@@ -64,7 +73,7 @@ const sameXf = (p, q) => !!p && !!q && p[0] === q[0] && p[1] === q[1] && p[2] ==
 function xfChangedFrom(oldM, newM) { let from = null; const hit = (x) => { if (x != null && (from === null || x < from)) from = x; };
   for (const k of new Set([...Object.keys(oldM), ...Object.keys(newM)])) if (!sameXf(oldM[k], newM[k])) { if (oldM[k]) hit(oldM[k][0]); if (newM[k]) hit(newM[k][0]); }
   return from; }
-export const earnEdited = (db) => db.accounts.some((a) => isEarnOn(a) && a.earn.xf && xfChangedFrom(a.earn.xf, xfMap(db, a)) !== null);
+export const earnEdited = (db) => db.accounts.some((a) => isEarnOn(a) && ((a.earn.xf && xfChangedFrom(a.earn.xf, xfMap(db, a)) !== null) || (a.earn.ahPrev && apyChangeFrom(a.earn.ahPrev, apyHistOf(a.earn)) !== null)));
 // Earn hours from `fromMs` on are worked out again from the subscriptions and unsubscriptions as they are now. Hours before it stay as they were.
 function recalcHours(db, a, fromMs, now) {
   const c = cfgOf(a), log = logOf(db, a.id), E = a.earn, off = tzOf(db, a), start = floorHour(fromMs), upto = floorHour(now), dayFrom = e8(start, off).day;
@@ -76,7 +85,7 @@ function recalcHours(db, a, fromMs, now) {
   log.hours = log.hours.filter((x) => x.h < start);
   const subs = subscriptions(db, a), reds = redemptions(db, a); let n = 0;
   for (let T = Math.max(start, E.trackFrom ? floorHour(E.trackFrom) + H : 0); T <= upto; T += H) {
-    const prin = principalAt(db, a, T, subs, reds), amt = r8(prin * (c.apy || 0) / 100 / YEAR_H);
+    const prin = principalAt(db, a, T, subs, reds), amt = r8(prin * apyAt(c, T) / 100 / YEAR_H);
     if (amt > 0) { log.hours.push({ h: T, amt, prin, z: off }); n++; }
   }
   E.lastHour = Math.max(E.lastHour || 0, upto);
@@ -136,11 +145,13 @@ export function runEarn(db, now = Date.now()) {
     }
     E.lastSlot = now;
     // 1b. a subscribe or unsubscribe was edited, moved or deleted: work the affected hours out again
-    let redone = null; { const cur = xfMap(db, a); if (E.xf) { const f = xfChangedFrom(E.xf, cur); if (f !== null) redone = recalcHours(db, a, f, now); } E.xf = cur; }
+    let redone = null; { const cur = xfMap(db, a); let f = E.xf ? xfChangedFrom(E.xf, cur) : null; E.xf = cur;
+      const ah = apyHistOf(c); if (E.ahPrev) { const g = apyChangeFrom(E.ahPrev, ah); if (g !== null) f = f === null ? g : Math.min(f, g); } E.ahPrev = ah;
+      if (f !== null) redone = recalcHours(db, a, f, now); }
     // 2. hourly payouts, one per full hour that has passed
     const upto = floorHour(now), subs = subscriptions(db, a);
     for (let T = Math.max(E.lastHour + H, upto - 24 * 60 * H); T <= upto; T += H) {
-      const prin = principalAt(db, a, T, subs), amt = r8(prin * (c.apy || 0) / 100 / YEAR_H);
+      const prin = principalAt(db, a, T, subs), amt = r8(prin * apyAt(c, T) / 100 / YEAR_H);
       if (amt > 0 && !log.hours.some((x) => x.h === T)) { log.hours.push({ h: T, amt, prin, z: off }); made.hours++; }
     }
     E.lastHour = Math.max(E.lastHour, upto);

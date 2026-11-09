@@ -141,7 +141,7 @@ def part3(p,b,ctx,pg,errs):
     # 3-6 add asset
     pg.evaluate("(async()=>{const m=await import('/js/invest.js');m.addAsset({platform:'Zed',wallet:'Spot'})})()"); pg.wait_for_selector('#ic')
     t=pg.inner_text('#ic'); ok('trading account wording and explanation', 'Trading Account Inside the Platform' in t and 'buy and sell coins directly' in pg.inner_text('#wal-h').lower())
-    pg.select_option('#ic select[name=wallet]','Futures'); pg.wait_for_timeout(100); ok('Futures explains leverage and risk', 'higher risk' in pg.inner_text('#wal-h'))
+    pg.select_option('#ic select[name=wallet]','Futures'); pg.wait_for_timeout(100); ok('Futures says it is tracked like Spot', 'like Spot' in pg.inner_text('#wal-h'))
     ok('tooltips on Ticker, Name, Price Currency, Live Price ID', pg.locator('#ic .tipbtn').count()>=4)
     pg.fill('#ic [name=coin]','usdc'); pg.wait_for_timeout(200); ok('USDC suggests usd-coin', pg.input_value('#ic [name=cg]')=='usd-coin' and 'usd-coin' in pg.inner_text('#cg-h'))
     pg.fill('#ic [name=coin]','btc'); pg.wait_for_timeout(200); ok('changing the ticker changes the suggestion', pg.input_value('#ic [name=cg]')=='bitcoin')

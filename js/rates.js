@@ -51,6 +51,7 @@ export function ratesInit() {
   const go = () => {
     const s = get().settings;
     if (s.liveRates === false || !navigator.onLine) return;
+    if (navigator.webdriver) return;   // a browser driven by a test script never fetches by itself, so a rate cannot arrive in the middle of a check (the Update button still works)
     if (s.live && Date.now() - s.live.ts < 12 * 3600 * 1000) return;
     fetchRates({ quiet: true }).catch(() => {});
   };

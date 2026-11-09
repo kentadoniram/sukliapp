@@ -38,7 +38,7 @@ export const GLOSSARY = [
   ['Investments', 'Wallet', 'A section inside a platform: Spot, Earn, Margin, Futures.'],
   ['Investments', 'Spot', 'Plain buying and selling of coins. Spot balances do not earn interest on most platforms.'],
   ['Investments', 'Earn', 'The part of an exchange where coins are lent or staked to earn interest. Move a coin here to earn.'],
-  ['Investments', 'Margin / Futures', 'Trading with borrowed money or on price bets. Gains and losses can be larger than what you put in.'],
+  ['Investments', 'Margin / Futures', 'Sukli treats these like any other trading account. Funding fees and borrowing are not tracked; use Adjust Balance to match the exchange.'],
   ['Investments', 'Stablecoin', 'A coin meant to stay at one price, such as USDT or USDC (about 1 US dollar).'],
   ['Investments', 'APY', 'Yearly return including interest on interest.'],
   ['Investments', 'Market value', 'What everything you hold is worth today at current prices.'],

@@ -33,6 +33,7 @@ import { applyHide, look, setLook, ACCENTS, SIZES, setLookMode } from './appeara
 export { setLookMode };
 import { lossCard } from './loans.js';
 import { typeNames, accounts, openAccount, reminderBanner, openInterestDetail } from './accpage.js';
+import { goalBanner } from './savings.js';
 import { outlookCard } from './views.js';
 import { openCurrencyPicker } from './curpicker.js';
 import { backupSection } from './backup.js';
@@ -243,7 +244,7 @@ function homeSection(id, c) {
     case 'spendable': { const sp = spendable(db), chips = [...sp.by.entries()].filter(([, v]) => Math.abs(v) >= 0.005).map(([cur, v]) => { const e = eq(v, cur, rateFor(db, cur)); return `<span>${money(v, cur)}${e ? `<small> ${e}</small>` : ''}</span>`; }).join('');
       return `<section class="spendable"><div><span>Spendable now</span><b>${money(sp.total)}</b></div><div class="curs">${chips || '<span class="muted">No balances yet</span>'}</div>
       ${sp.missing.length ? `<p class="hint">Not counted: ${sp.missing.join(', ')} (set a rate in Settings).</p>` : ''}${(() => { if (appMode() === 'simple') return ''; const sf = safeToSpend(db); return sf.committed > 0.5 ? `<button type="button" class="safeto" data-act="safe-info"><span>Safe to spend<small> after ${money(sf.committed)} already owed</small></span><b>${money(sf.safe)}</b></button>` : ''; })()}</section>`; }
-    case 'alerts': { const n = reviewCount(db); return `${reminderBanner(db)}${budgetBanner(db)}${n ? `<a class="banner" href="#/review"><strong>${n} ${n === 1 ? 'entry needs' : 'entries need'} a quick check</strong><span>Confirm the guessed categories</span>${ic('right')}</a>` : ''}`; }
+    case 'alerts': { const n = reviewCount(db); return `${reminderBanner(db)}${goalBanner(db)}${budgetBanner(db)}${n ? `<a class="banner" href="#/review"><strong>${n} ${n === 1 ? 'entry needs' : 'entries need'} a quick check</strong><span>Confirm the guessed categories</span>${ic('right')}</a>` : ''}`; }
     case 'insights': { const ins = insights(db, ui.month); return ins.length ? coll('h-ins', 'Worth Knowing', `<ul class="ins">${ins.map((x) => `<li class="${x.tone}">${x.id ? `<button class="insb" data-act="edit" data-id="${x.id}">${esc(x.text)}</button>` : esc(x.text)}</li>`).join('')}</ul>`) : ''; }
     case 'trip': return latestTripCard(db);
     case 'loss': return lossCard(db, ui.month, coll, (n) => money(n));

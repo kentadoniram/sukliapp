@@ -9,6 +9,7 @@ import { hdr, coll } from './screens.js';
 import { button } from './components.js';
 import { openDatePicker } from './datepicker.js';
 import { picHtml, isImg } from './pictures.js';
+import { goalOutlook, goalReminders } from './goalcheck.js';
 
 const live = (l) => (l || []).filter((x) => !x.deleted);
 const money = (n) => fmt(n, HOME);
@@ -52,12 +53,16 @@ const card = (db, g) => {
   if (s.perMonth != null) facts.push(`<li><span>To reach it on time</span><b>${money(s.perMonth)} a month</b></li>`);
   if (s.pace != null && s.eta) facts.push(`<li><span>At your pace so far</span><b>about ${monthYear(s.eta)}</b></li>`);
   facts.push(`<li><span>Still to save</span><b>${money(s.left)}</b></li>`);
+  const o = goalOutlook(db, g), tone = { ontrack: 'ok', early: 'info', behind: 'warn', risk: 'bad', late: 'bad' }[o.level];
+  const head = { ontrack: 'On track', early: 'Too early to tell', behind: 'Behind, but you can catch up', risk: 'Not realistic yet', late: 'Target date passed' }[o.level];
+  const check = tone ? `<div class="goalcheck ${tone}" role="status"><b>${head}</b>${o.lines.map((l) => `<small>${esc(l)}</small>`).join('')}${o.needed != null && o.level !== 'late' ? `<small class="muted">Plan: ${money(o.needed)} a month · Actually saved: ${o.actual == null ? 'not enough history yet' : `${money(Math.max(0, o.actual))} a month`}</small>` : ''}</div>` : '';
   return `<div class="debtrow goalcard ${s.reached ? 'reached' : ''}" data-goal="${g.id}"><div class="dr-head"><div class="goalhead"><i class="badge" style="background:${col}">${picHtml(g.icon, autoIcon(g.name))}</i>
     <div><b>${esc(g.name)}</b><small class="muted">${termOf(g) === 'long' ? 'Long-term' : 'Short-term'}${s.linked ? ` · follows ${esc(s.acct.name)}` : ''}</small></div></div>
     ${button({ label: 'Edit', kind: 'link', act: 'goal-edit', attr: { 'data-id': g.id } })}</div>
     <div class="goalbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(s.pct)}"><i style="width:${s.pct.toFixed(1)}%"></i></div>
     <p class="goalnum"><b>${money(s.saved)}</b> of ${money(s.target)} · ${Math.round(s.pct)}%${s.reached ? ' · Reached!' : ''}</p>
     <ul class="calfacts">${facts.join('')}</ul>
+    ${check}
     <div class="btnrow tight">${s.linked ? `<span class="hint">Progress follows the balance of ${esc(s.acct.name)}.</span>` : `<button type="button" class="btn sm" data-act="goal-add" data-id="${g.id}">Add Money</button><button type="button" class="btn sm ghost" data-act="goal-take" data-id="${g.id}">Take Out</button><button type="button" class="linkbtn" data-act="goal-hist" data-id="${g.id}">History</button>`}
       ${s.reached ? `${button({ label: 'Mark as Done', kind: 'ghost', size: 'sm', act: 'goal-done', attr: { 'data-id': g.id } })}` : ''}</div></div>`;
 };
@@ -152,3 +157,10 @@ ACT['goal-hist'] = (el) => {
   s.el.addEventListener('click', (e) => { const b = e.target.closest('[data-rm]'); if (!b) return; commit((d) => { const x = d.goals.find((y) => y.id === g.id); if (x) { x.log = (x.log || []).filter((r) => r.id !== b.dataset.rm); stamp(x); } }); s.close(); toast('Removed.'); });
 };
 ACT['goal-done'] = (el) => { commit((d) => { const x = d.goals.find((y) => y.id === el.dataset.id); if (x) { x.reachedAck = true; stamp(x); } }); toast('Done. It moved to Done at the bottom.'); };
+
+// Home reminder: only goals that are really behind (see goalcheck.js); "Not now" hides one goal for a week
+export function goalBanner(db) {
+  const list = goalReminders(db).slice(0, 2); if (!list.length) return '';
+  return `<section class="remind" aria-label="Savings goal reminders">${list.map(({ g, o }) => `<div class="rem ${o.level === 'behind' ? 'high' : 'urgent'}"><a class="remlink" href="#/savings"><span><strong>${esc(g.name)}: ${o.level === 'late' ? 'target date passed' : o.level === 'risk' ? 'may not reach the target' : 'falling behind'}</strong><small>${esc(o.lines[0] || '')}</small></span></a>${button({ label: 'Not now', kind: 'link', act: 'goal-snooze', attr: { 'data-id': g.id } })}</div>`).join('')}</section>`;
+}
+ACT['goal-snooze'] = (el) => { const d = new Date(); d.setDate(d.getDate() + 7); const until = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; commit((x) => { x.settings.goalSnooze = { ...(x.settings.goalSnooze || {}), [el.dataset.id]: until }; }); toast('Okay, I will remind you again in a week.'); };
