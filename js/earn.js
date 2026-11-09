@@ -33,20 +33,54 @@ export function defaultFrom(db, a) {
   const l = db.accounts.filter((x) => !x.deleted && !x.archived && x.id !== a.id && x.cur === a.cur && (x.exchange || '') === (a.exchange || ''));
   return l.find((x) => (x.wallet || 'Spot') === 'Spot') || l[0] || null;
 }
+// the instant an automatic subscription was made; if the person later edited the entry's date or time, the edited time wins
+const subAtOf = (t) => { const own = localMs(t.date); return t.earnSubAt && Math.abs(own - t.earnSubAt) <= 2000 ? t.earnSubAt : own; };
+// money taken out of this Earn account (unsubscribing): from that instant it stops earning. An hour that is still running when you unsubscribe does not pay (mirror of subscribing).
+export function redemptions(db, a) {
+  const out = [];
+  for (const t of db.txs) if (!t.deleted && t.kind === 'transfer' && t.acct === a.id && t.toAcct !== a.id) out.push({ id: t.id, amt: t.amount, at: subAtOf(t) });
+  return out.sort((x, y) => x.at - y.at);
+}
 export function subscriptions(db, a) {
   const c = cfgOf(a), off = tzOf(db, a), out = [];
   for (const t of db.txs) {
     if (t.deleted || t.kind !== 'transfer' || t.toAcct !== a.id) continue;
-    const sub = t.earnSubAt || localMs(t.date), start = earnStartOf(sub, c, off), first = start + c.firstLagH * H;
+    const sub = subAtOf(t), start = earnStartOf(sub, c, off), first = start + c.firstLagH * H;
     out.push({ id: t.id, amt: t.toAmount != null ? t.toAmount : t.amount, sub, start, first, auto: !!t.earnAuto });
   }
   if ((a.open || 0) > 0 && c.trackFrom) out.push({ id: 'open', amt: a.open, sub: 0, start: 0, first: 0, auto: false, open: true });
   return out.sort((x, y) => x.sub - y.sub);
 }
 // what earns in the hour that ends at T: only amounts whose first payout time has come, never more than the account holds
-export function principalAt(db, a, T, subs = subscriptions(db, a)) {
+export function principalAt(db, a, T, subs = subscriptions(db, a), reds = redemptions(db, a)) {
   let p = 0; for (const s of subs) if (s.first <= T) p += s.amt;
-  return Math.max(0, Math.min(p, balances(db).get(a.id) || 0));
+  for (const r of reds) if (r.at < T) p -= r.amt;
+  return Math.max(0, p);
+}
+// a short fingerprint of every subscribe and unsubscribe, to notice when one was edited, moved or deleted
+const xfMap = (db, a) => { const m = {}; for (const s of subscriptions(db, a)) if (!s.open) m[s.id] = [s.sub, s.amt, 1]; for (const r of redemptions(db, a)) m[r.id] = [r.at, r.amt, 0]; return m; };
+const sameXf = (p, q) => !!p && !!q && p[0] === q[0] && p[1] === q[1] && p[2] === q[2];
+// the earliest instant touched by an edit (the old time and the new time of anything that changed)
+function xfChangedFrom(oldM, newM) { let from = null; const hit = (x) => { if (x != null && (from === null || x < from)) from = x; };
+  for (const k of new Set([...Object.keys(oldM), ...Object.keys(newM)])) if (!sameXf(oldM[k], newM[k])) { if (oldM[k]) hit(oldM[k][0]); if (newM[k]) hit(newM[k][0]); }
+  return from; }
+export const earnEdited = (db) => db.accounts.some((a) => isEarnOn(a) && a.earn.xf && xfChangedFrom(a.earn.xf, xfMap(db, a)) !== null);
+// Earn hours from `fromMs` on are worked out again from the subscriptions and unsubscriptions as they are now. Hours before it stay as they were.
+function recalcHours(db, a, fromMs, now) {
+  const c = cfgOf(a), log = logOf(db, a.id), E = a.earn, off = tzOf(db, a), start = floorHour(fromMs), upto = floorHour(now), dayFrom = e8(start, off).day;
+  for (const d of log.days.slice()) if (d.hours.some((x) => x[0] >= start)) {   // a finished day that is touched: open its hours again and let its entry grow back
+    for (const [h, amt] of d.hours) log.hours.push({ h, amt, prin: 0, z: d.z });
+    log.days = log.days.filter((x) => x !== d);
+    const tx = d.tx && db.txs.find((t) => t.id === d.tx); if (tx && !tx.deleted) tx.earnOpen = true;
+  }
+  log.hours = log.hours.filter((x) => x.h < start);
+  const subs = subscriptions(db, a), reds = redemptions(db, a); let n = 0;
+  for (let T = Math.max(start, E.trackFrom ? floorHour(E.trackFrom) + H : 0); T <= upto; T += H) {
+    const prin = principalAt(db, a, T, subs, reds), amt = r8(prin * (c.apy || 0) / 100 / YEAR_H);
+    if (amt > 0) { log.hours.push({ h: T, amt, prin, z: off }); n++; }
+  }
+  E.lastHour = Math.max(E.lastHour || 0, upto);
+  return { dayFrom, n };
 }
 export function slotTimes(c, fromMs, toMs, off = 8) {
   const out = [], list = [...new Set(c.slots || [])].filter((s) => /^\d\d:\d\d$/.test(s)).sort();
@@ -69,6 +103,7 @@ export function dayHours(db, t) {
   return { hours: hs.map((x) => [x.h, x.amt]), z: hs[0] && hs[0].z, done: false };
 }
 export function earnDue(db, now = Date.now()) {
+  if (earnEdited(db)) return true;
   return db.accounts.some((a) => { if (!isEarnOn(a)) return false; const c = cfgOf(a);
     return c.lastHour == null || floorHour(now) > c.lastHour || (c.subOn && c.lastSlot != null && slotTimes(c, c.lastSlot, now, tzOf(db, a)).length > 0); });
 }
@@ -100,6 +135,8 @@ export function runEarn(db, now = Date.now()) {
       }
     }
     E.lastSlot = now;
+    // 1b. a subscribe or unsubscribe was edited, moved or deleted: work the affected hours out again
+    let redone = null; { const cur = xfMap(db, a); if (E.xf) { const f = xfChangedFrom(E.xf, cur); if (f !== null) redone = recalcHours(db, a, f, now); } E.xf = cur; }
     // 2. hourly payouts, one per full hour that has passed
     const upto = floorHour(now), subs = subscriptions(db, a);
     for (let T = Math.max(E.lastHour + H, upto - 24 * 60 * H); T <= upto; T += H) {
@@ -114,6 +151,7 @@ export function runEarn(db, now = Date.now()) {
     for (const [day, hs] of [...by].sort()) {
       const z = hs[0].z, finished = day < e8(now, z).day, amt = r8(hs.reduce((q, x) => q + x.amt, 0)), id = `earn-${a.id}-${day}`;
       let tx = db.txs.find((t) => t.id === id);
+      if (tx && tx.deleted && tx.earnGone && amt > 0) { tx.deleted = false; delete tx.earnGone; tx.earnOpen = true; stamp(tx); }   // removed by an edit earlier and earning again now (a deleted entry the person removed stays removed)
       if (amt > 0 && !(tx && tx.deleted)) {
         const last = Math.max(...hs.map((x) => x.h));
         if (!tx) { const cat = findOrAddCategory(db, 'Earn', 'Crypto earned', 'income'); tx = stamp({ id, kind: 'income', date: finished ? `${day} 23:55:00` : nowStamp(new Date(last)), acct: dest.id, cur: a.cur, amount: amt, fx: rateFor(db, a.cur) || 1, cat: cat.id, name: 'Interest Earned', auto: true, earnDay: day, earnAcct: a.id, earnOpen: !finished }); db.txs.push(tx); made.days++; }
@@ -124,6 +162,10 @@ export function runEarn(db, now = Date.now()) {
     }
     for (const d of log.days) { const tx = d.tx && db.txs.find((t) => t.id === d.tx); if (!tx || tx.deleted || !d.hours.length) continue;   // days saved before this fix
       const nd = holdBeforeSweep(db, dest, a, tx, Math.min(...d.hours.map((x) => x[0])), tx.date); if (nd !== tx.date) { tx.date = nd; stamp(tx); } }
+    if (redone) {   // a day that no longer has any hour should not keep an Interest Earned entry
+      const have = new Set([...by.keys(), ...log.days.map((d) => d.day)]);
+      for (const t of db.txs) if (!t.deleted && t.earnAcct === a.id && t.earnDay >= redone.dayFrom && !have.has(t.earnDay)) { t.deleted = true; t.earnGone = true; stamp(t); made.days++; }
+    }
     log.days.sort((p, q) => (p.day < q.day ? 1 : -1));
     stamp(a);
   }

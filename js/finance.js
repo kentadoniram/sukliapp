@@ -142,42 +142,77 @@ function debtActive(db, a, d, owedNow) {
 
 // Interest is posted just before midnight (23:55). Today's entry waits until then; earlier days are filled in when the app opens.
 const postDay = (upTo) => (upTo === today() && nowStamp().slice(11, 16) < '23:55' ? addDays(upTo, -1) : upTo);
-export function postInterest(db, upTo = today()) {
+// redo = { accountId: 'YYYY-MM-DD' } recalculates that account's interest from that day on (after a rate, start date or period was edited):
+// days before it are kept, later days are re-worked with the rate that applied on each day, existing entries are corrected in place (never doubled),
+// and entries that should no longer exist are removed. Other accounts are not touched.
+export function postInterest(db, upTo = today(), redo = {}) {
   const made = [];
+  made.redone = 0;
   upTo = postDay(upTo);
   const cats = live(db.categories);
   for (const a of live(db.accounts)) {
-    if (!hasRate(a) || a.archived || isLiability(a) || (a.earn && a.earn.on)) continue;
+    const redoFrom = redo[a.id] || '';
+    if (a.archived || isLiability(a) || (a.earn && a.earn.on)) continue;
+    if (!redoFrom && !hasRate(a)) continue;
     const dec = (CUR[a.cur] || { dec: 2 }).dec;
     const places = a.type === 'crypto' ? Math.max(dec, 6) : dec;
     const comp = a.compound || 'daily';
     let from = a.interestFrom || upTo;
     const mine = (t) => t.auto && (t.acct === a.id || String(t.id).startsWith(`int-${a.id}-`)), toSpot = a.interestTo === 'spot' && !!a.exchange;
     const lastAuto = live(db.txs).filter(mine).reduce((m, t) => (t.date.slice(0, 10) > m ? t.date.slice(0, 10) : m), '');
-    if (lastAuto) from = addDays(lastAuto, 1);
-    if (from > upTo) continue;
-    // never back-fill more than 400 days in one go
-    if (from < addDays(upTo, -400)) from = addDays(upTo, -400);
+    if (redoFrom) {
+      const before = live(db.txs).filter((t) => mine(t) && t.date.slice(0, 10) < redoFrom).reduce((m, t) => (t.date.slice(0, 10) > m ? t.date.slice(0, 10) : m), '');
+      from = before ? addDays(before, 1) : redoFrom;
+      if (from > redoFrom) from = redoFrom;
+      if (from < addDays(upTo, -800)) from = addDays(upTo, -800);
+    } else {
+      if (lastAuto) from = addDays(lastAuto, 1);
+      if (from > upTo) continue;
+      // never back-fill more than 400 days in one go
+      if (from < addDays(upTo, -400)) from = addDays(upTo, -400);
+    }
+    const touched = new Set();
     const catName = a.type === 'crypto' ? 'Crypto earned' : 'Interest';
     let cat = cats.find((c) => c.group === 'Earn' && c.name === catName);
     const promoPrin = promoDeposits(db, a);
     let acc = 0;
     for (let d = from; d <= upTo; d = addDays(d, 1)) {
-      const b = balances(db, d + ' 23:59:59').get(a.id) || 0;
+      let b = balances(db, d + ' 23:59:59').get(a.id) || 0;
+      if (redoFrom) { const own = db.txs.find((t) => t.id === `int-${a.id}-${d}`); if (own && !own.deleted && own.acct === a.id) b -= own.amount; }   // the day's own old interest must not earn interest on itself
       acc += grossFor(a, d, b, promoPrin);
       if (!isPeriodEnd(d, comp)) continue;
-      const id = `int-${a.id}-${d}`;
-      if (db.txs.some((t) => t.id === id)) { acc = 0; continue; }
+      const id = `int-${a.id}-${d}`, ex = db.txs.find((t) => t.id === id);
+      if (ex && ex.deleted && ex.redoGone && redoFrom) { ex.deleted = false; delete ex.redoGone; }   // removed by an earlier recalculation, a pay day again
+      if (ex && (!redoFrom || ex.deleted)) { acc = 0; if (ex.deleted) touched.add(id); continue; }
       const gross = +acc.toFixed(places), taxPct = interestTaxPct(a), tax = +(gross * taxPct / 100).toFixed(places), amt = +(gross - tax).toFixed(places);
       acc = 0;
+      if (ex) {   // recalculating: correct the entry that is already there
+        touched.add(id);
+        if (!(amt > 0)) { ex.deleted = true; ex.redoGone = true; stamp(ex); made.redone++; continue; }
+        if (ex.amount !== amt) made.redone++;
+        ex.amount = amt;
+        if (tax > 0) Object.assign(ex, { gross, tax, taxPct, notes: `Interest ${gross}, tax withheld ${tax} (${taxPct}%), credited ${amt}` }); else for (const k of ['gross', 'tax', 'taxPct', 'notes']) delete ex[k];
+        stamp(ex); continue;
+      }
       if (!(amt > 0)) continue;
       if (!cat) cat = findOrAddCategory(db, 'Earn', catName, 'income');
       const dest = toSpot ? payDest(db, a, { payTo: 'spot' }) : a;
       const t = stamp({ id, kind: 'income', date: d + ' 23:55:00', acct: dest.id, cur: a.cur, amount: amt, fx: rateFor(db, a.cur) || 1, cat: cat.id, name: catName, auto: true, ...(tax > 0 ? { gross, tax, taxPct, notes: `Interest ${gross}, tax withheld ${tax} (${taxPct}%), credited ${amt}` } : {}) });
-      db.txs.push(t); made.push(t);
+      db.txs.push(t); made.push(t); touched.add(id);
     }
+    if (redoFrom) for (const t of db.txs) if (!t.deleted && t.auto && t.kind === 'income' && String(t.id).startsWith(`int-${a.id}-`) && t.date.slice(0, 10) >= from && !touched.has(t.id)) { t.deleted = true; t.redoGone = true; stamp(t); made.redone++; }   // no longer a pay day
   }
   return made;
+}
+// the first day on which an edit changes the interest: a different rate on some day, a different promotion or compounding (then everything from the start), or a moved start date
+export function interestChangeFrom(o, n) {
+  const sig = (a) => JSON.stringify({ p: a.promos || [], c: a.compound || 'daily' });
+  const start = [o.interestFrom, n.interestFrom].filter(Boolean).sort()[0] || '';
+  if (sig(o) !== sig(n)) return start;
+  const days = [...new Set([...rateHistory(o), ...rateHistory(n)].map((r) => r.from).filter(Boolean))].sort();
+  const eff = (a, d) => (!a.interestFrom || d >= a.interestFrom ? +rateAt(a, d) || 0 : 0);
+  for (const d of days) if (eff(o, d) !== eff(n, d)) return d;
+  return '';
 }
 // Interest on what you owe. Starts on the deadline (a.debtInt.start) when something is still owed, and is added to the debt as a charge.
 // kind "effective": the rate already includes compounding; "addon": a flat rate on the original amount.

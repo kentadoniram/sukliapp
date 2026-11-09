@@ -11,7 +11,7 @@ import {
   adjustmentCategory, shiftMonth, thisMonth, monthLabel, monthParts, deltaFor, dayLabel,
 } from './core.js';
 import { transferHints } from './finance.js';
-import { lockInfo, interestPreview, promoStatus, rateHistory, debtPreview, hasDebtInt, accountHistory, netWorth, cardInfo, billingPeriods, statementSummary, postedDay, cardReminders, cardIcs, isLiability, setLiab, today, postInterest, postDebtInterest, interestTaxPct, retaxInterest } from './finance.js';
+import { lockInfo, interestPreview, promoStatus, rateHistory, debtPreview, hasDebtInt, accountHistory, netWorth, cardInfo, billingPeriods, statementSummary, postedDay, cardReminders, cardIcs, interestChangeFrom, isLiability, setLiab, today, postInterest, postDebtInterest, interestTaxPct, retaxInterest } from './finance.js';
 import { esc, ic, ACT, sheet, toast, download, confirmDialog, promptDialog } from './ui.js';
 import { applyHide } from './appearance.js';
 import { money, eq, hdr, coll, ui, tradeKids, effectLine } from './screens.js';
@@ -530,21 +530,24 @@ export function openAccount(id, preset = {}) {
     extra.debtInt = fd.has('d-on') ? { on: true, rate: num(fd.get('d-rate')), kind: fd.get('d-kind') || 'effective', comp: fd.get('d-comp') || 'monthly', fromDue: fd.has('d-due'), start: fd.get('d-start') || today(), principal: num(fd.get('d-principal')) } : { on: false };
     if (isLiability({ type: fd.get('type') }) || spotCrypto()) { extra.apy = 0; extra.rates = []; extra.promos = []; } if (!isLiability({ type: fd.get('type') })) extra.debtInt = { on: false };
     if (fd.get('type') !== 'card') { extra.limit = 0; extra.stmtDay = 0; extra.dueDay = 0; }
-    let retaxed = 0;
+    let retaxed = 0, recalced = 0, redo = null;
     commit((d) => {
       if (id) {
         const x = d.accounts.find((q) => q.id === id);
         if (extra.limit > 0 && (x.limit || 0) !== extra.limit && x.type === 'card') { x.limits = [...(x.limits || (x.limit ? [{ date: x.limitSince || '', limit: x.limit }] : [])), { date: today(), limit: extra.limit }]; x.limitSince = today(); }
         if (extra.taxPct !== interestTaxPct(x)) retaxed = retaxInterest(d, id, extra.taxPct);
+        const was = JSON.parse(JSON.stringify(x));
         Object.assign(x, { name, type: fd.get('type'), open, include: fd.has('include'), archived: fd.has('archived'), guessed: false }, extra);
         if (!used) x.cur = fd.get('cur');
         stamp(x);
+        redo = interestChangeFrom(was, x) ? { [id]: interestChangeFrom(was, x) } : null;
       } else d.accounts.push(stamp({ id: uid(), name, cur: fd.get('cur'), type: fd.get('type'), open, include: fd.has('include'), archived: false, ...extra, ...(extra.limit > 0 && fd.get('type') === 'card' ? { limits: [{ date: today(), limit: extra.limit }], limitSince: today() } : {}) }));
-      if (hasRate(extra)) postInterest(d);
+      if (hasRate(extra) || redo) recalced = postInterest(d, today(), redo || {}).redone || 0;
       if (extra.debtInt && extra.debtInt.on) postDebtInterest(d);
     });
     s.close();
-    if (retaxed) toast(`Tax rate updated on ${retaxed} interest ${retaxed === 1 ? 'entry' : 'entries'}.`);
+    if (recalced) toast(`Interest recalculated from the changed date: ${recalced} ${recalced === 1 ? 'entry' : 'entries'} corrected.`);
+    else if (retaxed) toast(`Tax rate updated on ${retaxed} interest ${retaxed === 1 ? 'entry' : 'entries'}.`);
   };
   const del = s.el.querySelector('[data-del]');
   if (del) del.onclick = () => { commit((d) => { const x = d.accounts.find((q) => q.id === id); softDelete(x); }); s.close(); toast('Account deleted'); };
