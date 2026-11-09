@@ -12,7 +12,7 @@ with sync_playwright() as p:
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard')
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic'); pg.fill('#ic [name=ex]','Binance'); pg.fill('#ic [name=coin]','ZZZ'); pg.click('#ic .btn:not(.ghost)'); pg.wait_for_timeout(600)
     open_menu(pg,'trade'); pg.wait_for_selector('#tr'); choose(pg,'#tr [name=plat]',text='Binance'); choose(pg,'#tr [name=asset]',text='ZZZ')
-    pg.fill('#tr [name=qty]','10'); pg.fill('#tr [name=total]','30000'); pg.dispatch_event('#tr [name=total]','input'); pg.fill('#tr [name=fee]','100')
+    pg.fill('#tr [name=qty]','10'); pg.fill('#tr [name=total]','30000'); pg.dispatch_event('#tr [name=total]','input'); pg.click('#tr [data-fm=fixed]'); pg.fill('#tr [name=fee]','100')
     pg.click('#tr button:text-is("Record")'); pg.wait_for_timeout(500)
     if pg.locator('[data-yes]').count(): pg.click('[data-yes]'); pg.wait_for_timeout(400)
     pg.wait_for_timeout(600); pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(600)

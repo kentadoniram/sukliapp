@@ -19,7 +19,7 @@ with sync_playwright() as p:
         choose(pg,'#tr [name=asset]',text='Binance (Spot) ZZZ')
         pg.fill('#tr [name=qty]',qty); pg.fill('#tr [name=total]',total)
         pg.dispatch_event('#tr [name=total]','input')
-        if fee: pg.fill('#tr [name=fee]',fee)
+        if fee: pg.click('#tr [data-fm=fixed]'); pg.fill('#tr [name=fee]',fee)
         pg.click('#tr .btn:not(.ghost)'); pg.wait_for_timeout(400)
         if pg.locator('[data-yes]').count(): pg.click('[data-yes]'); pg.wait_for_timeout(300)
         pg.wait_for_timeout(500)

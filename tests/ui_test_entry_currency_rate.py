@@ -51,7 +51,9 @@ with sync_playwright() as p:
     pg.click('[data-close]')
     # ---- 12 transfer fee ----
     pg.click('.fab'); pg.wait_for_selector('#entry'); pg.click('[data-e=kind][data-v=transfer]'); pg.wait_for_timeout(150)
-    ok('fee box on transfer', pg.locator('#f-fee').count()==1 and pg.locator('[data-e=feeby]').count()==2)
+    ok('fee control on transfer: 0 Fee by default, amount row hidden', pg.locator('[data-e=feemode]').count()==3 and pg.locator('#f-fee').count()==0 and pg.locator('[data-e=feemode][data-v=none].on').count()==1)
+    pg.click('[data-e=feemode][data-v=fixed]'); pg.wait_for_timeout(100)
+    ok('Fixed Amount opens fee amount and Maker/Taker', pg.locator('#f-fee').count()==1 and pg.locator('[data-e=feeby]').count()==2)
     pg.select_option('#f-cur','PHP'); pg.wait_for_timeout(100)
     frm=pg.input_value('#f-acct')
     opts=pg.eval_on_selector_all('#f-to option','os=>os.map(o=>[o.value,o.textContent])'); to=[o[0] for o in opts if 'PHP' in o[1] and o[0]!=frm][0]

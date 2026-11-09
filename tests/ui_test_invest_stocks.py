@@ -20,7 +20,7 @@ with sync_playwright() as p:
     t=pg.inner_text('#view'); ok('Korean and Japanese tickers listed', '005930' in t and '7203' in t and 'kiwoom' in t.lower() and 'sbi' in t.lower())
     # buy 2 NVDA at 7000 paying from first account
     open_menu(pg,'trade'); pg.wait_for_selector('#tr'); choose(pg,'#tr [name=plat]',text='Moomoo'); choose(pg,'#tr [name=asset]',text='NVDA')
-    pg.fill('#tr [name=qty]','2'); pg.fill('#tr [name=price]','7000'); pg.fill('#tr [name=fee]','50'); pg.click('#tr button:text-is("Record")'); pg.wait_for_timeout(900)
+    pg.fill('#tr [name=qty]','2'); pg.fill('#tr [name=price]','7000'); pg.click('#tr [data-fm=fixed]'); pg.fill('#tr [name=fee]','50'); pg.click('#tr button:text-is("Record")'); pg.wait_for_timeout(900)
     pg.goto(U+'#/invest'); pg.wait_for_timeout(500); t=pg.inner_text('#view')
     ok('row shows amount, paid and value', '2 NVDA' in t.replace('\n',' ') and 'paid 14,000' in t)
     pg.click('[data-act=inv-group][data-v=type]'); pg.wait_for_timeout(500); t=pg.inner_text('#view'); ok('group by asset type', 'stocks' in t.lower() and 'cryptocurrency' in t.lower())

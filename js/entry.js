@@ -77,7 +77,7 @@ function blank() {
   const last = accts.find((a) => a.id === db.settings.lastAcct) || accts.find((a) => a.include) || accts[0];
   return { cb: { on: false, mode: 'pct', v: '' }, kind: 'expense', debt: false, flow: '', merchant: '', merchTouched: false, merchSuggested: false, amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
     catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), posted: '', postedOn: false, notes: '', labels: '', items: [], counts: [], parts: [], partsOff: '', showCounts: false, flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
-    fee: '', feeCat: '', feeBy: 'from', feeTouched: false, calc: false, convert: false, cRate: '', qtab: '', qtabManual: false };
+    fee: '', feeMode: 'none', feePct: '', feeModeSet: false, feeCat: '', feeBy: 'from', feeTouched: false, calc: false, convert: false, cRate: '', qtab: '', qtabManual: false };
 }
 function fromTx(t) {
   const db = get();
@@ -85,7 +85,7 @@ function fromTx(t) {
   const flow = t.kind !== 'transfer' ? '' : t.debtPay ? 'pay' : t.debtBorrow ? 'borrow' : t.lent ? 'lend' : t.lentBack ? 'back' : '';
   return { cb: t.cashback ? { on: true, mode: t.cashback.mode, v: String(t.cashback.v) } : { on: false, mode: 'pct', v: '' }, branch: t.branch || '', loc: t.loc || null, place: t.place || '', kind: t.kind, debt: !!flow, flow, merchant: t.merchant || '', merchTouched: true, merchSuggested: false, amount: String(t.amount), name: t.name || '', acct: t.acct, toAcct: t.toAcct || '',
     toAmount: t.toAmount != null ? String(t.toAmount) : '', fx: t.hfx > 0 ? prec(t.hfx) : t.fx ? prec(t.fx / homeRate(db, t.date)) : '', cat: t.cat || '',
-    fee: t.fee > 0 ? String(t.fee) : '', feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
+    fee: t.fee > 0 ? String(t.fee) : '', feeMode: t.fee > 0 ? 'fixed' : 'none', feePct: '', feeModeSet: true, feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
     convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
     catTouched: true, acctTouched: true, date: t.date, posted: t.posted || '', postedOn: !!t.posted, notes: t.notes || '', labels: t.labels || '', flag: t.flag || null, id: t.id, pred: null,
     items: (t.items || []).map((i) => (i.q > 1 && i.u != null ? { n: i.n, amt: String(i.u), q: i.q, cat: i.cat || '' } : { n: i.n, amt: String(i.amt), q: 1, cat: i.cat || '' })), showItems: !!(t.items && t.items.length), counts: (t.counts || []).map((c) => ({ g: c.g, n: String(c.n) })), showCounts: !!(t.counts && t.counts.length), parts: (t.parts || []).map((x) => ({ ...x })), partsOff: '', from: t.from || '', to: t.to || '' };
@@ -392,6 +392,8 @@ export function openEntry(opts = {}) {
     if (!p) { if (f.feeSuggested) { f.fee = ''; f.feeSuggested = false; } return; }
     f.fee = String(p.fee); f.feeCat = p.feeCat; f.feeBy = p.feeBy; f.feeSuggested = true;
   }
+  function feeCalcTxt() { const a = acctOf(f.acct), b = acctOf(f.toAcct); const cur = f.feeBy === 'to' ? (b && b.cur) : (a && a.cur); return num(f.fee) > 0 ? `= ${fmt(num(f.fee), cur || HOME)}` : ''; }
+  function recalcFee() { if (f.feeMode === 'pct') { const v = r9(((num(f.amount) || 0) * (num(f.feePct) || 0)) / 100); f.fee = v > 0 ? String(v) : ''; } }
   function renderFee() {
     const el = $f('feerow');
     if (f.kind !== 'transfer' || f.debt) { el.innerHTML = ''; return; }
@@ -400,13 +402,17 @@ export function openEntry(opts = {}) {
     if (!a || !b) { el.innerHTML = ''; return; }
     const cur = f.feeBy === 'to' ? b.cur : a.cur;
     const sug = f.feeSuggested && !f.feeTouched;
-    el.innerHTML = `<div class="field feebox ${sug ? 'suggested' : ''}"><span>Fee (optional) ${sug ? '<small class="sugnote">usual fee for this route · change if different</small>' : ''}</span>
-      <div class="feeline"><label class="amtwrap sm"><b>${(CUR[cur] || { sym: cur }).sym}</b><input id="f-fee" inputmode="decimal" autocomplete="off" aria-label="Fee" placeholder="0" value="${esc(f.fee)}"></label>
-        <div class="seg sm two" role="group" aria-label="Who pays the fee">
-          <button type="button" data-e="feeby" data-v="from" title="Taken from the sender (${esc(a.name)})" class="${f.feeBy !== 'to' ? 'on' : ''}" aria-pressed="${f.feeBy !== 'to'}">Taken from<br>sender</button>
-          <button type="button" data-e="feeby" data-v="to" title="Taken from the receiver (${esc(b.name)})" class="${f.feeBy === 'to' ? 'on' : ''}" aria-pressed="${f.feeBy === 'to'}">Taken from<br>receiver</button></div></div>
-      <select id="f-feecat" aria-label="Fee type">${f.feeCat ? '' : '<option value="">Fee type</option>'}${feeCatOptions(f.feeCat)}</select>
-      <small class="muted feewho">Taken from ${esc((f.feeBy === 'to' ? b : a).name)}</small></div>`;
+    if (f.feeMode === 'none' && num(f.fee) > 0 && !f.feeModeSet) f.feeMode = 'fixed';   // a usual fee for the route, or a saved fee, opens the amount row
+    const md = f.feeMode, who = (f.feeBy === 'to' ? b : a).name;
+    el.innerHTML = `<div class="field feebox ${sug ? 'suggested' : ''}"><div class="feehead"><span class="feelab">Fee (optional)</span><div class="seg sm three" role="group" aria-label="Fee">${[['none', '0 Fee'], ['fixed', 'Fixed Amount'], ['pct', '% of the Transfer']].map(([v, l]) => `<button type="button" data-e="feemode" data-v="${v}" class="${md === v ? 'on' : ''}" aria-pressed="${md === v}">${l}</button>`).join('')}</div></div>
+      ${sug && md !== 'none' ? '<small class="sugnote">usual fee for this route · change if different</small>' : ''}
+      ${md === 'none' ? '' : `<div class="feedet"><label class="field"><span>${md === 'pct' ? 'Fee % of the Transfer (e.g. 0.1)' : `Fee Amount (${esc(cur)})`}</span><input id="f-fee" inputmode="decimal" autocomplete="off" aria-label="Fee" placeholder="0" value="${esc(md === 'pct' ? f.feePct : f.fee)}"></label>
+        ${md === 'pct' ? `<small class="muted" id="feecalc">${feeCalcTxt()}</small>` : ''}
+        <div class="field"><span>Fee Responsibility</span><div class="seg sm two" role="group" aria-label="Fee responsibility">
+          <button type="button" data-e="feeby" data-v="from" title="Taken from the sender (${esc(a.name)})" class="${f.feeBy !== 'to' ? 'on' : ''}" aria-pressed="${f.feeBy !== 'to'}">Taken from Maker</button>
+          <button type="button" data-e="feeby" data-v="to" title="Taken from the receiver (${esc(b.name)})" class="${f.feeBy === 'to' ? 'on' : ''}" aria-pressed="${f.feeBy === 'to'}">Taken from Taker</button></div></div>
+        <select id="f-feecat" aria-label="Fee type">${f.feeCat ? '' : '<option value="">Fee type</option>'}${feeCatOptions(f.feeCat)}</select>
+        <small class="muted feewho">Taken from ${esc(who)}</small></div>`}</div>`;
     const fs = el.querySelector('#f-feecat');
     if (fs) enhanceSelect(fs, { title: 'Fee Type', addLabel: 'Add a new fee type', onAdd: async () => { const n = (await promptDialog('New fee type', '', { okLabel: 'Add', hint: 'For example: Withdrawal fee, Gas fee' }))?.trim(); if (!n) return; fs.add(new Option(n, '__new:' + n)); fs.value = '__new:' + n; fs.dispatchEvent(new Event('change', { bubbles: true })); } });
   }
@@ -543,11 +549,11 @@ export function openEntry(opts = {}) {
     const ph = partsHint();      // below the keypad on purpose: a row appearing above it would move the keys while typing
     if (!f.showCounts) { el.innerHTML = ph + `<button type="button" class="linkbtn split" data-e="counts-on">${ic('split')} Count by group (drinks, snacks...)</button>` + othersHtml(); othSum(); return; }
     const db3 = get(), gs = Object.keys(groupsOf(db3));
-    el.innerHTML = ph + `<div class="field items"><span>Count by group <small class="hint">no names or prices, just how many</small></span>
+    el.innerHTML = ph + `<div class="field items othbox countbox"><div class="othhead"><b>Count by Group</b><button type="button" class="btn sm ghost" data-e="counts-off">Cancel</button></div><small class="hint">No names or prices, just how many.</small>
       <div id="countlist">${f.counts.map((c, i) => `<div class="cnt" data-i="${i}">
         <select class="cnt-g" aria-label="Group"><option value="">Choose group</option>${gs.map((g) => `<option value="${esc(g)}" ${c.g === g ? 'selected' : ''}>${esc(g)}${unitOf(db3, g) === 'kg' ? ' (kg)' : ''}</option>`).join('')}</select>
         <input class="cnt-n" inputmode="decimal" placeholder="${c.g && unitOf(db3, c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'}" value="${esc(c.n)}" aria-label="How many">
-        <button type="button" class="iconbtn" data-e="count-del" data-v="${i}" aria-label="Remove row">${ic('x')}</button></div>`).join('')}</div>
+        <button type="button" class="linkbtn rm" data-e="count-del" data-v="${i}" aria-label="Remove this group">Remove</button></div>`).join('')}</div>
       <div class="itemfoot"><button type="button" class="linkbtn" data-e="count-add">+ Add group</button></div></div>` + othersHtml(); othSum();
     el.querySelectorAll('select.cnt-g').forEach((sel) => enhanceSelect(sel, { title: 'Group', addLabel: 'Add a new group', onAdd: async () => {
       const nm = await promptDialog('New group', '', { okLabel: 'Next', hint: 'Group by price level, for example "drinks" and "ready meals" apart.' }); if (!nm || !nm.trim()) return;
@@ -805,11 +811,11 @@ export function openEntry(opts = {}) {
   form.addEventListener('input', (e) => {
     const id = e.target.id;
     if (id === 'f-amount') {
-      formatAmountInput(e.target); f.amount = e.target.value; showCalcRes(); syncX(); updateFxVal(); heavy(); othSum(); updCb(); updateItemLeft();
+      formatAmountInput(e.target); f.amount = e.target.value; if (f.feeMode === 'pct') { recalcFee(); const fc = $f('feecalc'); if (fc) fc.textContent = feeCalcTxt(); } showCalcRes(); syncX(); updateFxVal(); heavy(); othSum(); updCb(); updateItemLeft();
     }
     else if (e.target.classList.contains('oth-n')) { f.others.rows[+e.target.closest('.othrow').dataset.i].v = e.target.value; othSum(); }
     else if (id === 'f-cbv') { f.cb.v = e.target.value; updCb(); }
-    else if (id === 'f-fee') { f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
+    else if (id === 'f-fee') { if (f.feeMode === 'pct') { f.feePct = e.target.value; recalcFee(); const fc = $f('feecalc'); if (fc) fc.textContent = feeCalcTxt(); } else f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
     else if (id === 'f-from' || id === 'f-to') { if (id === 'f-from') f.from = e.target.value; else f.to = e.target.value; tripName(); tripChips(); }
     else if (id === 'f-place') { f.place = e.target.value.trim(); if (f.loc) saveAddress(f.loc, f.place); f.locUi.msg = f.place ? 'Address saved for this place.' : ''; }
     else if (id === 'f-loc') { const q = parsePt(e.target.value); if (q) { f.loc = q; f.place = ''; fillAddr(); f.locUi.msg = 'Saved with this entry.'; if (!f.place) setTimeout(getAddr, 0); } else if (!e.target.value.trim()) { f.loc = null; f.locUi.msg = 'Location removed.'; } else f.locUi.msg = 'Type latitude and longitude, like 35.53, 139.69.'; renderLoc(); }
@@ -929,6 +935,7 @@ export function openEntry(opts = {}) {
       case 'fxopen2': { const a = acctOf(f.acct), b = acctOf(f.toAcct); if (!a || !b) break; openConverter({ from: a.cur, to: b.cur, amount: num(f.amount), rate: num(f.cRate) || crossRate(), applyLabel: 'Use this rate',
         onApply: ({ rate, a: fa, b: tb, billed }) => { f.cRate = prec(rate); const cr = $f('f-crate'); if (cr) cr.value = f.cRate; if (billed && num(f.amount) > 0 && Math.abs(fa - num(f.amount)) < 1e-9) { f.toAmount = String(Math.round(tb * 1e6) / 1e6); const ta = $f('f-toamt'); if (ta) ta.value = f.toAmount; syncCross('to'); } else syncCross('rate'); } }); break; }
       case 'livecross': { const r = crossRate(); if (r) { f.cRate = prec(r); const cr = $f('f-crate'); if (cr) cr.value = f.cRate; syncCross('rate'); } else toast('No live rate for this pair yet. Type one.'); break; }
+      case 'feemode': f.feeMode = v; f.feeModeSet = true; f.feeTouched = true; f.feeSuggested = false; if (v === 'none') { f.fee = ''; f.feePct = ''; } else if (v === 'pct') { f.feePct = ''; f.fee = ''; } renderFee(); { const fe = $f('f-fee'); if (fe && v !== 'none') fe.focus(); } break;
       case 'feeby': f.feeBy = v; f.feeTouched = true; f.feeSuggested = false; renderFee(); break;
       case 'cat': pickCat(v); renderCats(); renderTrip(); renderSafety(); break;
       case 'tag': { const cur = parseTags(f.labels), i = cur.findIndex((x) => x.toLowerCase() === v.toLowerCase()); if (i >= 0) cur.splice(i, 1); else cur.push(v); f.labels = joinTags(cur); renderTags(); break; }
@@ -965,6 +972,7 @@ export function openEntry(opts = {}) {
       case 'addr-edit': f.locUi.addrEdit = !f.locUi.addrEdit; renderLoc(); break;
       case 'loc-clear': f.loc = null; f.place = ''; f.locUi.msg = 'Location removed from this entry.'; renderLoc(); break;
       case 'loc-edit': f.locUi.edit = !f.locUi.edit; renderLoc(); break;
+      case 'counts-off': f.showCounts = false; f.counts = []; renderCounts(); break;
       case 'counts-on': f.showCounts = true; if (!f.counts.length) f.counts.push({ g: '', n: '' }); renderCounts(); break;
       case 'count-add': f.counts.push({ g: '', n: '' }); renderCounts(); break;
       case 'count-del': f.counts.splice(+v, 1); if (!f.counts.length) f.showCounts = false; renderCounts(); break;

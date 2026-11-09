@@ -24,8 +24,10 @@ with sync_playwright() as p:
         a=pg.evaluate("(()=>{const f=document.querySelector('#acctrow .acctbtn').getBoundingClientRect(),w=document.querySelector('#f-when').getBoundingClientRect();return [f.top,w.top]})()")
         ok(f'transfer keeps From/To above When {a}', a[1]>a[0]+20)
         pg.evaluate("window.sukli.get()")
-        ok('fee box: fee amount and Taken from on one row', pg.evaluate("(()=>{const i=document.querySelector('#f-fee'),s=document.querySelector('[data-e=feeby][data-v=from]');if(!i||!s)return false;const a=i.getBoundingClientRect(),c=s.getBoundingClientRect();return Math.abs((a.top+a.bottom)/2-(c.top+c.bottom)/2)<30})()"))
-        ok('both options say Taken from sender / receiver', 'Taken from' in pg.inner_text('[data-e=feeby][data-v=from]') and 'receiver' in pg.inner_text('[data-e=feeby][data-v=to]'))
+        pg.click('[data-e=feemode][data-v=fixed]'); pg.wait_for_timeout(100)
+        ok('fee box: fee amount sits above Taken from, same width area', pg.evaluate("(()=>{const i=document.querySelector('#f-fee'),s=document.querySelector('[data-e=feeby][data-v=from]');return !!i&&!!s&&i.getBoundingClientRect().bottom<=s.getBoundingClientRect().top+2})()"))
+        (lambda n,c:None)('old', pg.evaluate("(()=>{const i=document.querySelector('#f-fee'),s=document.querySelector('[data-e=feeby][data-v=from]');if(!i||!s)return false;const a=i.getBoundingClientRect(),c=s.getBoundingClientRect();return Math.abs((a.top+a.bottom)/2-(c.top+c.bottom)/2)<30})()"))
+        ok('both options say Taken from Maker / Taker', 'Maker' in pg.inner_text('[data-e=feeby][data-v=from]') and 'Taker' in pg.inner_text('[data-e=feeby][data-v=to]'))
         ok('All button shown for transfers', pg.is_visible('#f-all'))
     pg.evaluate("document.querySelectorAll('.scrim').forEach(e=>e.remove())")
     # build a crypto platform: Spot USDT has coins, Spot BNB empty
@@ -62,7 +64,7 @@ with sync_playwright() as p:
     # 4. All fills the exact balance
     pg.click('#f-all'); pg.wait_for_timeout(300)
     v=pg.input_value('#f-amount'); ok(f'All fills the whole balance without float noise: {v}', v.replace(',','')=='123.45678912')
-    pg.fill('#f-amount','5'); pg.dispatch_event('#f-amount','input'); pg.fill('#f-fee','0.5'); pg.dispatch_event('#f-fee','input'); pg.click('#f-all'); pg.wait_for_timeout(300)
+    pg.fill('#f-amount','5'); pg.dispatch_event('#f-amount','input'); pg.click('[data-e=feemode][data-v=fixed]'); pg.fill('#f-fee','0.5'); pg.dispatch_event('#f-fee','input'); pg.click('#f-all'); pg.wait_for_timeout(300)
     v=pg.input_value('#f-amount').replace(',',''); ok(f'with a fee taken from the sender, All leaves room for it: {v}', v=='122.95678912')
     pg.evaluate("document.querySelectorAll('.scrim').forEach(e=>e.remove())")
     # trade form: All

@@ -80,7 +80,7 @@ def part2(p,b,ctx,pg,errs):
     # 2 trade edit
     pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.accounts.push(c.stamp({id:'x91',name:'Zed BTC',wallet:'Spot',cur:'BTC',type:'crypto',assetType:'crypto',exchange:'Zed',open:0,include:false,archived:false,invtab:true}))});
       const m=await import('/js/trades.js');m.openTrade({side:'buy',asset:'x91'})})()"""); pg.wait_for_selector('#tr'); pg.wait_for_timeout(400)
-    pg.select_option('#tr [name=cash]','a91'); pg.fill('#tr [name=qty]','0.01'); pg.fill('#tr [name=total]','50000'); pg.fill('#tr [name=fee]','100'); pg.wait_for_timeout(200)
+    pg.select_option('#tr [name=cash]','a91'); pg.fill('#tr [name=qty]','0.01'); pg.fill('#tr [name=total]','50000'); pg.click('#tr [data-fm=fixed]'); pg.fill('#tr [name=fee]','100'); pg.wait_for_timeout(200)
     pg.evaluate("document.querySelector('#tr').requestSubmit()"); pg.wait_for_timeout(800)
     BAL="(async()=>{const c=await import('/js/core.js');const b=c.balances(c.get());const tr=c.get().txs.filter(t=>!t.deleted&&t.trade&&t.trade.asset==='x91');return [b.get('a91'),b.get('x91'),tr.length,tr[0]&&tr[0].id]})()"
     r=pg.evaluate(BAL); print(r); base=r[0]+0
@@ -88,7 +88,7 @@ def part2(p,b,ctx,pg,errs):
     tid=r[3]; before=r[0]
     pg.evaluate("(async(id)=>{const u=await import('/js/ui.js');u.ACT.edit({dataset:{id}})})('%s')"%tid); pg.wait_for_selector('[data-edit]'); pg.click('[data-edit]'); pg.wait_for_selector('#tr'); pg.wait_for_timeout(500)
     ok('edit form opens filled %s'%pg.input_value('#tr [name=qty]'), pg.input_value('#tr [name=qty]')=='0.01' and pg.input_value('#tr [name=total]')=='50000' and pg.input_value('#tr [name=fee]')=='100')
-    pg.fill('#tr [name=qty]','0.02'); pg.fill('#tr [name=total]','100000'); pg.fill('#tr [name=fee]','200'); pg.wait_for_timeout(200)
+    pg.fill('#tr [name=qty]','0.02'); pg.fill('#tr [name=total]','100000'); pg.click('#tr [data-fm=fixed]'); pg.fill('#tr [name=fee]','200'); pg.wait_for_timeout(200)
     pg.evaluate("document.querySelector('#tr').requestSubmit()"); pg.wait_for_timeout(500)
     try:
         pg.wait_for_selector('text=Record anyway',timeout=1500); pg.click('text=Record anyway')

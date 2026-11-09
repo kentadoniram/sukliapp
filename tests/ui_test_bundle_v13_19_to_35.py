@@ -160,6 +160,7 @@ def part3(p,b,ctx,pg,errs):
     ok('pair is shown', '/' in pg.inner_text('#pair') and 'buying' in pg.inner_text('#pair'))
     pg.click('[data-side=convert]'); pg.wait_for_timeout(300)
     t=pg.inner_text('#tr'); ok('convert wording', 'Quantity (' in t and 'Value in' in t and 'Amount you' not in t and 'Worth in' not in t)
+    pg.click('#tr [data-fm=fixed]'); pg.wait_for_timeout(150)
     order=pg.evaluate("[...document.querySelectorAll('#tr .field > span, #tr label > span')].filter(x=>x.offsetParent).map(x=>x.textContent.trim())")
     i=[k for k,x in enumerate(order) if x.startswith('Pay the Fee From')]; j=[k for k,x in enumerate(order) if x.startswith('Fee Amount')]; q=[k for k,x in enumerate(order) if x.startswith('Quantity')]
     ok('Pay the Fee From comes after the quantities and the fee %s'%order, i and j and q and i[0]>j[0] and i[0]>q[0])
