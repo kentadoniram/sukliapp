@@ -9,6 +9,7 @@ import { hdr, coll, pieLabels, ui } from './screens.js';
 import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
 import { pendingReview } from './tradereview.js';
+import { tokenPerformance } from './tokenperf.js';
 
 const live = (l) => l.filter((x) => !x.deleted);
 // The Investments tab can show its values in its own currency (Settings: invCur), apart from the home currency used elsewhere.
@@ -234,7 +235,7 @@ export function investments(db) {
     ${unpriced.length ? `<p class="hint">No price yet for ${unpriced.map((a) => esc(a.cur)).join(', ')}, so ${unpriced.length === 1 ? 'it is' : 'they are'} left out of the total. Prices load when you are online, or set one in Settings, Exchange rates.</p>` : ''}
     ${items.length ? `<div class="grprow">${crypto.length ? `<div class="seg sm small" role="group" aria-label="Group by">${[['platform', 'By platform'], ['type', 'By asset type'], ['risk', 'By group']].map(([v, l]) => `<button type="button" data-act="inv-group" data-v="${v}" class="${mode === v ? 'on' : ''}" aria-pressed="${mode === v}">${l}</button>`).join('')}</div>` : ''}<button type="button" class="piebtn" data-act="inv-pie" aria-label="Pie chart of where your money is" title="Pie chart">${ic('pie')}</button></div>${crypto.length && mode === 'risk' ? '<p class="hint">Groups: stablecoins (steady value), major coins, high-volatility coins, stocks, funds. Open a ticker below to move it to another group or make your own.</p>' : ''}` : ''}
     ${cryptoAll.length && (hiddenN || showEmpty) ? `<p class="hint emptylink">${showEmpty ? 'Showing empty assets too.' : `${hiddenN} empty asset${hiddenN === 1 ? ' is' : 's are'} hidden.`} <button type="button" class="linkbtn" data-act="inv-empty">${showEmpty ? 'Hide empty assets' : 'Show them'}</button></p>` : ''}
-    ${performanceCard(db, bal, book, items)}${incomeCard(db)}${feesCard(db, book)}${predictCard(db)}${gains}${cryptoCard}${otherHtml}${tickerCard(db, tickers)}
+    ${performanceCard(db, bal, book, items)}${tokenCard(db, book, items)}${incomeCard(db)}${feesCard(db, book)}${predictCard(db)}${gains}${cryptoCard}${otherHtml}${tickerCard(db, tickers)}
     ${items.length ? '' : '<p class="empty">Nothing here yet. Add an exchange coin, an investment, or any account marked “Show in Investments” (for example MP2).</p>'}
     <p class="hint">Each coin or share is its own balance at its platform (for example USDT, BNB and NVDA). The line under it shows the amount, what you paid, and today’s price; the right side is the value in ${invC}. <button type="button" class="linkbtn" data-act="glossary">Words explained</button></p></div>`;
 }
@@ -410,6 +411,31 @@ function performanceCard(db, bal, book, items) {
     ${unk.length ? `<p class="hint">No known cost: ${unk.slice(0, 8).map((r) => `${esc((r.a.exchange ? r.a.exchange + ' ' : '') + nm(r.a))} <button type="button" class="linkbtn" data-act="inv-cost" data-id="${r.a.id}">I paid…</button>`).join(', ')}${unk.length > 8 ? ` and ${unk.length - 8} more` : ''}</p>` : ''}
     <p class="hint">Value uses today’s price: live for coins with a price feed, otherwise the price you last set or traded at (tap a ticker below to update it and see its history).</p>`, '');
 }
+// Per-token performance: one line per coin or stock across every platform; tap for the full breakdown
+const tokName = (db, cur) => ((db.settings.tickers || {})[cur] || {}).ticker || cur;
+const sgn = (v) => `${v >= 0 ? '+' : '−'}${money(Math.abs(v))}`, tcl = (v) => (v >= 0 ? 'cg' : 'cr');
+function tokenCard(db, book, items) {
+  const rows = tokenPerformance(db, book, items.filter(isAsset), HOME).filter((r) => !(r.cashLike && !r.earned && !r.income && !r.realized));
+  if (!rows.length) return '';
+  const tot = rows.reduce((q, r) => q + r.gain, 0);
+  return coll('i-tok', `Per-Token Performance <small class="muted gsum">${sgn(tot)}</small>`, `<div class="rows plain">${rows.map((r) => `<button type="button" class="row acct" data-act="tok-open" data-cur="${esc(r.cur)}"><span class="rmain"><strong>${esc(tokName(db, r.cur))}</strong><small>${r.value > 0 ? `Holding ${money(r.value)}` : 'Sold out'}${r.platforms.length ? ` · ${esc(r.platforms.join(', '))}` : ''}</small></span><span class="ramt ${tcl(r.gain)}"><b>${sgn(r.gain)}</b><small>${r.pct == null ? 'cost not known' : `${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%`}</small></span></button>`).join('')}</div>
+    <p class="hint">Return = profit on paper + profit from selling + what it earned (Earn interest and other income). Fees are shown inside the detail. Only units bought through Buy / sell, or a cost you typed, have a known cost.</p>`, '');
+}
+ACT['tok-open'] = (el) => {
+  const db = get(), book = tradeBook(db.txs), r = tokenPerformance(db, book, live(db.accounts).filter(inInvest).filter(isAsset), HOME).find((x) => x.cur === el.dataset.cur); if (!r) return;
+  const line = (k, v, c = '') => `<li><span>${k}</span><b class="${c}">${v}</b></li>`;
+  sheet(`<ul class="calfacts">${line('Holding now', `${money(r.value)}${r.qty > 0 ? ` · ${r.qty.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${esc(r.cur)}` : ''}`)}
+    ${line('Cost of what you still hold', r.cost > 0 ? money(r.cost) : 'not known')}
+    ${line('Profit on paper (unrealized)', r.cost > 0 ? sgn(r.unreal) : 'not known', r.cost > 0 ? tcl(r.unreal) : '')}
+    ${line('Profit from selling (realized)', sgn(r.realized), tcl(r.realized))}
+    ${line('Earned (Earn interest)', sgn(r.earned), tcl(r.earned))}
+    ${line('Other income (staking, airdrops…)', sgn(r.income), tcl(r.income))}
+    ${line('Total return', `${sgn(r.gain)}${r.pct == null ? '' : ` (${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%)`}`, tcl(r.gain))}
+    ${line('Trading fees paid', money(r.fees))}
+    ${line('Buys and sells', String(r.trades))}
+    ${r.first ? line('First trade', esc(r.first.slice(0, 10))) : ''}</ul>
+    <p class="hint">Percent = total return divided by what was put in (cost of what you hold plus the cost of what you sold). Fees are not taken off twice: the fee on a sale is already inside the profit from selling.</p>`, { title: `${tokName(db, r.cur)} Performance` });
+};
 ACT['inv-cost'] = async (el) => {
   const a = get().accounts.find((x) => x.id === el.dataset.id); if (!a) return;
   const v = await promptDialog(`In total, how much did you pay for ${a.cur}? (in ${HOME})`, a.costHome ? String(a.costHome) : '', { type: 'number', hint: a.costHome ? 'Leave it empty to remove your figure.' : '' });

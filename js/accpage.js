@@ -1,5 +1,6 @@
 // Accounts page (grouped and sorted), account detail with history, net worth, interest and credit-card details.
 import { catIcon } from './caticons.js';
+import { button } from './components.js';
 import { pickAll } from './picker.js';
 import { openDateOf, openDates, WALLETS, WALLET_INFO, walletOf } from './core.js';
 import { tipBtn, calcHtml, bindCalc, COMP_LABEL, rateAt, hasRate } from './interest.js';
@@ -150,7 +151,7 @@ export function accounts(db) {
     return `<section class="topgrp ${top === 'Assets' ? 'assets' : 'liabs'}"><div class="tophead"><h2>${top}</h2><b>${money(Math.abs(tot))}</b></div><p class="hint">${top === 'Assets' ? 'What you own: cash, bank, investments, property.' : 'What you owe: credit cards, loans, money owed.'}</p>${gs.map(secOf).join('')}</section>`; }).join('') : groups.map((g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.total)}</small>`,
     `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, exBtn(g))).join('');
   const segs = (name, opts, cur) => `<div class="seg sm" role="group" aria-label="${name}">${opts.map(([v, l]) => `<button type="button" data-act="aview" data-k="${name}" data-v="${v}" class="${cur === v ? 'on' : ''}" aria-pressed="${cur === v}">${l}</button>`).join('')}</div>`;
-  return `${hdr('Accounts', '<button class="btn sm ghost" data-act="loan-plan">Loan planner</button> <button class="btn sm" data-act="acct-new">Add account</button>')}
+  return `${hdr('Accounts', `${button({ label: 'Loan planner', kind: 'ghost', size: 'sm', act: 'loan-plan' })} ${button({ label: 'Bills', kind: 'ghost', size: 'sm', act: 'bills-open' })} <button class="btn sm" data-act="acct-new">Add account</button>`)}
     ${reminderBanner(db)}
     <section class="nwcard"><button class="nwmain" data-act="nw" aria-label="Net worth details">
       <span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b>
