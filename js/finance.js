@@ -7,6 +7,7 @@ import {
 import { totals, baselineMonths } from './insights.js';
 import { sum as ssum, median, mad, robustZ, trend, forecastSeries } from './stats.js';
 import { merchantKey } from './merchants.js';
+import { payDest } from './earn.js';
 import { hasRate, rateAt, activePromos, isPeriodEnd, nominalFromEar, COMP_LABEL } from './interest.js';
 
 const p2 = (n) => String(n).padStart(2, '0');
@@ -151,7 +152,8 @@ export function postInterest(db, upTo = today()) {
     const places = a.type === 'crypto' ? Math.max(dec, 6) : dec;
     const comp = a.compound || 'daily';
     let from = a.interestFrom || upTo;
-    const lastAuto = live(db.txs).filter((t) => t.auto && t.acct === a.id).reduce((m, t) => (t.date.slice(0, 10) > m ? t.date.slice(0, 10) : m), '');
+    const mine = (t) => t.auto && (t.acct === a.id || String(t.id).startsWith(`int-${a.id}-`)), toSpot = a.interestTo === 'spot' && !!a.exchange;
+    const lastAuto = live(db.txs).filter(mine).reduce((m, t) => (t.date.slice(0, 10) > m ? t.date.slice(0, 10) : m), '');
     if (lastAuto) from = addDays(lastAuto, 1);
     if (from > upTo) continue;
     // never back-fill more than 400 days in one go
@@ -170,7 +172,8 @@ export function postInterest(db, upTo = today()) {
       acc = 0;
       if (!(amt > 0)) continue;
       if (!cat) cat = findOrAddCategory(db, 'Earn', catName, 'income');
-      const t = stamp({ id, kind: 'income', date: d + ' 23:55:00', acct: a.id, cur: a.cur, amount: amt, fx: rateFor(db, a.cur) || 1, cat: cat.id, name: catName, auto: true, ...(tax > 0 ? { gross, tax, taxPct, notes: `Interest ${gross}, tax withheld ${tax} (${taxPct}%), credited ${amt}` } : {}) });
+      const dest = toSpot ? payDest(db, a, { payTo: 'spot' }) : a;
+      const t = stamp({ id, kind: 'income', date: d + ' 23:55:00', acct: dest.id, cur: a.cur, amount: amt, fx: rateFor(db, a.cur) || 1, cat: cat.id, name: catName, auto: true, ...(tax > 0 ? { gross, tax, taxPct, notes: `Interest ${gross}, tax withheld ${tax} (${taxPct}%), credited ${amt}` } : {}) });
       db.txs.push(t); made.push(t);
     }
   }
@@ -213,7 +216,7 @@ export function retaxInterest(db, acctId, pct) {
   const a = db.accounts.find((x) => x.id === acctId); if (!a) return 0;
   const dec = (CUR[a.cur] || { dec: 2 }).dec, places = a.type === 'crypto' ? Math.max(dec, 6) : dec; let n = 0;
   for (const t of db.txs) {
-    if (t.deleted || !t.auto || t.acct !== acctId || t.kind !== 'income') continue;
+    if (t.deleted || !t.auto || !(t.acct === acctId || String(t.id).startsWith(`int-${acctId}-`)) || t.kind !== 'income') continue;
     const gross = t.gross != null ? t.gross : t.amount, tax = +(gross * pct / 100).toFixed(places), net = +(gross - tax).toFixed(places);
     if (net === t.amount && (t.taxPct || 0) === pct) continue;
     t.gross = gross; t.tax = tax; t.taxPct = pct; t.amount = net; t.notes = pct > 0 ? `Interest ${gross}, tax withheld ${tax} (${pct}%), credited ${net}` : ''; stamp(t); n++;

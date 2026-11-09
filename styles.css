@@ -1497,7 +1497,11 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .items.itembox .item .itail { flex-wrap: wrap; } .items.itembox .item .itail .iline { flex: 1 1 100%; order: 3; }
 .tog { border: 1.5px solid var(--rule); background: var(--sheet); color: var(--ink2); border-radius: 999px; padding: 4px 12px; font-size: calc(13px * var(--fs, 1)); font-weight: 600; cursor: pointer; }
 .tog.on { background: color-mix(in srgb, var(--line) 22%, var(--sheet)); border-color: var(--line); color: var(--ink); }
+.items.itembox .item .itax { grid-column: 1 / 3; display: grid; grid-template-columns: minmax(0, 50fr) minmax(0, 50fr); gap: 8px; align-items: center; }
+.items.itembox .item .itax .in-t { height: var(--h-control); box-sizing: border-box; border-radius: 10px; width: 100%; }
 .taxbox { border-top: 1px dashed var(--rule); padding-top: 10px; display: grid; gap: 8px; }
 .taxhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; } .taxhead .feelab { font-size: calc(14px * var(--fs, 1)); color: var(--ink2); }
 .taxdet { display: grid; gap: 8px; } .taxdet input { height: 46px; box-sizing: border-box; border-radius: 10px; width: 100%; }
 .seg.cbseg { display: grid; grid-template-columns: 1fr 1fr; } .seg.cbseg button { text-align: center; justify-content: center; }
+
+.pickfix .chipfold { flex: none; align-self: flex-start; min-height: 32px; display: inline-flex; gap: 6px; align-items: center; padding: 2px 4px; font-weight: 600; }

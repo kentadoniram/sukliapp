@@ -293,7 +293,7 @@ export function openAccountDetail(id) {
     const path = series.map((x, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(x.v).toFixed(1)}`).join('');
     const area = `${path}L${X(series.length - 1).toFixed(1)} ${Y(lo).toFixed(1)}L${X(0).toFixed(1)} ${Y(lo).toFixed(1)}Z`;
     const card = a.type === 'card' ? cardInfo(db, a, bal) : null;
-    const earned = hasRate(a) ? sum(hist.filter((h) => h.t.auto).map((h) => h.d)) : 0, taxed = hasRate(a) ? sum(hist.filter((h) => h.t.auto).map((h) => h.t.tax || 0)) : 0, taxPct = interestTaxPct(a);
+    const mineInt = hasRate(a) ? db.txs.filter((t) => !t.deleted && t.auto && t.kind === 'income' && (t.acct === a.id || String(t.id).startsWith(`int-${a.id}-`))) : [], earned = sum(mineInt.map((t) => t.amount)), taxed = sum(mineInt.map((t) => t.tax || 0)), taxPct = interestTaxPct(a);
     const perDay = rateAt(a, today()) > 0 && bal > 0 ? bal * rateAt(a, today()) / 100 / 365 * (1 - taxPct / 100) : 0;
     const openRowHtml = (o) => `<div class="row openrow"><i class="badge sm" style="background:var(--line)">O</i><span class="rmain"><strong>Opening balance</strong><small>${dayLabel(o.date + ' 00:00:00')} · starting amount of this account</small></span><span class="ramt ${o.amount >= 0 ? 'income' : 'expense'}"><b>${money(o.amount, a.cur)}</b></span></div>`;
     const showOpen = hist.opening && st.type === 'all' && (!st.from || hist.opening.date >= st.from) && (!st.to || hist.opening.date <= st.to);
@@ -337,7 +337,7 @@ export function openAccountDetail(id) {
       ${(a.type === 'loan' || a.loan) ? loanBox(db, a, money) : ''}
       ${a.type === 'card' && a.limits && a.limits.length > 1 ? `<div class="cardbox"><h3>Credit Limit History</h3><ul class="calfacts">${[...a.limits].reverse().map((l, i, arr) => { const nx = arr[i + 1]; return `<li><span>${l.date ? esc(l.date) : 'Earlier'}</span><b>${money(l.limit, a.cur)}${nx ? ` <small class="${l.limit >= nx.limit ? 'in' : 'neg'}">${l.limit >= nx.limit ? '+' : '−'}${money(Math.abs(l.limit - nx.limit), a.cur)}</small>` : ''}</b></li>`; }).join('')}</ul></div>` : ''}
       ${hasRate(a) ? `<div class="cardbox"><h3>Interest</h3><p>${rateAt(a, today())}% a year${perDay ? `, about <strong>${money(perDay, a.cur)}</strong> a day after tax on today’s balance` : ''}. Earned so far in Sukli: <strong>${money(earned, a.cur)}</strong>${taxPct > 0 ? ` after ${taxPct}% tax${taxed ? ` (${money(taxed, a.cur)} withheld)` : ''}` : ''}.</p>
-        <p class="hint">Approximate: Sukli adds one entry a day (category ${a.type === 'crypto' ? 'Crypto earned' : 'Interest'}). Set the rate your app shows; edit or delete any entry that differs.</p></div>` : ''}
+        <p class="hint">Approximate: Sukli adds one entry a day (category ${a.type === 'crypto' ? 'Crypto earned' : 'Interest'})${a.interestTo === 'spot' && a.exchange ? ` to your ${esc(a.exchange)} Spot account` : ''}. Set the rate your app shows; edit or delete any entry that differs.</p></div>` : ''}
       ${hasRate(a) ? (() => { const pv = interestPreview(db, a, 7), rh = rateHistory(a), ps = promoStatus(db, a), t0 = today();
         const cur = [...rh].reverse().find((r) => !r.from || r.from <= t0) || rh[0];
         return `<div class="cardbox"><h3>Interest Details</h3>
@@ -459,6 +459,7 @@ export function openAccount(id, preset = {}) {
       <label class="field"><span>Starts on</span><input name="interestFrom" type="date" value="${esc(a.interestFrom || today())}" aria-label="Start date"></label></div>
       <div class="two ifld"><label class="field"><span>Tax on interest (%)</span><input name="taxPct" inputmode="decimal" value="${interestTaxPct(a)}" placeholder="0" aria-label="Tax withheld on interest percent"></label>
       <label class="field"><span>Added to balance ${tipBtn('compounding')}</span><select name="compound" aria-label="Compounding">${Object.entries(COMP_LABEL).map(([v, l]) => `<option value="${v}" ${(a.compound || 'daily') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+      <label class="field" id="f-intto" ${a.exchange ? '' : 'hidden'}><span>Interest Is Received In</span><select name="interestTo" aria-label="Where interest is received"><option value="" ${a.interestTo === 'spot' ? '' : 'selected'}>This account (stays in ${esc(a.wallet || 'Earn')})</option><option value="spot" ${a.interestTo === 'spot' ? 'selected' : ''}>Spot (same coin on this platform)</option></select><small class="hint">Most exchanges pay Earn interest straight to Spot. Pick where it really arrives. Interest paid to Spot does not grow this Earn balance.</small></label>
       <small class="hint">Local banks withhold tax on interest before crediting it (usually 20%), so only the rest is added. Use 0 for e-wallets, crypto or anything that pays gross. It applies to interest added from now on.</small>
       <div class="field tiphost"><span>When the rate changes ${tipBtn('ratechange')}</span><div data-rows="rc">${(a.rates || []).map(rateRow).join('')}</div><button type="button" class="linkbtn addrow" data-add-row="rc">Add a rate change</button></div>
       <div class="field tiphost"><span>Promotional rates ${tipBtn('promo')}</span><div data-rows="pr">${(a.promos || []).map(promoRow).join('')}</div><button type="button" class="linkbtn addrow" data-add-row="pr">Add a promotional rate</button></div>
@@ -493,6 +494,7 @@ export function openAccount(id, preset = {}) {
     if (add) { const box = s.el.querySelector(`[data-rows="${add.dataset.addRow}"]`); box.insertAdjacentHTML('beforeend', add.dataset.addRow === 'rc' ? rateRow() : promoRow()); box.lastElementChild.querySelector('input').focus(); }
     if (rm) rm.closest('[data-row]').remove(); });
   const dOn = form.querySelector('[name=d-on]'); if (dOn) dOn.onchange = () => { s.el.querySelector('[data-debtbox]').hidden = !dOn.checked; };
+  { const ex = form.exchange, io = s.el.querySelector('#f-intto'); if (ex && io) { const tg = () => { io.hidden = !ex.value; }; ex.addEventListener('change', tg); tg(); } }
   s.el.querySelectorAll('#intfields, #debtfields').forEach((box) => bindCalc(box, { onUse: (nm, comp) => { const inp = box.id === 'intfields' ? form.apy : form['d-rate']; inp.value = String(+nm.toFixed(4)); const sel = box.id === 'intfields' ? form.compound : form['d-comp']; if (sel && [...sel.options].some((o) => o.value === comp)) sel.value = comp; toast('Rate filled in.'); } }));
   let ownImg = isImg(a.icon) ? a.icon : '';
   const picBtn = form.querySelector('#acct-pic');
@@ -515,6 +517,7 @@ export function openAccount(id, preset = {}) {
       dueDay: Math.min(31, Math.max(0, Math.round(num(fd.get('dueDay')) || 0))),
       apy: num(fd.get('apy')) > 0 ? num(fd.get('apy')) : 0,
       taxPct: Math.min(100, Math.max(0, num(fd.get('taxPct')) || 0)),
+      interestTo: fd.get('exchange') && fd.get('interestTo') === 'spot' ? 'spot' : '',
       exchange: canonPlatform(fd.get('exchange') || ''), wallet: fd.get('exchange') ? (fd.get('wallet') || 'Spot') : '', invtab: fd.has('invtab'),
       interestFrom: fd.get('interestFrom') || today(),
       openDate: fd.get('openDate') || '',

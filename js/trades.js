@@ -43,17 +43,19 @@ export function openTrade(pre = {}) {
     <div class="feehead"><span class="feelab">Trading Fee</span>${seg({ options: [{ label: '0 Fee', value: 'none' }, { label: 'Fixed Amount', value: 'fixed' }, { label: '% of the Trade', value: 'pct' }], value: 'none', data: 'fm', aria: 'Trading fee' })}</div>
     <select name="feeMode" hidden aria-hidden="true"><option value="none">0 Fee</option><option value="fixed">Fixed Amount</option><option value="pct">% of the Trade</option></select>
     <div id="feedet" class="feedet" hidden><label class="field"><span id="l-fee">Fee Amount</span><input name="fee" inputmode="decimal" placeholder="0"></label>
-      <div class="field"><span>Fee Responsibility</span>${seg({ options: [{ label: 'Taken from Maker', value: 'maker' }, { label: 'Taken from Taker', value: 'taker' }], value: null, data: 'resp', aria: 'Fee responsibility' })}</div></div>
+      <div class="field"><span>Fee Responsibility</span>${seg({ options: [{ label: 'Taken from Maker', value: 'maker' }, { label: 'Taken from Taker', value: 'taker' }, { label: 'Other Asset', value: 'other', title: 'Pay the fee with another asset you hold, for example BGB on Bitget' }], value: null, data: 'resp', aria: 'Fee responsibility' })}</div>
+      <label class="field" id="f-feeacct" hidden><span>Pay the Fee With</span><select name="feeAcct"></select><small class="hint" id="feeacct-hint"></small></label></div>
     <select name="feeIn" hidden aria-hidden="true"></select>
     <div id="slot-b"></div>
     <div class="field"><span>When</span><button type="button" class="whenbtn" id="tr-when"></button></div>
     <div id="tr-sum" class="hint" aria-live="polite"></div>
     <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">${old ? 'Save Changes' : 'Record'}</button></div></form>`, { title: old ? 'Edit Trade' : 'Buy, Sell or Convert', wide: true });
-  const f = s.el.querySelector('#tr'); let side = pre.side || 'buy', last = '';
+  const f = s.el.querySelector('#tr'); let side = pre.side || 'buy', last = '', feeOther = false, feeAcctPlat = null;
   const acct = (id) => db.accounts.find((a) => a.id === id);
   const fillCash = (keep) => { const p = f.plat.value, pool = [...cash.filter((x) => !inInvest(x)), ...cash.filter((x) => inInvest(x))], q = ((db.settings.tickers || {})[(acct(f.asset.value) || {}).cur] || {}).quote;
     const pref = keep && pool.some((x) => x.id === keep) ? keep : (pool.find((x) => p && exchangeOf(x) === p && x.cur === q) || pool.find((x) => p && exchangeOf(x) === p && inInvest(x) && /USD|JPY|PHP|EUR|KRW/.test(x.cur)) || lastCash || pool[0] || {}).id;
     f.cash.innerHTML = grp(pool, p, pref); if (pref) f.cash.value = pref; };
+  const fillFeeAcct = () => { const p = f.plat.value, keep = f.feeAcct.value, pool = [...cash.filter((x) => inInvest(x) && exchangeOf(x) === p), ...cash.filter((x) => !(inInvest(x) && exchangeOf(x) === p))]; f.feeAcct.innerHTML = grp(pool, p, keep || (pool[0] || {}).id); if (keep && pool.some((x) => x.id === keep)) f.feeAcct.value = keep; feeAcctPlat = p; };
   const moreCoins = () => { const p = f.plat.value; if (!p) return ''; const have = new Set(holdFor(p).map((x) => x.cur)); return `<optgroup label="More Coins (Top 50)">${TOP_TOKENS.filter((t) => !have.has(t.c)).map((t) => `<option value="tok:${t.c}">${t.c} · ${esc(t.n)}</option>`).join('')}</optgroup>`; };
   const fillAsset = (sel) => { const list = holdFor(f.plat.value); f.asset.innerHTML = (list.length ? opt(list, sel) : '') + moreCoins(); if (sel && list.some((x) => x.id === sel)) f.asset.value = sel;
     const other = hold.filter((x) => x.id !== f.asset.value); f.asset2.innerHTML = grp(other.length ? other : hold, f.plat.value, other[0] && other[0].id); };
@@ -89,16 +91,18 @@ export function openTrade(pre = {}) {
     f.querySelector('[data-all=qty]').hidden = side === 'buy'; f.querySelector('[data-all=total]').hidden = side !== 'buy';   // All: the whole holding when selling or converting, the whole cash balance when buying
     const fi = f.feeIn, want = [c && c.cur, a && a.cur].filter((x, i, arr) => x && arr.indexOf(x) === i), have = [...fi.options].map((o) => o.value);
     if (want.join() !== have.join()) { const keep = fi.value; fi.innerHTML = want.map((x, i) => `<option value="${x}">${x}${i === 0 ? ' (the money used)' : ' (the asset itself)'}</option>`).join(''); if (want.includes(keep)) fi.value = keep; }
-    { const mode = f.feeMode.value; s.el.querySelector('#l-fee').textContent = mode === 'pct' ? 'Fee % of the Trade (e.g. 0.05)' : `Fee Amount (${fi.value || 'currency'})`;
+    if (feeOther && feeAcctPlat !== f.plat.value) fillFeeAcct();
+    const fa = feeOther ? acct(f.feeAcct.value) : null; $s('#f-feeacct').hidden = !feeOther; if (fa) $s('#feeacct-hint').textContent = `Balance ${money(balances(db).get(fa.id) || 0, fa.cur)}. The fee is taken from this account and saved as its own entry.`;
+    { const mode = f.feeMode.value; s.el.querySelector('#l-fee').textContent = mode === 'pct' ? 'Fee % of the Trade (e.g. 0.05)' : `Fee Amount (${(fa && fa.cur) || fi.value || 'currency'})`;
       s.el.querySelector('#feedet').hidden = mode === 'none';
       f.querySelectorAll('[data-fm]').forEach((bt) => { const on = bt.dataset.fm === mode; bt.classList.toggle('on', on); bt.setAttribute('aria-pressed', String(on)); });
       const payer = side === 'buy' ? (c && c.cur) : (a && a.cur), other = want.find((x) => x !== payer) || payer, mk = f.querySelector('[data-resp=maker]'), tk = f.querySelector('[data-resp=taker]');
-      mk.dataset.cur = payer || ''; tk.dataset.cur = other || ''; const isMaker = fi.value === payer || payer === other; mk.classList.toggle('on', isMaker); tk.classList.toggle('on', !isMaker); mk.setAttribute('aria-pressed', String(isMaker)); tk.setAttribute('aria-pressed', String(!isMaker)); }
+      mk.dataset.cur = payer || ''; tk.dataset.cur = other || ''; const isMaker = fi.value === payer || payer === other; const ot = f.querySelector('[data-resp=other]'), mOn = !feeOther && isMaker, tOn = !feeOther && !isMaker; mk.classList.toggle('on', mOn); tk.classList.toggle('on', tOn); ot.classList.toggle('on', feeOther); mk.setAttribute('aria-pressed', String(mOn)); tk.setAttribute('aria-pressed', String(tOn)); ot.setAttribute('aria-pressed', String(feeOther)); }
     f.querySelectorAll('[data-side]').forEach((b) => b.classList.toggle('on', b.dataset.side === side));
-    const fcur = f.feeIn.value || (c && c.cur), fee = f.feeMode.value === 'none' ? 0 : f.feeMode.value === 'pct' ? ((fcur === (a && a.cur) ? q : (num(f.total.value) || 0)) * num(f.fee.value)) / 100 : num(f.fee.value); s.el.querySelector('#tr-sum').textContent = conv ? `${q || 0} ${a ? a.cur : ''} becomes ${num(f.qty2.value) || 0} ${acct(f.asset2.value) ? acct(f.asset2.value).cur : ''}.${fee ? ` Fee ${money(fee, fcur)} is saved as a financial loss.` : ''}` : (q && num(f.total.value) ? `${side === 'buy' ? 'Buy' : 'Sell'} ${q} ${a ? a.cur : ''} for ${money(num(f.total.value), c ? c.cur : HOME)}.${fee ? ` The fee of ${money(fee, fcur)} is saved separately as a financial loss.` : ''} This is not counted as spending.` : '');
+    const fcur = (fa && fa.cur) || f.feeIn.value || (c && c.cur), fee = f.feeMode.value === 'none' ? 0 : f.feeMode.value === 'pct' ? (fa ? 0 : ((fcur === (a && a.cur) ? q : (num(f.total.value) || 0)) * num(f.fee.value)) / 100) : num(f.fee.value); s.el.querySelector('#tr-sum').textContent = conv ? `${q || 0} ${a ? a.cur : ''} becomes ${num(f.qty2.value) || 0} ${acct(f.asset2.value) ? acct(f.asset2.value).cur : ''}.${fee ? ` Fee ${money(fee, fcur)} is saved as a financial loss.` : ''}` : (q && num(f.total.value) ? `${side === 'buy' ? 'Buy' : 'Sell'} ${q} ${a ? a.cur : ''} for ${money(num(f.total.value), c ? c.cur : HOME)}.${fee ? ` The fee of ${money(fee, fcur)} is saved separately as a financial loss.` : ''} This is not counted as spending.` : '');
   };
   f.addEventListener('input', (e) => sync(e.target.name === 'fee' ? '' : e.target.name)); f.addEventListener('change', () => sync(''));
-  f.addEventListener('click', (e) => { const m = e.target.closest('[data-fm]'), r = e.target.closest('[data-resp]'); if (m) { f.feeMode.value = m.dataset.fm; if (m.dataset.fm === 'none') f.fee.value = ''; sync(''); if (m.dataset.fm !== 'none') f.fee.focus(); } else if (r && r.dataset.cur && [...f.feeIn.options].some((o) => o.value === r.dataset.cur)) { f.feeIn.value = r.dataset.cur; sync(''); } });
+  f.addEventListener('click', (e) => { const m = e.target.closest('[data-fm]'), r = e.target.closest('[data-resp]'); if (m) { f.feeMode.value = m.dataset.fm; if (m.dataset.fm === 'none') f.fee.value = ''; sync(''); if (m.dataset.fm !== 'none') f.fee.focus(); } else if (r && r.dataset.resp === 'other') { feeOther = true; fillFeeAcct(); sync(''); } else if (r && r.dataset.cur && [...f.feeIn.options].some((o) => o.value === r.dataset.cur)) { feeOther = false; f.feeIn.value = r.dataset.cur; sync(''); } });
   f.querySelectorAll('[data-all]').forEach((b) => { b.onclick = () => {
     const src = b.dataset.all === 'qty' ? acct(f.asset.value) : acct(f.cash.value), v = src ? balances(db).get(src.id) || 0 : 0;
     if (!(v > 0)) { toast(`There is nothing in ${src ? src.name : 'that account'} to use.`); return; }
@@ -112,28 +116,31 @@ export function openTrade(pre = {}) {
     const x = old.trade; f.plat.value = exchangeOf(acct(x.asset)) || ''; fillAsset(x.asset); if (x.asset2) f.asset2.value = x.asset2; if (pre.cashAcct) { fillCash(pre.cashAcct); f.cash.value = pre.cashAcct; }
     f.qty.value = String(x.qty); side = x.side; sync('');
     if (x.side === 'convert') { f.qty2.value = String(x.qty2); f.worth.value = String(r6(x.valueHome)); } else { f.total.value = String(r6(x.paidAmt)); const pm = String(old.notes || '').match(/Price ([\d.]+)/); f.price.value = pm ? pm[1] : String(r6(x.paidAmt / x.qty)); priceTouched = true; }
+    if (x.feeOther && acct(x.feeOther)) { feeOther = true; fillFeeAcct(); f.feeAcct.value = x.feeOther; }
     sync(''); if (x.feeAmt > 0) { f.feeMode.value = 'fixed'; f.fee.value = String(x.feeAmt); if ([...f.feeIn.options].some((o) => o.value === x.feeCur)) f.feeIn.value = x.feeCur; } sync('');
   }
   f.onsubmit = async (e) => {
     e.preventDefault(); const q = num(f.qty.value), a = acct(f.asset.value), c = acct(f.cash.value); if (!(q > 0) || !a || !c) { toast('Enter the quantity.'); return; }
-    const feeCur = f.feeIn.value || c.cur, feeAcct = feeCur === c.cur ? c : (feeCur === a.cur ? a : c), tot0 = num(f.total.value) || num(f.price.value) * q;
-    let fee = f.feeMode.value === 'none' ? 0 : Math.max(0, num(f.fee.value)); if (f.feeMode.value === 'pct') fee = side === 'convert' ? q * fee / 100 : (feeCur === a.cur ? q : tot0) * fee / 100;
+    const oa = feeOther ? acct(f.feeAcct.value) : null, feeCur = oa ? oa.cur : (f.feeIn.value || c.cur), feeAcct = oa || (feeCur === c.cur ? c : (feeCur === a.cur ? a : c)), tot0 = num(f.total.value) || num(f.price.value) * q;
+    let fee = f.feeMode.value === 'none' ? 0 : Math.max(0, num(f.fee.value));
+    if (f.feeMode.value === 'pct') { if (oa) { const baseHome = side === 'convert' ? q * (homeFx(db, a.cur) || 0) : tot0 * (homeFx(db, c.cur) || 0), rate = homeFx(db, oa.cur) || 0; if (!(baseHome > 0) || !(rate > 0)) { toast(`No price for ${oa.cur} yet. Use Fixed Amount and type the fee in ${oa.cur}.`); return; } fee = baseHome * fee / 100 / rate; } else fee = side === 'convert' ? q * fee / 100 : (feeCur === a.cur ? q : tot0) * fee / 100; }
     if (side === 'convert' && feeCur === c.cur && feeAcct === c) { /* fee on the paying balance */ }
     let t = num(f.total.value); const tid = old ? old.id : uid();
     let rec, trade, name;
     if (side === 'convert') {
       const b = acct(f.asset2.value), q2 = num(f.qty2.value); if (!b || b.id === a.id || !(q2 > 0)) { toast('Choose the other coin and the amount you receive.'); return; }
       const worth = num(f.worth.value) || q2 * (homeFx(db, b.cur) || 0); if (!(worth > 0)) { toast(`No price for ${b.cur} yet. Type what it is worth in ${HOME}.`); return; }
-      name = `Convert ${q} ${a.cur} to ${q2} ${b.cur}`; trade = { side, asset: a.id, qty: q, asset2: b.id, qty2: q2, valueHome: worth, paidCur: a.cur, paidAmt: q, feeHome: fee * (homeFx(db, feeAcct.cur) || 0), feeCur: feeAcct.cur, feeAmt: fee };
+      name = `Convert ${q} ${a.cur} to ${q2} ${b.cur}`; trade = { side, asset: a.id, qty: q, asset2: b.id, qty2: q2, valueHome: worth, paidCur: a.cur, paidAmt: q, feeHome: fee * (homeFx(db, feeAcct.cur) || 0), feeCur: feeAcct.cur, feeAmt: fee, ...(oa ? { feeOther: oa.id } : {}) };
       rec = { amount: q, cur: a.cur, fx: rateFor(db, a.cur) || 1, acct: a.id, toAcct: b.id, toAmount: q2 };
     } else {
       if (!(t > 0)) { const p = num(f.price.value); t = p * q; } if (!(t > 0)) { toast('Enter the price or the total.'); return; }
       const hv = t * (homeFx(db, c.cur) || 0), buy = side === 'buy';
-      name = `${buy ? 'Buy' : 'Sell'} ${q} ${a.cur}`; trade = { side, asset: a.id, qty: q, valueHome: hv, paidCur: c.cur, paidAmt: t, feeHome: fee * (homeFx(db, feeAcct.cur) || 0), feeCur: feeAcct.cur, feeAmt: fee };
+      name = `${buy ? 'Buy' : 'Sell'} ${q} ${a.cur}`; trade = { side, asset: a.id, qty: q, valueHome: hv, paidCur: c.cur, paidAmt: t, feeHome: fee * (homeFx(db, feeAcct.cur) || 0), feeCur: feeAcct.cur, feeAmt: fee, ...(oa ? { feeOther: oa.id } : {}) };
       rec = buy ? { amount: t, cur: c.cur, fx: rateFor(db, c.cur) || 1, acct: c.id, toAcct: a.id, toAmount: q } : { amount: q, cur: a.cur, fx: rateFor(db, a.cur) || 1, acct: a.id, toAcct: c.id, toAmount: t };
     }
     const bal = balances(db), src = acct(rec.acct); let have = bal.get(src.id) || 0; if (old && old.acct === src.id) have += old.amount + (old.fee > 0 && old.feeBy === 'from' ? old.fee : 0);   // what this same trade already took out does not count twice
     if (have < rec.amount - 1e-9 && !(await confirmDialog(`${src.name} only has ${money(have, src.cur)}. Record it anyway?`, 'Record anyway'))) return;
+    if (oa && fee > 0) { const hv = balances(db).get(oa.id) || 0; if (hv < fee - 1e-9 && !(await confirmDialog(`${oa.name} only has ${money(hv, oa.cur)} to pay the ${money(fee, oa.cur)} fee. Record it anyway?`, 'Record anyway'))) return; }
     commit((d) => {
       if (exchangeOf(a)) d.settings.lastPlat = exchangeOf(a);
       const tk = !old && d.settings.tickers && side !== 'convert' && d.settings.tickers[a.cur]; if (tk && q > 0 && t > 0) { tk.price = +(t / q).toPrecision(8); tk.quote = c.cur; tk.priceDate = when.slice(0, 10); pushHistory(tk, tk.price, c.cur, 'trade'); }   // a ticker you added is priced by its last trade
