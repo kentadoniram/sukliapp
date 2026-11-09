@@ -1,6 +1,7 @@
 // Buy / sell / convert for crypto, stocks and other investments. Recorded as a movement between your cash account and the holding,
 // marked as a trade (not ordinary spending), with fees saved as a financial loss and gains or losses worked out by average cost.
 import { accLabel, get, commit, uid, stamp, nowStamp, rateFor, homeFx, fmt, HOME, balances, findOrAddCategory, softDelete, exactAmt } from './core.js';
+import { seg } from './components.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
 import { inInvest, pushHistory, exchangeOf, addAsset } from './invest.js';
@@ -39,10 +40,10 @@ export function openTrade(pre = {}) {
     <div class="two"><label class="field hasall"><span id="l-qty">Quantity</span><input name="qty" inputmode="decimal" placeholder="e.g. 0.01"><button type="button" class="allbtn" data-all="qty" hidden>All</button></label><label class="field" id="f-price"><span id="l-price">Price</span><input name="price" inputmode="decimal"></label></div>
     <label class="field hasall" id="f-total"><span id="l-total">Total paid</span><input name="total" inputmode="decimal"><button type="button" class="allbtn" data-all="total" hidden>All</button></label>
     <div id="f-conv2" class="two" hidden><label class="field"><span id="l-qty2">Quantity</span><input name="qty2" inputmode="decimal"></label><label class="field"><span id="l-worth">Value in ${HOME} (Optional)</span><input name="worth" inputmode="decimal"></label></div>
-    <div class="feehead"><span class="feelab">Trading Fee</span><div class="seg sm three" role="group" aria-label="Trading fee"><button type="button" data-fm="none" class="on" aria-pressed="true">0 Fee</button><button type="button" data-fm="fixed" aria-pressed="false">Fixed Amount</button><button type="button" data-fm="pct" aria-pressed="false">% of the Trade</button></div></div>
+    <div class="feehead"><span class="feelab">Trading Fee</span>${seg({ options: [{ label: '0 Fee', value: 'none' }, { label: 'Fixed Amount', value: 'fixed' }, { label: '% of the Trade', value: 'pct' }], value: 'none', data: 'fm', aria: 'Trading fee' })}</div>
     <select name="feeMode" hidden aria-hidden="true"><option value="none">0 Fee</option><option value="fixed">Fixed Amount</option><option value="pct">% of the Trade</option></select>
     <div id="feedet" class="feedet" hidden><label class="field"><span id="l-fee">Fee Amount</span><input name="fee" inputmode="decimal" placeholder="0"></label>
-      <div class="field"><span>Fee Responsibility</span><div class="seg sm two" role="group" aria-label="Fee responsibility"><button type="button" data-resp="maker">Taken from Maker</button><button type="button" data-resp="taker">Taken from Taker</button></div></div></div>
+      <div class="field"><span>Fee Responsibility</span>${seg({ options: [{ label: 'Taken from Maker', value: 'maker' }, { label: 'Taken from Taker', value: 'taker' }], value: null, data: 'resp', aria: 'Fee responsibility' })}</div></div>
     <select name="feeIn" hidden aria-hidden="true"></select>
     <div id="slot-b"></div>
     <div class="field"><span>When</span><button type="button" class="whenbtn" id="tr-when"></button></div>

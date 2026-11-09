@@ -7,6 +7,7 @@ import {
   findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt, r9, qtyR, commitQuiet,
 } from './core.js';
 import { buildGraph, makeResolver, explain } from './simgraph.js';
+import { seg, toggle, box, button } from './components.js';
 import { nameRules } from './merchants.js';
 import { compareCard, relatedNames } from './compare.js';
 import { smartKind, openLoanPlanner } from './loans.js';
@@ -404,13 +405,11 @@ export function openEntry(opts = {}) {
     const sug = f.feeSuggested && !f.feeTouched;
     if (f.feeMode === 'none' && num(f.fee) > 0 && !f.feeModeSet) f.feeMode = 'fixed';   // a usual fee for the route, or a saved fee, opens the amount row
     const md = f.feeMode, who = (f.feeBy === 'to' ? b : a).name;
-    el.innerHTML = `<div class="field feebox ${sug ? 'suggested' : ''}"><div class="feehead"><span class="feelab">Fee (optional)</span><div class="seg sm three" role="group" aria-label="Fee">${[['none', '0 Fee'], ['fixed', 'Fixed Amount'], ['pct', '% of the Transfer']].map(([v, l]) => `<button type="button" data-e="feemode" data-v="${v}" class="${md === v ? 'on' : ''}" aria-pressed="${md === v}">${l}</button>`).join('')}</div></div>
+    el.innerHTML = `<div class="field feebox ${sug ? 'suggested' : ''}"><div class="feehead"><span class="feelab">Fee (optional)</span>${seg({ options: [['none', '0 Fee'], ['fixed', 'Fixed Amount'], ['pct', '% of the Transfer']].map(([value, label]) => ({ value, label })), value: md, e: 'feemode', aria: 'Fee' })}</div>
       ${sug && md !== 'none' ? '<small class="sugnote">usual fee for this route · change if different</small>' : ''}
       ${md === 'none' ? '' : `<div class="feedet"><label class="field"><span>${md === 'pct' ? 'Fee % of the Transfer (e.g. 0.1)' : `Fee Amount (${esc(cur)})`}</span><input id="f-fee" inputmode="decimal" autocomplete="off" aria-label="Fee" placeholder="0" value="${esc(md === 'pct' ? f.feePct : f.fee)}"></label>
         ${md === 'pct' ? `<small class="muted" id="feecalc">${feeCalcTxt()}</small>` : ''}
-        <div class="field"><span>Fee Responsibility</span><div class="seg sm two" role="group" aria-label="Fee responsibility">
-          <button type="button" data-e="feeby" data-v="from" title="Taken from the sender (${esc(a.name)})" class="${f.feeBy !== 'to' ? 'on' : ''}" aria-pressed="${f.feeBy !== 'to'}">Taken from Maker</button>
-          <button type="button" data-e="feeby" data-v="to" title="Taken from the receiver (${esc(b.name)})" class="${f.feeBy === 'to' ? 'on' : ''}" aria-pressed="${f.feeBy === 'to'}">Taken from Taker</button></div></div>
+        <div class="field"><span>Fee Responsibility</span>${seg({ options: [{ value: 'from', label: 'Taken from Maker', title: `Taken from the sender (${a.name})` }, { value: 'to', label: 'Taken from Taker', title: `Taken from the receiver (${b.name})` }], value: f.feeBy === 'to' ? 'to' : 'from', e: 'feeby', aria: 'Fee responsibility' })}</div>
         <select id="f-feecat" aria-label="Fee type">${f.feeCat ? '' : '<option value="">Fee type</option>'}${feeCatOptions(f.feeCat)}</select>
         <small class="muted feewho">Taken from ${esc(who)}</small></div>`}</div>`;
     const fs = el.querySelector('#f-feecat');
@@ -468,21 +467,21 @@ export function openEntry(opts = {}) {
     const el = $f('itemsrow');
     if (f.kind !== 'expense') { el.innerHTML = ''; return; }
     if (!f.showItems) { el.innerHTML = `<button type="button" class="linkbtn split" data-e="items-on">${ic('split')} Split into items (groceries, receipts)</button>`; return; }
-    el.innerHTML = `<div class="field items othbox itembox"><div class="othhead"><b>Items on This Receipt</b><button type="button" class="btn sm ghost" data-e="items-off">Cancel</button></div><small class="hint">Price of one, then tap + for more of the same.</small>
+    el.innerHTML = box({ title: 'Items on This Receipt', hint: 'Price of one, then tap + for more of the same.', cancel: { e: 'items-off' }, cls: 'items itembox', body: `
       <div class="chips itemsugg" id="itemsugg" aria-label="Items you often add"></div><datalist id="itemnames">${knownItemNames(get()).map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
       <div id="itemlist">${f.items.map((it, i) => `<div class="item" data-i="${i}">
         <input class="in-n" list="itemnames" autocomplete="off" placeholder="Item" value="${esc(it.n)}" aria-label="Item name">
         <select class="in-c" aria-label="Item category"><option value="">Same as above</option>${catOptions(it.cat, 'expense')}</select>
         <div class="inamt"><input class="in-a" inputmode="decimal" placeholder="${esc(itemPh())}" value="${esc(it.amt)}" aria-label="Price of one, you can type a sum like 120+45"><button type="button" class="calcin" data-e="item-calc" data-v="${i}" aria-label="Calculator: type a sum such as 120+45*2, then tap = " title="Calculator">=</button></div>
         <div class="qty" role="group" aria-label="Quantity"><button type="button" data-e="item-q" data-v="${i}:-1" aria-label="One less">−</button><b>${it.q > 0 ? it.q : 1}</b><button type="button" data-e="item-q" data-v="${i}:1" aria-label="One more">+</button></div>
-        ${it.disc && it.disc.on ? `<div class="idisc"><div class="seg sm two" role="group" aria-label="Discount type"><button type="button" data-e="disc-mode" data-v="${i}:amt" class="${it.disc.mode !== 'pct' ? 'on' : ''}" aria-pressed="${it.disc.mode !== 'pct'}">Amount</button><button type="button" data-e="disc-mode" data-v="${i}:pct" class="${it.disc.mode === 'pct' ? 'on' : ''}" aria-pressed="${it.disc.mode === 'pct'}">%</button></div><input class="in-d" inputmode="decimal" autocomplete="off" placeholder="${it.disc.mode === 'pct' ? 'e.g. 20' : 'e.g. 50'}" value="${esc(it.disc.v)}" aria-label="Discount ${it.disc.mode === 'pct' ? 'percent' : 'amount'}"></div>` : ''}
-        <div class="itail"><small class="muted iline">${itemLine(it)}</small><button type="button" class="tog ${it.disc && it.disc.on ? 'on' : ''}" data-e="item-disc" data-v="${i}" aria-pressed="${!!(it.disc && it.disc.on)}">Discount</button><button type="button" class="linkbtn rm" data-e="item-del" data-v="${i}" aria-label="Remove this item">Remove item</button></div></div>`).join('')}</div>
+        ${it.disc && it.disc.on ? `<div class="idisc">${seg({ options: [{ label: 'Amount', value: 'amt' }, { label: '%', value: 'pct' }], value: it.disc.mode === 'pct' ? 'pct' : 'amt', e: 'disc-mode', aria: 'Discount type', pack: (m) => `${i}:${m}` })}<input class="in-d" inputmode="decimal" autocomplete="off" placeholder="${it.disc.mode === 'pct' ? 'e.g. 20' : 'e.g. 50'}" value="${esc(it.disc.v)}" aria-label="Discount ${it.disc.mode === 'pct' ? 'percent' : 'amount'}"></div>` : ''}
+        <div class="itail"><small class="muted iline">${itemLine(it)}</small>${toggle({ label: 'Discount', on: !!(it.disc && it.disc.on), e: 'item-disc', v: i })}${button({ label: 'Remove item', kind: 'link', cls: 'rm', e: 'item-del', v: i, aria: 'Remove this item' })}</div></div>`).join('')}</div>
       <div class="itemfoot"><button type="button" class="linkbtn" data-e="item-add">+ Add item</button><span id="itemleft"></span></div>
-      <div class="taxbox"><div class="taxhead"><span class="feelab">Tax (added at the end)</span><button type="button" class="tog ${f.tax.on ? 'on' : ''}" data-e="tax-toggle" aria-pressed="${f.tax.on}">Tax</button></div>
-        ${f.tax.on ? `<div class="taxdet"><div class="seg sm two" role="group" aria-label="Tax type"><button type="button" data-e="tax-mode" data-v="pct" class="${f.tax.mode === 'pct' ? 'on' : ''}" aria-pressed="${f.tax.mode === 'pct'}">Rate %</button><button type="button" data-e="tax-mode" data-v="amt" class="${f.tax.mode !== 'pct' ? 'on' : ''}" aria-pressed="${f.tax.mode !== 'pct'}">Amount</button></div>
+      <div class="taxbox"><div class="taxhead"><span class="feelab">Tax (added at the end)</span>${toggle({ label: 'Tax', on: f.tax.on, e: 'tax-toggle' })}</div>
+        ${f.tax.on ? `<div class="taxdet">${seg({ options: [{ label: 'Rate %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: f.tax.mode === 'pct' ? 'pct' : 'amt', e: 'tax-mode', aria: 'Tax type' })}
           <input id="f-taxv" inputmode="decimal" autocomplete="off" placeholder="${f.tax.mode === 'pct' ? 'e.g. 10' : 'e.g. 150'}" value="${esc(f.tax.v)}" aria-label="Tax ${f.tax.mode === 'pct' ? 'rate percent' : 'amount'}">
           ${f.tax.mode === 'pct' ? '<div class="chips taxchips"><button type="button" class="chip" data-e="tax-set" data-v="10">10%</button><button type="button" class="chip" data-e="tax-set" data-v="8">8% (reduced)</button></div>' : ''}
-          <small class="muted" id="taxcalc">${taxText()}</small></div>` : ''}</div></div>`;
+          <small class="muted" id="taxcalc">${taxText()}</small></div>` : ''}</div>` });
     el.querySelectorAll('select.in-c').forEach((sel) => enhanceSelect(sel, { title: 'Category', addLabel: 'Add a new category', onAdd: () => openCategoryForm({ kind: 'expense', onDone: (c) => { sel.add(new Option(c.name, c.id)); sel.value = c.id; sel.dispatchEvent(new Event('change', { bubbles: true })); } }) }));
     updateItemLeft(); fillItemSugg();
   }
@@ -561,12 +560,12 @@ export function openEntry(opts = {}) {
     const ph = partsHint();      // below the keypad on purpose: a row appearing above it would move the keys while typing
     if (!f.showCounts) { el.innerHTML = ph + `<button type="button" class="linkbtn split" data-e="counts-on">${ic('split')} Count by group (drinks, snacks...)</button>` + othersHtml(); othSum(); return; }
     const db3 = get(), gs = Object.keys(groupsOf(db3));
-    el.innerHTML = ph + `<div class="field items othbox countbox"><div class="othhead"><b>Count by Group</b><button type="button" class="btn sm ghost" data-e="counts-off">Cancel</button></div><small class="hint">No names or prices, just how many.</small>
+    el.innerHTML = ph + box({ title: 'Count by Group', hint: 'No names or prices, just how many.', cancel: { e: 'counts-off' }, cls: 'items countbox', body: `
       <div id="countlist">${f.counts.map((c, i) => `<div class="cnt" data-i="${i}">
         <select class="cnt-g" aria-label="Group"><option value="">Choose group</option>${gs.map((g) => `<option value="${esc(g)}" ${c.g === g ? 'selected' : ''}>${esc(g)}${unitOf(db3, g) === 'kg' ? ' (kg)' : ''}</option>`).join('')}</select>
         <input class="cnt-n" inputmode="decimal" placeholder="${c.g && unitOf(db3, c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'}" value="${esc(c.n)}" aria-label="How many">
-        <button type="button" class="linkbtn rm" data-e="count-del" data-v="${i}" aria-label="Remove this group">Remove</button></div>`).join('')}</div>
-      <div class="itemfoot"><button type="button" class="linkbtn" data-e="count-add">+ Add group</button></div></div>` + othersHtml(); othSum();
+        ${button({ label: 'Remove', kind: 'link', cls: 'rm', e: 'count-del', v: i, aria: 'Remove this group' })}</div>`).join('')}</div>
+      <div class="itemfoot">${button({ label: '+ Add group', kind: 'link', e: 'count-add' })}</div>` }) + othersHtml(); othSum();
     el.querySelectorAll('select.cnt-g').forEach((sel) => enhanceSelect(sel, { title: 'Group', addLabel: 'Add a new group', onAdd: async () => {
       const nm = await promptDialog('New group', '', { okLabel: 'Next', hint: 'Group by price level, for example "drinks" and "ready meals" apart.' }); if (!nm || !nm.trim()) return;
       const kg = await confirmDialog('Is it counted by weight (kg)?', 'Yes, by weight', false, 'No, by pieces');
@@ -696,7 +695,7 @@ export function openEntry(opts = {}) {
   function renderCb() {
     const el = $f('cbrow'); if (!el) return; el.hidden = f.kind !== 'expense' || f.debt; if (el.hidden) return;
     if (!f.cb.on) { el.innerHTML = '<button type="button" class="linkbtn" data-e="cb-on">+ Cashback</button>'; return; }
-    el.innerHTML = `<span>Cashback</span><div class="seg sm two cbseg" role="group" aria-label="Cashback type"><button type="button" class="${f.cb.mode === 'fixed' ? 'on' : ''}" data-e="cb-mode" data-v="fixed" aria-pressed="${f.cb.mode === 'fixed'}">Fixed Amount</button><button type="button" class="${f.cb.mode === 'pct' ? 'on' : ''}" data-e="cb-mode" data-v="pct" aria-pressed="${f.cb.mode === 'pct'}">Percentage</button></div>
+    el.innerHTML = `<span>Cashback</span>${seg({ options: [{ label: 'Fixed Amount', value: 'fixed' }, { label: 'Percentage', value: 'pct' }], value: f.cb.mode, e: 'cb-mode', aria: 'Cashback type', cls: 'cbseg' })}
       <div class="two"><input id="f-cbv" inputmode="decimal" autocomplete="off" aria-label="${f.cb.mode === 'pct' ? 'Cashback percent' : 'Cashback amount'}" placeholder="${f.cb.mode === 'pct' ? 'e.g. 5' : 'e.g. 50'}" value="${esc(f.cb.v)}"><button type="button" class="chip" data-e="cb-off">Remove</button></div><small class="muted" id="cbcalc">${esc(cbText())}</small>`;
   }
   const updCb = () => { const c = $f('cbcalc'); if (c) c.textContent = cbText(); };

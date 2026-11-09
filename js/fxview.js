@@ -1,6 +1,7 @@
 // "Exchange Rate": one compact viewer (three-way summary) and one converter window, used by New entry, Transfer and Settings.
 import { get, HOME, BASE, CUR, rateFor, liveRate, priv } from './core.js';
 import { sheet, esc, toast } from './ui.js';
+import { button } from './components.js';
 import { isCoin as hasCoin, coinIcon } from './curpicker.js';
 import { fetchRates, ratesStatus } from './rates.js';
 
@@ -54,14 +55,14 @@ export function openConverter({ from: from0, to: to0, amount = 0, rate = 0, titl
   const nf = (x) => (x > 0 ? String(Number(x.toPrecision(10))) : '');
   const s = sheet(`<div class="fxconv">
     <p class="fxstat"><span class="fxsrc" id="cv-src"></span></p>
-    <div class="btnrow fxbtns" role="group" aria-label="How to set the rate"><button type="button" class="btn sm ghost" id="cv-latest" aria-pressed="false">Get Live Rate</button><button type="button" class="btn sm ghost on" id="cv-manual" aria-pressed="true">Set Amount</button><button type="button" class="btn sm ghost" id="cv-setrate" aria-pressed="false">Set Rate</button></div>
+    <div class="btnrow fxbtns" role="group" aria-label="How to set the rate">${button({ label: 'Get Live Rate', kind: 'ghost', size: 'sm', id: 'cv-latest', pressed: false })}${button({ label: 'Set Amount', kind: 'ghost', size: 'sm', id: 'cv-manual', on: true, pressed: true })}${button({ label: 'Set Rate', kind: 'ghost', size: 'sm', id: 'cv-setrate', pressed: false })}</div>
     <p class="status" id="cv-msg" role="status"></p>
     <div class="fxpanel fxp-live" id="cv-p-live" hidden><ul class="fxbig" id="cv-sum" aria-live="polite"></ul></div>
     <div class="fxpanel fxp-amount" id="cv-p-amount"><div class="fxpair"><label class="field"><span id="cv-la"></span><input id="cv-a" inputmode="decimal" autocomplete="off" value="${nf(a)}"></label>
       <button type="button" class="fxrev" id="cv-rev" aria-label="Swap the two amounts. The currencies stay where they are." title="Swap the two amounts">⇄</button>
       <label class="field"><span id="cv-lb"></span><input id="cv-b" inputmode="decimal" autocomplete="off" value="${nf(b)}"></label></div>
       <ul class="fxbig" id="cv-sum2" aria-live="polite"></ul></div>
-    <div class="fxpanel fxp-rate" id="cv-p-rate" hidden><div class="fxdir"><span class="fxdirlab" id="cv-dir"></span><button type="button" class="btn sm ghost" id="cv-dirswap" aria-label="Swap the rate direction">⇄ Swap Direction</button></div>
+    <div class="fxpanel fxp-rate" id="cv-p-rate" hidden><div class="fxdir"><span class="fxdirlab" id="cv-dir"></span>${button({ label: '⇄ Swap Direction', kind: 'ghost', size: 'sm', id: 'cv-dirswap', aria: 'Swap the rate direction' })}</div>
       <label class="field"><span id="cv-rlab">Exchange Rate</span><input id="cv-r" inputmode="decimal" autocomplete="off" value="${nf(r)}"></label>
       <ul class="fxbig fxinv" id="cv-inv" aria-live="polite"></ul></div>
     <p class="hint" id="cv-bill" hidden></p>

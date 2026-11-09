@@ -6,6 +6,7 @@
 import { get, commit, stamp, balances, softDelete, fmt, HOME, uid, homeFx, nowStamp, groupColor } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { hdr, coll } from './screens.js';
+import { button } from './components.js';
 import { openDatePicker } from './datepicker.js';
 import { picHtml, isImg } from './pictures.js';
 
@@ -53,18 +54,18 @@ const card = (db, g) => {
   facts.push(`<li><span>Still to save</span><b>${money(s.left)}</b></li>`);
   return `<div class="debtrow goalcard ${s.reached ? 'reached' : ''}" data-goal="${g.id}"><div class="dr-head"><div class="goalhead"><i class="badge" style="background:${col}">${picHtml(g.icon, autoIcon(g.name))}</i>
     <div><b>${esc(g.name)}</b><small class="muted">${termOf(g) === 'long' ? 'Long-term' : 'Short-term'}${s.linked ? ` · follows ${esc(s.acct.name)}` : ''}</small></div></div>
-    <button type="button" class="linkbtn" data-act="goal-edit" data-id="${g.id}">Edit</button></div>
+    ${button({ label: 'Edit', kind: 'link', act: 'goal-edit', attr: { 'data-id': g.id } })}</div>
     <div class="goalbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(s.pct)}"><i style="width:${s.pct.toFixed(1)}%"></i></div>
     <p class="goalnum"><b>${money(s.saved)}</b> of ${money(s.target)} · ${Math.round(s.pct)}%${s.reached ? ' · Reached!' : ''}</p>
     <ul class="calfacts">${facts.join('')}</ul>
     <div class="btnrow tight">${s.linked ? `<span class="hint">Progress follows the balance of ${esc(s.acct.name)}.</span>` : `<button type="button" class="btn sm" data-act="goal-add" data-id="${g.id}">Add Money</button><button type="button" class="btn sm ghost" data-act="goal-take" data-id="${g.id}">Take Out</button><button type="button" class="linkbtn" data-act="goal-hist" data-id="${g.id}">History</button>`}
-      ${s.reached ? `<button type="button" class="btn sm ghost" data-act="goal-done" data-id="${g.id}">Mark as Done</button>` : ''}</div></div>`;
+      ${s.reached ? `${button({ label: 'Mark as Done', kind: 'ghost', size: 'sm', act: 'goal-done', attr: { 'data-id': g.id } })}` : ''}</div></div>`;
 };
 export function savings(db) {
   const all = live(db.goals), open = all.filter((g) => !g.reachedAck), done = all.filter((g) => g.reachedAck);
-  const add = '<button type="button" class="btn" data-act="goal-new">Add a Goal</button>';
+  const add = button({ label: 'Add a Goal', kind: 'primary', act: 'goal-new' });
   if (!all.length) return `<div class="debtpage savingspage">${hdr('Savings')}<section class="cardbox"><h3>Save Toward Something</h3><p class="hint">A goal is something you are saving for: a trip, a laptop, a house, an emergency fund. Set a target amount, then watch your progress. You can follow an account's balance or add money by hand. A goal never moves money by itself.</p><div class="btnrow left">${add}</div>
-    <p class="hint">Ideas:</p><div class="chips">${IDEAS.map(([n]) => `<button type="button" class="chip" data-act="goal-new" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div></section></div>`;
+    <p class="hint">Ideas:</p><div class="chips">${IDEAS.map(([n]) => `${button({ label: n, kind: 'chip', act: 'goal-new', attr: { 'data-name': n } })}`).join('')}</div></section></div>`;
   const t = savingsTotals(db), short = open.filter((g) => termOf(g) === 'short'), long = open.filter((g) => termOf(g) === 'long');
   const sec = (title, l) => (l.length ? `<h2 class="subh">${title} (${l.length})</h2>${l.map((g) => card(db, g)).join('')}` : '');
   return `<div class="debtpage savingspage">${hdr('Savings')}
@@ -72,7 +73,7 @@ export function savings(db) {
       <div class="goalbar"><i style="width:${t.target > 0 ? Math.min(100, (t.saved / t.target) * 100).toFixed(1) : 0}%"></i></div>
       <div class="btnrow left">${add}</div></section>
     ${sec('Short-Term Goals', short)}${sec('Long-Term Goals', long)}
-    ${done.length ? coll('g-done', `Done (${done.length})`, `<div class="rows plain">${done.map((g) => `<div class="orow done"><span class="rmain"><strong>${esc(g.name)}</strong><small>${money(g.target)} reached</small></span><button type="button" class="linkbtn" data-act="goal-edit" data-id="${g.id}">Edit</button></div>`).join('')}</div>`) : ''}</div>`;
+    ${done.length ? coll('g-done', `Done (${done.length})`, `<div class="rows plain">${done.map((g) => `<div class="orow done"><span class="rmain"><strong>${esc(g.name)}</strong><small>${money(g.target)} reached</small></span>${button({ label: 'Edit', kind: 'link', act: 'goal-edit', attr: { 'data-id': g.id } })}</div>`).join('')}</div>`) : ''}</div>`;
 }
 
 // ---- add or edit a goal ----
@@ -89,7 +90,7 @@ function openGoal(id, name = '') {
   };
   const s = sheet(`<form novalidate>
     <label class="field"><span>What are you saving for?</span><input name="n" autocomplete="off" autocapitalize="words" value="${esc(g.name)}" placeholder="e.g. Japan Trip, Laptop, House" autofocus></label>
-    ${old ? '' : `<div class="chips">${IDEAS.map(([n]) => `<button type="button" class="chip" data-idea="${esc(n)}">${esc(n)}</button>`).join('')}</div>`}
+    ${old ? '' : `<div class="chips">${IDEAS.map(([n]) => `${button({ label: n, kind: 'chip', attr: { 'data-idea': n } })}`).join('')}</div>`}
     <div class="field"><span>Picture</span><button type="button" class="picbtn" id="g-pic" aria-label="Choose a picture for this goal"></button></div>
     <label class="field"><span>Target amount (${esc(HOME)})</span><input name="t" inputmode="decimal" autocomplete="off" value="${g.target ? g.target : ''}" placeholder="0.00"></label>
     <div class="field"><span>Short or long term</span><div class="chips" data-term><button type="button" class="chip" data-v="short">Short-term (within a year)</button><button type="button" class="chip" data-v="long">Long-term</button></div></div>
@@ -97,8 +98,8 @@ function openGoal(id, name = '') {
     <label class="field"><span>Follow an account (optional)</span><select name="a"><option value="">No, I add money myself</option>${accts.map((a) => `<option value="${a.id}" ${g.acct === a.id ? 'selected' : ''}>${esc(a.name)} (${esc(a.cur)})</option>`).join('')}</select></label>
     <p class="hint">If you follow an account, progress is that account's balance. Otherwise you add and take out money by hand.</p>
     <label class="field" id="g-startrow"><span>Already saved (optional)</span><input name="s" inputmode="decimal" autocomplete="off" value="${g.start || ''}" placeholder="0.00"></label>
-    ${old ? '<button type="button" class="linkbtn danger" data-del>Remove This Goal</button>' : ''}
-    <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">Save</button></div></form>`, { title: old ? 'Edit Goal' : 'New Goal' });
+    ${old ? button({ label: 'Remove This Goal', kind: 'danger-link', attr: { 'data-del': true } }) : ''}
+    <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}<button class="btn">Save</button></div></form>`, { title: old ? 'Edit Goal' : 'New Goal' });
   const q = (sel) => s.el.querySelector(sel), form = q('form');
   draw();
   s.el.addEventListener('click', async (e) => {
