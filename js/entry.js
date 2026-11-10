@@ -4,7 +4,7 @@ import { catIcon, ICONS, ICON_KEYS, iconKeyOf, iconSvg, guessIcon } from './cati
 import { GICONS, GKEYS, gsvg, pickOwnImage, merchPic } from './pictures.js';
 import {
   get, commit, undoLast, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
-  findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt, r9, qtyR, commitQuiet,
+  findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt, r9, qtyR, commitQuiet, isEarnAcct, EARN_MSG,
 } from './core.js';
 import { buildGraph, makeResolver, explain } from './simgraph.js';
 import { seg, toggle, box, button } from './components.js';
@@ -1059,6 +1059,7 @@ export function openEntry(opts = {}) {
     const amount0 = qtyR(num(f.amount), (acctOf(f.acct) || {}).cur); let amount = amount0, extraAmt = 0;
     if (!(amount0 > 0)) return fail('Enter an amount greater than zero.');
     if (!a) return fail('Choose an account.');
+    { const tb = f.kind === 'transfer' ? acctOf(f.toAcct) : null; if ((isEarnAcct(a) || isEarnAcct(tb)) && !(existing && (existing.internal || existing.earnDay || existing.auto || existing.earnAuto))) return fail(EARN_MSG); }
     if (f.flow === 'back' && !existing) {                           // paid back more than they owed: the extra is income (interest earned or other income), the rest lowers what they owe
       const b0 = acctOf(f.toAcct);
       if (b0 && a.cur === b0.cur) {

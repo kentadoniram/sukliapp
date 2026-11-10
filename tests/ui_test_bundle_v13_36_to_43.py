@@ -136,7 +136,7 @@ def part3(p,b,ctx,pg,errs):
 def part4(p,b,ctx,pg,errs):
     # v13.38: exact 9-decimal amounts (SOL, USDC), "All" leaves nothing behind
     pg.keyboard.press('Escape'); pg.keyboard.press('Escape'); pg.evaluate("location.hash='#/'"); pg.wait_for_timeout(300); del errs[:]; pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{delete d.settings.titleCase})})()")
-    pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='advanced';d.settings.titleCase=false;const mk=(id,w,cur,o)=>d.accounts.push(c.stamp({id,name:'Sx '+w+' '+cur,wallet:w,cur,type:'crypto',assetType:'crypto',exchange:'Sx',open:o,include:false,archived:false,invtab:true}));mk('s93','Spot','SOL',0.1);mk('e93','Earn','SOL',0);mk('u93','Spot','USDC',0.2);
+    pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='advanced';d.settings.titleCase=false;const mk=(id,w,cur,o)=>d.accounts.push(c.stamp({id,name:'Sx '+w+' '+cur,wallet:w,cur,type:'crypto',assetType:'crypto',exchange:'Sx',open:o,include:false,archived:false,invtab:true}));mk('s93','Spot','SOL',0.1);mk('e93','Funding','SOL',0);mk('u93','Spot','USDC',0.2);
       d.txs.push(c.stamp({id:'i1',kind:'income',date:c.nowStamp(),acct:'s93',amount:0.2,cur:'SOL',fx:1,name:'a'}));d.txs.push(c.stamp({id:'i2',kind:'income',date:c.nowStamp(),acct:'s93',amount:1.123456789,cur:'SOL',fx:1,name:'b'}));d.txs.push(c.stamp({id:'i3',kind:'income',date:c.nowStamp(),acct:'s93',amount:0.000000001,cur:'SOL',fx:1,name:'c'}))})})()""")
     r=pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.balances(c.get()).get('s93')})()"); ok('float sum is exact %s'%r, r==1.42345679)
     # All in the entry form, then save

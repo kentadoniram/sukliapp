@@ -31,7 +31,7 @@ with sync_playwright() as p:
     # picker
     pg.evaluate("(async()=>{const m=await import('/js/acctpicker.js');window.__pick=null;m.openAccountPicker({title:'Move to'},id=>window.__pick=id)})()"); pg.wait_for_selector('#aclist .row')
     names=pg.evaluate("[...document.querySelectorAll('#aclist .row strong')].map(x=>x.innerText.trim())")
-    ok('picker lists Bitget (Spot) USDT, Bitget (Earn) USDT, Binance (Margin) USDT', all(n in names for n in ['Bitget (Spot) USDT','Bitget (Earn) USDT','Binance (Margin) USDT']))
+    ok('picker lists Bitget (Spot) USDT and Binance (Margin) USDT but not Earn', all(n in names for n in ['Bitget (Spot) USDT','Binance (Margin) USDT']) and 'Bitget (Earn) USDT' not in names)
     pg.screenshot(path='/tmp/inv_picker.png')
     ok('no errors %s'%errs, not errs)
 print('fails',res.count(False))

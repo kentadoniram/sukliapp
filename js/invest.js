@@ -10,6 +10,7 @@ import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
 import { pendingReview } from './tradereview.js';
 import { tokenPerformance } from './tokenperf.js';
+import { button } from './components.js';
 
 const live = (l) => l.filter((x) => !x.deleted);
 // The Investments tab can show its values in its own currency (Settings: invCur), apart from the home currency used elsewhere.
@@ -64,6 +65,8 @@ const STABLE = ['USDT', 'USDC', 'DAI', 'FDUSD', 'TUSD', 'USDD', 'PYUSD', 'RLUSD'
 export const riskOf = (db, a) => { const tk = (db.settings.tickers || {})[a.cur] || {}; if (tk.riskGroup) return tk.riskGroup; const t = assetTypeOf(a) || tk.assetType || '';
   if (STABLE.includes(a.cur)) return 'Stablecoins'; if (t === 'stock' || t === 'etf') return 'Stocks and ETFs'; if (t === 'fund' || t === 'bond') return 'Funds and bonds';
   if (t === 'crypto' || a.type === 'crypto') return MAJOR.includes(a.cur) ? 'Major coins' : 'High-volatility coins'; return 'Other'; };
+const wtabs = () => { try { return JSON.parse(localStorage.getItem('sukli-wtab') || '{}'); } catch { return {}; } };
+ACT['inv-wtab'] = (el) => { try { localStorage.setItem('sukli-wtab', JSON.stringify({ ...wtabs(), [el.dataset.ex]: el.dataset.w })); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
 ACT['inv-group'] = (el) => { try { localStorage.setItem('sukli-invgroup', el.dataset.v); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
 const COINS = ['USDT', 'USDC', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'TON', 'ADA'];
 
@@ -214,7 +217,11 @@ export function investments(db) {
   const walletBlocks = (list, t) => { const srt = (l) => l.slice().sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0));
     const ws = new Map(); for (const a of list) { const w = a.exchange ? walletOf(a) : ''; if (!ws.has(w)) ws.set(w, []); ws.get(w).push(a); }
     if (mode !== 'platform' || (ws.size === 1 && (ws.has('Spot') || ws.has('')))) return `<div class="rows plain">${srt(list).map((a) => holding(a, t)).join('')}</div>`;
-    return [...ws.entries()].sort((x, y) => (WALLETS.indexOf(x[0]) + 1 || 99) - (WALLETS.indexOf(y[0]) + 1 || 99) || x[0].localeCompare(y[0])).map(([w, l]) => `<h4 class="wlt w-${esc((w || 'other').toLowerCase())}">${esc(w || 'Other')} <small class="muted">${money(exSum(l))}${earnedTxt(l)}</small></h4><div class="rows plain">${srt(l).map((a) => holding(a, t)).join('')}</div>`).join(''); };
+    // one wallet at a time: a row of tabs (Spot, Margin, Futures, Earn…) and only the chosen wallet's assets below
+    const order = [...ws.entries()].sort((x, y) => (WALLETS.indexOf(x[0]) + 1 || 99) - (WALLETS.indexOf(y[0]) + 1 || 99) || x[0].localeCompare(y[0])), ex = exchangeOf(list[0]) || '';
+    const pick = (wtabs()[ex] && ws.has(wtabs()[ex])) ? wtabs()[ex] : ws.has('Spot') ? 'Spot' : order[0][0], l = ws.get(pick);
+    return `<div class="wtabs" role="tablist" aria-label="Account type">${order.map(([w, x]) => `${button({ label: w || 'Other', kind: 'chip', cls: `wtab w-${(w || 'other').toLowerCase().replace(/[^a-z0-9]/g, '')}`, on: w === pick, act: 'inv-wtab', attr: { role: 'tab', 'aria-selected': String(w === pick), 'data-ex': ex, 'data-w': w } })}`).join('')}</div>
+      <p class="hint wtsum">${esc(pick || 'Other')}: ${money(exSum(l))}${earnedTxt(l)}${pick === 'Earn' ? ' · Earn only collects interest. Coins move in and out with Internal Transfer.' : ''}</p><div class="rows plain">${srt(l).map((a) => holding(a, t)).join('')}</div>`; };
   const holding = (a, tot) => { const b = bal.get(a.id) || 0, v = val(db, a, b), ok = priced(db, a), px = homeFx(db, a.cur) || 0;
     const ic = assetIcon(a, tickers); return `<button class="row acct hold" data-act="acct" data-id="${a.id}"><i class="badge sm ${ic.coin ? 'coinbadge' : ''}" style="background:${ic.coin ? 'transparent' : ic.manual ? groupColor(a.type) : 'var(--xfer)'}">${ic.html}</i>
       <span class="rmain"><strong>${a.cur === 'USD' || a.cur === HOME ? esc(a.name) : `${esc((tickers[a.cur] && tickers[a.cur].ticker) || a.cur)} <small class="muted">${esc(curName(a.cur) || '')}${a.market ? ` · ${esc(a.market)}` : ''}</small>`}</strong><small>${qty(b, a.cur)}${paidTxt(a)}${ok && a.cur !== HOME ? ` · price ${money(px)}` : ''}${tot > 0 && ok ? ` · ${Math.round((v / tot) * 100)}%` : ''}${basis(a)}</small></span>

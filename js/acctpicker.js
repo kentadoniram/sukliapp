@@ -2,7 +2,7 @@
 // so picking an account also settles the currency if you had not chosen it yet.
 import { acctPic } from './pictures.js';
 import { assetIcon } from './curpicker.js';
-import { platformOf, get, groupColor, groupLetter, accLabel, walletOf, balances, fmt, priv } from './core.js';
+import { platformOf, isEarnAcct, get, groupColor, groupLetter, accLabel, walletOf, balances, fmt, priv } from './core.js';
 // investment accounts first when the transfer starts from an investment account or from the Investments tab; then banks, cash, e-wallets
 const INV = (a) => !!a && (a.type === 'crypto' || a.type === 'invest' || !!a.invtab);
 import { typeNames } from './accpage.js';
@@ -12,7 +12,7 @@ import { isLiability, isOwed } from './finance.js';
 
 export function openAccountPicker({ selected = '', skip = '', cur = '', only = '', title = 'Account', add = null }, onPick) {
   const db = get(), bal = balances(db);
-  const list = db.accounts.filter((a) => !a.deleted && (!a.archived || a.id === selected) && (!only || (only === 'debt' ? isLiability(a) : only === 'owed' ? isOwed(a) : !isLiability(a) && !isOwed(a))));   // the account on the other side stays in the list (greyed), so it never looks missing
+  const list = db.accounts.filter((a) => !a.deleted && (!a.archived || a.id === selected) && (!isEarnAcct(a) || a.id === selected) && (!only || (only === 'debt' ? isLiability(a) : only === 'owed' ? isOwed(a) : !isLiability(a) && !isOwed(a))));   // the account on the other side stays in the list (greyed), so it never looks missing
   const curs = [...new Set(list.map((a) => a.cur))];
   let chip = cur && curs.includes(cur) ? cur : '', fold = false;
   try { fold = localStorage.getItem('sukli-acchips-fold') === '1'; } catch { /* private window: stay open */ }

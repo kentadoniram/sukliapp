@@ -11,21 +11,21 @@ with sync_playwright() as p:
     # Investments tab shows wallets under the platform
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(700)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
-    h=pg.evaluate("[...document.querySelectorAll('.wlt')].map(e=>e.textContent.trim().split(' ')[0])")
+    h=pg.evaluate("[...document.querySelectorAll('.wtab')].map(e=>e.textContent.trim())")
     ok('platform card lists wallets (Spot, Futures, Earn)', {'Spot','Futures','Earn'}<=set(h))
     # transfer from KuCoin: From = USDT spot, To list still shows the other USDT and every wallet
     pg.evaluate("""(async()=>{const m=await import('/js/entry.js');m.openEntry({preset:{kind:'transfer',acct:'k1'}})})()""")
     pg.wait_for_selector('[data-which=to]'); pg.click('[data-which=to]'); pg.wait_for_selector('#aclist .row')
     names=pg.evaluate("[...document.querySelectorAll('#aclist .row')].map(r=>[r.dataset.id,r.disabled])")
     ids=[i for i,_ in names]
-    ok('the other USDT (Earn) is offered as a destination', 'k2' in ids and dict(names)['k2'] is False)
+    ok('Earn is not offered as a destination (Internal Transfer only)', 'k2' not in ids)
     ok('the From account stays visible but greyed (never "missing")', 'k1' in ids and dict(names)['k1'] is True)
     heads=pg.evaluate("[...document.querySelectorAll('#aclist h3')].map(h=>h.textContent)")
-    ok('picker is grouped Platform · wallet', 'KuCoin · Earn' in heads and 'KuCoin · Spot' in heads and 'KuCoin · Futures' in heads)
-    pg.fill('#acq','kucoin earn'); pg.wait_for_timeout(300)
-    ok('search "kucoin earn" finds the Earn USDT even though it is named USDT', pg.locator('#aclist .row:not([disabled])').count()==1)
+    ok('picker is grouped Platform · wallet, without Earn', 'KuCoin · Earn' not in heads and 'KuCoin · Spot' in heads and 'KuCoin · Futures' in heads)
+    pg.fill('#acq','kucoin futures'); pg.wait_for_timeout(300)
+    ok('search "kucoin futures" finds the Futures USDT even though it is named USDT', pg.locator('#aclist .row:not([disabled])').count()==1)
     pg.click('#aclist .row:not([disabled])'); pg.wait_for_timeout(300)
-    ok('To button says where it is', 'KuCoin' in pg.inner_text('[data-which=to]') and 'Earn' in pg.inner_text('[data-which=to]'))
+    ok('To button says where it is', 'KuCoin' in pg.inner_text('[data-which=to]') and 'Futures' in pg.inner_text('[data-which=to]'))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # account form: wallet field
     pg.evaluate("""(async()=>{const u=await import('/js/ui.js');u.ACT.acct({dataset:{id:'k2'}})})()""")

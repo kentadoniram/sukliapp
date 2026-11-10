@@ -2,7 +2,7 @@
 import { catIcon } from './caticons.js';
 import { button } from './components.js';
 import { pickAll } from './picker.js';
-import { openDateOf, openDates, WALLETS, WALLET_INFO, walletOf } from './core.js';
+import { isEarnAcct, openDateOf, openDates, WALLETS, WALLET_INFO, walletOf } from './core.js';
 import { tipBtn, calcHtml, bindCalc, COMP_LABEL, rateAt, hasRate } from './interest.js';
 import { exchangeOf, canonPlatform, nearPlatform, platformNames } from './invest.js';
 import { softDelete, subscribe } from './core.js';
@@ -318,7 +318,7 @@ export function openAccountDetail(id) {
       <div class="gdhead"><span class="muted">${esc(typeNames[a.type] || a.type)} · ${a.cur}</span><b class="big ${bal < 0 ? 'neg' : ''}">${money(bal, a.cur)}</b>
         ${a.cur !== HOME && r ? `<span class="muted">≈ ${money(bal * r)} at ${fmt(r, HOME)} per ${a.cur}</span>` : ''}<strong class="adname">${esc(a.name)}</strong> <button type="button" class="linkbtn sm" data-ad="reclass">Change type</button></div>
       ${openLine}
-      <div class="btnrow tight"><button class="btn sm" data-ad="add">Add entry</button>${isLiability(a) ? `<button class="btn sm ghost" data-act="loan-charge" data-id="${a.id}">Add charge</button>` : ''}
+      <div class="btnrow tight">${isEarnAcct(a) ? '' : '<button class="btn sm" data-ad="add">Add entry</button>'}${isLiability(a) ? `<button class="btn sm ghost" data-act="loan-charge" data-id="${a.id}">Add charge</button>` : ''}
         ${['asset', 'invest', 'other'].includes(a.type) ? '<button class="btn sm ghost" data-ad="reval">Update value</button>' : ''}
         <button class="btn sm ghost" data-ad="edit">Edit</button></div>
       ${a.exchange && a.type === 'crypto' && walletOf(a) === 'Earn' ? `<div class="btnrow tight subbtn"><button class="btn sm ghost" data-act="earn-open" data-id="${a.id}">Subscription Settings</button><label class="switch" aria-label="Subscription Settings On or Off"><input type="checkbox" data-act="earn-toggle" data-id="${a.id}" ${a.earn && a.earn.on ? 'checked' : ''}><span>${a.earn && a.earn.on ? 'On' : 'Off'}</span></label></div>` : ''}
@@ -367,7 +367,7 @@ export function openAccountDetail(id) {
           ${m.overdue ? '<p class="hint warnline">The due date has passed and some of this statement is still unpaid.</p>' : ''}<p class="hint">Entries count on their posted date when one is set. Payments before the statement date are counted in that period.</p></div>`; })()}
       <div class="rows plain">${rowsHtml || '<p class="empty">No entries for this filter.</p>'}</div>
       ${shownH.length > st.more ? `<button class="btn ghost wide" data-ad="more">Show more (${shownH.length - st.more} left)</button>` : ''}
-      <div class="adfab ${st.fab ? 'open' : ''}">${st.fab ? `<div class="adfab-menu" role="menu">${(inInvestAcct(a) ? ['trade', ...(a.exchange ? ['internal'] : []), 'transfer', 'expense', 'income'] : ['expense', 'income', 'transfer']).map((k) => `<button type="button" role="menuitem" data-ad="fab-new" data-v="${k}">${k === 'transfer' ? 'Transfer/Move' : k === 'internal' ? 'Internal Transfer' : k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</div>` : ''}<button type="button" class="adfab-btn" data-ad="fab" aria-label="Add to this account" aria-expanded="${!!st.fab}">${ic(st.fab ? 'x' : 'plus')}</button></div>`;
+      <div class="adfab ${st.fab ? 'open' : ''}">${st.fab ? `<div class="adfab-menu" role="menu">${(isEarnAcct(a) ? ['internal'] : inInvestAcct(a) ? ['trade', ...(a.exchange ? ['internal'] : []), 'transfer', 'expense', 'income'] : ['expense', 'income', 'transfer']).map((k) => `<button type="button" role="menuitem" data-ad="fab-new" data-v="${k}">${k === 'transfer' ? 'Transfer/Move' : k === 'internal' ? 'Internal Transfer' : k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</div>` : ''}<button type="button" class="adfab-btn" data-ad="fab" aria-label="Add to this account" aria-expanded="${!!st.fab}">${ic(st.fab ? 'x' : 'plus')}</button></div>`;
   };
   draw();
   const un = (() => { let q = false; const f = () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; if (root.isConnected) draw(); }); }; window.addEventListener('sukli-render', f); const u2 = subscribe(f); return () => { window.removeEventListener('sukli-render', f); u2(); }; })();

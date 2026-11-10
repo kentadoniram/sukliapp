@@ -1,6 +1,6 @@
 // Buy / sell / convert for crypto, stocks and other investments. Recorded as a movement between your cash account and the holding,
 // marked as a trade (not ordinary spending), with fees saved as a financial loss and gains or losses worked out by average cost.
-import { accLabel, get, commit, uid, stamp, nowStamp, rateFor, homeFx, fmt, HOME, balances, findOrAddCategory, softDelete, exactAmt } from './core.js';
+import { accLabel, isEarnAcct, get, commit, uid, stamp, nowStamp, rateFor, homeFx, fmt, HOME, balances, findOrAddCategory, softDelete, exactAmt } from './core.js';
 import { seg } from './components.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
@@ -20,7 +20,7 @@ export function openTrade(pre = {}) {
     const x = old.trade, kid = db.txs.find((q) => !q.deleted && q.tradeOf === old.id), feeAcct = old.fee > 0 ? (old.feeBy === 'from' ? old.acct : old.toAcct) : kid ? kid.acct : '';
     pre = { ...pre, side: x.side, asset: x.asset, asset2: x.asset2, cashAcct: x.side === 'buy' ? old.acct : x.side === 'sell' ? old.toAcct : (feeAcct || ''), edit: old.id };
   }
-  const hold = live(db.accounts).filter((a) => inInvest(a) && !isLiability(a)), cash = live(db.accounts).filter((a) => !isLiability(a));
+  const hold = live(db.accounts).filter((a) => inInvest(a) && !isLiability(a) && !isEarnAcct(a)), cash = live(db.accounts).filter((a) => !isLiability(a) && !isEarnAcct(a));
   if (!hold.length) { toast('Add a coin or an investment first (Investments, Add).'); return; }
   const lastCash = cash.find((a) => a.id === db.settings.lastAcct && !inInvest(a)) || cash.find((a) => !inInvest(a)) || cash[0];
   const opt = (l, sel) => l.map((a) => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(accLabel(a))} · ${esc(a.cur)}</option>`).join('');
