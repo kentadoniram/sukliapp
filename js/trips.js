@@ -63,6 +63,16 @@ export function dailyNeeds(db, days = 90) {
   const n = Math.min(days, Math.max(1, Math.round((new Date(last + 'T12:00:00') - new Date(from + 'T12:00:00')) / 864e5) + 1));
   return { perDay: sum / n, perMonth: sum / n * 30, days: n, left };
 }
+// Home card: what an ordinary day costs (last 90 days, trips and fixed bills left out) next to this month so far
+export function usualCard(db) {
+  let u, m; try { u = dailyNeeds(db); } catch { return ''; }
+  if (!(u.perDay > 0) || u.days < 14) return '';
+  const day = parseInt(nowStamp().slice(8, 10), 10); try { m = day >= 5 ? dailyNeeds(db, day) : null; } catch { m = null; }
+  const diff = m && m.perDay > 0 ? (m.perDay - u.perDay) / u.perDay : null;
+  const word = diff == null ? '' : Math.abs(diff) < 0.1 ? 'About the same as usual.' : diff > 0 ? `${Math.round(diff * 100)}% above your usual.` : `${Math.round(-diff * 100)}% below your usual.`;
+  return `<section class="card usualcard"><h2>Your Usual Spending</h2><ul class="calfacts"><li><span>An ordinary day</span><b>${money(u.perDay)}</b></li><li><span>An ordinary month</span><b>${money(u.perMonth)}</b></li>${m && m.perDay > 0 ? `<li><span>This month so far, per day</span><b>${money(m.perDay)}</b></li>` : ''}</ul>
+    <p class="hint">${word} Worked out from your last ${u.days} days. Trips, events and fixed bills such as rent are left out (${money(u.left)}). It is a guide, not a limit.</p></section>`;
+}
 // Home card: the newest trip or event Sukli found (or the one you named), with what it cost and a way into the full page.
 // When Location is on and your phone already allows it, a line says if you are far from home right now (a clue only: it never starts a trip by itself).
 export function latestTripCard(db) {
