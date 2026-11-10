@@ -38,17 +38,25 @@ export function assetChoices(db) {
 // the account for this coin in this account type of this exchange; made (empty) when missing
 // every trading wallet (Spot, Margin, Futures, Options) of a crypto platform always has a USDT line, even at zero, so it can be picked in a trade or transfer.
 // Earn is left out (passive). A USDT line you deleted yourself is not brought back. Returns how many were made.
-export const TRADING_WALLETS = ['Spot', 'Margin', 'Futures', 'Options'];
-export function ensureUsdt() {
-  const db = get(), made = [], seen = new Map();
+export const TRADING_WALLETS = ['Spot', 'Margin', 'Futures', 'Options', 'Other'];
+// the empty USDT lines a db is missing (Spot always; Margin, Futures, Options and Other where the platform has that wallet)
+function usdtGaps(db) {
+  const made = [], seen = new Map();
   for (const a of db.accounts) if (a.exchange && a.type === 'crypto' && !a.archived) { const k = a.exchange.toLowerCase(); if (!seen.has(k)) seen.set(k, { ex: a.exchange, w: new Set(['Spot']) }); if (!a.deleted) seen.get(k).w.add(walletOf(a)); }
   for (const { ex, w } of seen.values()) for (const wal of w) {
     if (!TRADING_WALLETS.includes(wal)) continue;
     if (db.accounts.some((x) => x.cur === 'USDT' && (x.exchange || '').toLowerCase() === ex.toLowerCase() && walletOf(x).toLowerCase() === wal.toLowerCase())) continue;
     made.push({ ex, wal });
   }
+  return made;
+}
+const usdtAcct = ({ ex, wal }) => stamp({ id: uid(), name: `${ex}${wal === 'Spot' ? '' : ' ' + wal} USDT`, wallet: wal, cur: 'USDT', type: 'crypto', assetType: 'crypto', exchange: ex, open: 0, include: false, archived: false, invtab: true });
+// adds them straight into a db (used by the importer before it saves)
+export function addMissingUsdt(db) { const m = usdtGaps(db); for (const g of m) db.accounts.push(usdtAcct(g)); return m.length; }
+export function ensureUsdt() {
+  const made = usdtGaps(get());
   if (!made.length) return 0;
-  commitQuiet((d) => { for (const { ex, wal } of made) d.accounts.push(stamp({ id: uid(), name: `${ex}${wal === 'Spot' ? '' : ' ' + wal} USDT`, wallet: wal, cur: 'USDT', type: 'crypto', assetType: 'crypto', exchange: ex, open: 0, include: false, archived: false, invtab: true })); });
+  commitQuiet((d) => { for (const g of made) d.accounts.push(usdtAcct(g)); });
   return made.length;
 }
 export function ensureAsset(platform, cur, wallet = 'Spot') {

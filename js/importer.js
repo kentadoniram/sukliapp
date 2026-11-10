@@ -1,6 +1,7 @@
 // Reading and writing CSV in the same column layout as a Bluecoins export.
 import { isSukliCsv, importSukliCSV } from './sukliCsv.js';
-import { ensureCurrency, uid, stamp, findOrAddCategory, accountMap, catMap, balances, BASE, accLabel } from './core.js';
+import { ensureCurrency, uid, stamp, findOrAddCategory, accountMap, catMap, balances, BASE, accLabel, platformOf } from './core.js';
+import { addMissingUsdt } from './tokens.js';
 
 export function parseCSV(text) {
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
@@ -24,6 +25,20 @@ export function parseCSV(text) {
   return rows;
 }
 
+// Which wallet of a platform a Bluecoins account name points to. Anything that does not clearly say which one it is becomes Other
+// (never Spot by guess), so the imported record keeps its data and can be sorted out later.
+export function guessWallet(name) {
+  const n = String(name || '').toLowerCase();
+  if (/\bearn\b|\bstaking\b|\bsavings\b/.test(n)) return 'Earn';
+  if (/\bmargin\b/.test(n)) return 'Margin';
+  if (/\bfutures?\b|\bperp/.test(n)) return 'Futures';
+  if (/\boptions?\b/.test(n)) return 'Options';
+  if (/\bfunding\b/.test(n)) return 'Funding';
+  if (/\betf\b/.test(n)) return 'ETF';
+  if (/\btradfi\b/.test(n)) return 'TradFi';
+  if (/\bspot\b/.test(n)) return 'Spot';
+  return 'Other';
+}
 export function guessAccountType(name) {
   const n = name.toLowerCase();
   if (/loan|receivable|reimburse/.test(n)) return 'loan';
@@ -130,6 +145,7 @@ export function importBluecoins(db, text, opts = {}) {
     if (!a) {
       const type = (opts.types && opts.types[lab + '|' + cu]) || guessAccountType(nm);
       a = stamp({ id: uid(), name: lab, baseName: nm, cur: cu, type, open: 0, include: SPENDABLE_TYPES.has(type), archived: false, guessed: true });
+      if (type === 'crypto') { const ex = platformOf(a); a.wallet = guessWallet(nm); a.invtab = true; if (ex) a.exchange = ex; }   // an investment account: its wallet is read from the name, otherwise Other
       db.accounts.push(a);
       accts.set(lab + '|' + cu, a);
       newAcct.add(a.id);
@@ -241,6 +257,7 @@ export function importBluecoins(db, text, opts = {}) {
   for (const a of db.accounts) {
     if (newAcct.has(a.id) && ['bank', 'cash', 'ewallet'].includes(a.type) && (bal.get(a.id) || 0) < -500) { a.type = 'loan'; a.include = false; }
   }
+  stats.usdtAdded = addMissingUsdt(db);
   stats.categories = db.categories.length - catsBefore;
   stats.noOpening = [...seenAcct].filter((id) => !hasOpen.has(id) && !((db.accounts.find((x) => x.id === id) || {}).open)).length;   // accounts in this file with no opening balance anywhere
   return stats;
