@@ -6,7 +6,7 @@ import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
 import { inInvest, pushHistory, exchangeOf, addAsset } from './invest.js';
 import { enhanceSelect } from './picker.js';
-import { TOP_TOKENS, ensureAsset } from './tokens.js';
+import { TOP_TOKENS, ensureAsset, ensureUsdt } from './tokens.js';
 import { openDatePicker } from './datepicker.js';
 
 const money = (n, cur = HOME) => fmt(n, cur);
@@ -15,6 +15,7 @@ const live = (l) => l.filter((x) => !x.deleted && !x.archived);
 const r6 = (n) => Math.round(n * 1e6) / 1e6;
 
 export function openTrade(pre = {}) {
+  try { ensureUsdt(); } catch { /* keep going */ }
   const db = get(), old = pre.edit ? db.txs.find((q) => q.id === pre.edit && !q.deleted && q.trade) : null;
   if (old) {   // editing: start from what was saved
     const x = old.trade, kid = db.txs.find((q) => !q.deleted && q.tradeOf === old.id), feeAcct = old.fee > 0 ? (old.feeBy === 'from' ? old.acct : old.toAcct) : kid ? kid.acct : '';

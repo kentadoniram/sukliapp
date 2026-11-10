@@ -1,7 +1,7 @@
 // The hierarchy in Sukli:  Investment type (Crypto, ETF, Government Bonds) > Exchange (Binance, Bybit, Bitget) > Account (Spot, Margin, Earn, ETF, TradFi, Options…) > Asset (USDT, BTC, BNB…).
 // An exchange has accounts; an account holds assets; the SAME list of assets is available in every account of every exchange. A coin is never "added to an exchange":
 // pick it where you need it and Sukli makes its (empty) balance in that account the first time.
-import { get, commit, uid, stamp, walletOf, CUR, CRYPTO } from './core.js';
+import { get, commit, commitQuiet, uid, stamp, walletOf, CUR, CRYPTO } from './core.js';
 
 // the 50 biggest coins by market value (a snapshot; rankings move, so any other coin can still be added by its code)
 export const TOP_TOKENS = [
@@ -36,6 +36,21 @@ export function assetChoices(db) {
 }
 
 // the account for this coin in this account type of this exchange; made (empty) when missing
+// every trading wallet (Spot, Margin, Futures, Options) of a crypto platform always has a USDT line, even at zero, so it can be picked in a trade or transfer.
+// Earn is left out (passive). A USDT line you deleted yourself is not brought back. Returns how many were made.
+export const TRADING_WALLETS = ['Spot', 'Margin', 'Futures', 'Options'];
+export function ensureUsdt() {
+  const db = get(), made = [], seen = new Map();
+  for (const a of db.accounts) if (a.exchange && a.type === 'crypto' && !a.archived) { const k = a.exchange.toLowerCase(); if (!seen.has(k)) seen.set(k, { ex: a.exchange, w: new Set(['Spot']) }); if (!a.deleted) seen.get(k).w.add(walletOf(a)); }
+  for (const { ex, w } of seen.values()) for (const wal of w) {
+    if (!TRADING_WALLETS.includes(wal)) continue;
+    if (db.accounts.some((x) => x.cur === 'USDT' && (x.exchange || '').toLowerCase() === ex.toLowerCase() && walletOf(x).toLowerCase() === wal.toLowerCase())) continue;
+    made.push({ ex, wal });
+  }
+  if (!made.length) return 0;
+  commitQuiet((d) => { for (const { ex, wal } of made) d.accounts.push(stamp({ id: uid(), name: `${ex}${wal === 'Spot' ? '' : ' ' + wal} USDT`, wallet: wal, cur: 'USDT', type: 'crypto', assetType: 'crypto', exchange: ex, open: 0, include: false, archived: false, invtab: true })); });
+  return made.length;
+}
 export function ensureAsset(platform, cur, wallet = 'Spot') {
   const low = platform.toLowerCase(), same = (d) => d.accounts.find((x) => !x.deleted && x.cur === cur && (x.exchange || '').toLowerCase() === low && walletOf(x).toLowerCase() === wallet.toLowerCase());
   const have = same(get()); if (have) return have;

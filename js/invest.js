@@ -11,6 +11,7 @@ import { tradeBook } from './tradecalc.js';
 import { pendingReview } from './tradereview.js';
 import { tokenPerformance } from './tokenperf.js';
 import { button } from './components.js';
+import { ensureUsdt, TRADING_WALLETS } from './tokens.js';
 
 const live = (l) => l.filter((x) => !x.deleted);
 // The Investments tab can show its values in its own currency (Settings: invCur), apart from the home currency used elsewhere.
@@ -193,9 +194,10 @@ export function investments(db) {
   const bal = balances(db), items = live(db.accounts).filter(inInvest), book = tradeBook(db.txs);
   const cryptoAll = items.filter(isAsset), other = items.filter((a) => !isAsset(a)), mode = gmode(), tickers = db.settings.tickers || {};
   // assets with nothing in them are hidden (they come back as soon as they hold something, or with the "Show empty" link)
-  const showEmpty = emptyOn(), crypto = cryptoAll.filter((a) => showEmpty || Math.abs(bal.get(a.id) || 0) > 1e-12), hiddenN = cryptoAll.length - crypto.length;
+  const keepEmpty = (a) => a.cur === 'USDT' && a.exchange && TRADING_WALLETS.includes(walletOf(a));   // USDT is always listed in a trading wallet
+  const showEmpty = emptyOn(), crypto = cryptoAll.filter((a) => showEmpty || keepEmpty(a) || Math.abs(bal.get(a.id) || 0) > 1e-12), hiddenN = cryptoAll.length - crypto.length;
   const total = items.reduce((s, a) => s + val(db, a, bal.get(a.id) || 0), 0), unpriced = items.filter((a) => !priced(db, a) && (bal.get(a.id) || 0) !== 0);
-  const byEx = new Map(); for (const a of cryptoAll) { if (!showEmpty && Math.abs(bal.get(a.id) || 0) <= 1e-12 && mode === 'platform') { const k0 = exchangeOf(a) || 'Wallets and other'; if (!byEx.has(k0)) byEx.set(k0, []); continue; } if (!crypto.includes(a)) continue; const k = mode === 'type' ? (ASSET_TYPES[assetTypeOf(a)] || 'Other investments') : mode === 'risk' ? riskOf(db, a) : (exchangeOf(a) || 'Wallets and other'); if (!byEx.has(k)) byEx.set(k, []); byEx.get(k).push(a); }
+  const byEx = new Map(); for (const a of cryptoAll) { if (!showEmpty && !keepEmpty(a) && Math.abs(bal.get(a.id) || 0) <= 1e-12 && mode === 'platform') { const k0 = exchangeOf(a) || 'Wallets and other'; if (!byEx.has(k0)) byEx.set(k0, []); continue; } if (!crypto.includes(a)) continue; const k = mode === 'type' ? (ASSET_TYPES[assetTypeOf(a)] || 'Other investments') : mode === 'risk' ? riskOf(db, a) : (exchangeOf(a) || 'Wallets and other'); if (!byEx.has(k)) byEx.set(k, []); byEx.get(k).push(a); }
   if (mode === 'platform') for (const p of (db.settings.platforms || [])) { const e = canonPlatform(p); if (e && !byEx.has(e)) byEx.set(e, []); }
   const exSum = (l) => l.reduce((s, a) => s + val(db, a, bal.get(a.id) || 0), 0);
   const qty = (n, cur) => `${n.toLocaleString('en-US', { maximumFractionDigits: Math.max(2, Math.min(8, (CUR[cur] || { dec: 2 }).dec)) })} ${cur}`;
@@ -235,6 +237,7 @@ export function investments(db) {
   const cryptoCard = crypto.length ? `<div class="ivgroup">${coll('i-crypto', `Crypto <small class="muted gsum">${money(exSum(crypto))} · ${byEx.size} ${byEx.size === 1 ? 'place' : 'places'}</small>`, exHtml)}</div>` : exHtml;
   const otherHtml = other.length ? coll('i-other', `Bonds, Savings, and Other Investments <small class="muted gsum">${money(exSum(other))}</small>`, `<div class="rows plain">${other.sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0)).map((a) => { const b = bal.get(a.id) || 0;
     return `<button class="row acct" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:var(--line)">${esc((a.name || '?').slice(0, 1))}</i><span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(a.exchange || (a.type === 'invest' ? 'Investment' : 'Other product'))} · ${f2(b, a.cur)}</small></span><span class="ramt"><b>${priced(db, a) ? money(val(db, a, b)) : '<small class="muted">no rate</small>'}</b></span></button>`; }).join('')}</div>`, '') : '';
+  setTimeout(() => { if (ensureUsdt()) window.dispatchEvent(new Event('sukli-render')); }, 30);
   setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
   return `<div class="invpage">${hdr('Investments', `<button class="btn sm iv-rec" data-act="inv-add">Record activity</button> <button class="btn sm ghost iv-add" data-act="inv-new">Add asset</button>${pendingReview(db).length ? ` <button class="btn sm ghost" data-act="trade-review">Review trades (${pendingReview(db).length})</button>` : ''} <button class="btn sm ghost curchip" data-act="inv-cur" aria-label="Show Investments in ${esc(invC)}. Tap to change." title="Currency shown in Investments">${esc(invC)} ▾</button>`)}
     <section class="nwcard one"><div class="nwmain nwsplit"><div class="nwl"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${byEx.size} ${mode === 'type' ? 'type' : mode === 'risk' ? 'group' : 'place'}${byEx.size === 1 ? '' : 's'} · ${other.length} other</small></div><button type="button" class="ivgraph" data-act="inv-graph" aria-label="Open the graph of your market value over time"><span id="ivmini" class="ivmini"></span></button><small class="updated">${updatedLine(db)}</small></div></section>
