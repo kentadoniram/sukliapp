@@ -13,7 +13,7 @@ with sync_playwright() as p:
     ok('wallet chips shown for a platform asset', pg.locator('[data-act=wallet-move]').count()>=5)
     pg.click('[data-act=wallet-move][data-w=Earn]'); pg.wait_for_timeout(400)
     r=pg.evaluate("(async()=>{const c=await import('/js/core.js');const a=c.get().accounts.find(x=>x.id==='wx1');return [a.wallet,a.name]})()")
-    ok(f'one tap moves the asset to Earn and the name follows: {r}', r[0]=='Earn' and r[1]=='TestEx Earn USDT')
+    ok(f'moving a Spot asset to Earn is refused (v15.26: use Internal Transfer): {r}', r[0]=='Spot' and 'Internal Transfer' in pg.evaluate('document.body.innerText'))
     # transfer form shows balances
     pg.evaluate("(async()=>{const m=await import('/js/entry.js');m.openEntry()})()"); pg.wait_for_selector('#f-amount')
     ok('no script errors', not errs)

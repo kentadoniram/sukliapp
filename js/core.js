@@ -382,6 +382,7 @@ export const WALLET_INFO = {
 export const walletOf = (a) => (a && a.exchange ? a.wallet || 'Spot' : '');
 // Earn is a passive product: it only receives coins by Internal Transfer and pays Interest. No trading, no hand-made entries.
 export const isEarnAcct = (a) => !!(a && a.exchange && walletOf(a) === 'Earn');
+export const EARN_BLOCK = 'An account cannot be changed to Earn. To put coins in Earn, use Internal Transfer from Spot, Margin or Other into an Earn account.';
 export const EARN_MSG = 'Earn only collects interest. Move coins in or out with Internal Transfer (Spot to Earn, Earn to Spot).';
 // the platform an investment account sits on: the one you set, or (for imported accounts) the one named in its name, like "Bitget USD"
 const PLAT_NAMES = { bybit: 'Bybit', bitget: 'Bitget', okx: 'OKX', binance: 'Binance', kucoin: 'KuCoin', mexc: 'MEXC', 'gate.io': 'Gate.io', 'coins.ph': 'Coins.ph', phantom: 'Phantom', metamask: 'MetaMask', ledger: 'Ledger', 'trust wallet': 'Trust Wallet' };

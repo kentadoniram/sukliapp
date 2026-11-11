@@ -2,7 +2,7 @@
 import { catIcon } from './caticons.js';
 import { button } from './components.js';
 import { pickAll } from './picker.js';
-import { isEarnAcct, openDateOf, openDates, WALLETS, WALLET_INFO, walletOf } from './core.js';
+import { isEarnAcct, EARN_BLOCK, openDateOf, openDates, WALLETS, WALLET_INFO, walletOf } from './core.js';
 import { tipBtn, calcHtml, bindCalc, COMP_LABEL, rateAt, hasRate } from './interest.js';
 import { exchangeOf, canonPlatform, nearPlatform, platformNames } from './invest.js';
 import { softDelete, subscribe } from './core.js';
@@ -174,6 +174,7 @@ ACT['wallet-move'] = async (el) => {
   let w = el.dataset.w;
   if (w === '__new') { w = (await promptDialog('New wallet', '', { okLabel: 'Move', hint: 'For example: Launchpool, Savings, Copy trading' }))?.trim(); if (!w) return; }
   const old = walletOf(a); if (w.toLowerCase() === old.toLowerCase()) return;
+  if (w.toLowerCase() === 'earn' && !isEarnAcct(a)) { toast(EARN_BLOCK, { ms: 9000 }); return; }
   if (db.accounts.some((x) => !x.deleted && x.id !== a.id && x.cur === a.cur && (x.exchange || '').toLowerCase() === (a.exchange || '').toLowerCase() && walletOf(x).toLowerCase() === w.toLowerCase())) { toast(`${a.exchange} already has ${a.cur} in ${w}. Open that one instead.`); return; }
   commit((d) => { const x = d.accounts.find((q) => q.id === a.id); const pre = `${x.exchange}${old === 'Spot' ? '' : ' ' + old} `; if (x.name.startsWith(pre)) x.name = `${x.exchange}${w === 'Spot' ? '' : ' ' + w} ${x.name.slice(pre.length)}`; x.wallet = w; stamp(x); });
   toast(`Moved to ${w}.`);
@@ -484,7 +485,7 @@ export function openAccount(id, preset = {}) {
   const legacyInt = !!(a.apy > 0 || (a.rates || []).length || (a.promos || []).length), spotCrypto = () => form.type.value === 'crypto' && !!form.exchange.value && (form.wallet.value || 'Spot') !== 'Earn' && !legacyInt;
   const syncInt = () => { const L = isLiability({ type: form.type.value }), sc = spotCrypto(); s.el.querySelector('#intfields').hidden = L || sc; s.el.querySelector('#earnnote').hidden = L || !sc; s.el.querySelector('#debtfields').hidden = !L; };
   form.wallet.addEventListener('change', syncInt);
-  { const w = form.querySelector('select[name=wallet]'), h = s.el.querySelector('#wallet-h'); if (w && h) { const say = () => { h.textContent = WALLET_INFO[w.value] || 'One coin can sit in several trading accounts, each with its own balance.'; }; w.addEventListener('change', say); say(); } }
+  { const w = form.querySelector('select[name=wallet]'), h = s.el.querySelector('#wallet-h'); if (w && h) { const say = () => { h.textContent = WALLET_INFO[w.value] || 'One coin can sit in several trading accounts, each with its own balance.'; }; w.addEventListener('change', () => { if (a && a.id && !isEarnAcct(a) && /^earn$/i.test(w.value)) { toast(EARN_BLOCK, { ms: 9000 }); w.value = a.wallet || 'Spot'; w.dispatchEvent(new Event('input', { bubbles: true })); } say(); }); say(); } }
   const openWords = () => { const liab = isLiability({ type: form.type.value }), l = s.el.querySelector('#open-l'), h = s.el.querySelector('#open-h'); if (l) l.firstChild.textContent = liab ? 'Amount You Owe Now ' : 'Balance on the Opening Date ';
     if (h) h.textContent = liab ? 'Type what you owe on the opening date as a positive number: your current outstanding balance, not your credit limit or your available credit. Example: you owe 45,000, type 45000. Entries dated after the opening date add to it.' : 'Starting today? Type the balance you have now and keep today as the date. Account opened years ago? Type the balance it had on the date you pick; entries dated before that date stay as history and do not change it.'; };
   openWords();
@@ -511,6 +512,7 @@ export function openAccount(id, preset = {}) {
   form.onsubmit = (e) => {
     e.preventDefault();
     const fd = new FormData(form);
+    if (a && a.id && !isEarnAcct(a) && fd.get('exchange') && /^earn$/i.test(String(fd.get('wallet') || '').trim())) { toast(EARN_BLOCK, { ms: 9000 }); return; }
     const name = fd.get('name').trim();
     let open = num(fd.get('open')) || 0; if (isLiability({ type: fd.get('type') }) && open > 0) open = -open;   // a card or loan is typed as what you owe (positive) and kept as a negative balance
     const extra = {
