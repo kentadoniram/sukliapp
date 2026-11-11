@@ -1,6 +1,6 @@
 // Read a screenshot of a transit card in Apple Wallet (Pasmo, Suica...): there is no CSV to export, so the picture is read on the phone
 // (nothing is uploaded), each ride becomes an entry with its two stations, and a "Purchase" row stays a purchase, not a ride.
-import { button } from './components.js';
+import { button, textField } from './components.js';
 import { get, commit, stamp, uid, nowStamp, homeFx, balances } from './core.js';
 import { esc, ACT, sheet, toast } from './ui.js';
 import { transferLabel } from './label.js';
@@ -13,6 +13,9 @@ import { stationKey } from './stations.js';
 import { classifyDays } from './daytrip.js';
 import { placesOf } from './loc.js';
 import { parseTags, joinTags } from './tags.js';
+import { PASMO_GROUPS, groupCats, guessGroup, bestCats, guessMerchantBranch, rememberPlace } from './pasmomerch.js';
+import { canonMerchant } from './merchantpick.js';
+import { openEntry } from './entry.js';
 
 let cur = null, S = null, S0 = null;
 const live = (l) => l.filter((x) => !x.deleted);
@@ -86,7 +89,18 @@ function catFor(db, r) {
   const cats = expenseCats(db), isT = isTransportCat(db.categories);
   if (r.kind === 'transit') return (cats.find((c) => /^train$/i.test(c.name)) || cats.find((c) => isT(c.id)) || cats[0] || {}).id || '';
   const mem = (db.settings.walletCats || {})[r.place]; if (mem && cats.some((c) => c.id === mem)) return mem;
+  const bc = bestCats(db, r.place, 1)[0]; if (bc) return bc.id;
   return (cats.find((c) => /^(other|misc|shopping|uncategori)/i.test(c.name)) || cats[0] || {}).id || '';
+}
+// one purchase row: kind of purchase (groups), the quickest categories, every category, merchant and branch, and the option to split it into items
+function buyBox(db, r, i, cats) {
+  const quick = (r.grp ? groupCats(db, r.grp) : bestCats(db, r.place, 6)).slice(0, 8);
+  const chips = quick.length ? `<div class="chips wsquick" role="group" aria-label="Quick categories">${quick.map((c) => button({ label: c.name, kind: 'chip', on: c.id === r.cat, act: 'ws-cat', v: `${i}:${c.id}` })).join('')}</div>` : '';
+  return `<div class="wsbuy"><div class="chips wsgroups" role="group" aria-label="Kind of purchase">${PASMO_GROUPS.map((g) => button({ label: g.label, kind: 'chip', on: r.grp === g.id, act: 'ws-grp', v: `${i}:${g.id}` })).join('')}</div>${chips}
+    <select class="wscat" data-i="${i}" aria-label="Category for ${esc(r.place)}">${cats.map((c) => `<option value="${c.id}" ${c.id === r.cat ? 'selected' : ''}>${esc(c.group ? c.group + ' · ' + c.name : c.name)}</option>`).join('')}</select>
+    <div class="mbpair wsmb">${textField({ label: 'Merchant', value: r.merchant || '', placeholder: 'e.g. 7-Eleven', attr: { 'data-i': i, 'data-k': 'merchant', class: 'wsmer' } })}${textField({ label: 'Branch', value: r.branch || '', placeholder: 'e.g. Shinjuku Nishiguchi', attr: { 'data-i': i, 'data-k': 'branch', class: 'wsmer' } })}</div>
+    ${r.mwhy ? `<small class="muted wsmwhy">Suggested: ${esc(r.mwhy)}. Change it if it is wrong; Sukli remembers what you keep.</small>` : ''}
+    <div class="btnrow tight">${button({ label: r.split ? 'Split into Items: On' : 'Split into Items', kind: 'toggle', size: 'sm', on: !!r.split, act: 'ws-split', v: i })}</div>${r.split ? '<small class="muted">After you add the entries, the items screen opens for this purchase (items, a discount or tax on the whole bill).</small>' : ''}</div>`;
 }
 
 const dkey = (r) => stampOf(r.when).slice(0, 10);
@@ -108,7 +122,7 @@ function render() {
       <span class="wst"><b>${r.kind === 'transit' ? `${esc(r.from)} to ${esc(r.to)}` : r.kind === 'topup' ? `Top-up of the card (a transfer, not spending)` : `Purchase: ${esc(r.place)}`}</b><small class="muted">${yen(r.amount)} · ${esc(shown(r))}${r.known ? ' · already in your entries' : ''}</small></span></label>
       ${(() => { if (r.kind !== 'transit') return ''; const n = fareNote(S.fares, r); return n ? `<p class="hint wsfare">${esc(n.text)}${n.differs ? ` <button type="button" class="linkbtn" data-act="ws-fare" data-i="${i}" data-v="${n.usual}">Use ${yen(n.usual)}</button>` : ''}</p>` : ''; })()}
       ${r.kind === 'topup' ? `<select class="wssrc" data-i="${i}" aria-label="Where the money came from">${live(db.accounts).filter((a) => !a.archived && a.id !== S.acct).map((a) => `<option value="${a.id}" ${a.id === r.src ? 'selected' : ''}>From ${esc(a.name)}</option>`).join('')}</select>` : ''}
-      ${r.kind === 'purchase' ? `<select class="wscat" data-i="${i}" aria-label="Category for ${esc(r.place)}">${cats.map((c) => `<option value="${c.id}" ${c.id === r.cat ? 'selected' : ''}>${esc(c.group ? c.group + ' · ' + c.name : c.name)}</option>`).join('')}</select>` : ''}</li>`).join('')}</ul>
+      ${r.kind === 'purchase' ? buyBox(db, r, i, cats) : ''}</li>`).join('')}</ul>
     ${S.skipped ? `<p class="hint">${S.skipped} row${S.skipped === 1 ? '' : 's'} at the edge of the screenshot could not be read fully and ${S.skipped === 1 ? 'was' : 'were'} skipped. Scroll the Wallet a little and take another screenshot to get them.</p>` : ''}
     ${(() => { const g = balanceGap(db); S.gap = g; if (!g) return S.balance != null ? `<p class="hint">The card balance in Sukli will match the wallet (${yen(S.balance)}).</p>` : ''; const a = accts.find((x) => x.id === S.acct), o = ((a && a.open) || 0) + g;
       return `<label class="check wsbal"><input type="checkbox" id="ws-bal" ${S.fixBal !== false ? 'checked' : ''}> <span>Set the starting balance of ${esc(a ? a.name : 'the card')} to <b>${yen(o)}</b> so it shows <b>${yen(S.balance)}</b> as in the wallet. Everything read here is then history; nothing double counts.</span></label>`; })()}
@@ -117,7 +131,8 @@ function render() {
   const wb = body.querySelector('#ws-bal'); if (wb) wb.onchange = () => { S.fixBal = wb.checked; };
   body.querySelectorAll('.wsl input').forEach((x) => { x.onchange = () => { S.rows[+x.dataset.i].on = x.checked; render(); }; });
   body.querySelectorAll('.wssrc').forEach((x) => { x.onchange = () => { S.rows[+x.dataset.i].src = x.value; }; });
-  body.querySelectorAll('.wscat').forEach((x) => { x.onchange = () => { S.rows[+x.dataset.i].cat = x.value; }; });
+  body.querySelectorAll('.wscat').forEach((x) => { x.onchange = () => { const r = S.rows[+x.dataset.i]; r.cat = x.value; render(); }; });
+  body.querySelectorAll('input.wsmer').forEach((x) => { x.oninput = () => { const r = S.rows[+x.dataset.i]; r[x.dataset.k] = x.value; r.mwhy = ''; }; });
 }
 function start() {
   S = null; const body = cur.el;
@@ -147,7 +162,7 @@ function start() {
       const src = topupSource(db, acct);
       { const hist = live(db.txs).filter((t) => t.kind === 'expense' && t.from && t.to).map((t) => ({ from: t.from, to: t.to, when: new Date(String(t.date).replace(' ', 'T')) })), pl = placesOf(db);
         S0 = { days: classifyDays(p.rows.filter((r) => r.kind === 'transit'), pl.home, hist), homeKnown: !!pl.home, trip: {} }; for (const [d, v] of S0.days) S0.trip[d] = v.kind === 'daytrip'; }
-      for (const r of p.rows) { r.on = !r.known; r.cat = r.kind === 'topup' ? '' : catFor(db, r); r.src = src; }
+      for (const r of p.rows) { r.on = !r.known; r.cat = r.kind === 'topup' ? '' : catFor(db, r); r.src = src; if (r.kind === 'purchase') { r.grp = guessGroup(db, r.place); const g = r.grp && !(db.settings.walletCats || {})[r.place] ? groupCats(db, r.grp)[0] : null; if (g && !bestCats(db, r.place, 6).some((c) => c.id === r.cat)) r.cat = g.id; const mb = guessMerchantBranch(db, r.place); if (mb) { r.merchant = mb.merchant; r.branch = mb.branch; r.mwhy = mb.why; } } }
       S = { ...p, ...S0, fares: fareStats(db), acct, ref: new Date(Math.max(0, ...files.map((f) => (f.lastModified && Date.now() - f.lastModified < 6 * 864e5 && f.lastModified <= Date.now()) ? f.lastModified : 0)) || Date.now()) };
       if (!acct) { stat('Add a card account in yen first (for example "Pasmo"), then try again.'); S = null; return; }
       render();
@@ -159,6 +174,10 @@ export function openWalletScan() { cur = sheet('', { title: 'Read a Pasmo or Sui
 ACT['wallet-scan'] = () => setTimeout(openWalletScan, 90);
 ACT['ws-fare'] = (el) => { if (!S) return; const r = S.rows[+el.dataset.i]; if (r) { r.amount = +el.dataset.v; render(); } };
 ACT['ws-day'] = (el) => { if (!S) return; const d = el.dataset.d; S.trip[d] = !S.trip[d]; render(); };
+ACT['ws-grp'] = (el) => { if (!S) return; const [i, g] = el.dataset.v.split(':'), r = S.rows[+i]; if (!r) return; r.grp = r.grp === g ? '' : g; const list = r.grp ? groupCats(get(), r.grp) : []; if (list.length && !list.some((c) => c.id === r.cat)) r.cat = list[0].id; render(); };
+ACT['ws-cat'] = (el) => { if (!S) return; const k = el.dataset.v.indexOf(':'), r = S.rows[+el.dataset.v.slice(0, k)]; if (r) { r.cat = el.dataset.v.slice(k + 1); render(); } };
+ACT['ws-split'] = (el) => { if (!S) return; const r = S.rows[+el.dataset.v]; if (r) { r.split = !r.split; render(); } };
+ACT['ws-split-open'] = (el) => { const id = el.dataset.id; setTimeout(() => openEntry({ id, showItems: true }), 90); };
 ACT['ws-again'] = () => { if (cur) start(); };
 ACT['ws-add'] = () => {
   if (!cur || !S) return; const picked = S.rows.filter((r) => r.on), gap = S.fixBal !== false ? (S.gap || 0) : 0; if (!picked.length && !gap) { toast('Nothing ticked.'); return; }
@@ -169,8 +188,11 @@ ACT['ws-add'] = () => {
       const base = { id: uid(), kind: 'expense', amount: r.amount, cur: 'JPY', fx, date: stampOf(r.when), cat: r.cat, acct: S.acct, notes: 'From a Wallet screenshot', labels: '', items: [], counts: [] };
       if (r.kind === 'topup') { const a = d.accounts.find((x) => x.id === r.src), c = d.accounts.find((x) => x.id === S.acct); d.txs.push(stamp({ id: uid(), kind: 'transfer', amount: r.amount, cur: (a && a.cur) || 'JPY', fx, date: stampOf(r.when), name: transferLabel(a, c), autoName: true, cat: '', acct: r.src, toAcct: S.acct, toAmount: r.amount, fee: 0, feeBy: '', notes: 'From a Wallet screenshot', labels: '', items: [], counts: [] })); continue; }
       if (r.kind === 'transit') { const dk = dkey(r), v = S.days && S.days.get(dk), tag = S.trip && S.trip[dk]; d.txs.push(stamp({ ...base, name: tripLabel('Train', r.from, r.to), autoName: true, from: r.from, to: r.to, ...(tag ? { labels: joinTags([...parseTags(base.labels), 'Day Trip']) } : {}), ...(tag && v && v.far ? { loc: { la: Math.round(v.far.la * 100) / 100, lo: Math.round(v.far.lo * 100) / 100 } } : {}) })); }
-      else { d.txs.push(stamp({ ...base, name: `Purchase: ${r.place}`, flag: 'review' })); d.settings.walletCats[r.place] = r.cat; }
+      else { const mer = r.merchant ? canonMerchant(d, r.merchant) : '', br = mer ? String(r.branch || '').trim() : ''; r.newId = base.id; d.txs.push(stamp({ ...base, name: `Purchase: ${r.place}`, flag: 'review', ...(mer ? { merchant: mer } : {}), ...(br ? { branch: br } : {}) })); d.settings.walletCats[r.place] = r.cat; rememberPlace(d, r.place, mer, br); }
     }
   });
   toast(`Added ${picked.length} ${picked.length === 1 ? 'entry' : 'entries'}.`); if (cur) cur.close();
+  const toSplit = picked.filter((r) => r.split && r.newId);
+  if (toSplit.length === 1) setTimeout(() => openEntry({ id: toSplit[0].newId, showItems: true }), 250);
+  else if (toSplit.length > 1) setTimeout(() => { const db = get(); sheet(`<p class="hint">Open each one to list its items, a discount or tax on the whole bill.</p><ul class="calfacts">${toSplit.map((r) => { const t = db.txs.find((x) => x.id === r.newId); return `<li><span>${esc(r.place)} · ${yen(r.amount)}</span>${t ? button({ label: 'Split into Items', kind: 'secondary', size: 'sm', act: 'ws-split-open', data: 'id', v: t.id }) : ''}</li>`; }).join('')}</ul>`, { title: 'Purchases to Split' }); }, 250);
 };

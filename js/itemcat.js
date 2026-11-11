@@ -47,7 +47,7 @@ export function itemsForWhat(db, what, catId, skip = [], max = 8) {
   const pick = (test) => {
     const rows = new Map();
     for (const t of live) if (test(t)) for (const i of t.items) {
-      const nk = norm(i.n || ''); if (!nk || skipSet.has(nk)) continue;
+      const nk = norm(i.n || ''); if (!nk || i.tax || i.wd || skipSet.has(nk)) continue;
       const r = rows.get(nk) || { n: i.n, cats: new Map(), count: 0, price: '', at: '' };
       r.count++; if (i.cat) r.cats.set(i.cat, (r.cats.get(i.cat) || 0) + 1); if (t.date > r.at) { r.at = t.date; r.price = i.amt || ''; r.n = i.n; }
       rows.set(nk, r);
@@ -60,7 +60,7 @@ export function itemsForWhat(db, what, catId, skip = [], max = 8) {
 }
 // every item name you have used, most used first (for the typing list)
 export function knownItemNames(db, max = 80) {
-  const m = new Map(); for (const t of db.txs || []) if (!t.deleted && t.items) for (const i of t.items) { const k = norm(i.n || ''); if (!k || i.tax) continue; const r = m.get(k) || { n: i.n, c: 0 }; r.c++; m.set(k, r); }
+  const m = new Map(); for (const t of db.txs || []) if (!t.deleted && t.items) for (const i of t.items) { const k = norm(i.n || ''); if (!k || i.tax || i.wd) continue; const r = m.get(k) || { n: i.n, c: 0 }; r.c++; m.set(k, r); }
   return [...m.values()].sort((a, b) => b.c - a.c).slice(0, max).map((r) => r.n);
 }
 // remember a correction made in the scanner
