@@ -7,6 +7,7 @@ import { load, get, subscribe, commit, seedCategories, balances, reviewCount, la
 import { importBluecoins } from './importer.js';
 import { scheduleSync, onStatus } from './drive.js';
 import './feedback.js';
+import './borrowing.js';
 import { cloudSchedule, cloudInit, onCloudStatus, handleOAuthReturn } from './cloud.js';
 import { home, ledger, review, accounts, reports, settings, bindLedger, bindSettings, openAccountSetup, ui, fillDeferred, tabIds, TAB_DEFS, setLookMode } from './screens.js';
 import { openEntry } from './entry.js';

@@ -7,6 +7,7 @@ import { ACT, sheet, esc, toast, confirmDialog, ic } from './ui.js';
 import { hdr, coll } from './screens.js';
 import { tripEntryIds } from './trips.js';
 import { openEntry } from './entry.js';
+import { borrowCard, incomeCard } from './borrowing.js';
 import { cardBilling, isLiability, lockInfo, interestTaxPct, today as todayStr } from './finance.js';
 import { rateAt, hasRate } from './interest.js';
 import { loanProgress } from './loancalc.js';
@@ -65,8 +66,9 @@ export function budgetInfo(db) {
   const own = +db.settings.debtBudget > 0 ? +db.settings.debtBudget : null, force = !!db.settings.debtForce, cm = catMap(db);
   const tripIds = (() => { try { return tripEntryIds(db); } catch { return new Set(); } })();   // trips and events are not "usual spending"
   const learned = learnMonths(live(db.txs).filter((t) => !tripIds.has(t.id)), (t) => t.amount * (t.fx || 1), thisMonth(), shiftMonth, (t) => { const c = cm.get(t.cat); return { name: c ? c.name : 'Other', cls: classOf(c) }; });
-  const known = learned && learned.income > 0 ? learned : null, r = cashRoom({ income: known ? known.income : null, spend: known ? known.spend : 0, typed: own, force });
-  return { own, force, learned, known, ...r, value: r.use };
+  const typedInc = +db.settings.incomeTyped > 0 ? +db.settings.incomeTyped : null;
+  const known = learned && learned.income > 0 ? learned : null, r = cashRoom({ income: known ? known.income : typedInc, spend: known ? known.spend : 0, typed: own, force });
+  return { own, force, learned, known, fromTyped: !known && !!typedInc, ...r, value: r.use };
 }
 // cash you hold now, the best savings you can park money in, and what falls due soon (all in the home currency)
 export function cashCtx(db) {
@@ -179,6 +181,7 @@ export function debts(db) {
     <li><span>If you pay more than these</span><b>Ask the lender to explain the charges, and you can complain to the BSP (banks and cards) or the SEC (lending companies).</b></li></ul><p class="hint">These come from news reports and can change. Check with the BSP or SEC for the current rule.</p>`;
   return `<div class="debtpage">${hdr('Debts')}
     <section class="cardbox"><h3>Your Month</h3>${month}${lightBox}${short}${cashFlag}</section>
+    ${incomeCard(db, b.learned)}${borrowCard(db)}
     <section class="cardbox"><h3>What to Pay Now</h3>${order}${extraBox}${plan ? `<h4 class="subh">If There Is Extra, Where It Goes</h4>${seg}` : ''}${planBox}<p class="hint">An estimate from your own entries. It pays what is due soonest first, keeps to how you usually pay, leaves money for living, and only suggests paying early when it is worth it. Real balances change with new charges and late fees.</p></section>
     ${warn}
     <h2 class="subh">Your debts (${list.length})</h2>${rows}
