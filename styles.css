@@ -1520,3 +1520,10 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .items .item .qty b{min-width:18px;padding:0 2px;text-align:center}
 .sgsec{margin:10px 0}.sgrow{display:flex;flex-direction:column;gap:4px;margin:8px 0}.sgrow>div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .sgsw{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}.sgsw1{display:flex;gap:8px;align-items:center}.sgsw1 i{width:30px;height:30px;border-radius:8px;border:1px solid var(--rule);flex:0 0 auto}
+
+/* Per-Token Performance rows: no icon column, so the name and its lines get the whole left side and may wrap */
+.row.tokrow { grid-template-columns: 1fr auto; gap: 12px; padding: 12px 4px; text-align: left; align-items: start; }
+.tokrow .rmain small { white-space: normal; overflow: visible; text-overflow: clip; }
+.tokrow .rmain .tokpl { color: var(--ink2); }
+.tokrow .ramt { text-align: right; white-space: nowrap; }
+.tokrow .ramt small { white-space: nowrap; }

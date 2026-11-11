@@ -32,6 +32,10 @@ with sync_playwright() as p:
     if pg.locator('[data-act=tok-open]').count()==0:
         pg.evaluate("[...document.querySelectorAll('summary,.collh,[data-coll]')].find(e=>/Per-Token/.test(e.textContent))?.click()"); pg.wait_for_timeout(300)
     ok('Per-Token Performance card lists both tokens', pg.locator('[data-act=tok-open]').count()>=2 and 'ZZA' in pg.inner_text('body'))
+    cut=pg.evaluate("[...document.querySelectorAll('.tokrow small')].filter(e=>e.scrollWidth>e.clientWidth+1).map(e=>e.textContent)")
+    ok('v15.27: Per-Token rows say "Value now ..." and "On ..." in full, nothing cut off %s'%cut, not cut and 'Value now' in pg.inner_text('.tokrows') and 'On Binance, Bitget' in pg.inner_text('.tokrows'))
+    lx=pg.evaluate("(()=>{const r=document.querySelector('.tokrow .rmain').getBoundingClientRect(),w=document.querySelector('.tokrow').getBoundingClientRect();return [r.width,w.width]})()")
+    ok('v15.27: name column is wide, not squeezed into an icon slot %s'%lx, lx[0]>lx[1]*0.4)
     pg.evaluate("document.querySelector('[data-act=tok-open][data-cur=ZZA]').click()"); pg.wait_for_selector('.calfacts',timeout=3000); pg.wait_for_timeout(200)
     t=pg.evaluate("[...document.querySelectorAll('.sheet, .scrim')].map(e=>e.innerText).join(' ')")
     ok('detail shows the breakdown', 'Total return' in t and 'Trading fees paid' in t and 'Profit from selling' in t and 'Earned' in t)

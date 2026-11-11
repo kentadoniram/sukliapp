@@ -5,7 +5,7 @@ import { button } from './components.js';
 import { softDelete, r9, qtyR, get, commit, uid, stamp, nowStamp, balances, exactAmt, walletOf, WALLETS, HOME, fmt, rateFor } from './core.js';
 import { sheet, esc, toast } from './ui.js';
 import { inInvest, exchangeOf } from './invest.js';
-import { ensureAsset, accountTypesOf, assetChoices } from './tokens.js';
+import { ensureAsset, ensureUsdt, accountTypesOf, assetChoices } from './tokens.js';
 
 const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
 const live = (l) => l.filter((x) => !x.deleted && !x.archived);
@@ -37,6 +37,7 @@ export function internalMove({ platform, cur, from, to, amount, when }) {
 }
 
 export function openInternal({ asset = '', platform = '', replaceId = '', amount = '' } = {}) {
+  try { ensureUsdt(); } catch { /* keep going */ }   // every trading account of the platform has its USDT line, so it can be picked at once
   const db0 = get(), a0 = db0.accounts.find((x) => x.id === asset);
   const plats = [...new Set(live(db0.accounts).filter((x) => inInvest(x) && exchangeOf(x)).map(exchangeOf))].sort();
   if (!plats.length) { toast('Add an asset on a platform first.'); return; }

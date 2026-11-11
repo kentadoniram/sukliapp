@@ -39,10 +39,11 @@ export function assetChoices(db) {
 // every trading wallet (Spot, Margin, Futures, Options) of a crypto platform always has a USDT line, even at zero, so it can be picked in a trade or transfer.
 // Earn is left out (passive). A USDT line you deleted yourself is not brought back. Returns how many were made.
 export const TRADING_WALLETS = ['Spot', 'Margin', 'Futures', 'Options', 'Other'];
-// the empty USDT lines a db is missing (Spot always; Margin, Futures, Options and Other where the platform has that wallet)
+// the empty USDT lines a db is missing: Spot always, and every other trading account type the platform offers (Margin, Futures, Options, Other), so each one can be picked right away
 function usdtGaps(db) {
   const made = [], seen = new Map();
-  for (const a of db.accounts) if (a.exchange && a.type === 'crypto' && !a.archived) { const k = a.exchange.toLowerCase(); if (!seen.has(k)) seen.set(k, { ex: a.exchange, w: new Set(['Spot']) }); if (!a.deleted) seen.get(k).w.add(walletOf(a)); }
+  for (const a of db.accounts) if (a.exchange && (a.type === 'crypto' || a.assetType === 'crypto') && !a.archived) { const k = a.exchange.toLowerCase(); if (!seen.has(k)) seen.set(k, { ex: a.exchange, w: new Set(['Spot']) }); if (!a.deleted) seen.get(k).w.add(walletOf(a)); }
+  for (const v of seen.values()) for (const wal of accountTypesOf(db, v.ex)) v.w.add(wal);   // every account type this exchange offers (Spot, Margin, Futures, Options, Other ...), not only the ones already used
   for (const { ex, w } of seen.values()) for (const wal of w) {
     if (!TRADING_WALLETS.includes(wal)) continue;
     if (db.accounts.some((x) => x.cur === 'USDT' && (x.exchange || '').toLowerCase() === ex.toLowerCase() && walletOf(x).toLowerCase() === wal.toLowerCase())) continue;
