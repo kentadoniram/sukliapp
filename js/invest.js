@@ -66,6 +66,19 @@ const STABLE = ['USDT', 'USDC', 'DAI', 'FDUSD', 'TUSD', 'USDD', 'PYUSD', 'RLUSD'
 export const riskOf = (db, a) => { const tk = (db.settings.tickers || {})[a.cur] || {}; if (tk.riskGroup) return tk.riskGroup; const t = assetTypeOf(a) || tk.assetType || '';
   if (STABLE.includes(a.cur)) return 'Stablecoins'; if (t === 'stock' || t === 'etf') return 'Stocks and ETFs'; if (t === 'fund' || t === 'bond') return 'Funds and bonds';
   if (t === 'crypto' || a.type === 'crypto') return MAJOR.includes(a.cur) ? 'Major coins' : 'High-volatility coins'; return 'Other'; };
+// the dashboard cards (Performance, Per-Token, Fees and Losses, My Prediction, Realized Gains) share one row of tabs and show one at a time
+let PANELS = [];
+const DASH = { 'i-perf': 'Performance', 'i-tok': 'Per-Token', 'i-fees': 'Fees and Losses', 'i-pred': 'My Prediction', 'i-gain': 'Realized Gains' };
+const panel = (id, title, body) => { PANELS.push({ id, title, body }); return ''; };
+const dtab = () => { try { return localStorage.getItem('sukli-dtab') || ''; } catch { return ''; } };
+ACT['inv-dtab'] = (el) => { try { localStorage.setItem('sukli-dtab', el.dataset.v); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
+function dashTabs() {
+  const list = Object.keys(DASH).map((id) => PANELS.find((x) => x.id === id)).filter(Boolean); PANELS = [];
+  if (!list.length) return '';
+  const pick = list.find((x) => x.id === dtab()) || list[0], sum = (pick.title.match(/<small[^>]*>(.*?)<\/small>/) || [])[1] || '';
+  return `<section class="dashtabs"><div class="wtabs" role="tablist" aria-label="Investment dashboard">${list.map((x) => button({ label: DASH[x.id], kind: 'chip', cls: 'wtab', on: x.id === pick.id, act: 'inv-dtab', v: x.id, attr: { role: 'tab', 'aria-selected': String(x.id === pick.id) } })).join('')}</div>
+    ${sum ? `<p class="hint wtsum">${sum}</p>` : ''}<div class="dashbody">${pick.body}</div></section>`;
+}
 const wtabs = () => { try { return JSON.parse(localStorage.getItem('sukli-wtab') || '{}'); } catch { return {}; } };
 ACT['inv-wtab'] = (el) => { try { localStorage.setItem('sukli-wtab', JSON.stringify({ ...wtabs(), [el.dataset.ex]: el.dataset.w })); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
 ACT['inv-group'] = (el) => { try { localStorage.setItem('sukli-invgroup', el.dataset.v); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
@@ -190,6 +203,7 @@ ACT['inv-pie'] = () => {
   draw();
 };
 export function investments(db) {
+  PANELS = [];
   setInvCur(db);
   const bal = balances(db), items = live(db.accounts).filter(inInvest), book = tradeBook(db.txs);
   const cryptoAll = items.filter(isAsset), other = items.filter((a) => !isAsset(a)), mode = gmode(), tickers = db.settings.tickers || {};
@@ -210,7 +224,7 @@ export function investments(db) {
   const unreal = [...book.pos].reduce((q, [id, p]) => { const a = db.accounts.find((x) => x.id === id), px = a ? homeFx(db, a.cur) || 0 : 0; return p && p.qty > 0 && p.cost > 0 && px ? q + p.qty * px - p.cost : q; }, 0);
   const sg = (v) => `${v >= 0 ? '+' : '−'}${money(Math.abs(v))}`, cl = (v) => (v >= 0 ? 'cg' : 'cr'), realTotal = book.total + earned;
   const recent = [...book.realized.map((x) => ({ date: x.date, label: nm(x.acct), v: x.gain })), ...earnedTx.map((t) => ({ date: t.date, label: `${nm(t.earnAcct || t.acct)} · interest${t.earnOpen ? ' (still adding up)' : ''}`, v: eVal(t) }))].sort((x, y) => (x.date < y.date ? 1 : -1)).slice(0, 8);
-  const gains = book.realized.length || earnedTx.length || unreal ? coll('i-gain', `Realized Gains and Losses <small class="muted gsum">${sg(realTotal)}</small>`, `<ul class="calfacts"><li><span>Unrealized Profit <small class="muted">on paper, still held</small></span><b class="${cl(unreal)}">${sg(unreal)}</b></li><li><span>Realized Profit <small class="muted">locked in by selling</small></span><b class="${cl(book.total)}">${sg(book.total)}</b></li><li><span>Earned <small class="muted">interest from Earn</small></span><b class="${cl(earned)}">${sg(earned)}</b></li><li><span>Realized + Earned, this year</span><b class="${cl(thisYear + earnedYr)}">${sg(thisYear + earnedYr)}</b></li><li><span>Realized + Earned, all time</span><b class="${cl(realTotal)}">${sg(realTotal)}</b></li>
+  const gains = book.realized.length || earnedTx.length || unreal ? panel('i-gain', `Realized Gains and Losses <small class="muted gsum">${sg(realTotal)}</small>`, `<ul class="calfacts"><li><span>Unrealized Profit <small class="muted">on paper, still held</small></span><b class="${cl(unreal)}">${sg(unreal)}</b></li><li><span>Realized Profit <small class="muted">locked in by selling</small></span><b class="${cl(book.total)}">${sg(book.total)}</b></li><li><span>Earned <small class="muted">interest from Earn</small></span><b class="${cl(earned)}">${sg(earned)}</b></li><li><span>Realized + Earned, this year</span><b class="${cl(thisYear + earnedYr)}">${sg(thisYear + earnedYr)}</b></li><li><span>Realized + Earned, all time</span><b class="${cl(realTotal)}">${sg(realTotal)}</b></li>
     ${recent.map((x) => `<li><span>${esc(String(x.date).slice(0, 10))} · ${esc(x.label)}</span><b class="${cl(x.v)}">${sg(x.v)}</b></li>`).join('')}</ul><p class="hint">Average-cost method, after fees. Units you held before using Sukli have no known cost and are left out of gains. Earned is the interest your Earn products paid, added up day by day.</p>`, '') : '';
   // inside a platform: its wallets (Spot, Futures, Margin, Earn…), each with its own assets, when there is more than one wallet or a wallet other than Spot
   // what a wallet has earned so far (interest, staking, dividends), counted in your home currency
@@ -245,7 +259,7 @@ export function investments(db) {
     ${unpriced.length ? `<p class="hint">No price yet for ${unpriced.map((a) => esc(a.cur)).join(', ')}, so ${unpriced.length === 1 ? 'it is' : 'they are'} left out of the total. Prices load when you are online, or set one in Settings, Exchange rates.</p>` : ''}
     ${items.length ? `<div class="grprow">${crypto.length ? `<div class="seg sm small" role="group" aria-label="Group by">${[['platform', 'By platform'], ['type', 'By asset type'], ['risk', 'By group']].map(([v, l]) => `<button type="button" data-act="inv-group" data-v="${v}" class="${mode === v ? 'on' : ''}" aria-pressed="${mode === v}">${l}</button>`).join('')}</div>` : ''}<button type="button" class="piebtn" data-act="inv-pie" aria-label="Pie chart of where your money is" title="Pie chart">${ic('pie')}</button></div>${crypto.length && mode === 'risk' ? '<p class="hint">Groups: stablecoins (steady value), major coins, high-volatility coins, stocks, funds. Open a ticker below to move it to another group or make your own.</p>' : ''}` : ''}
     ${cryptoAll.length && (hiddenN || showEmpty) ? `<p class="hint emptylink">${showEmpty ? 'Showing empty assets too.' : `${hiddenN} empty asset${hiddenN === 1 ? ' is' : 's are'} hidden.`} <button type="button" class="linkbtn" data-act="inv-empty">${showEmpty ? 'Hide empty assets' : 'Show them'}</button></p>` : ''}
-    ${performanceCard(db, bal, book, items)}${tokenCard(db, book, items)}${incomeCard(db)}${feesCard(db, book)}${predictCard(db)}${gains}${cryptoCard}${otherHtml}${tickerCard(db, tickers)}
+    ${performanceCard(db, bal, book, items)}${tokenCard(db, book, items)}${feesCard(db, book)}${predictCard(db)}${gains}${dashTabs()}${incomeCard(db)}${cryptoCard}${otherHtml}${tickerCard(db, tickers)}
     ${items.length ? '' : '<p class="empty">Nothing here yet. Add an exchange coin, an investment, or any account marked “Show in Investments” (for example MP2).</p>'}
     <p class="hint">Each coin or share is its own balance at its platform (for example USDT, BNB and NVDA). The line under it shows the amount, what you paid, and today’s price; the right side is the value in ${invC}. <button type="button" class="linkbtn" data-act="glossary">Words explained</button></p></div>`;
 }
@@ -402,7 +416,7 @@ function feesCard(db, book) {
   const fees = parts.reduce((x, p) => x + p.v, 0), losses = book.realized.filter((r) => r.gain < 0).reduce((x, r) => x + r.gain, 0);
   if (!parts.length && !losses) return '';
   const yr = String(new Date().getFullYear()), thisYr = parts.filter((p) => p.date.startsWith(yr)).reduce((x, p) => x + p.v, 0);
-  return coll('i-fees', `Fees and Losses <small class="muted gsum">${money(fees + Math.abs(losses))}</small>`,
+  return panel('i-fees', `Fees and Losses <small class="muted gsum">${money(fees + Math.abs(losses))}</small>`,
     `<ul class="calfacts"><li><span>Trading fees, all time</span><b class="cr">${money(fees)}</b></li><li><span>Trading fees, this year</span><b>${money(thisYr)}</b></li><li><span>Realized losses on sales</span><b class="cr">${money(Math.abs(losses))}</b></li></ul>
     <h3 class="subh">Latest Fees</h3><ul class="calfacts">${parts.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6).map((p) => `<li><span>${esc(p.date.slice(0, 10))} · ${esc(p.name)}</span><b>${money(p.v)}</b></li>`).join('') || '<li><span>No fees recorded</span><b></b></li>'}</ul>
     <p class="hint">Each fee is saved with its trade and also counted as an expense. They appear here, not as losses in Entries.</p>`, '');
@@ -416,7 +430,7 @@ function performanceCard(db, bal, book, items) {
   const bar = (r) => `<div class="perf"><div class="perfhead"><b>${esc(nm(r.a))}</b> <small class="muted">${esc(r.a.exchange || '')}</small><span class="${r.v >= r.cost ? 'cg' : 'cr'}">${r.v >= r.cost ? '+' : '−'}${money(Math.abs(r.v - r.cost))} (${((r.v - r.cost) / r.cost * 100).toFixed(2)}%)</span></div>
     <div class="perfbars"><i class="pb paid" style="width:${(r.cost / mx * 100).toFixed(2)}%"></i><small>paid ${money(r.cost)}${r.own ? ` (your figure) <button type="button" class="linkbtn" data-act="inv-cost" data-id="${r.a.id}">Change</button> <button type="button" class="linkbtn rmx" data-act="inv-cost-clear" data-id="${r.a.id}">Remove</button>` : ''}</small></div>
     <div class="perfbars"><i class="pb now ${r.v >= r.cost ? 'up' : 'down'}" style="width:${(r.v / mx * 100).toFixed(2)}%"></i><small>now ${money(r.v)}</small></div></div>`;
-  return coll('i-perf', `Performance <small class="muted gsum">${tc > 0 ? `${tv >= tc ? '+' : '−'}${money(Math.abs(tv - tc))} (${((tv - tc) / tc * 100).toFixed(2)}%)` : ''}</small>`,
+  return panel('i-perf', `Performance <small class="muted gsum">${tc > 0 ? `${tv >= tc ? '+' : '−'}${money(Math.abs(tv - tc))} (${((tv - tc) / tc * 100).toFixed(2)}%)` : ''}</small>`,
     `${known.sort((x, y) => y.v - x.v).map(bar).join('') || '<p class="hint">Buy through Buy / sell, or tell Sukli what you paid, to compare.</p>'}
     ${unk.length ? `<p class="hint">No known cost: ${unk.slice(0, 8).map((r) => `${esc((r.a.exchange ? r.a.exchange + ' ' : '') + nm(r.a))} <button type="button" class="linkbtn" data-act="inv-cost" data-id="${r.a.id}">I paid…</button>`).join(', ')}${unk.length > 8 ? ` and ${unk.length - 8} more` : ''}</p>` : ''}
     <p class="hint">Value uses today’s price: live for coins with a price feed, otherwise the price you last set or traded at (tap a ticker below to update it and see its history).</p>`, '');
@@ -428,7 +442,7 @@ function tokenCard(db, book, items) {
   const rows = tokenPerformance(db, book, items.filter(isAsset), HOME).filter((r) => !(r.cashLike && !r.earned && !r.income && !r.realized));
   if (!rows.length) return '';
   const tot = rows.reduce((q, r) => q + r.gain, 0);
-  return coll('i-tok', `Per-Token Performance <small class="muted gsum">${sgn(tot)}</small>`, `<div class="rows plain">${rows.map((r) => `<button type="button" class="row acct" data-act="tok-open" data-cur="${esc(r.cur)}"><span class="rmain"><strong>${esc(tokName(db, r.cur))}</strong><small>${r.value > 0 ? `Holding ${money(r.value)}` : 'Sold out'}${r.platforms.length ? ` · ${esc(r.platforms.join(', '))}` : ''}</small></span><span class="ramt ${tcl(r.gain)}"><b>${sgn(r.gain)}</b><small>${r.pct == null ? 'cost not known' : `${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%`}</small></span></button>`).join('')}</div>
+  return panel('i-tok', `Per-Token Performance <small class="muted gsum">${sgn(tot)}</small>`, `<div class="rows plain">${rows.map((r) => `<button type="button" class="row acct" data-act="tok-open" data-cur="${esc(r.cur)}"><span class="rmain"><strong>${esc(tokName(db, r.cur))}</strong><small>${r.value > 0 ? `Holding ${money(r.value)}` : 'Sold out'}${r.platforms.length ? ` · ${esc(r.platforms.join(', '))}` : ''}</small></span><span class="ramt ${tcl(r.gain)}"><b>${sgn(r.gain)}</b><small>${r.pct == null ? 'cost not known' : `${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%`}</small></span></button>`).join('')}</div>
     <p class="hint">Return = profit on paper + profit from selling + what it earned (Earn interest and other income). Fees are shown inside the detail. Only units bought through Buy / sell, or a cost you typed, have a known cost.</p>`, '');
 }
 ACT['tok-open'] = (el) => {
@@ -511,7 +525,7 @@ function predictCard(db) {
   const list = allPreds(db).sort((a, b) => (a.by < b.by ? -1 : 1)), held = db.accounts.some((a) => !a.deleted && inInvest(a) && isAsset(a));
   if (!held) return '';
   const actual = (sym) => { const a = db.accounts.find((x) => !x.deleted && x.cur === sym); return a ? priceNow(db, a) : null; };
-  return coll('i-pred', 'My Predictions <Small Class="muted Gsum">your Estimates</small>', `${list.length ? list.map((p) => { const act = actual(p.sym), gap = act && act.quote === p.quote ? (p.price - act.v) / act.v * 100 : null, a = db.accounts.find((x) => !x.deleted && x.cur === p.sym);
+  return panel('i-pred', 'My Predictions <Small Class="muted Gsum">your Estimates</small>', `${list.length ? list.map((p) => { const act = actual(p.sym), gap = act && act.quote === p.quote ? (p.price - act.v) / act.v * 100 : null, a = db.accounts.find((x) => !x.deleted && x.cur === p.sym);
       return `<div class="pred"><div class="predtop"><b>${esc(p.t.ticker || p.sym)}</b><button type="button" class="linkbtn" data-act="inv-pdel" data-sym="${esc(p.sym)}" data-id="${esc(p.id)}">Remove</button></div>
         <div><span class="estbadge">Your estimate</span> ${fmt(p.price, p.quote)} by ${esc(p.by)}${p.note ? ` <small class="muted">· ${esc(p.note)}</small>` : ''}</div>
         <div>${act ? `<span class="actbadge">Actual</span> ${fmt(act.v, act.quote)} <small class="muted">· ${a ? esc(priceStamp(db, a)) : ''}</small>${gap != null ? ` · <b class="${gap >= 0 ? 'cg' : 'cr'}">${gap >= 0 ? '+' : '−'}${Math.abs(gap).toFixed(1)}% to reach it</b>` : ''}` : '<span class="actbadge">Actual</span> <small class="muted">no price yet</small>'}</div></div>`; }).join('') : '<p class="hint">Write down where you think an asset will be, and by when. Your estimate is always shown apart from the real price.</p>'}`,

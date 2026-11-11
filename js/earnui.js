@@ -2,10 +2,10 @@
 import { get, commit, stamp, fmt, CUR, walletOf } from './core.js';
 import { esc, sheet, toast, ACT } from './ui.js';
 import { button } from './components.js';
-import { apyHistOf, dayHours, cfgOf, e8, e8Ms, e8Label, logOf, subscriptions, H, runEarn, tzOf, tzName, earnStartOf, defaultFrom } from './earn.js';
+import { apyHistOf, apyAt, dayHours, cfgOf, e8, e8Ms, e8Label, logOf, subscriptions, H, runEarn, tzOf, tzName, earnStartOf, defaultFrom } from './earn.js';
 const dec = (cur) => Math.max(2, Math.min(8, (CUR[cur] || { dec: 8 }).dec));
 const num = (n, cur) => fmt(n, cur);
-export function openEarn(id) {
+export function openEarn(id, focus = '') {
   let pick = '09:00';
   const s = sheet('<div id="ew"></div>', { title: 'Subscription Settings', wide: true }), root = s.el.querySelector('#ew'), open = new Set();
   const set = (patch) => { commit((d) => { const x = d.accounts.find((q) => q.id === id); x.earn = { ...(x.earn || {}), ...patch }; stamp(x); if (x.earn.on) runEarn(d); }); draw(); };
@@ -21,14 +21,33 @@ export function openEarn(id) {
       <div class="btnrow left">${button({ label: 'Add an APR Change', kind: 'ghost', size: 'sm', attr: { 'data-ew': 'aprAdd' } })}</div></div>`;
   };
   const aprSheet = (idx) => {
-    const db = get(), a = db.accounts.find((x) => x.id === id), c = cfgOf(a), off = tzOf(db, a), hist = apyHistOf(c), cur0 = idx != null ? hist[idx] : null, t0 = cur0 && cur0.at ? cur0.at : Date.now(), e0 = e8(t0, off);
+    const db = get(), a = db.accounts.find((x) => x.id === id), c = cfgOf(a), off = tzOf(db, a), hist = apyHistOf(c), cur0 = idx != null ? hist[idx] : null, first = !!(cur0 && !cur0.at), t0 = cur0 && cur0.at ? cur0.at : Date.now(), e0 = e8(t0, off);
+    let when = `${e0.day} ${e0.hm}`;   // the moment the exchange changed the rate, on the platform's clock
+    const atOf = () => e8Ms(when.slice(0, 10), when.slice(11, 16) || '00:00', off);
+    const full = (t) => (t % H === 0 ? t : (Math.floor(t / H) + 1) * H);   // the first hour that starts after (or at) the change
     const sh = sheet(`<label class="field"><span>New Yearly Rate (APR, %)</span><input id="ah-apy" inputmode="decimal" value="${cur0 ? cur0.apy : ''}" placeholder="e.g. 4.5"></label>
-      ${cur0 && !cur0.at ? '<p class="hint">This is the first rate. It applies from the start.</p>' : `<div class="two"><label class="field"><span>Effective Date (${esc(tzName(off))})</span><input id="ah-day" type="date" value="${e0.day}"></label><label class="field"><span>Time</span><input id="ah-time" type="time" value="${e0.hm}"></label></div>`}
-      <p class="hint">Earnings from that moment on are worked out again with this rate. Earlier hours are kept.</p>
+      ${first ? '<p class="hint">This is the first rate. It applies from the start.</p>' : `<div class="field"><span>When Did the Rate Change? (${esc(tzName(off))})</span>
+        <button type="button" class="btn ghost tbtn ahwhen" id="ah-when"></button>
+        <div class="btnrow left tight">${button({ label: 'Now', kind: 'link', id: 'ah-now' })}${button({ label: 'Earlier Today', kind: 'link', id: 'ah-today' })}</div></div>
+      <div class="cardbox" id="ah-calc"></div>`}
+      <p class="hint">Earnings are worked out again from the moment the rate changes. Hours before it keep their old rate. A change in the middle of an hour never pays for that part-hour at the new rate.</p>
       <div class="btnrow">${button({ label: 'Save', kind: 'primary', id: 'ah-save' })}</div>`, { title: idx != null ? 'Edit APR Change' : 'Add an APR Change' });
+    const paint = () => {
+      const w = sh.el.querySelector('#ah-when'); if (!w) return;
+      const at = atOf(), f = full(at), mid = at % H !== 0, old = apyAt({ apyHist: hist.filter((_, k) => k !== idx), apy: c.apy }, at + H);
+      w.textContent = `🗓 ${e8Label(at, off)}`;
+      sh.el.querySelector('#ah-calc').innerHTML = `<b>What Happens</b><p class="hint">${mid ? `The change came at <b>${esc(e8Label(at, off))}</b>, in the middle of an hour. The hour in progress (until ${esc(e8Label(f, off))}) is not counted at the new rate and keeps <b>${old}%</b>.<br>The new rate counts from the first full hour, <b>${esc(e8Label(f, off))}</b>, and is paid when that hour ends.` : `The change is exactly on the hour. The new rate counts from <b>${esc(e8Label(at, off))}</b> and is paid when that hour ends.`}</p>`;
+    };
+    if (!first) {
+      paint();
+      sh.el.querySelector('#ah-when').onclick = () => import('./datepicker.js').then((m) => m.openDatePicker(`${when.slice(0, 10)} ${when.slice(11, 16)}:00`, (v) => { when = String(v).slice(0, 16); paint(); }, { time: true, title: 'When Did the Rate Change?' }));
+      sh.el.querySelector('#ah-when').setWhen = (v) => { when = String(v).slice(0, 16); paint(); };   // also used by tests
+      sh.el.querySelector('#ah-now').onclick = () => { const e = e8(Date.now(), off); when = `${e.day} ${e.hm}`; paint(); };
+      sh.el.querySelector('#ah-today').onclick = () => { const e = e8(Date.now(), off); when = `${e.day} 00:00`; paint(); };
+    }
     sh.el.querySelector('#ah-save').onclick = () => {
       const apy = parseFloat(String(sh.el.querySelector('#ah-apy').value).replace(/,/g, '')); if (!Number.isFinite(apy) || apy < 0) { toast('Type the rate, for example 4.5.'); return; }
-      const dayEl = sh.el.querySelector('#ah-day'), at = dayEl ? e8Ms(dayEl.value, sh.el.querySelector('#ah-time').value || '00:00', off) : 0; if (dayEl && !dayEl.value) { toast('Choose the date.'); return; }
+      const at = first ? 0 : atOf();
       commit((d) => { const x = d.accounts.find((q) => q.id === id), e = (x.earn = { ...(x.earn || {}) }); let h = apyHistOf(e); if (!h.length && e.apy > 0) h = [{ at: 0, apy: +e.apy }];
         if (idx != null) h[idx] = { at, apy }; else h.push({ at, apy });
         h.sort((p, q) => p.at - q.at); e.apyHist = h; e.apy = h.filter((y) => y.at <= Date.now()).pop() ? h.filter((y) => y.at <= Date.now()).pop().apy : h[0].apy; stamp(x); if (e.on) runEarn(d); });
@@ -73,6 +92,7 @@ export function openEarn(id) {
       ${log.days.length ? log.days.slice(0, 60).map((d) => `<div class="cardbox"><button type="button" class="linkbtn" data-ew="day" data-v="${d.day}">${open.has(d.day) ? '▾' : '▸'} ${esc(d.day)} · ${num(d.amt, cur)} · ${d.hours.length} hours</button>${open.has(d.day) ? hrs(d.hours.slice().reverse(), d.z != null ? d.z : off) : ''}</div>`).join('') : '<p class="empty">No finished days yet.</p>'}` : ''}`;
   };
   draw();
+  if (focus === 'apr') setTimeout(() => { const t = root.querySelector('#aprhist'); if (t) t.scrollIntoView({ block: 'start' }); }, 60);
   root.addEventListener('change', (e) => { const k = e.target.dataset.ew; if (!k) return; const v = e.target.value;
     if (k === 'apy') { const nv = Math.max(0, parseFloat(v) || 0); commit((d) => { const x = d.accounts.find((q) => q.id === id), e = (x.earn = { ...(x.earn || {}) }); let h = apyHistOf(e); if (!h.length && e.apy > 0) h = [{ at: 0, apy: +e.apy }];
         if ((h.length ? h[h.length - 1].apy : 0) !== nv || !h.length) h.push({ at: h.length ? Date.now() : 0, apy: nv }); e.apyHist = h; e.apy = nv; stamp(x); if (e.on) runEarn(d); }); return draw(); }
@@ -95,7 +115,7 @@ export function openEarn(id) {
     if (k === 'pickslot') { import('./datepicker.js').then((m) => m.openDatePicker(`2000-01-01 ${pick}:00`, (v) => { pick = String(v).slice(11, 16); draw(); }, { time: true, title: 'Choose a time' })); return; }
     if (k === 'addslot') { const t = pick; if (!/^\d\d:\d\d$/.test(t)) { toast('Pick a time first.'); return; } set({ slots: [...new Set([...(c.slots || []), t])] }); } });
 }
-ACT['earn-open'] = (el) => openEarn(el.dataset.id);
+ACT['earn-open'] = (el) => openEarn(el.dataset.id, el.dataset.focus || '');
 
 // tapping a day's "Interest Earned" entry: the hours behind it (the total is still growing while the day is open)
 export function openEarnDay(t) {

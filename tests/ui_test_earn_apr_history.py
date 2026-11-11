@@ -27,13 +27,13 @@ with sync_playwright() as p:
     at1=r0['hist'][1]['at']
     pg.click('[data-ew=aprEdit][data-v="1"]'); pg.wait_for_selector('#ah-apy'); 
     day,tm=pg.evaluate("(async()=>{const e=await import('/js/earn.js');const x=e.e8(%d+10*3600e3,8);return [x.day,x.hm]})()"%at1)
-    pg.fill('#ah-day',day); pg.fill('#ah-time',tm); pg.click('#ah-save'); pg.wait_for_timeout(700)
+    pg.evaluate("([d,t])=>document.querySelector('#ah-when').setWhen(d+' '+t)",[day,tm]); pg.click('#ah-save'); pg.wait_for_timeout(700)
     r1=pg.evaluate(CHK)
     ok('moved 10 hours later: every hour still uses the rate of its period', r1['bad']==0 and r1['hist'][1]['at']==at1+10*3600000 and abs(r1['tx']-r1['sum'])<1e-6)
     ok('the 10 hours went back to the lower rate: total fell by 10 x 0.01', abs((r0['sum']-r1['sum'])-0.10)<1e-6 and r1['n']==r0['n'])
     # add a new change 5 hours ago
     pg.click('[data-ew=aprAdd]'); pg.wait_for_selector('#ah-apy'); pg.fill('#ah-apy','26.28')
-    day,tm=pg.evaluate("(async()=>{const e=await import('/js/earn.js');const x=e.e8(window.__now-5*3600e3,8);return [x.day,x.hm]})()"); pg.fill('#ah-day',day); pg.fill('#ah-time',tm); pg.click('#ah-save'); pg.wait_for_timeout(700)
+    day,tm=pg.evaluate("(async()=>{const e=await import('/js/earn.js');const x=e.e8(window.__now-5*3600e3,8);return [x.day,x.hm]})()"); pg.evaluate("([d,t])=>document.querySelector('#ah-when').setWhen(d+' '+t)",[day,tm]); pg.click('#ah-save'); pg.wait_for_timeout(700)
     r2=pg.evaluate(CHK)
     ok('added change: three rates in order, hours follow, current rate is the latest %s'%r2['hist'], len(r2['hist'])==3 and r2['hist'][0]['at']<=r2['hist'][1]['at']<=r2['hist'][2]['at'] and r2['bad']==0 and r2['apy']==26.28 and r2['sum']>r1['sum'])
     # remove it again
