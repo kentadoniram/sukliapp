@@ -1,4 +1,5 @@
 // First screen: "I am new" (five easy questions, one at a time) or "I've used a budget app before" (the old welcome), plus restoring your own Sukli backup.
+import { button } from './components.js';
 import { get, commit, seedCategories, findOrAddCategory, stamp, uid, HOME, CUR, replaceAll, emptyDb } from './core.js';
 import { ACT, esc, toast } from './ui.js';
 
@@ -53,22 +54,22 @@ export function restoreFromText(text) {
 const restoreBtn = (id) => `<label class="btn ghost wide filebtn">I already use Sukli: restore my backup file<input type="file" id="${id}" class="first-json" accept=".json,application/json" hidden></label>
   <p class="hint center">The .json file you saved from Settings. Use it after reinstalling.</p>`;
 const bar = () => `<p class="wzstep">Question ${wz.step + 1} of ${STEPS}</p><div class="wzbar" aria-hidden="true"><i style="width:${(wz.step + 1) / STEPS * 100}%"></i></div>`;
-const nav = (ok, last) => `<div class="btnrow wznav"><button type="button" class="btn ghost" data-act="wz-back">Back</button><button type="button" class="btn" id="wz-next" data-act="wz-next" ${ok ? '' : 'disabled'}>${last ? 'Save my first entry' : 'Next'}</button></div>`;
+const nav = (ok, last) => `<div class="btnrow wznav">${button({ label: 'Back', kind: 'ghost', act: 'wz-back' })}<button type="button" class="btn" id="wz-next" data-act="wz-next" ${ok ? '' : 'disabled'}>${last ? 'Save my first entry' : 'Next'}</button></div>`;
 const chips = (items, cur, act, attr) => `<div class="chips wzchips">${items.map(([v, l]) => `<button type="button" class="chip ${cur === v ? 'on' : ''}" data-act="${act}" data-${attr}="${esc(v)}" aria-pressed="${cur === v}">${esc(l)}</button>`).join('')}</div>`;
 const valid = () => [!!wz.what.trim(), num(wz.amount) > 0, !!wz.pay, num(wz.now) >= 0, !!wz.whenKind][wz.step];
 
 export function welcomeHtml(oldHtml) {
-  if (wz.mode === 'old') return `${oldHtml}<p class="hint center"><button type="button" class="linkbtn" data-act="wz-home">Back</button></p>${restoreBtn('first-json2')}`;
+  if (wz.mode === 'old') return `${oldHtml}<p class="hint center">${button({ label: 'Back', kind: 'link', act: 'wz-home' })}</p>${restoreBtn('first-json2')}`;
   if (wz.mode !== 'new') return `<section class="welcome">
     <h1>Welcome to Sukli</h1>
     <p class="lede">See where your money goes. Your data stays on this phone.</p>
-    <button type="button" class="btn wide" data-act="wz-new">I am new</button>
-    <button type="button" class="btn ghost wide" data-act="wz-old">I’ve used a budget app before</button>
+    ${button({ label: 'I am new', kind: 'primary', cls: 'wide', act: 'wz-new' })}
+    ${button({ label: 'I’ve used a budget app before', kind: 'ghost', cls: 'wide', act: 'wz-old' })}
     <div class="or"><span>or</span></div>${restoreBtn('first-json')}<input type="file" id="first-file" accept=".csv,text/csv" hidden aria-hidden="true" tabindex="-1"></section>`;
   if (!wz.lvl) return `<section class="welcome wz"><h1>How do you want Sukli?</h1><p class="hint">You can change this any time in Settings. Nothing you enter is ever deleted when you switch.</p>
     <button type="button" class="btn wide lvlbtn" data-act="wz-lvl" data-v="simple">Simple<small class="btnsub">Just the basics: add what you spend, see where it went. Other options stay hidden until you want them.</small></button>
     <button type="button" class="btn ghost wide lvlbtn" data-act="wz-lvl" data-v="advanced">Advanced<small class="btnsub">Everything: interest, loans, investments, tags, merchants, exports.</small></button>
-    <p class="hint center"><button type="button" class="linkbtn" data-act="wz-home">Back</button></p></section>`;
+    <p class="hint center">${button({ label: 'Back', kind: 'link', act: 'wz-home' })}</p></section>`;
   const s = wz.step, last = s === STEPS - 1;
   const q = [
     () => `<h1>What did you spend?</h1><p class="hint">Anything you paid for today or lately. A word is enough.</p>
@@ -81,7 +82,7 @@ export function welcomeHtml(oldHtml) {
       <label class="amtwrap wzamt"><b>${esc(sym())}</b><input id="wz-now" class="wzin" data-wz="now" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(wz.now)}"></label>`; },
     () => `<h1>When was it?</h1><p class="hint">A guess is fine.</p>${chips([...WHEN, ['custom', wz.whenKind === 'custom' && wz.whenAt ? wz.whenAt.slice(0, 16) : 'Pick a date and time']], wz.whenKind, 'wz-when', 'v')}`,
   ][s]();
-  return `<section class="welcome wz">${bar()}${q}${nav(valid(), last)}<p class="hint center"><button type="button" class="linkbtn" data-act="wz-home">Start over</button></p></section>`;
+  return `<section class="welcome wz">${bar()}${q}${nav(valid(), last)}<p class="hint center">${button({ label: 'Start over', kind: 'link', act: 'wz-home' })}</p></section>`;
 }
 
 ACT['wz-new'] = () => { Object.assign(wz, { mode: 'new', lvl: '', step: 0, what: '', amount: '', pay: '', now: '', whenKind: '', whenAt: '' }); rerender(); };

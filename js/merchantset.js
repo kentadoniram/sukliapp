@@ -1,4 +1,5 @@
 // Settings > Merchants: add a merchant before you use it, rename one (everywhere), merge two spellings, or remove one from your entries.
+import { button } from './components.js';
 import { get, commit, stamp } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { norm } from './merchants.js';
@@ -18,7 +19,7 @@ export function merchantsSection(db) {
   return `<section id="merch-set"><h2>Merchants</h2>
     <p class="hint">Where you bought something (Shopee, Lazada, wet market, mall). The category still says what it was. Add one here, or tap one to rename it or take it off your entries.</p>
     ${list.length ? `<div class="rows plain">${list.map((m) => `<button type="button" class="row cur ln1" data-act="mer-edit" data-m="${esc(m.name)}"><i class="badge sm" style="background:${groupColor(m.name)}">${merchPic(db, m.name)}</i><span class="rmain"><strong>${esc(m.name)}</strong><small>${m.n ? `${m.n} ${m.n === 1 ? 'entry' : 'entries'}` : 'Added by you, not used yet'}</small></span></button>`).join('')}</div>` : '<p class="hint">No merchants yet. They appear here once you use the Merchant row on an expense.</p>'}
-    <div class="btnrow left"><button type="button" class="btn ghost" data-act="mer-add">Add a merchant</button></div></section>`;
+    <div class="btnrow left">${button({ label: 'Add a merchant', kind: 'ghost', act: 'mer-add' })}</div></section>`;
 }
 
 ACT['mer-add'] = () => {

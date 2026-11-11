@@ -1,5 +1,6 @@
 // Exchange settings: tap an exchange's name on its card in Investments to see and change everything for the whole exchange at once
 // (instead of opening each asset account one by one).
+import { button } from './components.js';
 import { get, commit, stamp, walletOf, fmt, HOME, balances, homeFx } from './core.js';
 import { ACT, sheet, esc, toast } from './ui.js';
 import { exchangeOf, inInvest } from './invest.js';
@@ -17,7 +18,7 @@ export function openPlatform(ex) {
     root.innerHTML = `
       <p class="hint"><b>${esc(ex)}</b> › Accounts (${esc(wallets.join(', ') || 'none yet')}) › Assets · ${accts.length} asset balance${accts.length === 1 ? '' : 's'} · about <b>${esc(fmt(total, HOME))}</b>. Every coin of the top 50 can be used in any account here without adding it first.</p>
       <h3>Account Types</h3>
-      <div class="chips">${accountTypesOf(db, ex).map((w) => { const mine = ((db.settings.acctTypes || {})[Object.keys(db.settings.acctTypes || {}).find((x) => x.toLowerCase() === ex.toLowerCase())] || []).includes(w) && !wallets.includes(w); return `<span class="chip ${wallets.includes(w) ? 'on' : ''}">${esc(w)}${mine ? ` <button type="button" class="linkbtn" data-p="deltype" data-v="${esc(w)}" aria-label="Remove ${esc(w)}">✕</button>` : ''}</span>`; }).join('')}<button type="button" class="chip" data-p="addtype">+ Add Account Type</button></div>
+      <div class="chips">${accountTypesOf(db, ex).map((w) => { const mine = ((db.settings.acctTypes || {})[Object.keys(db.settings.acctTypes || {}).find((x) => x.toLowerCase() === ex.toLowerCase())] || []).includes(w) && !wallets.includes(w); return `<span class="chip ${wallets.includes(w) ? 'on' : ''}">${esc(w)}${mine ? ` <button type="button" class="linkbtn" data-p="deltype" data-v="${esc(w)}" aria-label="Remove ${esc(w)}">✕</button>` : ''}</span>`; }).join('')}${button({ label: '+ Add Account Type', kind: 'chip', attr: { 'data-p': 'addtype' } })}</div>
       <p class="hint">Exchanges add new products from time to time. Add the name here (for example Copy Trading) and it appears in From, To and when adding assets for ${esc(ex)}.</p>
       <h3>Actions</h3>
       <div class="btnrow left"><button type="button" class="btn sm" data-act="plat-do" data-do="inv-add" data-ex="${esc(ex)}">Record</button><button type="button" class="btn sm ghost" data-act="plat-do" data-do="inv-coin" data-ex="${esc(ex)}">+ Asset</button><button type="button" class="btn sm ghost" data-act="plat-do" data-do="inv-internal" data-ex="${esc(ex)}">Internal Transfer</button></div>

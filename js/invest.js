@@ -10,7 +10,7 @@ import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
 import { pendingReview } from './tradereview.js';
 import { tokenPerformance } from './tokenperf.js';
-import { button } from './components.js';
+import { button, tabs } from './components.js';
 import { ensureUsdt, TRADING_WALLETS } from './tokens.js';
 
 const live = (l) => l.filter((x) => !x.deleted);
@@ -76,7 +76,7 @@ function dashTabs() {
   const list = Object.keys(DASH).map((id) => PANELS.find((x) => x.id === id)).filter(Boolean); PANELS = [];
   if (!list.length) return '';
   const pick = list.find((x) => x.id === dtab()) || list[0], sum = (pick.title.match(/<small[^>]*>(.*?)<\/small>/) || [])[1] || '';
-  return `<section class="dashtabs"><div class="wtabs" role="tablist" aria-label="Investment dashboard">${list.map((x) => button({ label: DASH[x.id], kind: 'chip', cls: 'wtab', on: x.id === pick.id, act: 'inv-dtab', v: x.id, attr: { role: 'tab', 'aria-selected': String(x.id === pick.id) } })).join('')}</div>
+  return `<section class="dashtabs">${tabs({ items: list.map((x) => ({ label: DASH[x.id], value: x.id })), value: pick.id, act: 'inv-dtab', aria: 'Investment dashboard' })}
     ${sum ? `<p class="hint wtsum">${sum}</p>` : ''}<div class="dashbody">${pick.body}</div></section>`;
 }
 const wtabs = () => { try { return JSON.parse(localStorage.getItem('sukli-wtab') || '{}'); } catch { return {}; } };
@@ -236,7 +236,7 @@ export function investments(db) {
     // one wallet at a time: a row of tabs (Spot, Margin, Futures, Earn…) and only the chosen wallet's assets below
     const order = [...ws.entries()].sort((x, y) => (WALLETS.indexOf(x[0]) + 1 || 99) - (WALLETS.indexOf(y[0]) + 1 || 99) || x[0].localeCompare(y[0])), ex = exchangeOf(list[0]) || '';
     const pick = (wtabs()[ex] && ws.has(wtabs()[ex])) ? wtabs()[ex] : ws.has('Spot') ? 'Spot' : order[0][0], l = ws.get(pick);
-    return `<div class="wtabs" role="tablist" aria-label="Account type">${order.map(([w, x]) => `${button({ label: w || 'Other', kind: 'chip', cls: `wtab w-${(w || 'other').toLowerCase().replace(/[^a-z0-9]/g, '')}`, on: w === pick, act: 'inv-wtab', attr: { role: 'tab', 'aria-selected': String(w === pick), 'data-ex': ex, 'data-w': w } })}`).join('')}</div>
+    return `${tabs({ items: order.map(([w]) => ({ label: w || 'Other', value: w, cls: `w-${(w || 'other').toLowerCase().replace(/[^a-z0-9]/g, '')}` })), value: pick, act: 'inv-wtab', aria: 'Account type', attrOf: (x) => ({ 'data-ex': ex, 'data-w': x.value }) })}
       <p class="hint wtsum">${esc(pick || 'Other')}: ${money(exSum(l))}${earnedTxt(l)}${pick === 'Earn' ? ' · Earn only collects interest. Coins move in and out with Internal Transfer.' : ''}</p><div class="rows plain">${srt(l).map((a) => holding(a, t)).join('')}</div>`; };
   const holding = (a, tot) => { const b = bal.get(a.id) || 0, v = val(db, a, b), ok = priced(db, a), px = homeFx(db, a.cur) || 0;
     const ic = assetIcon(a, tickers); return `<button class="row acct hold" data-act="acct" data-id="${a.id}"><i class="badge sm ${ic.coin ? 'coinbadge' : ''}" style="background:${ic.coin ? 'transparent' : ic.manual ? groupColor(a.type) : 'var(--xfer)'}">${ic.html}</i>
@@ -261,7 +261,7 @@ export function investments(db) {
     ${cryptoAll.length && (hiddenN || showEmpty) ? `<p class="hint emptylink">${showEmpty ? 'Showing empty assets too.' : `${hiddenN} empty asset${hiddenN === 1 ? ' is' : 's are'} hidden.`} <button type="button" class="linkbtn" data-act="inv-empty">${showEmpty ? 'Hide empty assets' : 'Show them'}</button></p>` : ''}
     ${performanceCard(db, bal, book, items)}${tokenCard(db, book, items)}${feesCard(db, book)}${predictCard(db)}${gains}${dashTabs()}${incomeCard(db)}${cryptoCard}${otherHtml}${tickerCard(db, tickers)}
     ${items.length ? '' : '<p class="empty">Nothing here yet. Add an exchange coin, an investment, or any account marked “Show in Investments” (for example MP2).</p>'}
-    <p class="hint">Each coin or share is its own balance at its platform (for example USDT, BNB and NVDA). The line under it shows the amount, what you paid, and today’s price; the right side is the value in ${invC}. <button type="button" class="linkbtn" data-act="glossary">Words explained</button></p></div>`;
+    <p class="hint">Each coin or share is its own balance at its platform (for example USDT, BNB and NVDA). The line under it shows the amount, what you paid, and today’s price; the right side is the value in ${invC}. ${button({ label: 'Words explained', kind: 'link', act: 'glossary' })}</p></div>`;
 }
 
 // manual tickers: any coin, token, stock or fund, on any platform or market (Tokyo, Korea, NASDAQ...), kept apart from real currencies
@@ -488,7 +488,7 @@ function incomeCard(db) {
   const nm = (id) => { const a = db.accounts.find((x) => x.id === id); return a ? ((db.settings.tickers || {})[a.cur] || {}).ticker || a.cur : '?'; };
   return coll('i-inc', `Investment Income <small class="muted gsum">${money(list.reduce((q, t) => q + v(t), 0))}</small>`,
     `<ul class="calfacts"><li><span>This year</span><b class="cg">${money(list.filter((t) => t.date.startsWith(yr)).reduce((q, t) => q + v(t), 0))}</b></li>${[...by.entries()].map(([k, x]) => `<li><span>${esc(k)}</span><b>${money(x)}</b></li>`).join('')}</ul>
-    <h3 class="subh">Latest</h3><ul class="calfacts">${list.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6).map((t) => `<li><span>${esc(t.date.slice(0, 10))} · ${esc(t.invIncome.type)} · ${esc(nm(t.invIncome.asset))}</span><b>${f2(t.amount, t.cur)}</b></li>`).join('')}</ul>`, '<button type="button" class="btn sm ghost" data-act="inv-income">+ Income</button>');
+    <h3 class="subh">Latest</h3><ul class="calfacts">${list.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6).map((t) => `<li><span>${esc(t.date.slice(0, 10))} · ${esc(t.invIncome.type)} · ${esc(nm(t.invIncome.asset))}</span><b>${f2(t.amount, t.cur)}</b></li>`).join('')}</ul>`, '' + button({ label: '+ Income', kind: 'ghost', size: 'sm', act: 'inv-income' }) + '');
 }
 export function openIncome(pre = {}) {
   const db = get(), hold = db.accounts.filter((a) => !a.deleted && !a.archived && inInvest(a)), cash = db.accounts.filter((a) => !a.deleted && !a.archived && !isLiabilityType(a));
@@ -529,7 +529,7 @@ function predictCard(db) {
       return `<div class="pred"><div class="predtop"><b>${esc(p.t.ticker || p.sym)}</b><button type="button" class="linkbtn" data-act="inv-pdel" data-sym="${esc(p.sym)}" data-id="${esc(p.id)}">Remove</button></div>
         <div><span class="estbadge">Your estimate</span> ${fmt(p.price, p.quote)} by ${esc(p.by)}${p.note ? ` <small class="muted">· ${esc(p.note)}</small>` : ''}</div>
         <div>${act ? `<span class="actbadge">Actual</span> ${fmt(act.v, act.quote)} <small class="muted">· ${a ? esc(priceStamp(db, a)) : ''}</small>${gap != null ? ` · <b class="${gap >= 0 ? 'cg' : 'cr'}">${gap >= 0 ? '+' : '−'}${Math.abs(gap).toFixed(1)}% to reach it</b>` : ''}` : '<span class="actbadge">Actual</span> <small class="muted">no price yet</small>'}</div></div>`; }).join('') : '<p class="hint">Write down where you think an asset will be, and by when. Your estimate is always shown apart from the real price.</p>'}`,
-    '<button type="button" class="btn sm ghost" data-act="inv-predict">+ Add</button>');
+    '' + button({ label: '+ Add', kind: 'ghost', size: 'sm', act: 'inv-predict' }) + '');
 }
 function openPredict(pre = {}) {
   const db = get(), hold = db.accounts.filter((a) => !a.deleted && inInvest(a) && isAsset(a)), seen = new Set(), uniq = hold.filter((a) => (seen.has(a.cur) ? false : seen.add(a.cur)));

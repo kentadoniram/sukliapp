@@ -66,7 +66,7 @@ export function openConverter({ from: from0, to: to0, amount = 0, rate = 0, titl
       <label class="field"><span id="cv-rlab">Exchange Rate</span><input id="cv-r" inputmode="decimal" autocomplete="off" value="${nf(r)}"></label>
       <ul class="fxbig fxinv" id="cv-inv" aria-live="polite"></ul></div>
     <p class="hint" id="cv-bill" hidden></p>
-    <div class="btnrow"><button type="button" class="btn ghost" data-close>Close</button>${onReset ? '<button type="button" class="btn ghost" id="cv-reset">Back to live</button>' : ''}${onApply ? `<button type="button" class="btn" id="cv-apply">${esc(applyLabel)}</button>` : ''}</div></div>`, { title });
+    <div class="btnrow"><button type="button" class="btn ghost" data-close>Close</button>${onReset ? '' + button({ label: 'Back to live', kind: 'ghost', id: 'cv-reset' }) + '' : ''}${onApply ? `<button type="button" class="btn" id="cv-apply">${esc(applyLabel)}</button>` : ''}</div></div>`, { title });
   const q = (id) => s.el.querySelector('#' + id), A = q('cv-a'), B = q('cv-b'), R = q('cv-r');
   let rdir = 'fwd';   // fwd: PHP per 1 USDT (to/from); rev: USDT per 1 PHP (from/to)
   const setR = () => { R.value = nf(rdir === 'fwd' ? r : r > 0 ? 1 / r : 0); };

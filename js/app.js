@@ -1,4 +1,5 @@
 // App shell: routing, tab bar, first-run screen, service worker, auto-backup hook.
+import { button } from './components.js';
 import { applyTypes } from './accpage.js';
 import { setNameRules } from './merchants.js';
 import { initBackup } from './backup.js';
@@ -19,6 +20,7 @@ import { ratesInit } from './rates.js';
 import { initGestures } from './gestures.js';
 import { welcomeHtml } from './welcome.js';
 import { bin, autoPurge } from './bin.js';
+import { styleguide } from './styleguide.js';
 import { analytics } from './analytics.js';
 import { investments } from './invest.js';
 import { debts } from './debts.js';
@@ -33,7 +35,7 @@ import './loans.js';
 import './trades.js';
 import { commitQuiet } from './core.js';
 
-const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook, bin, analytics, invest: investments, debts, owed, savings, spend, trips };
+const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook, bin, analytics, invest: investments, debts, owed, savings, spend, trips, styleguide };
 let lastRoute = null, pending = false;
 // remember where you were on each screen so Back returns there instead of the top
 const seen = new Map(), stack = []; let curKey = '', backTo = null;
@@ -48,7 +50,7 @@ function firstRunOld() {
       <li><b>Say where your money is.</b><span>Your wallet, a bank account, or an e-wallet like GCash or PayPay. Each one is called an <em>account</em>. Type how much is in it today.</span></li>
       <li><b>Write down what you spend and earn.</b><span>Tap the round <b>+</b> button each time you pay for something or get paid. Each one is called an <em>entry</em>. It takes a few seconds.</span></li>
       <li><b>Look at Home.</b><span>You will see what came in, what went out, and which kind of spending is biggest.</span></li></ol>
-    <button class="btn wide" data-act="start-empty">Start: add my first account</button>
+    ${button({ label: 'Start: add my first account', kind: 'primary', cls: 'wide', act: 'start-empty' })}
     <p class="hint center">Takes about a minute. You can change everything later.</p>
     <div class="or"><span>already use another app?</span></div>
     <label class="btn ghost wide filebtn">I use Bluecoins: import my CSV file<input type="file" id="first-file" accept=".csv,text/csv" hidden></label>

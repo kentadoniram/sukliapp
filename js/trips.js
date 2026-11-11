@@ -1,5 +1,6 @@
 // Trips and events (Advanced): what Sukli has learned about the times your spending left daily life (js/habits.js).
 // Everything here is a suggestion with the reason shown. Yes / No teaches Sukli: it never changes an entry, a category or a budget.
+import { button } from './components.js';
 import { get, commit, fmt, HOME, homeFx, nowStamp } from './core.js';
 import { ACT, esc, toast, promptDialog, sheet } from './ui.js';
 import { hdr } from './screens.js';
@@ -122,7 +123,7 @@ export function trips(db) {
     body += r.trips.slice().sort((a, b) => (a.from < b.from ? 1 : -1)).map(card).join('');
   }
   if (r.planned.length) body += `<section class="card"><h2>Paid For, Trip Not Yet</h2><p class="hint">Flights, hotels and similar you have paid for. They join the trip when it happens.</p><ul class="calfacts">${r.planned.map((p) => `<li><span>${esc(p.name)} · ${niceDate(p.date)}</span><b>${money(p.amount)}</b></li>`).join('')}</ul></section>`;
-  if (r.rejected) body += `<section class="card"><p class="hint">${r.rejected} suggestion${r.rejected === 1 ? '' : 's'} you said were not trips are hidden. <button type="button" class="linkbtn" data-act="trip-reset">Show them again</button></p></section>`;
+  if (r.rejected) body += `<section class="card"><p class="hint">${r.rejected} suggestion${r.rejected === 1 ? '' : 's'} you said were not trips are hidden. ${button({ label: 'Show them again', kind: 'link', act: 'trip-reset' })}</p></section>`;
   return `${hdr('Trips and Events')}<main class="page" id="trippage">${body}</main>`;
 }
 

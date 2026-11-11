@@ -1,5 +1,6 @@
 // Owed to you tab: people who owe you money (accounts of type "Money owed to me"), what is still owed, since when, and quick buttons.
 // Plain facts only: it shows how long you have waited and never says someone will not pay. Writing off is your own choice.
+import { button } from './components.js';
 import { get, commit, stamp, balances, softDelete, undoLast, fmt, HOME, uid, homeFx, homeRate, BASE, findOrAddCategory, nowStamp } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog, promptDialog } from './ui.js';
 import { hdr, coll } from './screens.js';
@@ -29,7 +30,7 @@ export function owedList(db) {
 
 export function owed(db) {
   const list = owedList(db), open = list.filter((p) => p.open), done = list.filter((p) => !p.open), total = open.reduce((q, p) => q + p.owed, 0);
-  const add = '<button type="button" class="btn" data-act="owed-add">Add a person</button>';
+  const add = '' + button({ label: 'Add a person', kind: 'primary', act: 'owed-add' }) + '';
   if (!list.length) return `<div class="debtpage owedpage">${hdr('Owed to You')}<section class="cardbox"><h3>Nobody Owes You Yet</h3><p class="hint">When you lend money to a friend or family member, record it with <b>Lent</b> in the add button (the round +). It is not counted as spending, and it shows here until they pay you back.</p><div class="btnrow left">${add}</div></section></div>`;
   const row = (p) => `<div class="debtrow"><div class="dr-head"><div><button type="button" class="linkbtn oname" data-act="owed-hist" data-id="${p.id}"><b>${esc(p.name)}</b> ›</button><small class="muted">${p.since ? `Waiting since ${niceDate(p.since)} (${daysText(p.waited)})` : 'No lending entry yet'}</small></div>${p.cur !== HOME ? `<div class="dr-owedbox"><b class="dr-owed">${fmt(p.owedCur, p.cur)}</b><small class="muted">≈ ${money(p.owed)}</small></div>` : `<b class="dr-owed">${money(p.owed)}</b>`}</div>
     <ul class="calfacts">${p.cur !== HOME ? `<li><span>Rate used (your settings)</span><b>1 ${esc(p.cur)} = ${fmt(p.rate, HOME)}</b></li>` : ''}${p.due ? `<li><span>Expected back by</span><b>${niceDate(p.due)}${p.dueIn >= 0 ? ` (${daysText(p.dueIn)})` : ''}</b>${p.dueIn < 0 ? ' <small class="muted">date has passed</small>' : ''}</li>` : ''}<li><span>Paid back so far</span>${p.backN ? `<b>${money(p.backSum)} in ${p.backN} payment${p.backN === 1 ? '' : 's'}</b>${p.lastBack ? ` <small class="muted">last ${niceDate(p.lastBack)}</small>` : ''}` : '<span class="muted">nothing yet</span>'}</li></ul>
@@ -37,7 +38,7 @@ export function owed(db) {
   const settled = done.length ? coll('o-done', `Paid Back (${done.length})`, `<div class="rows plain">${done.map((p) => `<div class="orow done"><span class="rmain"><button type="button" class="linkbtn oname" data-act="owed-hist" data-id="${p.id}"><strong>${esc(p.name)}</strong> <span aria-hidden="true">›</span></button><small>${p.backN ? `Paid back ${money(p.backSum)}` : 'Nothing owed'}</small></span><span class="obtns"><button type="button" class="btn sm ghost" data-act="owed-more" data-id="${p.id}">Lend again</button><button type="button" class="btn sm ghost" data-act="owed-edit" data-id="${p.id}">Change</button></span></div>`).join('')}</div>`) : '';
   return `<div class="debtpage owedpage">${hdr('Owed to You')}
     <section class="cardbox"><h3>What Others Owe You</h3><div class="debtsum"><div class="dsrow"><span>Total owed to you</span><b>${money(total)}</b></div><div class="dsrow"><span>People</span><b>${open.length}</b></div></div>
-      <p class="hint">Money you lent is not counted as spending, and it is not part of your Spendable money until it is paid back. Tap a name to see the whole history.</p><div class="btnrow left">${add}<button type="button" class="btn ghost" data-act="owed-new">I lent money</button></div></section>
+      <p class="hint">Money you lent is not counted as spending, and it is not part of your Spendable money until it is paid back. Tap a name to see the whole history.</p><div class="btnrow left">${add}${button({ label: 'I lent money', kind: 'ghost', act: 'owed-new' })}</div></section>
     ${open.length ? `<h2 class="subh">Who owes you (${open.length})</h2>${open.map(row).join('')}` : '<section class="cardbox"><p class="hint">Everyone has paid you back.</p></section>'}${settled}</div>`;
 }
 

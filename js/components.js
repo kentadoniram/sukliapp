@@ -35,3 +35,18 @@ export function box({ title = '', hint = '', cancel, body = '', cls = '' } = {})
 
 // sectionTitle(text): a heading inside a page or sheet
 export const sectionTitle = (t, tag = 'h2') => `<${tag} class="sect">${esc(t)}</${tag}>`;
+
+// textField({ label, id, name, value, placeholder, inputmode, type, hint, cls, hidden, attr }): label + input, one size everywhere
+export function textField({ label = '', id, name, value = '', placeholder, inputmode, type, hint = '', cls = '', hidden = false, aria, attr } = {}) {
+  const inp = `<input${attrs({ id, name, type, inputmode, placeholder, autocomplete: 'off', 'aria-label': aria, ...(attr || {}) })} value="${esc(value)}">`;
+  return `<label class="field ${cls}"${hidden ? ' hidden' : ''}><span>${esc(label)}</span>${inp}${hint ? `<small class="muted">${esc(hint)}</small>` : ''}</label>`;
+}
+// selectField({ label, id, name, options: [{ value, label }] | ['a','b'], value, hint, cls, hidden, attr }): label + select (the app swaps it for its own picker)
+export function selectField({ label = '', id, name, options = [], value, hint = '', cls = '', hidden = false, aria, attr } = {}) {
+  const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o })).map((o) => `<option value="${esc(o.value)}"${String(o.value) === String(value) ? ' selected' : ''}>${esc(o.label)}</option>`).join('');
+  return `<label class="field ${cls}"${hidden ? ' hidden' : ''}><span>${esc(label)}</span><select${attrs({ id, name, 'aria-label': aria || label, ...(attr || {}) })}>${opts}</select>${hint ? `<small class="muted">${esc(hint)}</small>` : ''}</label>`;
+}
+// tabs({ items: [{ label, value }], value, act, v key, aria }): the compact row of tabs used on Investments (Spot, Earn, Margin; dashboard cards)
+export function tabs({ items = [], value, act, aria = '', attrOf } = {}) {
+  return `<div class="wtabs" role="tablist"${aria ? ` aria-label="${esc(aria)}"` : ''}>${items.map((x) => button({ label: x.label, kind: 'chip', cls: `wtab ${x.cls || ''}`.trim(), on: x.value === value, act, v: x.value, attr: { role: 'tab', 'aria-selected': String(x.value === value), ...(attrOf ? attrOf(x) : {}) } })).join('')}</div>`;
+}

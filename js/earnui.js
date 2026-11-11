@@ -1,7 +1,7 @@
 // The Earn schedule window of an Earn account: settings, subscriptions, today's hours and the daily history. Times follow each platform’s own clock.
 import { get, commit, stamp, fmt, CUR, walletOf } from './core.js';
 import { esc, sheet, toast, ACT } from './ui.js';
-import { button } from './components.js';
+import { button, textField } from './components.js';
 import { apyHistOf, apyAt, dayHours, cfgOf, e8, e8Ms, e8Label, logOf, subscriptions, H, runEarn, tzOf, tzName, earnStartOf, defaultFrom } from './earn.js';
 const dec = (cur) => Math.max(2, Math.min(8, (CUR[cur] || { dec: 8 }).dec));
 const num = (n, cur) => fmt(n, cur);
@@ -25,7 +25,7 @@ export function openEarn(id, focus = '') {
     let when = `${e0.day} ${e0.hm}`;   // the moment the exchange changed the rate, on the platform's clock
     const atOf = () => e8Ms(when.slice(0, 10), when.slice(11, 16) || '00:00', off);
     const full = (t) => (t % H === 0 ? t : (Math.floor(t / H) + 1) * H);   // the first hour that starts after (or at) the change
-    const sh = sheet(`<label class="field"><span>New Yearly Rate (APR, %)</span><input id="ah-apy" inputmode="decimal" value="${cur0 ? cur0.apy : ''}" placeholder="e.g. 4.5"></label>
+    const sh = sheet(`${textField({ label: 'New Yearly Rate (APR, %)', id: 'ah-apy', inputmode: 'decimal', value: cur0 ? cur0.apy : '', placeholder: 'e.g. 4.5' })}
       ${first ? '<p class="hint">This is the first rate. It applies from the start.</p>' : `<div class="field"><span>When Did the Rate Change? (${esc(tzName(off))})</span>
         <button type="button" class="btn ghost tbtn ahwhen" id="ah-when"></button>
         <div class="btnrow left tight">${button({ label: 'Now', kind: 'link', id: 'ah-now' })}${button({ label: 'Earlier Today', kind: 'link', id: 'ah-today' })}</div></div>
@@ -82,7 +82,7 @@ export function openEarn(id, focus = '') {
       <p class="hint">${c.subOn ? 'At each time below, everything available in the account you move from is subscribed to Earn. No amount to set.' : 'Choose Yes to move all available coins into Earn on its own, at set times.'}</p>
       ${c.subOn ? `<label class="field"><span>Move From</span><select data-ew="from">${srcs.map((x) => `<option value="${x.id}" ${x.id === fromId ? 'selected' : ''}>${esc(x.name)} (${esc(walletOf(x))})</option>`).join('') || '<option value="">No other account with this coin on this platform</option>'}</select></label>
       <div class="chips">${(c.slots || []).slice().sort().map((t) => `<button type="button" class="chip" data-ew="delslot" data-v="${t}">${t} ✕</button>`).join('') || '<span class="muted">No times yet.</span>'}</div>
-      <div class="addtime"><span class="muted">Add a time (${tz})</span><button type="button" class="btn ghost sm tbtn" data-ew="pickslot">🕒 ${esc(pick)}</button><button type="button" class="btn sm" data-ew="addslot">Add</button></div>
+      <div class="addtime"><span class="muted">Add a time (${tz})</span><button type="button" class="btn ghost sm tbtn" data-ew="pickslot">🕒 ${esc(pick)}</button>${button({ label: 'Add', kind: 'primary', size: 'sm', attr: { 'data-ew': 'addslot' } })}</div>
       <p class="hint">Sukli runs this when you open the app. If it was closed at a set time, the subscription is still recorded at that exact time, so earnings count from then.</p>` : ''}
       <div class="btnrow"><button type="button" class="btn primary" data-ew="done">Done</button></div>
       ${subs.length ? `<h3>Latest Subscriptions</h3><ul class="calfacts">${subs.map((x) => `<li><span>${num(x.amt, cur)}${x.auto ? ' · auto' : ''}<br><small class="muted">Subscribed ${esc(e8Label(x.sub, off))} · earning starts ${esc(e8Label(x.start, off))} · first accrual ${esc(e8Label(x.first, off))}</small></span></li>`).join('')}</ul>` : ''}

@@ -2,6 +2,7 @@
 // on this device and in your Sukli CSV only. It uses the phone's own location, not a map service, so it costs nothing and nothing is sent anywhere.
 // From those points Sukli learns where you usually are in the evening (home) and on weekdays in the daytime (work), unless you set Home yourself.
 // How far an entry is from home or work is one clue for the trip engine; it never decides alone.
+import { button } from './components.js';
 import { get, commit, commitQuiet } from './core.js';
 import { ACT, esc, toast, confirmDialog } from './ui.js';
 
@@ -70,7 +71,7 @@ export function locSection(db) {
     <p class="hint">When it is on, Sukli notes roughly where you are (to about 1 km) when you save an entry. It is kept on this device and in your Sukli CSV and is not sent anywhere on its own. Only when you tap Show Address on an entry is that one point sent to OpenStreetMap (a free service) to get a street name, once per place, and the answer is kept. It needs your phone's permission. Far from home or work is one clue that a day was a trip; it never decides alone, and a nearby mall visit is not a trip.</p>
     <div class="btnrow left"><button type="button" class="btn ${on ? 'ghost' : ''}" data-act="loc-toggle">${on ? 'Turn off' : 'Turn on'}</button></div>
     ${on || n ? `<ul class="calfacts">${line('Home', pl.home, 'not known yet. Sukli learns it from where you usually save entries in the evening.')}${line('Work', pl.work, 'not known yet. Learned from weekday daytime entries.')}<li><span>Entries with a place</span><b>${n}</b></li></ul>
-    <div class="btnrow left"><button type="button" class="btn ghost sm" data-act="loc-sethome">Use where I am now as Home</button>${db.settings.homeLoc ? '<button type="button" class="btn ghost sm" data-act="loc-clearhome">Let Sukli learn Home</button>' : ''}${n ? '<button type="button" class="btn ghost danger sm" data-act="loc-forget">Forget all saved places</button>' : ''}</div>` : ''}</section>`;
+    <div class="btnrow left">${button({ label: 'Use where I am now as Home', kind: 'ghost', size: 'sm', act: 'loc-sethome' })}${db.settings.homeLoc ? '' + button({ label: 'Let Sukli learn Home', kind: 'ghost', size: 'sm', act: 'loc-clearhome' }) + '' : ''}${n ? '' + button({ label: 'Forget all saved places', kind: 'danger-ghost', size: 'sm', act: 'loc-forget' }) + '' : ''}</div>` : ''}</section>`;
 }
 ACT['loc-toggle'] = async () => {
   const on = locOn(get());

@@ -98,7 +98,7 @@ function openGoal(id, name = '') {
     ${old ? '' : `<div class="chips">${IDEAS.map(([n]) => `${button({ label: n, kind: 'chip', attr: { 'data-idea': n } })}`).join('')}</div>`}
     <div class="field"><span>Picture</span><button type="button" class="picbtn" id="g-pic" aria-label="Choose a picture for this goal"></button></div>
     <label class="field"><span>Target amount (${esc(HOME)})</span><input name="t" inputmode="decimal" autocomplete="off" value="${g.target ? g.target : ''}" placeholder="0.00"></label>
-    <div class="field"><span>Short or long term</span><div class="chips" data-term><button type="button" class="chip" data-v="short">Short-term (within a year)</button><button type="button" class="chip" data-v="long">Long-term</button></div></div>
+    <div class="field"><span>Short or long term</span><div class="chips" data-term>${button({ label: 'Short-term (within a year)', kind: 'chip', v: 'short' })}${button({ label: 'Long-term', kind: 'chip', v: 'long' })}</div></div>
     <div class="field"><span>Target date (optional)</span><div class="btnrow tight"><button type="button" class="btn ghost sm" data-due></button><button type="button" class="btn ghost sm" data-nodue>No date</button></div></div>
     <label class="field"><span>Follow an account (optional)</span><select name="a"><option value="">No, I add money myself</option>${accts.map((a) => `<option value="${a.id}" ${g.acct === a.id ? 'selected' : ''}>${esc(a.name)} (${esc(a.cur)})</option>`).join('')}</select></label>
     <p class="hint">If you follow an account, progress is that account's balance. Otherwise you add and take out money by hand.</p>

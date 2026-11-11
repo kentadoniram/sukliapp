@@ -5,7 +5,7 @@ import { get, commit, stamp, uid, balances, homeFx, fmt, HOME, nowStamp } from '
 import { isLiability } from './finance.js';
 import { debtList } from './debts.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
-import { button, seg } from './components.js';
+import { button, seg, textField } from './components.js';
 
 const isOwedType = (a) => a.type === 'owed';
 // Bills and Instalments the person lists by hand: { id, name, amount (home currency), due 'YYYY-MM-DD', every 'once' | 'month', left (payments still to make, instalments) }.
@@ -65,11 +65,10 @@ ACT['bills-open'] = () => {
 ACT['bill-edit'] = (el) => {
   closeCur();
   const id = el.dataset.v || '', b = (get().settings.bills || []).find((x) => x.id === id) || { name: '', amount: '', due: nowStamp().slice(0, 10), every: 'once', left: '' };
-  const sh = cur = sheet(`<label class="field"><span>What Is It</span><input id="bl-name" value="${esc(b.name)}" placeholder="e.g. Phone bill, Laptop instalment" autocomplete="off"></label>
-    <div class="two"><label class="field"><span>Amount Each Time (${HOME})</span><input id="bl-amt" inputmode="decimal" value="${b.amount || ''}" autocomplete="off"></label>
-    <label class="field"><span>Next Due Date</span><input id="bl-due" type="date" value="${esc(b.due)}"></label></div>
+  const sh = cur = sheet(`${textField({ label: 'What Is It', id: 'bl-name', value: b.name, placeholder: 'e.g. Phone bill, Laptop instalment' })}
+    <div class="two">${textField({ label: `Amount Each Time (${HOME})`, id: 'bl-amt', inputmode: 'decimal', value: b.amount || '' })}${textField({ label: 'Next Due Date', id: 'bl-due', type: 'date', value: b.due })}</div>
     <div class="field"><span>How Often</span>${seg({ options: [{ label: 'Once', value: 'once' }, { label: 'Every month', value: 'month' }], value: b.every, aria: 'How often', data: 'bl-every', pack: (v) => v })}</div>
-    <label class="field" id="bl-leftbox" ${b.every === 'month' ? '' : 'hidden'}><span>Payments Left (Instalments, Optional)</span><input id="bl-left" inputmode="numeric" value="${b.left || ''}" placeholder="leave empty if it never ends" autocomplete="off"></label>
+    ${textField({ label: 'Payments Left (Instalments, Optional)', id: 'bl-left', inputmode: 'numeric', value: b.left || '', placeholder: 'leave empty if it never ends', hidden: b.every !== 'month', attr: {} }).replace('<label class="field "', '<label class="field " id="bl-leftbox"')}
     <div class="btnrow">${button({ label: 'Save', kind: 'primary', id: 'bl-save' })}</div>`, { title: id ? 'Edit Bill' : 'Add a Bill or Instalment' });
   let every = b.every;
   sh.el.addEventListener('click', (e) => { const x = e.target.closest('[data-bl-every]'); if (!x) return; every = x.dataset.blEvery; sh.el.querySelectorAll('[data-bl-every]').forEach((y) => { const on = y === x; y.classList.toggle('on', on); y.setAttribute('aria-pressed', String(on)); }); sh.el.querySelector('#bl-leftbox').hidden = every !== 'month'; });

@@ -1,5 +1,6 @@
 // Local backup reminder. A web page cannot save files by itself, so Sukli reminds you at the time you choose
 // (when the app is open) and one tap downloads the backup. Turning the app into an Android app later can make this automatic.
+import { button } from './components.js';
 import { get, commitQuiet } from './core.js';
 import { ACT, esc } from './ui.js';
 
@@ -24,7 +25,7 @@ function nudge() {
   const el = document.createElement('div');
   el.id = 'backupnudge'; el.className = 'nudge'; el.setAttribute('role', 'status');
   el.innerHTML = `<span><strong>Time to back up</strong><small>Download a copy of your data and keep it somewhere safe.</small></span>
-    <button type="button" class="btn sm" data-act="export-json">Download</button><button type="button" class="btn sm ghost" data-act="backup-later">Later</button>`;
+    ${button({ label: 'Download', kind: 'primary', size: 'sm', act: 'export-json' })}${button({ label: 'Later', kind: 'ghost', size: 'sm', act: 'backup-later' })}`;
   document.body.appendChild(el);
 }
 export function initBackup() {

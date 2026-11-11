@@ -1,4 +1,5 @@
 // Settings > Pictures: one list for accounts and one for merchants. Tap a row to pick a picture or use your own image; "Automatic" goes back to the guess.
+import { button } from './components.js';
 import { get, commit, stamp, groupColor } from './core.js';
 import { ACT, sheet, esc, toast } from './ui.js';
 import { acctPic, merchPic, guessAcctIcon, guessMerchIcon, isImg, picHtml, merchIconOf } from './pictures.js';
@@ -6,7 +7,7 @@ import { merchantList } from './merchantpick.js';
 
 export const picturesSection = () => `<section id="pic-set"><h2>Pictures</h2>
   <p class="hint">Each account and merchant gets a picture by itself from its name (a bank, a train card, a burger). Change one here. You can also use your own image. Sukli does not include company logos, because logos are trademarks.</p>
-  <div class="btnrow left"><button type="button" class="btn ghost" data-act="pic-list" data-k="acct">Account Pictures</button><button type="button" class="btn ghost" data-act="pic-list" data-k="merch">Merchant Pictures</button></div></section>`;
+  <div class="btnrow left">${button({ label: 'Account Pictures', kind: 'ghost', act: 'pic-list', attr: { 'data-k': 'acct' } })}${button({ label: 'Merchant Pictures', kind: 'ghost', act: 'pic-list', attr: { 'data-k': 'merch' } })}</div></section>`;
 
 const state = (v) => (v ? (isImg(v) ? 'Your own image' : 'Chosen picture') : 'Automatic');
 function openList(kind) {

@@ -1,6 +1,7 @@
 // Internal Transfer: move one coin between two wallets (Spot, Earn, Futures, Margin…) of the SAME platform.
 // Free, same coin, no fee. Both balances change; the destination account is only made when that wallet has no account for the coin yet.
 // Moving between DIFFERENT platforms (Binance to Bybit) is Transfer/Move in the + menu.
+import { button } from './components.js';
 import { softDelete, r9, qtyR, get, commit, uid, stamp, nowStamp, balances, exactAmt, walletOf, WALLETS, HOME, fmt, rateFor } from './core.js';
 import { sheet, esc, toast } from './ui.js';
 import { inInvest, exchangeOf } from './invest.js';
@@ -46,7 +47,7 @@ export function openInternal({ asset = '', platform = '', replaceId = '', amount
     ${fixed ? `<p class="hint">Inside <b>${esc(plat)}</b> only, free, no fee. To move between platforms use Transfer/Move.</p>` : `<label class="field"><span>Platform</span><select name="plat">${plats.map((p) => `<option ${p === plat ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label><p class="hint">Inside one platform only, free, no fee.</p>`}
     <div class="itrow"><label class="field"><span>From</span><select name="from"></select></label><div class="field itmid"><span aria-hidden="true">&nbsp;</span><button type="button" class="btn ghost itrev" id="it-rev" aria-label="Reverse From and To" title="Reverse">⇄</button></div><label class="field"><span>To</span><select name="to"></select></label></div>
     <label class="field"><span>Coin or Asset</span><select name="cur"></select></label>
-    <label class="field"><span>Amount</span><div class="itamt"><input name="amt" inputmode="decimal" placeholder="0" autocomplete="off"><b id="it-cur"></b><button type="button" class="btn sm" id="it-all">Max</button></div><small class="muted" id="it-bal"></small></label>
+    <label class="field"><span>Amount</span><div class="itamt"><input name="amt" inputmode="decimal" placeholder="0" autocomplete="off"><b id="it-cur"></b>${button({ label: 'Max', kind: 'primary', size: 'sm', id: 'it-all' })}</div><small class="muted" id="it-bal"></small></label>
     <button type="button" class="btn ghost" id="it-when"></button>
     <p class="hint" id="it-eff"></p>
     <div class="btnrow"><button type="button" class="btn primary" id="it-save">Move</button></div></div>`, { title: 'Internal Transfer' });

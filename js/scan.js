@@ -1,4 +1,5 @@
 // Receipt scanner: photo -> text (Tesseract in the browser, nothing uploaded) -> parseReceipt -> you confirm -> new entry.
+import { button } from './components.js';
 import { get, commitQuiet } from './core.js';
 import { esc, ic, ACT, sheet, toast } from './ui.js';
 import { modelFor, openEntry, openCategoryForm } from './entry.js';
@@ -129,7 +130,7 @@ function render(api) {
       <select id="sc-cat"><option value="">Choose…</option>${cats.map((c) => `<option value="${c.id}" ${c.id === a.cat ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
       ${a.alts.length ? `<div class="chips">${a.alts.map((x) => `<button type="button" class="chip ${x.id === a.cat ? 'on' : ''}" data-act="sc-cat" data-id="${x.id}">${esc((cats.find((c) => c.id === x.id) || {}).name || '')} ${pct(x.p)}%</button>`).join('')}</div>` : ''}</div>
     ${a.raw ? `<label class="btn ghost wide moreb"><input type="file" id="rc-more" accept="image/*" capture="environment" hidden>Long receipt? Add the next part (photo)</label><p class="hint" id="rc-more-status" aria-live="polite"></p>` : ''}
-    <div class="btnrow scbar"><button type="button" class="btn ghost" data-act="sc-again">Scan another</button><button type="button" class="btn" data-act="sc-use">Continue to entry</button></div></form>`;
+    <div class="btnrow scbar">${button({ label: 'Scan another', kind: 'ghost', act: 'sc-again' })}${button({ label: 'Continue to entry', kind: 'primary', act: 'sc-use' })}</div></form>`;
   const f = api.el;
   // category lists: the shared pick list with search, and a way to add a category that is not there
   const scc = f.querySelector('#sc-cat');
@@ -163,8 +164,8 @@ function start(api) {
     <label class="btn ghost wide"><input type="file" id="rc-file" accept="image/*" multiple hidden>Choose picture(s)</label></div>
     <p class="hint">Long receipt? Take 2 or 3 photos from the top down, each overlapping the one before by a few lines, and choose them together in order (or add the next part afterwards). Closer photos read much better than one far-away photo.</p>
     <div id="rc-status" class="hint" aria-live="polite"></div><div class="bar" id="rc-bar" hidden><i></i></div>
-    ${Object.keys(get().settings.ocrFixes || {}).length ? `<p class="hint">Sukli remembers ${Object.keys(get().settings.ocrFixes).length} correction${Object.keys(get().settings.ocrFixes).length === 1 ? '' : 's'} you made to item names and fixes them next time. <button type="button" class="linkbtn" data-act="sc-fixes-clear">Forget them</button></p>` : ''}
-    <details><summary>Or paste the receipt text</summary><textarea id="rc-text" rows="6" placeholder="Paste text copied from a receipt scan or e-receipt"></textarea><button type="button" class="btn ghost" data-act="sc-text">Read this text</button></details>`;
+    ${Object.keys(get().settings.ocrFixes || {}).length ? `<p class="hint">Sukli remembers ${Object.keys(get().settings.ocrFixes).length} correction${Object.keys(get().settings.ocrFixes).length === 1 ? '' : 's'} you made to item names and fixes them next time. ${button({ label: 'Forget them', kind: 'link', act: 'sc-fixes-clear' })}</p>` : ''}
+    <details><summary>Or paste the receipt text</summary><textarea id="rc-text" rows="6" placeholder="Paste text copied from a receipt scan or e-receipt"></textarea>${button({ label: 'Read this text', kind: 'ghost', act: 'sc-text' })}</details>`;
   const status = (t, p) => { const s = api.el.querySelector('#rc-status'); if (s) s.textContent = t; const b = api.el.querySelector('#rc-bar'); if (b && p != null) { b.hidden = false; b.firstElementChild.style.width = Math.round(p * 100) + '%'; } };
   const go = async (files) => {
     files = [...(files || [])]; if (!files.length) return;

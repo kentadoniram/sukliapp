@@ -1,5 +1,6 @@
 // A shared bill is ONE bill with linked shares: your part (the expense) and one "Lent" transfer per person.
 // The Entries list shows the bill once (expandable); this window edits the whole bill so every share stays in step with the total.
+import { button } from './components.js';
 import { get, commit, stamp, softDelete, fmt, homeFx, homeRate, homePer, HOME } from './core.js';
 import { esc, ACT, sheet, toast, confirmDialog } from './ui.js';
 import { titleCase } from './entry.js';
@@ -75,7 +76,7 @@ export function openSplit(txId) {
       ${hasMine && st.mode === 'amount' ? `<label class="field"><span>Your Part${home(m)}</span><input data-sb="mine" inputmode="decimal" value="${m}"><small class="hint">Type your own share here. The whole bill becomes your share plus what everyone else owes.</small></label>` : ''}
       <div class="facts"><div><span>${hasMine ? 'Your Part (the rest)' : 'Left to Divide'}</span><b class="${m < -0.005 || (!hasMine && Math.abs(m) > 0.005) ? 'neg' : ''}">${fmt(m, g.cur)}${home(m)}</b></div><div><span>Whole Bill</span><b>${fmt(st.total, g.cur)}${home(st.total)}</b></div></div>
       ${st.msg ? `<p class="hint warnline">${esc(st.msg)}</p>` : ''}
-      <div class="btnrow"><button class="btn" data-sb="save">Save</button><button class="btn ghost" data-sb="del">Delete the Whole Bill</button></div>`; };
+      <div class="btnrow">${button({ label: 'Save', kind: 'primary', attr: { 'data-sb': 'save' } })}${button({ label: 'Delete the Whole Bill', kind: 'ghost', attr: { 'data-sb': 'del' } })}</div>`; };
   draw();
   root.addEventListener('change', (e) => { const k = e.target.dataset.sb, v = e.target.value;
     if (k === 'name') st.name = v;

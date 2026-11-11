@@ -1,6 +1,7 @@
 // Spending by group: a rough "how much did I spend on drinks / snacks / toiletries" without item names or prices.
 // On an entry (Advanced mode) you count items per group: 3 drinks, 2 snacks. With many such receipts the app works out about what
 // each group costs (js/catsolve.js) and shows an "about" amount with a range. It never changes a saved total, a budget or a category.
+import { button } from './components.js';
 import { get, commit, fmt, HOME, homeFx, nowStamp, shiftMonth } from './core.js';
 import { ACT, esc, ic, toast, confirmDialog } from './ui.js';
 import { hdr, ui } from './screens.js';
@@ -78,7 +79,7 @@ export function spend(db) {
     body = `<section class="card"><h2>How It Works</h2>
       <p>When you add an expense, tap <b>Count by group</b> and say how many drinks, snacks and so on you bought. No names and no prices needed.</p>
       <p>After about 10 receipts Sukli can say roughly how much you spend on each group. It is always a rough "about", never exact.</p>
-      <div class="btnrow"><button type="button" class="btn" data-act="spend-add">Add an entry</button></div></section>`;
+      <div class="btnrow">${button({ label: 'Add an entry', kind: 'primary', act: 'spend-add' })}</div></section>`;
   } else {
     const rows = Object.entries(res.spend).filter(([, v]) => v.amount > 0.5).sort((a, b) => b[1].amount - a[1].amount), top = rows.length ? rows[0][1].amount : 1;
     const share = spentAll > 0 ? Math.round(res.total / spentAll * 100) : 0;

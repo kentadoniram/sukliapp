@@ -229,7 +229,7 @@ export function openEntry(opts = {}) {
   // they paid back more than they owed: say what the extra is (never silently negative)
   function askExtra(extra, cur, onPick) {
     const s2 = sheet(`<p class="confirm-text">They paid ${esc(fmt(extra, cur, { force: true }))} more than they owed you. What is the extra?</p>
-      <div class="chips"><button type="button" class="chip" data-x="Interest earned">Interest earned</button><button type="button" class="chip" data-x="Other income">Other income</button></div>
+      <div class="chips">${button({ label: 'Interest earned', kind: 'chip', attr: { 'data-x': 'Interest earned' } })}${button({ label: 'Other income', kind: 'chip', attr: { 'data-x': 'Other income' } })}</div>
       <p class="hint">The extra is counted as income. The rest only lowers what they owe you.</p><div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button></div>`, { title: 'Paid Back Extra' });
     s2.el.querySelector('[data-no]').onclick = () => s2.close();
     s2.el.addEventListener('click', (e) => { const b = e.target.closest('[data-x]'); if (b) { s2.close(); onPick(b.dataset.x); } });
@@ -330,7 +330,7 @@ export function openEntry(opts = {}) {
       // the received amount differs from the sent amount in the same currency (a fee or loss in the transfer): keep it visible and keep it on save
       if (f.diffInit === undefined) f.diffInit = num(f.toAmount) > 0 && Math.abs(num(f.toAmount) - num(f.amount)) > 1e-9;
       f.sameDiff = f.diffInit;
-      el.innerHTML = f.sameDiff ? `<div class="convbox"><label class="fxpeso"><span>Received in ${esc(b.name)} (${b.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label><small class="hint" id="diffnote">${diffNote(f, a)}</small><button type="button" class="linkbtn" data-e="samediff">Make the received amount the same</button></div>` : '';
+      el.innerHTML = f.sameDiff ? `<div class="convbox"><label class="fxpeso"><span>Received in ${esc(b.name)} (${b.cur})</span><input id="f-toamt" inputmode="decimal" value="${esc(f.toAmount)}" placeholder="0"></label><small class="hint" id="diffnote">${diffNote(f, a)}</small>${button({ label: 'Make the received amount the same', kind: 'link', e: 'samediff' })}</div>` : '';
       f.convert = false; return;
     }
     f.sameDiff = false;
@@ -481,11 +481,11 @@ export function openEntry(opts = {}) {
         ${it.disc && it.disc.on ? `<div class="idisc">${seg({ options: [{ label: 'Amount', value: 'amt' }, { label: '%', value: 'pct' }], value: it.disc.mode === 'pct' ? 'pct' : 'amt', e: 'disc-mode', aria: 'Discount type', pack: (m) => `${i}:${m}` })}<input class="in-d" inputmode="decimal" autocomplete="off" placeholder="${it.disc.mode === 'pct' ? 'e.g. 20' : 'e.g. 50'}" value="${esc(it.disc.v)}" aria-label="Discount ${it.disc.mode === 'pct' ? 'percent' : 'amount'}"></div>` : ''}
         ${it.tx && it.tx.on ? `<div class="itax">${seg({ options: [{ label: '10%', value: '10', title: 'Standard consumption tax' }, { label: '8%', value: '8', title: 'Reduced rate: food and non-alcoholic drinks' }], value: ['10', '8'].includes(String(it.tx.v)) ? String(it.tx.v) : null, e: 'item-tax-set', aria: 'Tax rate', pack: (m) => `${i}:${m}` })}<input class="in-t" inputmode="decimal" autocomplete="off" placeholder="Other %" value="${esc(it.tx.v)}" aria-label="Tax rate percent for this item"></div>` : ''}
         <div class="itail"><small class="muted iline">${itemLine(it)}</small>${toggle({ label: 'Discount', on: !!(it.disc && it.disc.on), e: 'item-disc', v: i })}${toggle({ label: 'Tax', on: !!(it.tx && it.tx.on), e: 'item-tax', v: i })}${button({ label: 'Remove item', kind: 'link', cls: 'rm', e: 'item-del', v: i, aria: 'Remove this item' })}</div></div>`).join('')}</div>
-      <div class="itemfoot"><button type="button" class="linkbtn" data-e="item-add">+ Add item</button><span id="itemleft"></span></div>
+      <div class="itemfoot">${button({ label: '+ Add item', kind: 'link', e: 'item-add' })}<span id="itemleft"></span></div>
       <div class="taxbox"><div class="taxhead"><span class="feelab">Tax on the Whole Bill</span>${toggle({ label: 'Tax', on: f.tax.on, e: 'tax-toggle' })}</div>
         ${f.tax.on ? `<div class="taxdet">${seg({ options: [{ label: 'Rate %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: f.tax.mode === 'pct' ? 'pct' : 'amt', e: 'tax-mode', aria: 'Tax type' })}
           <input id="f-taxv" inputmode="decimal" autocomplete="off" placeholder="${f.tax.mode === 'pct' ? 'e.g. 10' : 'e.g. 150'}" value="${esc(f.tax.v)}" aria-label="Tax ${f.tax.mode === 'pct' ? 'rate percent' : 'amount'}">
-          ${f.tax.mode === 'pct' ? '<div class="chips taxchips"><button type="button" class="chip" data-e="tax-set" data-v="10">10%</button><button type="button" class="chip" data-e="tax-set" data-v="8">8% (reduced)</button></div>' : ''}
+          ${f.tax.mode === 'pct' ? '<div class="chips taxchips">' + button({ label: '10%', kind: 'chip', e: 'tax-set', v: '10' }) + '' + button({ label: '8% (reduced)', kind: 'chip', e: 'tax-set', v: '8' }) + '</div>' : ''}
           <small class="muted" id="taxcalc">${taxText()}${ownTaxSum() ? ' (items with their own tax are left out)' : ''}</small></div>` : ''}</div>` });
     el.querySelectorAll('select.in-c').forEach((sel) => enhanceSelect(sel, { title: 'Category', addLabel: 'Add a new category', onAdd: () => openCategoryForm({ kind: 'expense', onDone: (c) => { sel.add(new Option(c.name, c.id)); sel.value = c.id; sel.dispatchEvent(new Event('change', { bubbles: true })); } }) }));
     updateItemLeft(); fillItemSugg();
@@ -507,7 +507,7 @@ export function openEntry(opts = {}) {
   // Count by group (Advanced): how many drinks, snacks... no names, no prices. Sukli works out roughly what each group costs from many receipts.
   function partsHint() {
     const pts = f.kind === 'expense' && !document.body.classList.contains('simple') && f.name !== f.partsOff ? splitParts(f.name) : null;
-    const listHint = pts && !parseRoute(f.name) ? `<p class="relhint partshint">Looks like one receipt with ${pts.length} things (${esc(pts.map((x) => (x.k > 1 ? x.k + ' ' : '') + x.n).join(', '))}). The total is split between them. <button type="button" class="linkbtn" data-e="parts-use">Count them by group</button> <button type="button" class="linkbtn muted" data-e="parts-off">Not a list</button></p>` : '';
+    const listHint = pts && !parseRoute(f.name) ? `<p class="relhint partshint">Looks like one receipt with ${pts.length} things (${esc(pts.map((x) => (x.k > 1 ? x.k + ' ' : '') + x.n).join(', '))}). The total is split between them. ${button({ label: 'Count them by group', kind: 'link', e: 'parts-use' })} <button type="button" class="linkbtn muted" data-e="parts-off">Not a list</button></p>` : '';
     return listHint;
   }
   // "Paid for others": you paid the whole bill and part of it belongs to other people (one or many, equal / amounts / percent, with or without your own share).
@@ -542,10 +542,10 @@ export function openEntry(opts = {}) {
     if (f.kind !== 'expense' || existing) return '';
     if (!f.others || !f.others.on) return `<button type="button" class="linkbtn split" data-e="oth-on">${ic('split')} Paid for others? (they pay you back later)</button>`;
     const o = f.others, ppl = owedPeople(), mode = o.mode, ph = mode === 'pct' ? '%' : 'Amount';
-    return `<div class="field items othbox" id="othbox"><div class="othhead"><b>Paid for Others</b><button type="button" class="btn sm ghost" data-e="oth-off">Cancel</button></div><small class="hint">Their parts are not your spending. Each waits under Owed to You until that person pays you back.</small>
+    return `<div class="field items othbox" id="othbox"><div class="othhead"><b>Paid for Others</b>${button({ label: 'Cancel', kind: 'ghost', size: 'sm', e: 'oth-off' })}</div><small class="hint">Their parts are not your spending. Each waits under Owed to You until that person pays you back.</small>
       <div class="chips othmode">${[['equal', 'Split Equally'], ['amount', 'Set Each Amount'], ['pct', 'Percentages']].map(([k, l]) => `<button type="button" class="chip ${mode === k ? 'on' : ''}" data-e="oth-mode" data-v="${k}">${l}</button>`).join('')}</div>
       <div id="othrows">${o.rows.map((r, i) => `<div class="cnt othrow" data-i="${i}"><select class="oth-who" aria-label="Who owes you"><option value="">Choose a person</option>${ppl.filter((x) => x.id === r.who || !o.rows.some((q, j) => j !== i && q.who === x.id)).map((x) => `<option value="${x.id}" ${r.who === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}<option value="__new">+ Add a new person</option></select>${mode === 'equal' ? '' : `<div class="inamt othamt"><input class="oth-n" data-noclear="1" inputmode="decimal" placeholder="${ph}" value="${esc(r.v || '')}" aria-label="${mode === 'pct' ? 'Percent they owe, you can type a sum' : 'Amount they owe, you can type a sum like 120+45'}"><button type="button" class="calcin" data-e="oth-calc" data-v="${i}" aria-label="Calculator: type a sum such as 120+45, then tap =" title="Calculator">=</button></div>`}${o.rows.length > 1 ? `<button type="button" class="iconbtn" data-e="oth-del" data-v="${i}" aria-label="Remove person">${ic('x')}</button>` : ''}</div>`).join('')}</div>
-      <div class="itemfoot"><button type="button" class="linkbtn" data-e="oth-add">+ Add another person</button></div>
+      <div class="itemfoot">${button({ label: '+ Add another person', kind: 'link', e: 'oth-add' })}</div>
       <label class="check"><input type="checkbox" class="oth-me" ${o.me ? '' : 'checked'}> <span>I paid the bill but I am not part of it (I did not use any of it)</span></label>
       <p class="hint" id="oth-sum"></p>
 </div>`;
@@ -582,9 +582,9 @@ export function openEntry(opts = {}) {
     if (!show) { el.hidden = true; el.innerHTML = ''; return; }
     el.hidden = false; const day = String(f.date).slice(0, 10);
     if (f.postedOn && (!f.posted || f.posted <= day)) f.posted = addDay(day, 1);
-    if (!f.postedOn) { el.innerHTML = `<button type="button" class="linkbtn" data-e="postedon">Posted on a later day? (optional)</button>`; return; }
+    if (!f.postedOn) { el.innerHTML = `${button({ label: 'Posted on a later day? (optional)', kind: 'link', e: 'postedon' })}`; return; }
     const p = periodFor(a, f.posted);
-    el.innerHTML = `<div class="field"><span>Posted date <button type="button" class="linkbtn" data-e="postedoff">Remove</button></span><button type="button" class="whenbtn" data-e="posted">${esc(prettyDate(f.posted + ' 00:00:00').split(' · ')[0])}${ic('calendar')}</button><small class="muted">Counts in the statement ${p ? esc(p.label) : ''}, not the one for ${esc(prettyDate(f.date).split(' · ')[0])}.</small></div>`;
+    el.innerHTML = `<div class="field"><span>Posted date ${button({ label: 'Remove', kind: 'link', e: 'postedoff' })}</span><button type="button" class="whenbtn" data-e="posted">${esc(prettyDate(f.posted + ' 00:00:00').split(' · ')[0])}${ic('calendar')}</button><small class="muted">Counts in the statement ${p ? esc(p.label) : ''}, not the one for ${esc(prettyDate(f.date).split(' · ')[0])}.</small></div>`;
   }
   function renderWhen() {
     const pd = prettyDate(f.date);
@@ -593,9 +593,9 @@ export function openEntry(opts = {}) {
     $f('f-when').innerHTML = `<span class="w2"><b>${esc(d.replace(new RegExp(',? ' + cy + '$'), ''))}</b>${t ? `<small>${esc(t)}</small>` : ''}</span>${ic('calendar')}`;
   }
   function renderBtns() {
-    $f('btns').innerHTML = `${existing ? `<button type="button" class="btn danger ghost" data-e="del">Delete</button>` : ''}
-      ${existing ? '' : `<button type="button" class="btn ghost" data-e="save-again">Save and add another</button>`}
-      <button type="button" class="btn" data-e="save">Save</button>`;
+    $f('btns').innerHTML = `${existing ? `${button({ label: 'Delete', kind: 'danger-ghost', e: 'del' })}` : ''}
+      ${existing ? '' : `${button({ label: 'Save and add another', kind: 'ghost', e: 'save-again' })}`}
+      ${button({ label: 'Save', kind: 'primary', e: 'save' })}`;
   }
   // warnings: budget and spending limit, income, card bills, cash for upcoming payments
   let safeTimer;
@@ -699,9 +699,9 @@ export function openEntry(opts = {}) {
   function cbText() { const a = acctOf(f.acct), cur = a ? a.cur : HOME, v = cbAmount(); return v > 0 ? `Cashback: ${fmt(v, cur)}${f.cb.mode === 'pct' ? ` (${f.cb.v}% of ${fmt(num(f.amount) || 0, cur)})` : ''}` : 'Type the cashback you get.'; }
   function renderCb() {
     const el = $f('cbrow'); if (!el) return; el.hidden = f.kind !== 'expense' || f.debt; if (el.hidden) return;
-    if (!f.cb.on) { el.innerHTML = '<button type="button" class="linkbtn" data-e="cb-on">+ Cashback</button>'; return; }
+    if (!f.cb.on) { el.innerHTML = '' + button({ label: '+ Cashback', kind: 'link', e: 'cb-on' }) + ''; return; }
     el.innerHTML = `<span>Cashback</span>${seg({ options: [{ label: 'Fixed Amount', value: 'fixed' }, { label: 'Percentage', value: 'pct' }], value: f.cb.mode, e: 'cb-mode', aria: 'Cashback type', cls: 'cbseg' })}
-      <div class="two"><input id="f-cbv" inputmode="decimal" autocomplete="off" aria-label="${f.cb.mode === 'pct' ? 'Cashback percent' : 'Cashback amount'}" placeholder="${f.cb.mode === 'pct' ? 'e.g. 5' : 'e.g. 50'}" value="${esc(f.cb.v)}"><button type="button" class="chip" data-e="cb-off">Remove</button></div><small class="muted" id="cbcalc">${esc(cbText())}</small>`;
+      <div class="two"><input id="f-cbv" inputmode="decimal" autocomplete="off" aria-label="${f.cb.mode === 'pct' ? 'Cashback percent' : 'Cashback amount'}" placeholder="${f.cb.mode === 'pct' ? 'e.g. 5' : 'e.g. 50'}" value="${esc(f.cb.v)}">${button({ label: 'Remove', kind: 'chip', e: 'cb-off' })}</div><small class="muted" id="cbcalc">${esc(cbText())}</small>`;
   }
   const updCb = () => { const c = $f('cbcalc'); if (c) c.textContent = cbText(); };
   // Branch of the merchant (Life > Tsukagoshi): below the keypad, shown once a merchant is chosen
@@ -728,7 +728,7 @@ export function openEntry(opts = {}) {
     const el = $f('locrow'); if (!el) return; const L = f.locUi || (f.locUi = { perm: 'unknown', msg: '', edit: false });
     const pt = f.loc, permTxt = { granted: 'Location permission: allowed', denied: 'Location permission: blocked. Allow it in your phone’s settings for this app, or type a place below.', prompt: 'Location permission: will ask when you tap', unknown: 'Location permission: not known yet (your phone asks when you tap)' }[L.perm];
     el.innerHTML = `<span>Location (optional)</span><div class="locbox"><button type="button" class="acctbtn" data-e="loc-get">${pt ? `📍 ${f.place ? esc(f.place) : L.busy ? 'Finding the address…' : 'Location saved, address not found yet'}` : 'Add Location'}</button>
-      <div class="chips">${pt ? (f.place ? '<button type="button" class="chip" data-e="addr-edit">Edit Address</button>' : '<button type="button" class="chip" data-e="addr-get">Show Address</button>') + '<button type="button" class="chip" data-e="loc-clear">Remove</button><button type="button" class="chip" data-e="loc-detail">' + (L.detail ? 'Hide Details' : 'Details') + '</button>' : ''}<button type="button" class="chip" data-e="loc-map">Pick on Map</button><button type="button" class="chip" data-e="loc-edit">${L.edit ? 'Close' : 'Type It'}</button></div></div>
+      <div class="chips">${pt ? (f.place ? '' + button({ label: 'Edit Address', kind: 'chip', e: 'addr-edit' }) + '' : '' + button({ label: 'Show Address', kind: 'chip', e: 'addr-get' }) + '') + '' + button({ label: 'Remove', kind: 'chip', e: 'loc-clear' }) + '' + button({ label: '\' + (L.detail ? \'Hide Details\' : \'Details\') + \'', kind: 'chip', e: 'loc-detail' }) + '' : ''}${button({ label: 'Pick on Map', kind: 'chip', e: 'loc-map' })}<button type="button" class="chip" data-e="loc-edit">${L.edit ? 'Close' : 'Type It'}</button></div></div>
       ${pt && L.detail ? `<pre class="locjson" aria-label="Location details">${esc(JSON.stringify({ latitude: pt.la, longitude: pt.lo, address: f.place || null, approx: 'about 1 km' }, null, 2))}</pre>` : ''}
       ${L.edit ? `<input id="f-loc" inputmode="decimal" placeholder="Latitude, longitude (e.g. 35.53, 139.69)" value="${pt ? `${pt.la}, ${pt.lo}` : ''}" aria-label="Location as latitude and longitude">` : ''}
       ${pt && L.addrEdit ? `<input id="f-place" autocomplete="off" placeholder="Type the address or place name" value="${esc(f.place || '')}" aria-label="Address">` : ''}
@@ -753,7 +753,7 @@ export function openEntry(opts = {}) {
   function renderTags() {
     const el = $f('tagsrow'); if (!el) return;
     const on = parseTags(f.labels), onSet = new Set(on.map((x) => x.toLowerCase())), more = tagCounts(get()).filter((x) => !onSet.has(x.tag.toLowerCase())).slice(0, 8);
-    el.innerHTML = `<span>Tag or event (optional) ${tipBtn('tags')}</span><div class="chips tagchips">${on.map((x) => `<button type="button" class="chip on" data-e="tag" data-v="${esc(x)}" aria-pressed="true">#${esc(x)} ×</button>`).join('')}${more.map((x) => `<button type="button" class="chip" data-e="tag" data-v="${esc(x.tag)}" aria-pressed="false">#${esc(x.tag)}</button>`).join('')}<button type="button" class="chip" data-e="newtag">+ New tag</button></div>`;
+    el.innerHTML = `<span>Tag or event (optional) ${tipBtn('tags')}</span><div class="chips tagchips">${on.map((x) => `<button type="button" class="chip on" data-e="tag" data-v="${esc(x)}" aria-pressed="true">#${esc(x)} ×</button>`).join('')}${more.map((x) => `<button type="button" class="chip" data-e="tag" data-v="${esc(x.tag)}" aria-pressed="false">#${esc(x.tag)}</button>`).join('')}${button({ label: '+ New tag', kind: 'chip', e: 'newtag' })}</div>`;
   }
   function renderTrip() {
     tripShown = tripCat();
@@ -773,8 +773,8 @@ export function openEntry(opts = {}) {
     let el = form.querySelector('#smarthint');
     if (!el) { const nf = $f('namefield'); if (!nf) return; el = document.createElement('div'); el.id = 'smarthint'; nf.after(el); }
     const k = smartKind(f.name); let html = '';
-    if (k === 'cash') html = `<button type="button" class="chip" data-e="smart" data-v="cash">Credit to cash: see the fees and interest first</button>`;
-    else if (k === 'loan') html = `<button type="button" class="chip" data-e="smart" data-v="loan">Taking a loan? Open the loan planner</button>`;
+    if (k === 'cash') html = `${button({ label: 'Credit to cash: see the fees and interest first', kind: 'chip', e: 'smart', v: 'cash' })}`;
+    else if (k === 'loan') html = `${button({ label: 'Taking a loan? Open the loan planner', kind: 'chip', e: 'smart', v: 'loan' })}`;
     else if ((k === 'cardpay' || k === 'loanpay') && !(f.kind === 'transfer' && f.debt)) html = `<button type="button" class="chip" data-e="smart" data-v="${k}">Paying ${k === 'cardpay' ? 'your card' : 'your loan'}? Use Debt</button>`;
     el.innerHTML = html ? `<div class="chips">${html}</div>` : '';
   }
@@ -1200,7 +1200,7 @@ export function openCategoryPicker(kind, onPick) {
   }
   const s = sheet(`<input type="search" id="catq" class="search" placeholder="Search categories" autofocus>
     <div id="catlist"></div>
-    <div class="newcat"><button type="button" class="btn ghost wide" id="newcat-btn">+ New category</button></div>`, { title: 'All Categories' });
+    <div class="newcat">${button({ label: '+ New category', kind: 'ghost', cls: 'wide', id: 'newcat-btn' })}</div>`, { title: 'All Categories' });
   const list = s.el.querySelector('#catlist');
   const draw = (q = '') => {
     q = q.toLowerCase();

@@ -1,5 +1,6 @@
 // Debts tab: every loan and card you owe on, its interest, terms and due date, and which one to pay first and how much.
 // Plain arithmetic on your own figures (no advice engine). Typed figures (monthly money for debts, a debt's rate or minimum) can always be changed or removed.
+import { button } from './components.js';
 import { get, commit, stamp, balances, homeFx, fmt, HOME, nowStamp, thisMonth, shiftMonth, catMap } from './core.js';
 import { classOf } from './budgetsetup.js';
 import { ACT, sheet, esc, toast, confirmDialog, ic } from './ui.js';
@@ -110,8 +111,8 @@ export function debts(db) {
   const L = b.learned, thin = L && L.months < 2;
   // ---- your month
   let notes = '';
-  if (b.own != null && b.typedCapped) notes += `<p class="lpwarn">${ic('spark')} You typed ${money(b.own)}${income ? ` (${pct(b.own / income)} of your income)` : ''}. Your own entries leave ${money(b.room)} after your usual spending and a safety cushion, and Sukli suggests at most ${pct(DEBT_SHARE)} of income for debts, so the plan uses <b>${money(b.room)}</b>. <button type="button" class="linkbtn" data-act="debt-force">Use my figure anyway</button></p>`;
-  else if (b.own != null && b.force && b.room != null && b.own > b.room + 0.5) notes += `<p class="lpwarn">${ic('spark')} The plan uses your figure of ${money(b.own)}${income ? ` (${pct(b.own / income)} of your income)` : ''}, which is more than your entries leave after usual spending (${money(b.room)}). Something else would have to be cut. <button type="button" class="linkbtn" data-act="debt-unforce">Go back to the safe amount</button></p>`;
+  if (b.own != null && b.typedCapped) notes += `<p class="lpwarn">${ic('spark')} You typed ${money(b.own)}${income ? ` (${pct(b.own / income)} of your income)` : ''}. Your own entries leave ${money(b.room)} after your usual spending and a safety cushion, and Sukli suggests at most ${pct(DEBT_SHARE)} of income for debts, so the plan uses <b>${money(b.room)}</b>. ${button({ label: 'Use my figure anyway', kind: 'link', act: 'debt-force' })}</p>`;
+  else if (b.own != null && b.force && b.room != null && b.own > b.room + 0.5) notes += `<p class="lpwarn">${ic('spark')} The plan uses your figure of ${money(b.own)}${income ? ` (${pct(b.own / income)} of your income)` : ''}, which is more than your entries leave after usual spending (${money(b.room)}). Something else would have to be cut. ${button({ label: 'Go back to the safe amount', kind: 'link', act: 'debt-unforce' })}</p>`;
   else if (b.own != null) notes += '<p class="hint">The plan uses the figure you typed.</p>';
   if (!b.known && b.own == null) notes += '<p class="hint">Sukli needs one whole month of income and spending entries to work out what is left for debts. You can also type a figure.</p>';
   if (L && !b.known) notes += '<p class="hint">No income entries were found in the last months, so Sukli cannot tell what is left for debts. Record your income, or type a figure.</p>';
@@ -122,7 +123,7 @@ export function debts(db) {
     ${income != null ? `<div class="dsrow"><span>Income you usually get</span><b>${money(income)}</b></div><div class="dsrow"><span>Your usual spending</span><b>${money(spend)}</b></div><div class="dsrow"><span>Left after your usual spending</span><b>${money(b.safe)}</b></div><div class="dsrow"><span>Kept as a safety cushion</span><b>${money(Math.min(b.buffer, b.safe))}</b></div>` : ''}
     <div class="dsrow"><span>Due this month (minimums)</span><b>${money(plan ? plan.needTotal : minTotal)}</b></div>
     <div class="dsrow"><span>Suggested for debts this month</span><b>${funds != null ? money(funds) : 'not known yet'}${funds != null && income ? ` <small class="muted">(${pct(funds / income)} of income)</small>` : ''}</b></div>
-    ${notes}<div class="btnrow tight"><button type="button" class="btn sm ghost" data-act="debt-budget">${b.own != null ? 'Change my figure' : 'Type my own figure'}</button>${b.own != null ? '<button type="button" class="btn sm ghost" data-act="debt-budget-clear">Remove my figure</button>' : ''}</div></div>`;
+    ${notes}<div class="btnrow tight"><button type="button" class="btn sm ghost" data-act="debt-budget">${b.own != null ? 'Change my figure' : 'Type my own figure'}</button>${b.own != null ? '' + button({ label: 'Remove my figure', kind: 'ghost', size: 'sm', act: 'debt-budget-clear' }) + '' : ''}</div></div>`;
   // ---- shortfall and ways to find the money
   let short = '';
   if (plan && plan.shortTotal > 0.5) {

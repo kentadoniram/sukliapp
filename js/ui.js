@@ -1,3 +1,4 @@
+import { button } from './components.js';
 // Small UI helpers: escaping, icons, toast, bottom sheet, action registry.
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -41,7 +42,7 @@ export function toast(msg, { undo, ms = 4500 } = {}) {
     toastEl.setAttribute('role', 'status');
     document.body.appendChild(toastEl);
   }
-  toastEl.innerHTML = `<span>${esc(msg)}</span>${undo ? '<button type="button" class="linkbtn">Undo</button>' : ''}`;
+  toastEl.innerHTML = `<span>${esc(msg)}</span>${undo ? '' + button({ label: 'Undo', kind: 'link' }) + '' : ''}`;
   toastEl.classList.add('show');
   const b = toastEl.querySelector('button');
   if (b) b.onclick = () => { undo(); toastEl.classList.remove('show'); };

@@ -1,5 +1,6 @@
 // Review of trades that Sukli REBUILT when you imported a Bluecoins file (Bluecoins keeps no "trade" mark, so Sukli guessed buys, sells and converts
 // from transfers that touch a crypto platform or investment account). For each guess: Keep as Trade, or Make It a Plain Transfer.
+import { button } from './components.js';
 import { get, commit, stamp, fmt, HOME, accLabel } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { tradeBook } from './tradecalc.js';
@@ -19,7 +20,7 @@ export function openTradeReview() {
     const what = (t) => { const x = t.trade, c = (id) => (db.accounts.find((a) => a.id === id) || {}).cur || ''; return x.side === 'buy' ? `Buy ${x.qty} ${c(x.asset)}` : x.side === 'sell' ? `Sell ${x.qty} ${c(x.asset)}` : `Convert ${x.qty} ${c(x.asset)} to ${x.qty2} ${c(x.asset2)}`; };
     root.innerHTML = `<p class="hint">When you imported your Bluecoins file, Sukli guessed these ${all.length} entries are buys, sells or converts, because one side is a crypto or investment account. A trade changes your <b>realized gain</b>; a plain transfer does not. Check each one.</p>
       <div class="two"><div class="seg sm" role="group" aria-label="Show"><button type="button" class="${show === 'todo' ? 'on' : ''}" data-r="show" data-v="todo">To Review (${todo.length})</button><button type="button" class="${show === 'kept' ? 'on' : ''}" data-r="show" data-v="kept">Kept (${kept.length})</button></div>
-      <div class="btnrow tight">${show === 'todo' && todo.length ? '<button type="button" class="btn sm" data-r="keepall">Keep All</button><button type="button" class="btn sm ghost" data-r="plainall">All Plain</button>' : ''}</div></div>
+      <div class="btnrow tight">${show === 'todo' && todo.length ? '' + button({ label: 'Keep All', kind: 'primary', size: 'sm', attr: { 'data-r': 'keepall' } }) + '' + button({ label: 'All Plain', kind: 'ghost', size: 'sm', attr: { 'data-r': 'plainall' } }) + '' : ''}</div></div>
       <label class="check"><input type="checkbox" data-r="rebuildon" ${db.settings.rebuildTrades === false ? '' : 'checked'}> <span>Guess trades again the next time I import a Bluecoins file</span></label>
       ${list.length ? `<div class="rows plain">${list.map((t) => { const g = gain.get(t.id); return `<div class="trvrow" data-id="${t.id}"><div class="trvtop"><strong>${esc(what(t))}</strong><b>${esc(fmt(t.trade.valueHome, HOME))}</b></div>
         <small class="muted">${esc(String(t.date).slice(0, 10))} · ${esc(nm(t.acct))} → ${esc(nm(t.toAcct))}${g != null ? ` · <span class="${g >= 0 ? 'cg' : 'cr'}">${g >= 0 ? '+' : '−'}${esc(fmt(Math.abs(g), HOME))} gain</span>` : ''}</small>

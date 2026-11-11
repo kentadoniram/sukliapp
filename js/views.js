@@ -1,4 +1,5 @@
 // The extra windows: menu drawer, Calendar, Budget (donut), Cash flow, Categories, and the detail sheets.
+import { button } from './components.js';
 import { catIcon } from './caticons.js';
 import { softDelete, scopeIds, scopeOptionsHtml, withScope, appMode } from './core.js';
 import { undoMenuHtml } from './undoui.js';
@@ -41,7 +42,7 @@ ACT.menu = () => {
     <button type="button" class="dhead" data-dtoggle data-key="sukli-menu-scan" aria-expanded="${scanOpen()}"><span>Scanner</span>${ic('down', 'chev')}</button>
     <ul class="dsub" ${scanOpen() ? '' : 'hidden'}><li><a href="#" data-act="scan">${ic('camera')}<span>Scan a Receipt</span></a></li><li><a href="#" data-act="wallet-scan">${ic('camera')}<span>Read a Pasmo Screenshot</span></a></li></ul>
     ${simple ? '' : `<ul><li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan Planner</span></a></li></ul>`}
-    ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle Bin and Undo History', 'trash')}${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
+    ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle Bin and Undo History', 'trash')}${simple ? '' : item('styleguide', 'Style Guide', 'gear')}${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
   document.body.appendChild(wrap);
   document.body.classList.add('noscroll');
   const onKey = (e) => { if (e.key === 'Escape') close(); };
@@ -179,7 +180,7 @@ export function calendar(db) {
     <section class="calwrap"><div class="cal-h">${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => `<span>${d}</span>`).join('')}</div>
       <div class="cal">${cells}</div>
       <p class="legend cal-l"><i class="k o"></i>Cash outflow (darker = more) <i class="k g"></i>Cash inflow <i class="k b"></i>Transfer</p>
-      ${isNow ? '' : `<div class="btnrow left"><button type="button" class="btn sm ghost" data-act="cal-today">Go to this month</button></div>`}</section>
+      ${isNow ? '' : `<div class="btnrow left">${button({ label: 'Go to this month', kind: 'ghost', size: 'sm', act: 'cal-today' })}</div>`}</section>
     <section class="facts three"><div><span>Cash outflow</span><b class="cr">${R(tOut)}</b></div><div><span>Cash inflow</span><b class="cg">${R(tIn)}</b></div><div><span>Transfers</span><b class="cb">${R(tTr)}</b></div></section>
     <section><h2>This Month by Day</h2>
       <ul class="calfacts">
@@ -313,7 +314,7 @@ function budgetInner(db) {
     : '<p class="hint">No budgets yet. Open a group below and press “Set a monthly budget”.</p>';
   return `${monthNav()}<!--scope-->
     ${warns.length ? `<section class="bwarn">${warns.map((w) => `<button class="warnrow ${w.tone}" data-act="slice" data-k="${esc(w.g)}">${ic('check')}<span>${esc(w.text)}</span></button>`).join('')}</section>` : ''}
-    ${coll('b-sum', 'Budget Summary', sumBlock, '<button type="button" class="btn sm ghost" data-act="budget-setup">Budget setup</button>')}
+    ${coll('b-sum', 'Budget Summary', sumBlock, '' + button({ label: 'Budget setup', kind: 'ghost', size: 'sm', act: 'budget-setup' }) + '')}
     ${coll('b-class', 'Needs, Wants and Luxury', classCard(db, ym) || '<p class="hint">Nothing spent in this month yet.</p>')}
     <div id="bpie"><section class="seg-wrap"><div class="seg two" role="group" aria-label="Split by">${[['group', 'By group'], ['category', 'By category']].map(([v, l]) => `<button type="button" data-act="pieby" data-v="${v}" class="${by === v ? 'on' : ''}" aria-pressed="${by === v}">${l}</button>`).join('')}</div>
       ${donut}${total ? '<p class="hint center">Tap a slice or a row for the detail.</p>' : ''}</section>
@@ -339,7 +340,7 @@ export function categories(db) {
   return `${hdr(kind === 'income' ? 'Income categories' : 'Expense categories')}
     <div class="seg two" role="group">${[['expense', 'Expense'], ['income', 'Income']].map(([v, l]) => `<button type="button" data-act="catkind" data-v="${v}" class="${kind === v ? 'on' : ''}" aria-pressed="${kind === v}">${l}</button>`).join('')}</div>
     <button class="btn wide" data-act="cat-new">+ New ${label} category</button>
-    <button class="btn ghost wide" data-act="cat-suggest">Add Suggested Groups and Categories</button>
+    ${button({ label: 'Add Suggested Groups and Categories', kind: 'ghost', cls: 'wide', act: 'cat-suggest' })}
     ${[...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([g, cs]) => coll(`cg:${kind}:${g}`,
       `<i class="badge sm ghd" style="background:${groupColor(g)}">${groupLetter(g)}</i> <b class="ghn">${esc(g)}</b> <small class="muted">${cs.length}</small>`,
       `<div class="chips cattiles">${cs.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<button type="button" class="chip cattile" data-act="cat-edit" data-id="${c.id}"><i style="background:${groupColor(g)}">${catIcon(c)}</i><span>${esc(c.name)}${c.keywords ? '<small title="has keywords"> ✎</small>' : ''}</span><small>${used.get(c.id) || 0}</small></button>`).join('')}

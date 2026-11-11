@@ -1,4 +1,5 @@
 // The five screens: Home, Ledger, Review, Accounts, Reports, and Settings.
+import { button } from './components.js';
 import { catIcon } from './caticons.js';
 import { softDelete, appMode } from './core.js';
 import { safetyCfg, balanceTrail } from './finance.js';
@@ -564,7 +565,7 @@ export function ledger(db) {
     <div class="frow3">
       <select id="acctfilter" aria-label="Account filter"><option value="">All accounts</option>${db.accounts.filter((a) => !a.deleted).sort((a, b) => a.name.localeCompare(b.name)).map((a) => `<option value="${a.id}" ${ui.acct === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
       <label class="fcat"><select id="lf-cat" aria-label="Category filter">${catOptions(db)}</select></label>
-      <button type="button" class="btn sm ghost" data-act="f-clear">Clear all</button></div>
+      ${button({ label: 'Clear all', kind: 'ghost', size: 'sm', act: 'f-clear' })}</div>
     ${tagBar(db)}
     <p class="hint filterhint" id="filterhint">${filterHint()}</p>
     <div id="selbar-wrap">${selBar()}</div>
@@ -581,9 +582,9 @@ const FILTER_HINTS = {
 const filterHint = () => esc(FILTER_HINTS[ui.filter] || '');
 // choose several entries and delete them together (they go to the recycle bin and can be undone)
 function selBar() {
-  if (!ui.selecting) return `<div class="btnrow left selstart"><button type="button" class="btn sm ghost" data-act="sel-start">${ic('check')} Select entries</button><button type="button" class="btn sm ghost" data-act="ih-open">Input history</button></div>`;
+  if (!ui.selecting) return `<div class="btnrow left selstart"><button type="button" class="btn sm ghost" data-act="sel-start">${ic('check')} Select entries</button>${button({ label: 'Input history', kind: 'ghost', size: 'sm', act: 'ih-open' })}</div>`;
   const n = ui.sel.size;
-  return `<div class="selbar" role="toolbar" aria-label="Selected entries"><span><b>${n}</b> selected</span><button type="button" class="btn sm ghost" data-act="sel-all">${n && n >= (ui.shown || []).length ? 'Clear' : 'Select all shown'}</button><button type="button" class="btn sm" data-act="sel-edit" ${n ? '' : 'disabled'}>Edit (${n})</button><button type="button" class="btn sm danger" data-act="sel-del" ${n ? '' : 'disabled'}>${ic('trash')} Delete (${n})</button><button type="button" class="btn sm ghost" data-act="sel-end">Done</button></div>`;
+  return `<div class="selbar" role="toolbar" aria-label="Selected entries"><span><b>${n}</b> selected</span><button type="button" class="btn sm ghost" data-act="sel-all">${n && n >= (ui.shown || []).length ? 'Clear' : 'Select all shown'}</button><button type="button" class="btn sm" data-act="sel-edit" ${n ? '' : 'disabled'}>Edit (${n})</button><button type="button" class="btn sm danger" data-act="sel-del" ${n ? '' : 'disabled'}>${ic('trash')} Delete (${n})</button>${button({ label: 'Done', kind: 'ghost', size: 'sm', act: 'sel-end' })}</div>`;
 }
 const selRefresh = () => { const l = document.getElementById('ledger-list'), w = document.getElementById('selbar-wrap'); if (!l) return window.dispatchEvent(new Event('sukli-render')); const y = window.scrollY; l.innerHTML = ledgerRows(get()); w.innerHTML = selBar(); window.scrollTo(0, y); };
 ACT['sel-start'] = () => { ui.selecting = true; ui.sel = new Set(); selRefresh(); };
@@ -754,15 +755,15 @@ export function settings(db) {
     ${(() => { const r = nameRules(), groups = new Map(); for (const [a, k] of Object.entries(r.same)) { if (!groups.has(k)) groups.set(k, []); groups.get(k).push(a); }
       return `<section id="nmatch"><h2>Name Matching</h2><label class="field"><span>Home stop (optional)</span><input id="homeplace" value="${esc(s.homePlace || '')}" placeholder="e.g. San Pedro" autocomplete="off"><small class="muted">The stop you leave in the morning and come back to in the evening. Left empty, Sukli works it out from your trips.</small></label>
       <label class="field"><span>Workplace stop (optional)</span><input id="workplace" value="${esc(s.workPlace || '')}" placeholder="e.g. Shinagawa" autocomplete="off"><small class="muted">Sukli remembers it: on weekday mornings it suggests home to work, and in the evening work to home.</small></label><p class="hint">Teach Sukli which names mean the same thing (“starbucks antipolo” and “starbucks tagaytay”) and which do not (“tennis” the sport and “tennis socks”). It also asks when you type a new name that looks like an old one.</p>
-      <button type="button" class="btn ghost wide" data-act="nm-review">Review similar names</button>
-      <button type="button" class="btn ghost wide" data-act="nm-map">Name map (how names connect)</button>
+      ${button({ label: 'Review similar names', kind: 'ghost', cls: 'wide', act: 'nm-review' })}
+      ${button({ label: 'Name map (how names connect)', kind: 'ghost', cls: 'wide', act: 'nm-map' })}
       ${[...groups.entries()].map(([k, as]) => `<div class="nmgroup"><b>${esc(k)}</b><div>${as.filter((a) => a !== k).map((a) => `<span class="chip">${esc(a)} <button type="button" class="x" data-act="nm-forget" data-kind="same" data-v="${esc(a)}" aria-label="Unlink ${esc(a)}">×</button></span>`).join('') || '<small class="muted">only itself</small>'}</div></div>`).join('')}
       ${(r.related || []).length ? `<h3>Related (Same Family, Separate)</h3>${r.related.map((k) => `<div class="nmgroup"><span>${esc(k.replace('|', '  ~  '))} <small class="muted">${Math.round(((r.relw || {})[k] ?? 0.6) * 100)}% close</small></span><button type="button" class="btn sm ghost" data-act="nm-forget" data-kind="related" data-v="${esc(k)}">Undo</button></div>`).join('')}` : ''}
       ${r.apart.length ? `<h3>Kept Apart</h3>${r.apart.map((k) => `<div class="nmgroup"><span>${esc(k.replace('|', '  ≠  '))}</span><button type="button" class="btn sm ghost" data-act="nm-forget" data-kind="apart" data-v="${esc(k)}">Undo</button></div>`).join('')}` : ''}</section>`; })()}
     ${(() => { const st = db.settings, custom = st.customTypes || {}, n = (k) => db.accounts.filter((a) => !a.deleted && a.type === k).length;
       return `<section id="atypes"><h2>Account Types</h2><p class="hint">Rename any type, or add your own, for example "Money owed to me" or "Savings pot". Choose whether a new type is something you have or something you owe.</p>
       ${Object.entries(typeNames).map(([k, l]) => `<div class="field inline"><input data-atype-label="${esc(k)}" value="${esc(l)}" aria-label="Name of ${esc(l)}"><small class="muted">${n(k)} account${n(k) === 1 ? '' : 's'}${custom[k] ? (custom[k].liab ? ' · liability' : ' · asset') : ''}</small>${custom[k] ? `<button type="button" class="btn sm ghost" data-act="atype-del" data-k="${esc(k)}">Delete</button>` : ''}</div>`).join('')}
-      <div class="field"><span>New account type</span><div class="atyperow"><input id="atype-new" placeholder="e.g. Savings pot" data-noclear="1" aria-label="New account type name"><select id="atype-kind" aria-label="Asset or liability"><option value="asset">Asset (I have)</option><option value="liab">Liability (I owe)</option></select><button type="button" class="btn sm" data-act="atype-add">Add</button></div></div></section>`; })()}
+      <div class="field"><span>New account type</span><div class="atyperow"><input id="atype-new" placeholder="e.g. Savings pot" data-noclear="1" aria-label="New account type name"><select id="atype-kind" aria-label="Asset or liability"><option value="asset">Asset (I have)</option><option value="liab">Liability (I owe)</option></select>${button({ label: 'Add', kind: 'primary', size: 'sm', act: 'atype-add' })}</div></div></section>`; })()}
     ${arrangeSection(db)}
     <section><h2>Appearance</h2>
       <label class="check"><input type="checkbox" data-act="commas" ${localStorage.getItem('sukli.commas') === '0' ? '' : 'checked'}> Show thousands separators when typing (119,000)</label>
@@ -770,7 +771,7 @@ export function settings(db) {
       <div class="field"><span>Theme</span>${segBtns('look', 'theme', [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']], lk.theme)}</div>
       <div class="field"><span>Colour</span><div class="swatches" role="group" aria-label="Accent colour"><button type="button" class="swatch auto ${lk.accent === 'auto' ? 'on' : ''}" data-act="look" data-k="accent" data-v="auto" aria-label="Match the mode (teal in Simple, blue in Advanced)" aria-pressed="${lk.accent === 'auto'}" title="Match the mode"></button>${Object.entries(ACCENTS).map(([k, v]) => `<button type="button" class="swatch ${lk.accent === k ? 'on' : ''}" data-act="look" data-k="accent" data-v="${k}" style="background:${v.l[0]}" aria-label="${v.n}" aria-pressed="${lk.accent === k}"></button>`).join('')}</div></div>
       <div class="field"><span>“Spent each day” chart on Home</span><div class="seg two small" role="group" aria-label="Chart direction">${[['v', 'Vertical bars'], ['h', 'Horizontal bars']].map(([v, l]) => `<button type="button" data-act="week-mode" data-v="${v}" class="${weekMode() === v ? 'on' : ''}" aria-pressed="${weekMode() === v}">${l}</button>`).join('')}</div></div>
-      <div class="field"><span>Tap feedback</span>${(() => { const c = feedbackCfg(); return `<label class="check"><input type="checkbox" data-fb="haptic" ${c.haptic ? 'checked' : ''}> Vibrate a little when I tap</label><label class="check"><input type="checkbox" data-fb="visual" ${c.visual ? 'checked' : ''}> Flash the button I tapped</label><label class="check"><input type="checkbox" data-fb="sound" ${c.sound ? 'checked' : ''}> Soft click sound</label><label class="check"><input type="checkbox" data-fb="overlay" ${c.overlay !== false ? 'checked' : ''}> Real switch on keys, Save and + (iPhone)</label><button type="button" class="btn sm ghost" data-act="fb-test">Test the buzz</button><label class="check realsw"><input type="checkbox" switch id="fb-realsw" aria-label="Real switch test"> <span>Tap this real switch. You should feel a small tick. If you do, your phone and its System Haptics are fine.</span></label>`; })()}
+      <div class="field"><span>Tap feedback</span>${(() => { const c = feedbackCfg(); return `<label class="check"><input type="checkbox" data-fb="haptic" ${c.haptic ? 'checked' : ''}> Vibrate a little when I tap</label><label class="check"><input type="checkbox" data-fb="visual" ${c.visual ? 'checked' : ''}> Flash the button I tapped</label><label class="check"><input type="checkbox" data-fb="sound" ${c.sound ? 'checked' : ''}> Soft click sound</label><label class="check"><input type="checkbox" data-fb="overlay" ${c.overlay !== false ? 'checked' : ''}> Real switch on keys, Save and + (iPhone)</label>${button({ label: 'Test the buzz', kind: 'ghost', size: 'sm', act: 'fb-test' })}<label class="check realsw"><input type="checkbox" switch id="fb-realsw" aria-label="Real switch test"> <span>Tap this real switch. You should feel a small tick. If you do, your phone and its System Haptics are fine.</span></label>`; })()}
         <small class="hint">Some iPhones and browsers cannot vibrate, so the flash (and the click, if you turn it on) tells you the tap worked.</small></div>
       <div class="field"><span>Text size</span>${segBtns('look', 'size', SIZES.map((x) => [x[0], x[1]]), lk.size)}
         <small class="hint">Smaller text leaves more room above the on-screen keyboard.</small></div>
@@ -835,7 +836,7 @@ export function settings(db) {
       ${curs.map((c) => `<div class="ratebox">${fxBlockHtml({ from: c, to: HOME, amount: 0, rate: homeFx(db, c), plain: true, db })}</div>`).join('')}
       ${(() => { const old = Object.keys(s.rates || {}).filter((c) => s.rates[c] > 0); return old.length ? `<div class="oldrates"><h3>Rates Typed Here Before</h3><p class="hint">An older version let you type a rate here. These still replace the live rate for new entries and today’s balances. Removing one does not change any saved entry.</p>${old.map((c) => `<div class="oldrate"><span>1 ${esc(c)} = ${rateTxt(homeFx(db, c))} ${esc(HOME)}</span><button type="button" class="btn ghost sm" data-act="rate-live" data-c="${esc(c)}">Remove</button></div>`).join('')}</div>` : ''; })()}
     </section>
-    <section><h2>Glossary</h2><p class="hint">What the words mean: accounts, cards (statement, billing period, posted date), interest, investments, and common words on Japanese receipts with kanji, romaji and English.</p><div class="btnrow left"><button type="button" class="btn ghost" data-act="glossary">Open the glossary</button></div></section>
+    <section><h2>Glossary</h2><p class="hint">What the words mean: accounts, cards (statement, billing period, posted date), interest, investments, and common words on Japanese receipts with kanji, romaji and English.</p><div class="btnrow left">${button({ label: 'Open the glossary', kind: 'ghost', act: 'glossary' })}</div></section>
     <section><h2>Put It on Your Phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
     <section><h2>Erase</h2><button class="btn danger ghost" data-act="erase">Erase everything on this device</button>
       <p class="hint">Backups in your Google Drive are not touched.</p></section>`);
@@ -1080,7 +1081,7 @@ function arrangeSection(db) {
     <h3>Home Cards, Top to Bottom</h3>
     ${lay.order.map((id, i) => { const nm = (HOME_SECTIONS.find((x) => x[0] === id) || [])[1], off = lay.hidden.includes(id);
       return `<div class="arow ${off ? 'off' : ''}"><label class="check"><input type="checkbox" data-act="arr-show" data-id="${id}" ${off ? '' : 'checked'}> ${esc(nm)}${SIMPLE_HIDDEN.includes(id) ? ' <small class="muted">(not shown in Simple mode)</small>' : ''}</label>${mv('home', id, i, lay.order.length)}</div>`; }).join('')}
-    <button type="button" class="btn ghost wide" data-act="arr-reset">Put tabs and cards back to normal</button></section>`;
+    ${button({ label: 'Put tabs and cards back to normal', kind: 'ghost', cls: 'wide', act: 'arr-reset' })}</section>`;
 }
 const moveIn = (arr, id, dir) => { const i = arr.indexOf(id), j = i + dir; if (i < 0 || j < 0 || j >= arr.length) return arr; const a = [...arr]; [a[i], a[j]] = [a[j], a[i]]; return a; };
 ACT['arr-up'] = (el) => arrMove(el, -1);
@@ -1107,7 +1108,7 @@ export function projIncome(db, ym) {
 }
 function projPie(db) {
   const ym = ui.month, out = totals(db, ym), pi = projIncome(db, ym), inc = pi.v, spent = out.total;
-  if (!(inc > 0)) return coll('h-proj', 'Spending vs Expected Income', `<p class="empty">No income yet.</p><button type="button" class="btn ghost" data-act="proj-set">Set my expected monthly income</button>`);
+  if (!(inc > 0)) return coll('h-proj', 'Spending vs Expected Income', `<p class="empty">No income yet.</p>${button({ label: 'Set my expected monthly income', kind: 'ghost', act: 'proj-set' })}`);
   const all = [...out.by.entries()].sort((a, b) => b[1] - a[1]), top = all.slice(0, 6), rest = all.slice(6).reduce((a, [, v]) => a + v, 0);
   const slices = top.map(([g, v]) => ({ g, v })); if (rest > 0) slices.push({ g: 'Everything else', v: rest, other: true });
   const left = inc - spent, over = left < 0, den = Math.max(inc, spent), C = 2 * Math.PI * 52; let acc = 0;
@@ -1118,7 +1119,7 @@ function projPie(db) {
   const pct = Math.round((spent / inc) * 100);
   return coll('h-proj', 'Spending vs Expected Income', `<div class="wentpie"><svg class="donut sm" viewBox="-30 -12 200 164" role="img" aria-label="${pct}% of expected income spent">${track}${arcs}${labels}<text x="70" y="68" text-anchor="middle" class="dv">${pct}%</text><text x="70" y="85" text-anchor="middle" class="dl">${over ? 'over income' : 'spent'}</text></svg>
     <ul class="pielegend"><li><div class="pj"><span>Expected income</span><b>${money(inc)}</b></div></li><li><div class="pj"><span>Came in so far</span><b>${money(pi.got)}</b></div></li><li><div class="pj"><span>Spent</span><b>${money(spent)}</b></div></li><li><div class="pj ${over ? 'bad' : ''}"><span>${over ? 'Over by' : 'Left'}</span><b>${money(Math.abs(left))}</b></div></li></ul></div>
-    <p class="hint">${pi.own ? 'Using the income you set.' : pi.typ ? `Expected income is your usual month (middle of your last ${Math.min(3, [1, 2, 3, 4, 5, 6].filter((i) => totals(db, shiftMonth(ym, -i), 'income').total > 0).length)} months with income)${pi.got > pi.typ ? ', raised to what already came in' : ''}.` : 'No earlier months to go on, so this is what came in so far.'} Tap a slice for what is in it. <button type="button" class="linkbtn" data-act="proj-set">Set my own</button></p>`);
+    <p class="hint">${pi.own ? 'Using the income you set.' : pi.typ ? `Expected income is your usual month (middle of your last ${Math.min(3, [1, 2, 3, 4, 5, 6].filter((i) => totals(db, shiftMonth(ym, -i), 'income').total > 0).length)} months with income)${pi.got > pi.typ ? ', raised to what already came in' : ''}.` : 'No earlier months to go on, so this is what came in so far.'} Tap a slice for what is in it. ${button({ label: 'Set my own', kind: 'link', act: 'proj-set' })}</p>`);
 }
 ACT['proj-set'] = async () => {
   const cur = (get().settings || {}).projIncome || '';

@@ -3,7 +3,7 @@ import re, glob
 from playwright.sync_api import sync_playwright
 res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
-BUTTONS_BASELINE=530      # hand-written <button in js/*.js outside components.js
+BUTTONS_BASELINE=441      # hand-written <button in js/*.js outside components.js
 HEX_BASELINE=67           # raw hex colours in styles.css outside :root blocks
 css=open('styles.css').read()
 js={f:open(f).read() for f in glob.glob('js/*.js')}

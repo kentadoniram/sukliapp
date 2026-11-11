@@ -1,4 +1,5 @@
 // A calendar card for picking a date (and optionally a time). Used by the entry sheet and the analytics filters.
+import { button } from './components.js';
 import { esc, sheet } from './ui.js';
 import { nowStamp, monthLabel, shiftMonth } from './core.js';
 
@@ -28,7 +29,7 @@ export function openDatePicker(value, onPick, { time = true, title = 'Choose a d
       const ds = `${view}-${p2(d)}`, off = (min && ds < min) || (max && ds > max);
       cells.push(`<button type="button" class="dpday ${ds === sel ? 'sel' : ''} ${ds === today ? 'today' : ''} ${marks && marks.has(ds) ? 'mark' : ''}" data-d="${ds}" ${off ? 'disabled' : ''} aria-label="${prettyDate(ds, false)}" aria-pressed="${ds === sel}">${d}</button>`);
     }
-    root.innerHTML = `<div class="dpquick"><button type="button" class="chip" data-q="0">Today</button><button type="button" class="chip" data-q="-1">Yesterday</button><button type="button" class="chip" data-q="-7">A week ago</button></div>
+    root.innerHTML = `<div class="dpquick">${button({ label: 'Today', kind: 'chip', attr: { 'data-q': '0' } })}${button({ label: 'Yesterday', kind: 'chip', attr: { 'data-q': '-1' } })}${button({ label: 'A week ago', kind: 'chip', attr: { 'data-q': '-7' } })}</div>
       ${time ? `<div class="dpquick dpago"><span class="muted">Hours ago</span>${[1, 2, 3, 6, 12].map((n) => `<button type="button" class="chip" data-ago="${n}">${n} h</button>`).join('')}<input id="dp-ago" inputmode="numeric" placeholder="other" aria-label="Hours ago" data-noclear="1"></div>` : ''}
       ${time ? `<div class="dptime"><span>Time</span><select id="dp-h" aria-label="Hour">${Array.from({ length: 24 }, (_, i) => `<option ${i === hh ? 'selected' : ''} value="${i}">${p2(i)}</option>`).join('')}</select>:<select id="dp-m" aria-label="Minute">${Array.from({ length: 60 }, (_, i) => `<option ${i === mm ? 'selected' : ''} value="${i}">${p2(i)}</option>`).join('')}</select><button type="button" class="chip" data-now>Now</button><button type="button" class="chip ${clock ? 'on' : ''}" data-clock aria-pressed="${clock}" title="Pick the time on an analog clock">🕒 Clock</button></div>
       ${clock ? '<div id="dp-clock" class="dpclock"></div>' : ''}` : ''}

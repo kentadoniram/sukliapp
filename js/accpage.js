@@ -313,10 +313,10 @@ export function openAccountDetail(id) {
     const listed = shownH.slice(0, st.more); let rowsHtml = '', placed = !showOpen;
     for (const h of listed) { if (!placed && h.t.date.slice(0, 10) < hist.opening.date) { rowsHtml += openRowHtml(hist.opening); placed = true; } rowsHtml += rowOf(h); }
     if (!placed && shownH.length <= st.more) rowsHtml += openRowHtml(hist.opening);
-    const openLine = hist.opening ? `<p class="hint openline">Opening balance ${money(hist.opening.amount, a.cur)} on ${dayLabel(hist.opening.date + ' 00:00:00')} <button type="button" class="linkbtn" data-ad="edit">change</button></p>` : '';
+    const openLine = hist.opening ? `<p class="hint openline">Opening balance ${money(hist.opening.amount, a.cur)} on ${dayLabel(hist.opening.date + ' 00:00:00')} ${button({ label: 'change', kind: 'link', attr: { 'data-ad': 'edit' } })}</p>` : '';
     root.innerHTML = `
       <div class="gdhead"><span class="muted">${esc(typeNames[a.type] || a.type)} · ${a.cur}</span><b class="big ${bal < 0 ? 'neg' : ''}">${money(bal, a.cur)}</b>
-        ${a.cur !== HOME && r ? `<span class="muted">≈ ${money(bal * r)} at ${fmt(r, HOME)} per ${a.cur}</span>` : ''}<strong class="adname">${esc(a.name)}</strong> <button type="button" class="linkbtn sm" data-ad="reclass">Change type</button></div>
+        ${a.cur !== HOME && r ? `<span class="muted">≈ ${money(bal * r)} at ${fmt(r, HOME)} per ${a.cur}</span>` : ''}<strong class="adname">${esc(a.name)}</strong> ${button({ label: 'Change type', kind: 'link', size: 'sm', attr: { 'data-ad': 'reclass' } })}</div>
       ${openLine}
       <div class="btnrow tight${a.exchange && walletOf(a) === 'Earn' ? ' oneline' : ''}">${isEarnAcct(a) ? '' : '<button class="btn sm" data-ad="add">Add entry</button>'}${isLiability(a) ? `<button class="btn sm ghost" data-act="loan-charge" data-id="${a.id}">Add charge</button>` : ''}
         ${['asset', 'invest', 'other'].includes(a.type) ? '<button class="btn sm ghost" data-ad="reval">Update value</button>' : ''}
