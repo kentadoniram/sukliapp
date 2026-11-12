@@ -36,10 +36,10 @@ with sync_playwright() as p:
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # rename platform (Bybit and bybit are one platform)
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(800)
-    btn=pg.locator('[data-act=inv-rename][data-ex=Bybit]')
-    ok('platform card has Rename platform', btn.count()>=1)
+    btn=pg.locator('[data-act=plat-open][data-ex=Bybit]')
+    ok('platform card has Platform Settings (Rename Platform lives there)', btn.count()>=1)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
-    pg.locator('[data-act=inv-rename][data-ex=Bybit]').first.evaluate("e=>e.click()"); pg.wait_for_selector('.sheet input'); pg.fill('.sheet input','Bybit Global'); pg.keyboard.press('Enter'); pg.wait_for_timeout(500)
+    pg.locator('[data-act=plat-open][data-ex=Bybit]').first.evaluate("e=>e.click()"); pg.wait_for_selector('.platset'); pg.locator('.platset [data-do=inv-rename]').first.evaluate("e=>e.click()"); pg.wait_for_selector('.sheet input'); pg.fill('.sheet input','Bybit Global'); pg.keyboard.press('Enter'); pg.wait_for_timeout(500)
     r=pg.evaluate("window.sukli.get().accounts.filter(x=>x.id==='acx'||x.id==='acy').map(x=>[x.exchange,x.name])")
     ok('rename moved every account and its name', all(e=='Bybit Global' for e,_ in r) and all(n.startswith('Bybit Global') for _,n in r))
     # category merge

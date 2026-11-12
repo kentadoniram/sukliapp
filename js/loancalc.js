@@ -1,5 +1,5 @@
 // Loan arithmetic and label words, kept free of the page so they can be tested.
-// monthly payment of a standard instalment loan; interest-free loans just divide
+// monthly payment of a standard installment loan; interest-free loans just divide
 export function loanCalc({ principal, rate, months, fees = 0, lateFee = 0 }) {
   const P = +principal || 0, n = Math.max(1, Math.round(months) || 1), r = (+rate || 0) / 100 / 12;
   const monthly = r > 0 ? (P * r) / (1 - Math.pow(1 + r, -n)) : P / n;

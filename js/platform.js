@@ -26,7 +26,8 @@ export function openPlatform(ex) {
       <p class="hint">Used for every Earn product here: subscription times and hourly earnings follow this clock.</p>
       ${earn.length ? `<h3>Earn Products</h3><ul class="calfacts">${earn.map((a) => `<li><span>${esc(a.cur)} <small class="muted">${a.earn && a.earn.on ? 'On' : 'Off'}</small></span><button type="button" class="btn sm ghost" data-act="plat-do" data-do="earn-open" data-id="${a.id}">Subscription Settings</button></li>`).join('')}</ul>` : ''}
       <h3>Platform</h3>
-      <div class="btnrow left"><button type="button" class="btn sm ghost" data-act="plat-do" data-do="inv-rename" data-ex="${esc(ex)}">Rename</button>${accts.length ? '' : `<button type="button" class="btn sm ghost danger" data-act="plat-do" data-do="inv-platdel" data-ex="${esc(ex)}">Remove</button>`}</div>
+      <p class="hint">Rename Platform changes the name of the whole exchange. It does not rename your individual accounts (Spot, Margin, Earn…).</p>
+      <div class="btnrow left"><button type="button" class="btn sm ghost" data-act="plat-do" data-do="inv-rename" data-ex="${esc(ex)}">Rename Platform</button>${accts.length ? '' : `<button type="button" class="btn sm ghost danger" data-act="plat-do" data-do="inv-platdel" data-ex="${esc(ex)}">Remove Platform</button>`}</div>
       <div class="btnrow"><button type="button" class="btn primary" data-p="done">Done</button></div>`;
   };
   draw();

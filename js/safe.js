@@ -1,5 +1,5 @@
 // Safe to spend: the money you hold in cash, bank and e-wallet accounts, minus what is already committed
-// (everything owed on credit cards, plus loan and instalment payments due in the next 30 days).
+// (everything owed on credit cards, plus loan and installment payments due in the next 30 days).
 // Nothing here changes an entry. It only tells the truth about what is left to spend.
 import { get, commit, stamp, uid, balances, homeFx, fmt, HOME, nowStamp } from './core.js';
 import { isLiability } from './finance.js';
@@ -8,7 +8,7 @@ import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { button, seg, textField } from './components.js';
 
 const isOwedType = (a) => a.type === 'owed';
-// Bills and Instalments the person lists by hand: { id, name, amount (home currency), due 'YYYY-MM-DD', every 'once' | 'month', left (payments still to make, instalments) }.
+// Bills and Installments the person lists by hand: { id, name, amount (home currency), due 'YYYY-MM-DD', every 'once' | 'month', left (payments still to make, installments) }.
 const dnum = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); };
 const dstr = (n) => new Date(n * 864e5).toISOString().slice(0, 10);
 export function addMonth(day, k = 1) { const [y, m, d] = day.split('-').map(Number), t = new Date(Date.UTC(y, m - 1 + k, 1)), last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate(); return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`; }
@@ -35,7 +35,7 @@ export function safeToSpend(db) {
     const soon = d.overdue || (d.days != null && d.days <= 30);
     if (soon && d.min > 0) items.push({ name: d.name, kind: 'Payment due within 30 days', amount: Math.min(d.min, d.owed) });
   }
-  for (const b of (db.settings || {}).bills || []) { const ds = billDues(b, today); if (ds.length) items.push({ name: b.name, kind: ds.length > 1 ? `${b.left > 0 ? 'Instalment' : 'Bill'}, ${ds.length} payments due within 30 days` : `${b.left > 0 ? `Instalment (${b.left} left)` : 'Bill'} due ${ds[0].due}${ds[0].overdue ? ' (overdue)' : ''}`, amount: ds.reduce((q, x) => q + x.amount, 0) }); }
+  for (const b of (db.settings || {}).bills || []) { const ds = billDues(b, today); if (ds.length) items.push({ name: b.name, kind: ds.length > 1 ? `${b.left > 0 ? 'Installment' : 'Bill'}, ${ds.length} payments due within 30 days` : `${b.left > 0 ? `Installment (${b.left} left)` : 'Bill'} due ${ds[0].due}${ds[0].overdue ? ' (overdue)' : ''}`, amount: ds.reduce((q, x) => q + x.amount, 0) }); }
   const committed = items.reduce((s, x) => s + x.amount, 0);
   return { money, committed, items, safe: money - committed };
 }
@@ -49,27 +49,27 @@ ACT['safe-info'] = () => {
     <li><span><b>Safe to spend</b></span><b>${m(s.safe)}</b></li></ul>
     <div class="field"><span>Credit cards count</span>${seg({ options: [{ label: 'Everything owed', value: 'all', title: 'Safest: all card purchases are already spoken for' }, { label: 'Only what is due in 30 days', value: 'due' }], value: (get().settings.safeCards === 'due') ? 'due' : 'all', act: 'safe-cards', aria: 'How credit cards are counted', pack: (v) => v })}</div>
     <p class="hint">A card purchase is still an expense on the day you buy. With Everything owed it lowers this figure at once, even though the bank balance has not moved until you pay the card.</p>
-    <div class="btnrow">${button({ label: 'Bills and Instalments', kind: 'ghost', act: 'bills-open' })}</div>`, { title: 'Safe to Spend' });
+    <div class="btnrow">${button({ label: 'Bills and Installments', kind: 'ghost', act: 'bills-open' })}</div>`, { title: 'Safe to Spend' });
 };
 ACT['safe-cards'] = (el) => { commit((d) => { d.settings.safeCards = el.dataset.v === 'due' ? 'due' : 'all'; }); closeCur(); ACT['safe-info'](); };
-// the list the person keeps: what is still to pay (a bill) or paid in parts (an instalment, a buy-now-pay-later plan)
+// the list the person keeps: what is still to pay (a bill) or paid in parts (an installment, a buy-now-pay-later plan)
 const money = (n) => fmt(n, HOME, { round: true });
 ACT['bills-open'] = () => {
   closeCur();
   const db = get(), today = nowStamp().slice(0, 10), list = [...(db.settings.bills || [])].sort((a, b) => (a.due < b.due ? -1 : 1));
-  cur = sheet(`<p class="hint">List what you still have to pay: an unpaid bill, or an instalment or buy-now-pay-later plan. Payments due in the next 30 days are taken off Safe to Spend. Sukli does not pay anything; tap Paid when you pay it.</p>
+  cur = sheet(`<p class="hint">List what you still have to pay: an unpaid bill, or an installment or buy-now-pay-later plan. Payments due in the next 30 days are taken off Safe to Spend. Sukli does not pay anything; tap Paid when you pay it.</p>
     ${list.length ? `<ul class="calfacts billlist">${list.map((b) => `<li><span><b>${esc(b.name)}</b><br><small class="muted">${money(b.amount)} · ${b.every === 'month' ? `every month${b.left > 0 ? `, ${b.left} left` : ''}` : 'once'} · next ${esc(b.due)}${b.due < today ? ' (overdue)' : ''}</small></span>
       <span class="aprbtns">${button({ label: 'Paid', kind: 'link', act: 'bill-paid', v: b.id })}${button({ label: 'Edit', kind: 'link', act: 'bill-edit', v: b.id })}${button({ label: 'Remove', kind: 'danger-link', act: 'bill-del', v: b.id })}</span></li>`).join('')}</ul>` : '<p class="muted">Nothing listed yet.</p>'}
-    <div class="btnrow">${button({ label: 'Add a Bill or Instalment', kind: 'primary', act: 'bill-edit', v: '' })}</div>`, { title: 'Bills and Instalments' });
+    <div class="btnrow">${button({ label: 'Add a Bill or Installment', kind: 'primary', act: 'bill-edit', v: '' })}</div>`, { title: 'Bills and Installments' });
 };
 ACT['bill-edit'] = (el) => {
   closeCur();
   const id = el.dataset.v || '', b = (get().settings.bills || []).find((x) => x.id === id) || { name: '', amount: '', due: nowStamp().slice(0, 10), every: 'once', left: '' };
-  const sh = cur = sheet(`${textField({ label: 'What Is It', id: 'bl-name', value: b.name, placeholder: 'e.g. Phone bill, Laptop instalment' })}
+  const sh = cur = sheet(`${textField({ label: 'What Is It', id: 'bl-name', value: b.name, placeholder: 'e.g. Phone bill, Laptop installment' })}
     <div class="two">${textField({ label: `Amount Each Time (${HOME})`, id: 'bl-amt', inputmode: 'decimal', value: b.amount || '' })}${textField({ label: 'Next Due Date', id: 'bl-due', type: 'date', value: b.due })}</div>
     <div class="field"><span>How Often</span>${seg({ options: [{ label: 'Once', value: 'once' }, { label: 'Every month', value: 'month' }], value: b.every, aria: 'How often', data: 'bl-every', pack: (v) => v })}</div>
-    ${textField({ label: 'Payments Left (Instalments, Optional)', id: 'bl-left', inputmode: 'numeric', value: b.left || '', placeholder: 'leave empty if it never ends', hidden: b.every !== 'month', attr: {} }).replace('<label class="field "', '<label class="field " id="bl-leftbox"')}
-    <div class="btnrow">${button({ label: 'Save', kind: 'primary', id: 'bl-save' })}</div>`, { title: id ? 'Edit Bill' : 'Add a Bill or Instalment' });
+    ${textField({ label: 'Payments Left (Installments, Optional)', id: 'bl-left', inputmode: 'numeric', value: b.left || '', placeholder: 'leave empty if it never ends', hidden: b.every !== 'month', attr: {} }).replace('<label class="field "', '<label class="field " id="bl-leftbox"')}
+    <div class="btnrow">${button({ label: 'Save', kind: 'primary', id: 'bl-save' })}</div>`, { title: id ? 'Edit Bill' : 'Add a Bill or Installment' });
   let every = b.every;
   sh.el.addEventListener('click', (e) => { const x = e.target.closest('[data-bl-every]'); if (!x) return; every = x.dataset.blEvery; sh.el.querySelectorAll('[data-bl-every]').forEach((y) => { const on = y === x; y.classList.toggle('on', on); y.setAttribute('aria-pressed', String(on)); }); sh.el.querySelector('#bl-leftbox').hidden = every !== 'month'; });
   sh.el.querySelector('#bl-save').onclick = () => {

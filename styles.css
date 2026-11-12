@@ -1527,3 +1527,23 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .tokrow .rmain .tokpl { color: var(--ink2); }
 .tokrow .ramt { text-align: right; white-space: nowrap; }
 .tokrow .ramt small { white-space: nowrap; }
+
+/* switches (components.js switchBtn): a track and knob, then the name; used to show or hide sections */
+.swgrid { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 6px 0 10px; }
+.swb { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 2px; border: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
+.swb .swtrack { position: relative; flex: none; width: 42px; height: 24px; border-radius: 12px; background: var(--rule); border: 1px solid var(--rule); transition: background .15s; }
+.swb .swtrack::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--sheet); box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .15s; }
+.swb.on .swtrack { background: var(--line); border-color: var(--line); }
+.swb.on .swtrack::after { transform: translateX(18px); }
+.swb:focus-visible { outline: 2px solid var(--line); outline-offset: 2px; border-radius: 8px; }
+.swb small { color: var(--ink2); font-weight: 500; }
+.dashcard { margin: 8px 0; }
+.dashcard h3 { margin: 0 0 4px; }
+.dashcard .dashbody > .coll { margin: 0 0 8px; }
+.wblock { margin: 4px 0 8px; }
+.platbar { margin: 0 0 4px; }
+.aprbtns { display: inline-flex; gap: 16px; align-items: center; margin-left: 12px; }
+/* chip: the name sits in the middle of the pill, both ways */
+.chip { display: inline-flex; align-items: center; justify-content: center; text-align: center; line-height: 1.15; min-height: 38px; padding: 0 16px; gap: 6px; font-weight: 600; font-family: inherit; box-sizing: border-box; }
+.chip.cat { justify-content: flex-start; text-align: left; }
+.chip small { line-height: 1; }

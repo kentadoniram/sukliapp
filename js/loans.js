@@ -43,7 +43,7 @@ export function openLoanPlanner(pre = {}) {
     else if (c.costPct >= 15) warn.push(`The loan costs ${Math.round(c.costPct)}% of the money you actually receive.`);
     if (['home', 'car'].includes(v.kind)) warn.push(`Over ${c.n} months you will pay ${m2(c.interest)} in interest alone (${Math.round((c.interest / v.principal) * 100)}% on top of what you borrow).`);
     if (v.kind === 'cash') warn.push('Credit to cash usually charges a fee and monthly interest from day one. Compare it with a personal loan.');
-    if (c.lateEach > 0) warn.push(`Each late payment adds about ${m2(c.lateEach)}; paying every instalment late would add ${m2(c.lateAll)}. Late payments can also raise the interest and hurt your credit record.`);
+    if (c.lateEach > 0) warn.push(`Each late payment adds about ${m2(c.lateEach)}; paying every installment late would add ${m2(c.lateAll)}. Late payments can also raise the interest and hurt your credit record.`);
     out.innerHTML = `<div class="facts three"><div><span>Monthly payment</span><b>${m2(c.monthly)}</b></div><div><span>Total interest</span><b class="cr">${m2(c.interest)}</b></div><div><span>Total you repay</span><b>${m2(c.totalPaid)}</b></div></div>
       <div class="facts three"><div><span>You receive</span><b class="cg">${m2(c.net)}</b></div><div><span>Fees upfront</span><b class="cr">${m2(c.fees)}</b></div><div><span>Real cost</span><b class="cr">${m2(c.cost)}</b></div></div>
       ${warn.map((w) => `<p class="lpwarn">${ic('spark')} ${esc(w)}</p>`).join('')}`;

@@ -9,10 +9,10 @@ export const nominalFromEar = (e, comp) => n(comp) * ((1 + e / 100) ** (1 / n(co
 // interest earned or charged on principal P over `months`, nominal rate r (%), compounded `comp`
 export const compInterest = (P, r, comp, months) => P * ((1 + r / 100 / n(comp)) ** (n(comp) * months / 12) - 1);
 export const nominalFromInterest = (P, I, comp, months) => (P > 0 && months > 0 && I >= 0 ? n(comp) * ((1 + I / P) ** (12 / (months * n(comp))) - 1) * 100 : NaN);
-// add-on: a flat % a year on the original amount for the whole term, paid back in equal monthly instalments
+// add-on: a flat % a year on the original amount for the whole term, paid back in equal monthly installments
 export const addonInterest = (P, a, months) => P * a / 100 * months / 12;
 function pmt(P, rm, m) { return rm === 0 ? P / m : P * rm / (1 - (1 + rm) ** -m); }
-// the real (effective) yearly rate of an add-on loan: the monthly rate that makes the instalments fit, as a nominal yearly % (monthly compounding)
+// the real (effective) yearly rate of an add-on loan: the monthly rate that makes the installments fit, as a nominal yearly % (monthly compounding)
 export function addonToNominal(P, a, months) {
   const m = Math.round(months); if (!(P > 0 && a >= 0 && m >= 1)) return NaN;
   const pay = (P + addonInterest(P, a, m)) / m; let lo = 0, hi = 1;

@@ -1,4 +1,4 @@
-# v15.26: an account cannot be changed to Earn (edit form and wallet-move); Earn tab has "+ Transfer In/Out" at the top and no + Asset / Internal at the bottom
+# v15.26/15.28: an account cannot be changed to Earn (edit form and wallet-move); Earn has Transfer In/Out in place of Record; Rename Platform lives in Platform Settings
 from playwright.sync_api import sync_playwright
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
@@ -12,15 +12,17 @@ with sync_playwright() as p:
       A('zs','ZzEx Spot USDT','Spot',100);A('ze','ZzEx Earn USDT','Earn',50);A('zm','ZzEx Margin USDT','Margin',20);})})()""")
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(500)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
-    box=pg.locator('.ivplat:has(.wtab:has-text("Earn"))').first
-    ok('Spot tab: no top transfer button, bottom row has + Asset and Internal', box.locator('.earntop').count()==0 and box.locator('[data-act=inv-coin]').count()==1 and box.locator('[data-act=inv-internal]').count()==1)
-    box.locator('.wtab:has-text("Earn")').click(); pg.wait_for_timeout(500)
-    box=pg.locator('.ivplat:has(.wtab:has-text("Earn"))').first
-    ok('Earn tab: "+ Transfer In/Out" at the top', box.locator('.earntop [data-act=inv-internal]').count()==1 and 'Transfer In/Out' in box.locator('.earntop').inner_text())
-    ok('Earn tab: no + Asset and no bottom Internal', box.locator('[data-act=inv-coin]').count()==0 and box.locator('[data-act=inv-internal]').count()==1)
-    ok('Earn tab: Record and Rename still there', box.locator('[data-act=inv-add]').count()==1 and box.locator('[data-act=inv-rename]').count()==1)
+    box=pg.locator('.ivplat:has(.swb:has-text("Earn"))').first
+    ok('Spot only: no Earn transfer button; bottom row has Record, + Asset and Internal', box.locator('.earntop').count()==0 and box.locator('[data-act=inv-add]').count()==1 and box.locator('[data-act=inv-coin]').count()==1 and box.locator('[data-act=inv-internal]').count()==1)
+    ok('Rename is not in the bottom row any more; Platform Settings is', box.locator('[data-act=inv-rename]').count()==0 and box.locator('[data-act=plat-open]').count()>=1)
+    box.locator('.swb:has-text("Earn")').click(); pg.wait_for_timeout(500)
+    box=pg.locator('.ivplat:has(.swb:has-text("Earn"))').first
+    ok('Earn on with Spot: the Earn block has "+ Transfer In/Out"; bottom row unchanged', box.locator('[data-w=Earn] .earntop [data-act=inv-internal]').count()==1 and box.locator('[data-act=inv-add]').count()==1)
+    pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); box.locator('.swb:has-text("Spot")').first.click(); pg.wait_for_timeout(500)
+    box=pg.locator('.ivplat:has(.swb:has-text("Earn"))').first
+    ok('Earn only: Transfer In/Out replaces Record; no + Asset, no Record', 'Transfer In/Out' in box.locator('.btnrow.oneline:not(.earntop)').inner_text() and box.locator('[data-act=inv-add]').count()==0 and box.locator('[data-act=inv-coin]').count()==0)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); box.locator('.earntop [data-act=inv-internal]').click(); pg.wait_for_selector('.sheet',timeout=4000); pg.wait_for_timeout(400)
-    ok('top button opens Internal Transfer', 'Internal' in pg.inner_text('.sheet'))
+    ok('the button opens Internal Transfer', 'Internal' in pg.inner_text('.sheet'))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
     # wallet-move to Earn is blocked
     pg.evaluate("(async()=>{const u=await import('/js/ui.js');u.ACT['wallet-move']({dataset:{id:'zm',w:'Earn'}})})()"); pg.wait_for_timeout(500)

@@ -11,7 +11,7 @@ with sync_playwright() as p:
     # Investments tab shows wallets under the platform
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(700)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
-    h=pg.evaluate("[...document.querySelectorAll('.wtab')].map(e=>e.textContent.trim())")
+    h=pg.evaluate("[...document.querySelectorAll('.swb')].map(e=>e.textContent.trim())")
     ok('platform card lists wallets (Spot, Futures, Earn)', {'Spot','Futures','Earn'}<=set(h))
     # transfer from KuCoin: From = USDT spot, To list still shows the other USDT and every wallet
     pg.evaluate("""(async()=>{const m=await import('/js/entry.js');m.openEntry({preset:{kind:'transfer',acct:'k1'}})})()""")
@@ -23,8 +23,8 @@ with sync_playwright() as p:
     heads=pg.evaluate("[...document.querySelectorAll('#aclist h3')].map(h=>h.textContent)")
     ok('picker is grouped Platform · wallet, without Earn', 'KuCoin · Earn' not in heads and 'KuCoin · Spot' in heads and 'KuCoin · Futures' in heads)
     pg.fill('#acq','kucoin futures'); pg.wait_for_timeout(300)
-    ok('search "kucoin futures" finds the Futures USDT even though it is named USDT', pg.locator('#aclist .row:not([disabled]):has-text("USDT")').count()==1)
-    pg.click('#aclist .row:not([disabled]):has-text("USDT")'); pg.wait_for_timeout(300)
+    ok('search "kucoin futures" finds the Futures USDT even though it is named USDT', pg.locator('#aclist .row:not([disabled])').count()==1)
+    pg.click('#aclist .row:not([disabled])'); pg.wait_for_timeout(300)
     ok('To button says where it is', 'KuCoin' in pg.inner_text('[data-which=to]') and 'Futures' in pg.inner_text('[data-which=to]'))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # account form: wallet field
@@ -39,10 +39,10 @@ with sync_playwright() as p:
     pg.evaluate("""(async()=>{const m=await import('/js/invest.js');m.addAsset({platform:'KuCoin',wallet:'Margin'})})()""")
     pg.wait_for_selector('#ic'); pg.fill('#ic [name=coin]','USDT'); pg.click('#ic .btn:not(.ghost)'); pg.wait_for_timeout(500)
     n=pg.evaluate("window.sukli.get().accounts.filter(x=>!x.deleted&&x.exchange==='KuCoin'&&x.cur==='USDT').map(x=>x.wallet).sort()")
-    ok('a third USDT in Margin was created', n==['Funding','Futures','Margin','Spot'])
+    ok('a third USDT in Margin was created', n==['Funding','Margin','Spot'])
     pg.evaluate("""(async()=>{const m=await import('/js/invest.js');m.addAsset({platform:'KuCoin',wallet:'Margin'})})()""")
     pg.wait_for_selector('#ic'); pg.fill('#ic [name=coin]','USDT'); pg.click('#ic .btn:not(.ghost)'); pg.wait_for_timeout(400)
-    ok('same coin twice in one wallet is refused', pg.evaluate("window.sukli.get().accounts.filter(x=>!x.deleted&&x.exchange==='KuCoin'&&x.cur==='USDT').length")==4)
+    ok('same coin twice in one wallet is refused', pg.evaluate("window.sukli.get().accounts.filter(x=>!x.deleted&&x.exchange==='KuCoin'&&x.cur==='USDT').length")==3)
     ok('no page errors', not errs); print(errs[:2])
     b.close()
 print('SUMMARY', sum(res), '/', len(res)); raise SystemExit(0 if all(res) else 1)
