@@ -3,7 +3,8 @@ import re, glob
 from playwright.sync_api import sync_playwright
 res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
-BUTTONS_BASELINE=426      # hand-written <button in js/*.js outside components.js
+BUTTONS_BASELINE=64      # hand-written <button in js/*.js outside components.js
+FIELDS_BASELINE=107      # hand-written <label class="field in js/*.js outside components.js (use textField / selectField / field)
 HEX_BASELINE=67           # raw hex colours in styles.css outside :root blocks
 css=open('styles.css').read()
 js={f:open(f).read() for f in glob.glob('js/*.js')}
@@ -15,6 +16,8 @@ ok('no hex fallbacks hiding a missing token', len(re.findall(r'var\(--[a-z0-9-]+
 # 2. ratchets
 nb=sum(len(re.findall(r'<button',t)) for f,t in js.items() if not f.endswith('components.js'))
 ok('hand-written buttons %d (limit %d)'%(nb,BUTTONS_BASELINE), nb<=BUTTONS_BASELINE)
+nfl=sum(len(re.findall(r'<label class="field',t)) for f,t in js.items() if not f.endswith('components.js'))
+ok('hand-written field labels %d (limit %d)'%(nfl,FIELDS_BASELINE), nfl<=FIELDS_BASELINE)
 noroot=re.sub(r'/\*.*?\*/','',re.sub(r':root[^{]*\{[^}]*\}','',css),flags=re.S)
 nh=len(re.findall(r'#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b',noroot))
 ok('raw hex colours outside :root %d (limit %d)'%(nh,HEX_BASELINE), nh<=HEX_BASELINE)

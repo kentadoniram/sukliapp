@@ -30,6 +30,6 @@ with sync_playwright() as p:
     ok('macron spellings share one key', r['k1'])
     ok('Keikyi repaired, Yakou repaired', r['rep']=='Keikyū Kawasaki' and r['yako']=='Yakō')
     pg.goto('http://localhost:8123/'); pg.wait_for_timeout(500)
-    ok('group chooser uses tiles', pg.evaluate("""async()=>{const t=await (await fetch('/js/entry.js')).text();return t.includes('chips cattiles grptiles')&&t.includes('<span>${esc(g)}</span></button>');}"""))
+    ok('group chooser uses tiles', pg.evaluate("""async()=>{const t=await (await fetch('/js/entry.js')).text();return t.includes('chips cattiles grptiles')&&t.includes('<span>${esc(g)}</span>')&&t.includes('cattile');}"""))
     ok('no errors %s'%errs, not errs)
 print('fails',res.count(False))
