@@ -94,11 +94,12 @@ function catFor(db, r) {
   return (cats.find((c) => /^(other|misc|shopping|uncategori)/i.test(c.name)) || cats[0] || {}).id || '';
 }
 // one purchase row: kind of purchase (groups), the quickest categories, every category, merchant and branch, and the option to split it into items
+const catOpts = (cats, sel) => { const g = new Map(); for (const c of cats) { const k = c.group || 'Other'; if (!g.has(k)) g.set(k, []); g.get(k).push(c); } return [...g.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([k, l]) => `<optgroup label="${esc(k)}">${l.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`).join(''); };
 function buyBox(db, r, i, cats) {
   const quick = (r.grp ? groupCats(db, r.grp) : bestCats(db, r.place, 6)).slice(0, 8);
   const chips = quick.length ? `<div class="chips wsquick" role="group" aria-label="Quick categories">${quick.map((c) => button({ label: c.name, kind: 'chip', on: c.id === r.cat, act: 'ws-cat', v: `${i}:${c.id}` })).join('')}</div>` : '';
   return `<div class="wsbuy"><div class="chips wsgroups" role="group" aria-label="Kind of purchase">${PASMO_GROUPS.map((g) => button({ label: g.label, kind: 'chip', on: r.grp === g.id, act: 'ws-grp', v: `${i}:${g.id}` })).join('')}</div>${chips}
-    <select class="wscat" data-i="${i}" aria-label="Category for ${esc(r.place)}">${cats.map((c) => `<option value="${c.id}" ${c.id === r.cat ? 'selected' : ''}>${esc(c.group ? c.group + ' · ' + c.name : c.name)}</option>`).join('')}</select>
+    <select class="wscat" data-i="${i}" aria-label="Category for ${esc(r.place)}">${catOpts(cats, r.cat)}</select>
     <div class="mbpair wsmb">${textField({ label: 'Merchant', value: r.merchant || '', placeholder: 'e.g. 7-Eleven', attr: { 'data-i': i, 'data-k': 'merchant', class: 'wsmer' } })}${textField({ label: 'Branch', value: r.branch || '', placeholder: 'e.g. Shinjuku Nishiguchi', attr: { 'data-i': i, 'data-k': 'branch', class: 'wsmer' } })}</div>
     ${r.mwhy ? `<small class="muted wsmwhy">Suggested: ${esc(r.mwhy)}. Change it if it is wrong; Sukli remembers what you keep.</small>` : ''}
     <div class="btnrow tight">${button({ label: r.reimb ? 'Reimbursable: On' : 'Reimbursable', kind: 'toggle', size: 'sm', on: !!r.reimb, act: 'ws-reimb', v: i })}${button({ label: r.split ? 'Split into Items: On' : 'Split into Items', kind: 'toggle', size: 'sm', on: !!r.split, act: 'ws-split', v: i })}</div>${r.split ? '<small class="muted">After you add the entries, the items screen opens for this purchase (items, a discount or tax on the whole bill).</small>' : ''}</div>`;
@@ -182,10 +183,11 @@ ACT['ws-cat'] = (el) => { if (!S) return; const k = el.dataset.v.indexOf(':'), r
 ACT['ws-rides'] = () => { if (!S) return; S.rides = !S.rides; if (S.rides && S.reimbCo == null) S.reimbCo = lastCompany(get()); render(); };
 ACT['ws-reimb'] = (el) => { if (!S) return; const r = S.rows[+el.dataset.v]; if (r) { r.reimb = !r.reimb; if (r.reimb && S.reimbCo == null) S.reimbCo = lastCompany(get()); render(); } };
 ACT['ws-split'] = (el) => { if (!S) return; const r = S.rows[+el.dataset.v]; if (r) { r.split = !r.split; render(); } };
-ACT['ws-split-open'] = (el) => { const id = el.dataset.id; setTimeout(() => openEntry({ id, showItems: true }), 90); };
+let PEND = [], LIST = [], PEND_GO = null;
+ACT['ws-split-open'] = (el) => { const r = LIST[+el.dataset.v]; if (r && PEND_GO) setTimeout(() => PEND_GO(r), 90); };
 ACT['ws-again'] = () => { if (cur) start(); };
 ACT['ws-add'] = () => {
-  if (!cur || !S) return; const picked = S.rows.filter((r) => r.on), gap = S.fixBal !== false ? (S.gap || 0) : 0; if (!picked.length && !gap) { toast('Nothing ticked.'); return; }
+  if (!cur || !S) return; const acct = S.acct, rcoNow = ((S.reimbCo != null ? S.reimbCo : lastCompany(get())) || '').trim() || 'My Company', picked = S.rows.filter((r) => r.on), gap = S.fixBal !== false ? (S.gap || 0) : 0; if (!picked.length && !gap) { toast('Nothing ticked.'); return; }
   commit((d) => {
     if (gap) { const i = d.accounts.findIndex((x) => x.id === S.acct); if (i >= 0) d.accounts[i] = stamp({ ...d.accounts[i], open: Math.round((((d.accounts[i].open) || 0) + gap) * 100) / 100 }); }
     const rco = ((S.reimbCo != null ? S.reimbCo : lastCompany(d)) || '').trim() || 'My Company'; if (S.rides || picked.some((r) => r.reimb)) rememberCompany(d, rco);
@@ -194,11 +196,14 @@ ACT['ws-add'] = () => {
       const base = { id: uid(), kind: 'expense', amount: r.amount, cur: 'JPY', fx, date: stampOf(r.when), cat: r.cat, acct: S.acct, notes: 'From a Wallet screenshot', labels: '', items: [], counts: [] };
       if (r.kind === 'topup') { const a = d.accounts.find((x) => x.id === r.src), c = d.accounts.find((x) => x.id === S.acct); d.txs.push(stamp({ id: uid(), kind: 'transfer', amount: r.amount, cur: (a && a.cur) || 'JPY', fx, date: stampOf(r.when), name: transferLabel(a, c), autoName: true, cat: '', acct: r.src, toAcct: S.acct, toAmount: r.amount, fee: 0, feeBy: '', notes: 'From a Wallet screenshot', labels: '', items: [], counts: [] })); continue; }
       if (r.kind === 'transit') { const dk = dkey(r), v = S.days && S.days.get(dk), tag = S.trip && S.trip[dk]; d.txs.push(stamp({ ...base, ...(S.rides ? { reimb: { co: rco, st: 'pending' } } : {}), name: tripLabel('Train', r.from, r.to), autoName: true, from: r.from, to: r.to, ...(tag ? { labels: joinTags([...parseTags(base.labels), 'Day Trip']) } : {}), ...(tag && v && v.far ? { loc: { la: Math.round(v.far.la * 100) / 100, lo: Math.round(v.far.lo * 100) / 100 } } : {}) })); }
+      else if (r.split) { PEND.push(r); d.settings.walletCats[r.place] = r.cat; rememberPlace(d, r.place, r.merchant ? canonMerchant(d, r.merchant) : '', r.merchant ? String(r.branch || '').trim() : ''); }
       else { const mer = r.merchant ? canonMerchant(d, r.merchant) : '', br = mer ? String(r.branch || '').trim() : ''; r.newId = base.id; d.txs.push(stamp({ ...base, ...(r.reimb ? { reimb: { co: rco, st: 'pending' } } : {}), name: `Purchase: ${r.place}`, flag: 'review', ...(mer ? { merchant: mer } : {}), ...(br ? { branch: br } : {}) })); d.settings.walletCats[r.place] = r.cat; rememberPlace(d, r.place, mer, br); }
     }
   });
-  toast(`Added ${picked.length} ${picked.length === 1 ? 'entry' : 'entries'}.`); if (cur) cur.close();
-  const toSplit = picked.filter((r) => r.split && r.newId);
-  if (toSplit.length === 1) setTimeout(() => openEntry({ id: toSplit[0].newId, showItems: true }), 250);
-  else if (toSplit.length > 1) setTimeout(() => { const db = get(); sheet(`<p class="hint">Open each one to list its items, a discount or tax on the whole bill.</p><ul class="calfacts">${toSplit.map((r) => { const t = db.txs.find((x) => x.id === r.newId); return `<li><span>${esc(r.place)} · ${yen(r.amount)}</span>${t ? button({ label: 'Split into Items', kind: 'secondary', size: 'sm', act: 'ws-split-open', data: 'id', v: t.id }) : ''}</li>`; }).join('')}</ul>`, { title: 'Purchases to Split' }); }, 250);
+  { const n = picked.filter((r) => !r.split || r.kind !== 'purchase').length; toast(n ? `Added ${n} ${n === 1 ? 'entry' : 'entries'}.` : 'Opening the items screen.'); }; if (cur) cur.close();
+  const toSplit = PEND.splice(0), rco = rcoNow;
+  const go = (r) => openEntry({ showItems: true, preset: { kind: 'expense', amount: String(r.amount), name: `Purchase: ${r.place}`, acct, date: stampOf(r.when), cat: r.cat, catTouched: true, merchant: r.merchant || '', merchTouched: true, branch: r.merchant ? (r.branch || '') : '', branchTouched: true, notes: 'From a Wallet screenshot', ...(r.reimb ? { reimbOn: true, reimbCo: rco } : {}) } });
+  PEND_GO = go;
+  if (toSplit.length === 1) setTimeout(() => go(toSplit[0]), 250);
+  else if (toSplit.length > 1) { LIST = toSplit; setTimeout(() => { sheet(`<p class="hint">Open each one to list its items, a discount or tax on the whole bill, or to mark it as paid for others. Nothing is saved until you save it there.</p><ul class="calfacts">${toSplit.map((r, i) => `<li><span>${esc(r.place)} · ${yen(r.amount)}</span>${button({ label: 'Split into Items', kind: 'secondary', size: 'sm', act: 'ws-split-open', v: i })}</li>`).join('')}</ul>`, { title: 'Purchases to Split' }); }, 250); }
 };

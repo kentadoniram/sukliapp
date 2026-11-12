@@ -5,7 +5,8 @@
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const plain = (s) => String(s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[|_]+/g, ' ').replace(/\s+/g, ' ').trim();
 const Y = '[¥￥\\\\]';                                                // the reader often turns the yen sign into a backslash
-const yen = (s) => { const m = String(s).match(new RegExp(Y + '\\s?([\\d][\\d,\\.]*)')); return m ? Math.round(parseFloat(m[1].replace(/,/g, ''))) : null; };
+/* "¥5,468" may be read as "¥5.468", "¥5, 468" or "¥5 468": a . or , (or space) followed by exactly 3 digits is a thousands mark, never a decimal */
+const yen = (s) => { const m = String(s).match(new RegExp(Y + '\\s?(\\d{1,3}(?:[,.\\s]\\s?\\d{3}(?!\\d))+|\\d[\\d,\\.]*)')); if (!m) return null; const t = m[1], g = /^\d{1,3}(?:[,.\s]\s?\d{3})+$/.test(t); return Math.round(parseFloat(g ? t.replace(/[,.\s]/g, '') : t.replace(/,/g, ''))); };
 import { findStation } from './stations.js';
 const station = (s) => { const r = rawStation(s), k = findStation(r); return k ? k.name : plain(r); };   /* known station: its own spelling; unknown: marks dropped so names match older entries */
 const rawStation = (s) => String(s || '').normalize('NFC').replace(/[|_]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/\s+stat(i(on?)?)?\.{0,3}\s*$/i, '').replace(/[>›»\s]+$/, '').trim();

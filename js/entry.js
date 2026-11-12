@@ -36,6 +36,7 @@ import { openAccountPicker } from './acctpicker.js';
 import { pickerList, enhanceSelect } from './picker.js';
 import { similarNames } from './merchants.js';
 import { openMerchantPicker, canonMerchant, guessMerchant } from './merchantpick.js';
+import { guessMerchantBranch } from './pasmomerch.js';
 import { groupsOf, unitOf, addGroup, countLines, splitParts, countsFromParts } from './spendgroups.js';
 
 // ---- models are rebuilt only when the data changed ----
@@ -109,6 +110,7 @@ function acctOptions(sel, skip, cur) {
   return [...groups.entries()].sort((x, y) => x[1].o - y[1].o || x[0].localeCompare(y[0])).map(([g, v]) =>
     `<optgroup label="${esc(g)}">${v.list.sort((a, b) => (lastUsed.get(b.id) || '').localeCompare(lastUsed.get(a.id) || '') || a.name.localeCompare(b.name)).map(opt).join('')}</optgroup>`).join('');
 }
+const norm0 = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9぀-ヿ一-鿿]/g, '');
 function catOptions(sel, kind) {
   const db = get();
   const groups = new Map();
@@ -220,8 +222,11 @@ export function openEntry(opts = {}) {
   }
   function suggestMerchant() {
     if (f.merchTouched || existing) return;
-    const g = guessMerchant(get(), f.name);
-    if (g && g !== f.merchant) { f.merchant = g; f.merchSuggested = true; f.branch = ''; f.branchTouched = false; renderMerch(); renderBranch(); autoBranch(); } else if (!g && f.merchSuggested) { f.merchant = ''; f.merchSuggested = false; renderMerch(); renderBranch(); }
+    /* the same reader as the Wallet screenshot: a chain name in the text gives the merchant and the rest of the text the branch ("Seven Eleven Kawasaki" = 7-Eleven, Kawasaki) */
+    const mb = f.name.trim() ? guessMerchantBranch(get(), f.name) : null, g = guessMerchant(get(), f.name) || (mb && mb.merchant) || '';
+    if (g && g !== f.merchant) { f.merchant = g; f.merchSuggested = true; f.branch = ''; f.branchTouched = false; f.branchSuggested = ''; renderMerch(); renderBranch(); autoBranch(); }
+    else if (!g && f.merchSuggested) { f.merchant = ''; f.merchSuggested = false; renderMerch(); renderBranch(); }
+    if (g && mb && mb.branch && !f.branchTouched && !f.branch && norm0(mb.merchant) === norm0(g)) { f.branch = mb.branch; f.branchSuggested = mb.why; renderBranch(); }
   }
   const isPersonSide = (to) => (to ? FLOWS[f.flow].person === 'to' : FLOWS[f.flow].person === 'from');
   async function addPerson() {
@@ -739,7 +744,7 @@ export function openEntry(opts = {}) {
     const el = $f('locrow'); if (!el) return; const L = f.locUi || (f.locUi = { perm: 'unknown', msg: '', edit: false });
     const pt = f.loc, permTxt = { granted: 'Location permission: allowed', denied: 'Location permission: blocked. Allow it in your phone’s settings for this app, or type a place below.', prompt: 'Location permission: will ask when you tap', unknown: 'Location permission: not known yet (your phone asks when you tap)' }[L.perm];
     el.innerHTML = `<span>Location (optional)</span><div class="locbox">${button({ html: `${pt ? `📍 ${f.place ? esc(f.place) : L.busy ? 'Finding the address…' : 'Location saved, address not found yet'}` : 'Add Location'}`, kind: 'plain', cls: 'acctbtn', e: 'loc-get' })}
-      <div class="chips">${pt ? (f.place ? '' + button({ label: 'Edit Address', kind: 'chip', e: 'addr-edit' }) + '' : '' + button({ label: 'Show Address', kind: 'chip', e: 'addr-get' }) + '') + '' + button({ label: 'Remove', kind: 'chip', e: 'loc-clear' }) + '' + button({ label: '\' + (L.detail ? \'Hide Details\' : \'Details\') + \'', kind: 'chip', e: 'loc-detail' }) + '' : ''}${button({ label: 'Pick on Map', kind: 'chip', e: 'loc-map' })}${button({ html: `${L.edit ? 'Close' : 'Type It'}`, kind: 'chip', e: 'loc-edit' })}</div></div>
+      <div class="chips">${pt ? (f.place ? '' + button({ label: 'Edit Address', kind: 'chip', e: 'addr-edit' }) + '' : '' + button({ label: 'Show Address', kind: 'chip', e: 'addr-get' }) + '') + '' + button({ label: 'Remove', kind: 'chip', e: 'loc-clear' }) + '' + button({ label: L.detail ? 'Hide Details' : 'Details', kind: 'chip', e: 'loc-detail' }) + '' : ''}${button({ label: 'Pick on Map', kind: 'chip', e: 'loc-map' })}${button({ html: `${L.edit ? 'Close' : 'Type It'}`, kind: 'chip', e: 'loc-edit' })}</div></div>
       ${pt && L.detail ? `<pre class="locjson" aria-label="Location details">${esc(JSON.stringify({ latitude: pt.la, longitude: pt.lo, address: f.place || null, approx: 'about 1 km' }, null, 2))}</pre>` : ''}
       ${L.edit ? `<input id="f-loc" inputmode="decimal" placeholder="Latitude, longitude (e.g. 35.53, 139.69)" value="${pt ? `${pt.la}, ${pt.lo}` : ''}" aria-label="Location as latitude and longitude">` : ''}
       ${pt && L.addrEdit ? `<input id="f-place" autocomplete="off" placeholder="Type the address or place name" value="${esc(f.place || '')}" aria-label="Address">` : ''}
