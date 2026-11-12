@@ -1,6 +1,7 @@
 // Read a screenshot of a transit card in Apple Wallet (Pasmo, Suica...): there is no CSV to export, so the picture is read on the phone
 // (nothing is uploaded), each ride becomes an entry with its two stations, and a "Purchase" row stays a purchase, not a ride.
 import { button, textField } from './components.js';
+import { lastCompany, rememberCompany } from './reimburse.js';
 import { get, commit, stamp, uid, nowStamp, homeFx, balances } from './core.js';
 import { esc, ACT, sheet, toast } from './ui.js';
 import { transferLabel } from './label.js';
@@ -100,7 +101,7 @@ function buyBox(db, r, i, cats) {
     <select class="wscat" data-i="${i}" aria-label="Category for ${esc(r.place)}">${cats.map((c) => `<option value="${c.id}" ${c.id === r.cat ? 'selected' : ''}>${esc(c.group ? c.group + ' · ' + c.name : c.name)}</option>`).join('')}</select>
     <div class="mbpair wsmb">${textField({ label: 'Merchant', value: r.merchant || '', placeholder: 'e.g. 7-Eleven', attr: { 'data-i': i, 'data-k': 'merchant', class: 'wsmer' } })}${textField({ label: 'Branch', value: r.branch || '', placeholder: 'e.g. Shinjuku Nishiguchi', attr: { 'data-i': i, 'data-k': 'branch', class: 'wsmer' } })}</div>
     ${r.mwhy ? `<small class="muted wsmwhy">Suggested: ${esc(r.mwhy)}. Change it if it is wrong; Sukli remembers what you keep.</small>` : ''}
-    <div class="btnrow tight">${button({ label: r.split ? 'Split into Items: On' : 'Split into Items', kind: 'toggle', size: 'sm', on: !!r.split, act: 'ws-split', v: i })}</div>${r.split ? '<small class="muted">After you add the entries, the items screen opens for this purchase (items, a discount or tax on the whole bill).</small>' : ''}</div>`;
+    <div class="btnrow tight">${button({ label: r.reimb ? 'Reimbursable: On' : 'Reimbursable', kind: 'toggle', size: 'sm', on: !!r.reimb, act: 'ws-reimb', v: i })}${button({ label: r.split ? 'Split into Items: On' : 'Split into Items', kind: 'toggle', size: 'sm', on: !!r.split, act: 'ws-split', v: i })}</div>${r.split ? '<small class="muted">After you add the entries, the items screen opens for this purchase (items, a discount or tax on the whole bill).</small>' : ''}</div>`;
 }
 
 const dkey = (r) => stampOf(r.when).slice(0, 10);
@@ -117,6 +118,7 @@ function render() {
   const accts = cardAccts(db), rows = S.rows, cats = expenseCats(db);
   const shown = (r) => `${r.exactTime ? 'about ' + p2(r.when.getHours()) + ':' + p2(r.when.getMinutes()) + ' · ' : ''}${r.when.getMonth() + 1}/${r.when.getDate()}${r.exactTime ? '' : ' (time not shown)'}`;
   body.innerHTML = `<p class="hint">Read from your screenshot${S.balance != null ? `. Wallet balance: <b>${yen(S.balance)}</b>` : ''}. Rides become <b>Train</b> entries with both stations. A <b>Purchase</b> is not a ride: pick what it was for. A <b>top-up</b> is a transfer into the card from the account you choose. Entries you already have are left unticked.</p>
+    ${(() => { const co = S.reimbCo != null ? S.reimbCo : lastCompany(db); return `<div class="reimbbox wsreimb">${button({ label: 'Reimbursable: my company pays back these rides', kind: 'toggle', on: !!S.rides, act: 'ws-rides' })}${S.rides ? `<label class="field"><span>Who pays you back?</span><input id="ws-co" value="${esc(co)}" placeholder="e.g. My Company" autocomplete="off"></label>` : ''}<small class="muted">Rides marked this way are kept in Reimbursement and are not counted as your spending. For a purchase (a meal, supplies) use its own switch.</small></div>`; })()}
     <label class="field"><span>Card account</span><select id="ws-acct">${accts.map((a) => `<option value="${a.id}" ${a.id === S.acct ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
     <ul class="wslist">${rows.map((r, i) => `${dayHead(rows, i)}<li class="wsrow ${r.known ? 'known' : ''}"><label class="wsl"><input type="checkbox" data-i="${i}" ${r.on ? 'checked' : ''}>
       <span class="wst"><b>${r.kind === 'transit' ? `${esc(r.from)} to ${esc(r.to)}` : r.kind === 'topup' ? `Top-up of the card (a transfer, not spending)` : `Purchase: ${esc(r.place)}`}</b><small class="muted">${yen(r.amount)} · ${esc(shown(r))}${r.known ? ' · already in your entries' : ''}</small></span></label>
@@ -127,6 +129,7 @@ function render() {
     ${(() => { const g = balanceGap(db); S.gap = g; if (!g) return S.balance != null ? `<p class="hint">The card balance in Sukli will match the wallet (${yen(S.balance)}).</p>` : ''; const a = accts.find((x) => x.id === S.acct), o = ((a && a.open) || 0) + g;
       return `<label class="check wsbal"><input type="checkbox" id="ws-bal" ${S.fixBal !== false ? 'checked' : ''}> <span>Set the starting balance of ${esc(a ? a.name : 'the card')} to <b>${yen(o)}</b> so it shows <b>${yen(S.balance)}</b> as in the wallet. Everything read here is then history; nothing double counts.</span></label>`; })()}
     <div class="btnrow">${button({ label: 'Another screenshot', kind: 'ghost', act: 'ws-again' })}<button type="button" class="btn" data-act="ws-add">Add ${rows.filter((r) => r.on).length} ${rows.filter((r) => r.on).length === 1 ? 'entry' : 'entries'}</button></div>`;
+  const wco = body.querySelector('#ws-co'); if (wco) wco.oninput = (e) => { S.reimbCo = e.target.value; };
   body.querySelector('#ws-acct').onchange = (e) => { S.acct = e.target.value; render(); };
   const wb = body.querySelector('#ws-bal'); if (wb) wb.onchange = () => { S.fixBal = wb.checked; };
   body.querySelectorAll('.wsl input').forEach((x) => { x.onchange = () => { S.rows[+x.dataset.i].on = x.checked; render(); }; });
@@ -176,6 +179,8 @@ ACT['ws-fare'] = (el) => { if (!S) return; const r = S.rows[+el.dataset.i]; if (
 ACT['ws-day'] = (el) => { if (!S) return; const d = el.dataset.d; S.trip[d] = !S.trip[d]; render(); };
 ACT['ws-grp'] = (el) => { if (!S) return; const [i, g] = el.dataset.v.split(':'), r = S.rows[+i]; if (!r) return; r.grp = r.grp === g ? '' : g; const list = r.grp ? groupCats(get(), r.grp) : []; if (list.length && !list.some((c) => c.id === r.cat)) r.cat = list[0].id; render(); };
 ACT['ws-cat'] = (el) => { if (!S) return; const k = el.dataset.v.indexOf(':'), r = S.rows[+el.dataset.v.slice(0, k)]; if (r) { r.cat = el.dataset.v.slice(k + 1); render(); } };
+ACT['ws-rides'] = () => { if (!S) return; S.rides = !S.rides; if (S.rides && S.reimbCo == null) S.reimbCo = lastCompany(get()); render(); };
+ACT['ws-reimb'] = (el) => { if (!S) return; const r = S.rows[+el.dataset.v]; if (r) { r.reimb = !r.reimb; if (r.reimb && S.reimbCo == null) S.reimbCo = lastCompany(get()); render(); } };
 ACT['ws-split'] = (el) => { if (!S) return; const r = S.rows[+el.dataset.v]; if (r) { r.split = !r.split; render(); } };
 ACT['ws-split-open'] = (el) => { const id = el.dataset.id; setTimeout(() => openEntry({ id, showItems: true }), 90); };
 ACT['ws-again'] = () => { if (cur) start(); };
@@ -183,12 +188,13 @@ ACT['ws-add'] = () => {
   if (!cur || !S) return; const picked = S.rows.filter((r) => r.on), gap = S.fixBal !== false ? (S.gap || 0) : 0; if (!picked.length && !gap) { toast('Nothing ticked.'); return; }
   commit((d) => {
     if (gap) { const i = d.accounts.findIndex((x) => x.id === S.acct); if (i >= 0) d.accounts[i] = stamp({ ...d.accounts[i], open: Math.round((((d.accounts[i].open) || 0) + gap) * 100) / 100 }); }
+    const rco = ((S.reimbCo != null ? S.reimbCo : lastCompany(d)) || '').trim() || 'My Company'; if (S.rides || picked.some((r) => r.reimb)) rememberCompany(d, rco);
     const fx = homeFx(d, 'JPY') || 1; d.settings.walletCats = { ...(d.settings.walletCats || {}) };
     for (const r of picked) {
       const base = { id: uid(), kind: 'expense', amount: r.amount, cur: 'JPY', fx, date: stampOf(r.when), cat: r.cat, acct: S.acct, notes: 'From a Wallet screenshot', labels: '', items: [], counts: [] };
       if (r.kind === 'topup') { const a = d.accounts.find((x) => x.id === r.src), c = d.accounts.find((x) => x.id === S.acct); d.txs.push(stamp({ id: uid(), kind: 'transfer', amount: r.amount, cur: (a && a.cur) || 'JPY', fx, date: stampOf(r.when), name: transferLabel(a, c), autoName: true, cat: '', acct: r.src, toAcct: S.acct, toAmount: r.amount, fee: 0, feeBy: '', notes: 'From a Wallet screenshot', labels: '', items: [], counts: [] })); continue; }
-      if (r.kind === 'transit') { const dk = dkey(r), v = S.days && S.days.get(dk), tag = S.trip && S.trip[dk]; d.txs.push(stamp({ ...base, name: tripLabel('Train', r.from, r.to), autoName: true, from: r.from, to: r.to, ...(tag ? { labels: joinTags([...parseTags(base.labels), 'Day Trip']) } : {}), ...(tag && v && v.far ? { loc: { la: Math.round(v.far.la * 100) / 100, lo: Math.round(v.far.lo * 100) / 100 } } : {}) })); }
-      else { const mer = r.merchant ? canonMerchant(d, r.merchant) : '', br = mer ? String(r.branch || '').trim() : ''; r.newId = base.id; d.txs.push(stamp({ ...base, name: `Purchase: ${r.place}`, flag: 'review', ...(mer ? { merchant: mer } : {}), ...(br ? { branch: br } : {}) })); d.settings.walletCats[r.place] = r.cat; rememberPlace(d, r.place, mer, br); }
+      if (r.kind === 'transit') { const dk = dkey(r), v = S.days && S.days.get(dk), tag = S.trip && S.trip[dk]; d.txs.push(stamp({ ...base, ...(S.rides ? { reimb: { co: rco, st: 'pending' } } : {}), name: tripLabel('Train', r.from, r.to), autoName: true, from: r.from, to: r.to, ...(tag ? { labels: joinTags([...parseTags(base.labels), 'Day Trip']) } : {}), ...(tag && v && v.far ? { loc: { la: Math.round(v.far.la * 100) / 100, lo: Math.round(v.far.lo * 100) / 100 } } : {}) })); }
+      else { const mer = r.merchant ? canonMerchant(d, r.merchant) : '', br = mer ? String(r.branch || '').trim() : ''; r.newId = base.id; d.txs.push(stamp({ ...base, ...(r.reimb ? { reimb: { co: rco, st: 'pending' } } : {}), name: `Purchase: ${r.place}`, flag: 'review', ...(mer ? { merchant: mer } : {}), ...(br ? { branch: br } : {}) })); d.settings.walletCats[r.place] = r.cat; rememberPlace(d, r.place, mer, br); }
     }
   });
   toast(`Added ${picked.length} ${picked.length === 1 ? 'entry' : 'entries'}.`); if (cur) cur.close();

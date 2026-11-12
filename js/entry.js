@@ -21,6 +21,7 @@ import { splitOf, openSplit, deleteWithMates } from './splitbill.js';
 import { guessItemCat, itemCatIndex, itemsForWhat, knownItemNames } from './itemcat.js';
 import { cachedAddress, lookupAddress, saveAddress } from './geo.js';
 import { isLiability, isOwed, lockInfo, periodFor, addDay } from './finance.js';
+import { companies as companiesOf, lastCompany as lastCompanyOf, rememberCompany } from './reimburse.js';
 import { budgetAlerts, newAlertsSince } from './budgetsetup.js';
 import { guessLabel, transferLabel } from './label.js';
 import { parseRoute, routeName, routeStats, suggestTrips, rankRouteNames, isTransportCat, transportWord, modeOf, tripLabel, bareMode } from './route.js';
@@ -76,7 +77,7 @@ function blank() {
   const db = get();
   const accts = db.accounts.filter((a) => !a.deleted && !a.archived);
   const last = accts.find((a) => a.id === db.settings.lastAcct) || accts.find((a) => a.include) || accts[0];
-  return { cb: { on: false, mode: 'fixed', v: '' }, kind: 'expense', debt: false, flow: '', merchant: '', merchTouched: false, merchSuggested: false, amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
+  return { reimbOn: false, reimbCo: '', cb: { on: false, mode: 'fixed', v: '' }, kind: 'expense', debt: false, flow: '', merchant: '', merchTouched: false, merchSuggested: false, amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
     catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), posted: '', postedOn: false, notes: '', labels: '', items: [], tax: { on: false, mode: 'pct', v: '' }, wd: { on: false, mode: 'pct', v: '' }, counts: [], parts: [], partsOff: '', showCounts: false, flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
     fee: '', feeMode: 'none', feePct: '', feeModeSet: false, feeCat: '', feeBy: 'from', feeTouched: false, calc: false, convert: false, cRate: '', qtab: '', qtabManual: false };
 }
@@ -88,7 +89,7 @@ function fromTx(t) {
     toAmount: t.toAmount != null ? String(t.toAmount) : '', fx: t.hfx > 0 ? prec(t.hfx) : t.fx ? prec(t.fx / homeRate(db, t.date)) : '', cat: t.cat || '',
     fee: t.fee > 0 ? String(t.fee) : '', feeMode: t.fee > 0 ? 'fixed' : 'none', feePct: '', feeModeSet: true, feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
     convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
-    catTouched: true, acctTouched: true, date: t.date, posted: t.posted || '', postedOn: !!t.posted, notes: t.notes || '', labels: t.labels || '', flag: t.flag || null, id: t.id, pred: null,
+    reimbOn: !!t.reimb, reimbCo: t.reimb ? (t.reimb.co || '') : '', catTouched: true, acctTouched: true, date: t.date, posted: t.posted || '', postedOn: !!t.posted, notes: t.notes || '', labels: t.labels || '', flag: t.flag || null, id: t.id, pred: null,
     items: (t.items || []).filter((i) => !i.tax && !i.wd).map((i) => (i.u != null ? { n: i.n, amt: String(i.u), q: i.q || 1, cat: i.cat || '', ...(i.dm ? { disc: { on: true, mode: i.dm, v: String(i.dv) } } : {}), ...(i.tp ? { tx: { on: true, v: String(i.tp) } } : {}) } : { n: i.n, amt: String(i.amt), q: 1, cat: i.cat || '', ...(i.tp ? { tx: { on: true, v: String(i.tp) } } : {}) })), tax: (() => { const x = (t.items || []).find((i) => i.tax); return x && !(x.pi && !x.tm) ? { on: true, mode: x.tm || 'amt', v: String(x.tv != null ? x.tv : x.amt) } : { on: false, mode: 'pct', v: '' }; })(), wd: (() => { const x = (t.items || []).find((i) => i.wd); return x ? { on: true, mode: x.dm || 'amt', v: String(x.dv != null ? x.dv : Math.abs(x.amt)) } : { on: false, mode: 'pct', v: '' }; })(), showItems: !!(t.items && t.items.length), counts: (t.counts || []).map((c) => ({ g: c.g, n: String(c.n) })), showCounts: !!(t.counts && t.counts.length), parts: (t.parts || []).map((x) => ({ ...x })), partsOff: '', from: t.from || '', to: t.to || '' };
 }
 
@@ -182,6 +183,7 @@ export function openEntry(opts = {}) {
     <div id="feerow"></div>
     <div id="catrow"></div>
     <div id="triprow"></div>
+    <div class="field" id="reimbrow"></div>
     <div id="itemsrow"></div>
     <div class="adv-only" id="countsrow"></div>
     <div class="field" id="tagsrow"></div>
@@ -197,13 +199,14 @@ export function openEntry(opts = {}) {
   const focusKeep = (el) => { if (el && document.activeElement !== el) el.focus(); };
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
-    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'itemsrow', 'countsrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'cbrow', 'safety', 'err', 'btns'],
+    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'reimbrow', 'itemsrow', 'countsrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'cbrow', 'safety', 'err', 'btns'],
     transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'safety', 'err', 'btns'],
   };
   function arrange() {
     const ids = f.kind === 'transfer' ? ORDER.transfer : ORDER.flow;
     if (f.kind !== 'transfer') $f('acctwhen').append($f('acctrow'), $f('whenrow'));          // Account and When share one block (a row) for expense and income
     for (const id of ids) form.appendChild($f(id));
+    renderReimb();
     const nh = form.querySelector('#namehelp'), nr = $f('notesrow'); if (nh && nr) nr.after(nh);
   }
 
@@ -763,6 +766,15 @@ export function openEntry(opts = {}) {
     const on = parseTags(f.labels), onSet = new Set(on.map((x) => x.toLowerCase())), more = tagCounts(get()).filter((x) => !onSet.has(x.tag.toLowerCase())).slice(0, 8);
     el.innerHTML = `<span>Tag or event (optional) ${tipBtn('tags')}</span><div class="chips tagchips">${on.map((x) => `<button type="button" class="chip on" data-e="tag" data-v="${esc(x)}" aria-pressed="true">#${esc(x)} ×</button>`).join('')}${more.map((x) => `<button type="button" class="chip" data-e="tag" data-v="${esc(x.tag)}" aria-pressed="false">#${esc(x.tag)}</button>`).join('')}${button({ label: '+ New tag', kind: 'chip', e: 'newtag' })}</div>`;
   }
+  // Reimbursable: the company pays this back, so it is not counted as your spending while it waits (see the Reimbursement page)
+  function renderReimb() {
+    const el = $f('reimbrow'); if (!el) return;
+    if (f.kind !== 'expense') { el.innerHTML = ''; return; }
+    const paid = existing && existing.reimb && existing.reimb.st === 'paid', cos = companiesOf(get());
+    el.innerHTML = `<div class="reimbbox">${button({ label: 'Reimbursable: my company pays me back', kind: 'toggle', on: !!f.reimbOn, e: 'reimb' })}
+      ${f.reimbOn ? `<label class="field"><span>Who pays you back?</span><input id="f-reimbco" list="reimbcos" value="${esc(f.reimbCo)}" placeholder="e.g. ${esc(cos[0] || 'My Company')}" autocomplete="off"></label><datalist id="reimbcos">${cos.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+      <small class="muted">${paid ? 'The company already paid this back.' : 'Not counted as your spending while you wait. It is kept in Reimbursement. This is not Owed to You, which is for people.'}</small>` : '<small class="muted">Work travel, meals or supplies that your company will repay.</small>'}</div>`;
+  }
   function renderTrip() {
     tripShown = tripCat();
     const el = $f('triprow'); if (!tripCat()) { el.innerHTML = ''; return; }
@@ -853,6 +865,7 @@ export function openEntry(opts = {}) {
     else if (id === 'f-crate') { f.cRate = e.target.value; syncCross('rate'); }
     else if (id === 'f-toamt') { f.toAmount = e.target.value; syncCross('to'); const dn = $f('diffnote'); if (dn && f.sameDiff) dn.textContent = diffNote(f, acctOf(f.acct)); }
     else if (id === 'f-notes') f.notes = e.target.value;
+    else if (id === 'f-reimbco') f.reimbCo = e.target.value;
     else if (e.target.classList.contains('cnt-n')) f.counts[+e.target.closest('.cnt').dataset.i].n = e.target.value;
     else if (e.target.closest('.item')) {
       const row = e.target.closest('.item'), i = +row.dataset.i, it = f.items[i];
@@ -965,6 +978,7 @@ export function openEntry(opts = {}) {
       case 'livecross': { const r = crossRate(); if (r) { f.cRate = prec(r); const cr = $f('f-crate'); if (cr) cr.value = f.cRate; syncCross('rate'); } else toast('No live rate for this pair yet. Type one.'); break; }
       case 'feemode': f.feeMode = v; f.feeModeSet = true; f.feeTouched = true; f.feeSuggested = false; if (v === 'none') { f.fee = ''; f.feePct = ''; } else if (v === 'pct') { f.feePct = ''; f.fee = ''; } renderFee(); { const fe = $f('f-fee'); if (fe && v !== 'none') fe.focus(); } break;
       case 'feeby': f.feeBy = v; f.feeTouched = true; f.feeSuggested = false; renderFee(); break;
+      case 'reimb': f.reimbOn = !f.reimbOn; if (f.reimbOn && !f.reimbCo) f.reimbCo = lastCompanyOf(get()); renderReimb(); break;
       case 'cat': pickCat(v); renderCats(); renderTrip(); renderSafety(); break;
       case 'tag': { const cur = parseTags(f.labels), i = cur.findIndex((x) => x.toLowerCase() === v.toLowerCase()); if (i >= 0) cur.splice(i, 1); else cur.push(v); f.labels = joinTags(cur); renderTags(); break; }
       case 'newtag': { promptDialog('New tag or event', '', { okLabel: 'Add', hint: 'For example: Okinawa trip, Birthday, Moving' }).then((n) => { if (n && n.trim()) { f.labels = joinTags([...parseTags(f.labels), n.trim()]); renderTags(); } }); break; }
@@ -1142,6 +1156,7 @@ export function openEntry(opts = {}) {
       toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), labels: joinTags(parseTags(f.labels)), items: items && items.length ? items : [], counts, flag,
       posted: (f.kind !== 'transfer' && f.postedOn && a.type === 'card' && a.stmtDay > 0 && f.posted > String(f.date).slice(0, 10)) ? f.posted : '' };
     if (f.kind === 'expense' && counts.length && f.parts && f.parts.length && splitParts(f.name)) rec.parts = f.parts.map((x) => ({ n: x.n, k: x.k }));   // the things the total is made of, kept so item prices can be worked out later
+    if (f.kind === 'expense' && f.reimbOn) { const co = f.reimbCo.trim() || lastCompanyOf(get()) || 'My Company', old = existing && existing.reimb; rec.reimb = old && old.co === co ? { ...old } : { co, st: 'pending' }; if (old && old.co !== co) rec.reimb = { ...old, co }; }
     if (f.debt && f.kind === 'transfer') rec[FLOWS[f.flow].flag] = true;
     if (f.loc) { rec.loc = f.loc; rec.place = f.place || null; } else if (existing && existing.loc) { rec.loc = null; rec.place = null; }
     { const mc = f.kind === 'expense' ? canonMerchant(db2, f.merchant) : ''; if (mc) { rec.merchant = mc; if (f.branch) rec.branch = f.branch; } }
@@ -1165,6 +1180,7 @@ export function openEntry(opts = {}) {
     if (cbAmt > 0) rec.cashback = { mode: f.cb.mode, v: num(f.cb.v) || 0, id: cbId }; else rec.cashback = null;
     let savedAs; const alertsBefore = budgetAlerts(get(), rec.date.slice(0, 7));
     commit((d) => {
+      if (rec.reimb) rememberCompany(d, rec.reimb.co);
       if (fee) {
         if (f.feeCat.startsWith('__new:')) rec.feeCat = findOrAddCategory(d, 'Fees', f.feeCat.slice(6), 'expense').id;
         else rec.feeCat = f.feeCat;
@@ -1173,7 +1189,7 @@ export function openEntry(opts = {}) {
         // keep what it was before this change, so the Input history can put it back (the last 5 versions)
         const before = {}; for (const k of ['kind', 'date', 'name', 'amount', 'cur', 'fx', 'acct', 'toAcct', 'toAmount', 'cat', 'notes', 'fee', 'feeCat', 'feeBy']) if (t[k] !== undefined) before[k] = t[k];
         t.rev = [{ at: Date.now(), ...before }, ...(t.rev || [])].slice(0, 5);
-        Object.assign(t, rec); for (const k of FLOW_FLAGS) if (!rec[k]) delete t[k]; if (!rec.merchant) delete t.merchant; if (!rec.branch) delete t.branch; if (!rec.cashback) delete t.cashback; if (!t.loc) delete t.loc; if (!t.place) delete t.place; stamp(t); savedAs = t; }
+        Object.assign(t, rec); if (!rec.reimb) delete t.reimb; for (const k of FLOW_FLAGS) if (!rec[k]) delete t[k]; if (!rec.merchant) delete t.merchant; if (!rec.branch) delete t.branch; if (!rec.cashback) delete t.cashback; if (!t.loc) delete t.loc; if (!t.place) delete t.place; stamp(t); savedAs = t; }
       else if (oth) {
         const hx = (c) => homeFx(d, c) || 1, hA = a.cur === HOME ? 1 : fx / (homeRate(d, rec.date) || 1), toAmt = (pp0, v) => (pp0.cur === a.cur ? v : +(v * hA / hx(pp0.cur)).toFixed(2));   // the bill's own (possibly hand-set) rate, not today's
         if (oth.mine > 0) { savedAs = stamp({ id: oth.eid, ...rec, createdAt: Date.now() }); d.txs.push(savedAs); }

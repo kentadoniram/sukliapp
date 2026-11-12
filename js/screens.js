@@ -1,7 +1,7 @@
 // The five screens: Home, Ledger, Review, Accounts, Reports, and Settings.
 import { button } from './components.js';
 import { catIcon } from './caticons.js';
-import { softDelete, appMode } from './core.js';
+import { softDelete, appMode, reimbKeep } from './core.js';
 import { safetyCfg, balanceTrail } from './finance.js';
 import {
   get, commit, commitQuiet, stamp, uid, fmt, BASE, HOME, homeFx, homeRate, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
@@ -33,6 +33,7 @@ import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, las
 import { applyHide, look, setLook, ACCENTS, SIZES, setLookMode } from './appearance.js';
 export { setLookMode };
 import { lossCard } from './loans.js';
+import { reimbCard } from './reimburse.js';
 import { typeNames, accounts, openAccount, reminderBanner, openInterestDetail } from './accpage.js';
 import { goalBanner } from './savings.js';
 import { outlookCard } from './views.js';
@@ -221,7 +222,7 @@ function weekBars(db) {
 }
 // the cards on Home, in the order you chose in Settings. [id, name, heavy: drawn a moment later so the numbers above appear at once]
 export const HOME_SECTIONS = [
-  ['spendable', 'Spendable now', false], ['alerts', 'Reminders and items to check', false], ['insights', 'Worth knowing', true], ['pace', 'Pace', false], ['projpie', 'Spending vs expected income', false],
+  ['spendable', 'Spendable now', false], ['alerts', 'Reminders and items to check', false], ['reimb', 'Waiting for reimbursement', false], ['insights', 'Worth knowing', true], ['pace', 'Pace', false], ['projpie', 'Spending vs expected income', false],
   ['rolling', 'Daily average, rolling 7 days', false], ['usual', 'Your usual spending', false], ['outlook', 'Next month outlook', true], ['went', 'Where it went', false], ['came', 'Where it came from', false],
   ['loss', 'Money lost to fees and interest', false], ['six', 'Last 6 months', false], ['trip', 'Latest trip or event', true], ['latest', 'Latest entries', false],
 ];
@@ -242,6 +243,7 @@ export function fillDeferred(db, done) {
 function homeSection(id, c) {
   const { db } = c;
   switch (id) {
+    case 'reimb': return reimbCard(db);
     case 'spendable': { const sp = spendable(db), chips = [...sp.by.entries()].filter(([, v]) => Math.abs(v) >= 0.005).map(([cur, v]) => { const e = eq(v, cur, rateFor(db, cur)); return `<span>${money(v, cur)}${e ? `<small> ${e}</small>` : ''}</span>`; }).join('');
       return `<section class="spendable"><div><span>Spendable now</span><b>${money(sp.total)}</b></div><div class="curs">${chips || '<span class="muted">No balances yet</span>'}</div>
       ${sp.missing.length ? `<p class="hint">Not counted: ${sp.missing.join(', ')} (set a rate in Settings).</p>` : ''}${(() => { if (appMode() === 'simple') return ''; const sf = safeToSpend(db); return sf.committed > 0.5 ? `<button type="button" class="safeto" data-act="safe-info"><span>Safe to spend<small> after ${money(sf.committed)} already owed</small></span><b>${money(sf.safe)}</b></button>` : ''; })()}</section>`; }
@@ -493,7 +495,7 @@ function ledgerRows(db) {
         buf += row(syn, accts, cats, ui.selecting, trail) + splitExtra(g); }
       else buf += row(t, accts, cats, ui.selecting, trail); }
     shown.push(t.id); n++;
-    if (t.kind === 'expense') { dayTotal += t.amount * factorFor(db, t); byCur.set(t.cur, (byCur.get(t.cur) || 0) + t.amount); }
+    if (t.kind === 'expense') { dayTotal += t.amount * factorFor(db, t) * reimbKeep(t); byCur.set(t.cur, (byCur.get(t.cur) || 0) + t.amount); }
     for (const k of hiddenFees) if (kidMap.get(k.id).id === t.id) { dayTotal += k.amount * factorFor(db, k); byCur.set(k.cur, (byCur.get(k.cur) || 0) + k.amount); }
   }
   flush();
@@ -1063,7 +1065,7 @@ function settingsGrouped(html) {
 }
 
 // ---------------- Arrange tabs and Home cards (Settings) ----------------
-export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Entries', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash Flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'], invest: ['Invest', 'spark'], debts: ['Debts', 'calc'], owed: ['Owed to You', 'wallet'], savings: ['Savings', 'goal'] };
+export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Entries', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash Flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'], invest: ['Invest', 'spark'], debts: ['Debts', 'calc'], owed: ['Owed to You', 'wallet'], reimburse: ['Reimbursement', 'wallet'], savings: ['Savings', 'goal'] };
 export const MAX_TABS = 5;
 export const DEFAULT_TABS = ['home', 'ledger', 'invest', 'accounts'];
 export function tabIds(db) {

@@ -2,6 +2,7 @@
 // A debt here is { id, owed, rate, addon, addonMonthly, min } in one currency (the home currency). rate = % a year on what is still owed.
 // Interest a month: declining debts owe owed x monthly rate; add-on debts owe a fixed amount (addonMonthly) while anything is left.
 
+import { reimbKeep } from './reimbkeep.js';
 export const monthlyRate = (ratePct) => { const r = (+ratePct || 0) / 100; return r > 0 ? Math.pow(1 + r, 1 / 12) - 1 : 0; };
 
 // the number used to rank debts "highest interest first" (add-on: the fixed monthly charge as a yearly % of what is left)
@@ -61,8 +62,8 @@ export function learnMonths(txs, toHome, thisMonth, shiftMonth, classify = () =>
     let inc = 0, out = 0, need = 0, n = 0;
     for (const t of txs) {
       if (t.deleted || t.autoDebt || !String(t.date).startsWith(ym)) continue;
-      if (t.kind === 'income') { inc += toHome(t); n++; }
-      else if (t.kind === 'expense') { const v = toHome(t), c = classify(t) || {}; out += v; n++; if (c.cls === 'need') need += v; const k = c.name || 'Other'; const o = cats.get(k) || { name: k, cls: c.cls || 'want', total: 0 }; o.total += v; cats.set(k, o); }
+      if (t.kind === 'income') { if (t.reimbBack) continue; inc += toHome(t); n++; }
+      else if (t.kind === 'expense') { const v = toHome(t) * reimbKeep(t), c = classify(t) || {}; out += v; n++; if (c.cls === 'need') need += v; const k = c.name || 'Other'; const o = cats.get(k) || { name: k, cls: c.cls || 'want', total: 0 }; o.total += v; cats.set(k, o); }
     }
     if (n) rows.push({ ym, inc, out, need });
   }

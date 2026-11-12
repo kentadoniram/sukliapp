@@ -1,4 +1,4 @@
-# v12z: Platform > wallet > asset; the transfer "To" list never loses an account
+# v12z (remade in 15.32): Platform > wallet > asset; the transfer "To" list never loses an account; every trading account has USDT, so a search for a platform and wallet lists all of its lines
 from playwright.sync_api import sync_playwright
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
@@ -23,8 +23,9 @@ with sync_playwright() as p:
     heads=pg.evaluate("[...document.querySelectorAll('#aclist h3')].map(h=>h.textContent)")
     ok('picker is grouped Platform · wallet, without Earn', 'KuCoin · Earn' not in heads and 'KuCoin · Spot' in heads and 'KuCoin · Futures' in heads)
     pg.fill('#acq','kucoin futures'); pg.wait_for_timeout(300)
-    ok('search "kucoin futures" finds the Futures USDT even though it is named USDT', pg.locator('#aclist .row:not([disabled])').count()==1)
-    pg.click('#aclist .row:not([disabled])'); pg.wait_for_timeout(300)
+    rows=pg.evaluate("[...document.querySelectorAll('#aclist .row:not([disabled])')].map(r=>r.innerText.replace(/\\n/g,' '))")
+    ok('search "kucoin futures" finds BOTH Futures lines: SOL, and the USDT line every trading account has (%s)'%rows, len(rows)==2 and any('USDT' in r for r in rows) and any('SOL' in r for r in rows))
+    pg.click('#aclist .row:not([disabled]):has-text("USDT")'); pg.wait_for_timeout(300)
     ok('To button says where it is', 'KuCoin' in pg.inner_text('[data-which=to]') and 'Futures' in pg.inner_text('[data-which=to]'))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # account form: wallet field

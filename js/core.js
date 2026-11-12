@@ -518,6 +518,9 @@ export function partsBetween(db, from, to) { return partsOf(db, (t) => { const d
 // while a scope is set (Budget filter), every report only counts entries from those accounts
 let SCOPE = null;
 export function withScope(ids, fn) { const prev = SCOPE; SCOPE = ids; try { return fn(); } finally { SCOPE = prev; } }
+// an expense the company will pay back (reimbursable): while it waits it is NOT your spending; once paid, only the part the company did not pay counts
+export { reimbKeep };
+import { reimbKeep } from './reimbkeep.js';
 export function partsOf(db, inRange) {
   const ex = new Set(db.settings.excludeGroups || []);
   const cats = catMap(db), out = [];
@@ -535,7 +538,9 @@ export function partsOf(db, inRange) {
       }
       continue;
     }
-    const f = factorFor(db, t), split = itemsMatch(t);
+    if (t.kind === 'income' && t.reimbBack) continue;   // money the company paid back is not income
+    const keep = reimbKeep(t); if (t.kind === 'expense' && keep <= 0) continue;
+    const f = factorFor(db, t) * keep, split = itemsMatch(t);
     const parts = split ? t.items.map((i) => ({ cat: i.cat || t.cat, v: i.amt * f, label: i.n || t.name }))
       : [{ cat: t.cat, v: t.amount * f, label: t.name }];
     for (const p of parts) {

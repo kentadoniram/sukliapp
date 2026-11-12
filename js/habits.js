@@ -9,6 +9,7 @@
 //   4. TRIP / EVENT windows from those days, with what they cost and the EXTRA over your daily baseline
 //        ("food on the trip 18,000; at your usual rate 9,500; extra 8,500").
 // Everything explains itself (`why`) and is a suggestion: nothing here changes a saved entry.
+import { reimbKeep } from './reimbkeep.js';
 
 const median = (a) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const mad = (a) => { const m = median(a); return median(a.map((v) => Math.abs(v - m))); };
@@ -150,5 +151,5 @@ export function analyzeHabits(rows, opts = {}) {
 // rows from the database (expenses only, amounts in the home currency)
 export function habitRows(db, homeFx) {
   const cm = new Map((db.categories || []).map((c) => [c.id, c]));
-  return (db.txs || []).filter((t) => !t.deleted && t.kind === 'expense').map((t) => { const c = cm.get(t.cat) || {}; return { id: t.id, date: t.date, amount: t.amount * (homeFx ? homeFx(db, t.cur) || 1 : t.fx || 1), cur: t.cur, cat: t.cat, group: c.group || '', catName: c.name || '', name: t.name, labels: t.labels || '', loc: t.loc || null }; });
+  return (db.txs || []).filter((t) => !t.deleted && t.kind === 'expense').map((t) => { const c = cm.get(t.cat) || {}; return { id: t.id, date: t.date, amount: t.amount * reimbKeep(t) * (homeFx ? homeFx(db, t.cur) || 1 : t.fx || 1), cur: t.cur, cat: t.cat, group: c.group || '', catName: c.name || '', name: t.name, labels: t.labels || '', loc: t.loc || null }; });
 }
