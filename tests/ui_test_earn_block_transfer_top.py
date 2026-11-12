@@ -13,13 +13,13 @@ with sync_playwright() as p:
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(500)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
     box=pg.locator('.ivplat:has(.segi:has-text("Earn"))').first
-    ok('Spot selected: no Earn transfer button; bottom row has Record and Internal, and no + Asset', box.locator('.earntop').count()==0 and box.locator('[data-act=inv-add]').count()==1 and box.locator('[data-act=inv-coin]').count()==0 and box.locator('[data-act=inv-internal]').count()==1)
+    ok('Spot selected: no Earn transfer button; bottom row has Record and Internal, and no + Asset', box.locator('[data-act=inv-add]').count()==1 and box.locator('[data-act=inv-coin]').count()==0 and box.locator('[data-act=inv-internal]').count()==1)
     ok('Rename is not in the bottom row any more; Platform Settings is', box.locator('[data-act=inv-rename]').count()==0 and box.locator('[data-act=plat-open]').count()>=1)
     box.locator('.segi:has-text("Earn")').click(); pg.wait_for_timeout(500)
     box=pg.locator('.ivplat:has(.segi:has-text("Earn"))').first
-    ok('Earn selected: exactly ONE Transfer In/Out button (in the Earn block); no bottom row, no Record, no + Asset', box.locator('[data-w=Earn] .earntop [data-act=inv-internal]').count()==1 and box.locator('[data-act=inv-internal]').count()==1 and box.locator('[data-act=inv-add]').count()==0 and box.locator('[data-act=inv-coin]').count()==0)
+    ok('Earn selected: exactly ONE Transfer In/Out button, in the bottom row (none at the top of the Earn block); no Record, no + Asset', box.locator('[data-w=Earn] [data-act=inv-internal]').count()==0 and box.locator('.btnrow.oneline [data-act=inv-internal]').count()==1 and box.locator('[data-act=inv-internal]').count()==1 and box.locator('[data-act=inv-add]').count()==0 and box.locator('[data-act=inv-coin]').count()==0)
     ok('only Earn is selected (Spot is not)', box.locator('.segi.on').all_inner_texts()==['Earn'])
-    pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); box.locator('.earntop [data-act=inv-internal]').click(); pg.wait_for_selector('.sheet',timeout=4000); pg.wait_for_timeout(400)
+    pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); box.locator('[data-act=inv-internal]').click(); pg.wait_for_selector('.sheet',timeout=4000); pg.wait_for_timeout(400)
     ok('the button opens Internal Transfer', 'Internal' in pg.inner_text('.sheet'))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
     # wallet-move to Earn is blocked

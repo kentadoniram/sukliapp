@@ -68,6 +68,7 @@ export const riskOf = (db, a) => { const tk = (db.settings.tickers || {})[a.cur]
   if (t === 'crypto' || a.type === 'crypto') return MAJOR.includes(a.cur) ? 'Major coins' : 'High-volatility coins'; return 'Other'; };
 // the dashboard cards (Performance, Per-Token Performance, Fees and Losses, Prediction, Realized Gains) share one card; a switch for each shows or hides it, and each is also collapsible
 let PANELS = [], PICKED = {}, PANELS_LAST = [];
+const EMPTY = { 'i-perf': 'Nothing with a known price and cost yet. Buy or add an asset and its gain or loss shows here.', 'i-tok': 'No tokens with a balance yet.', 'i-fees': 'No trading fees or losses recorded yet.', 'i-pred': 'No predictions yet.', 'i-gain': 'No sales or interest recorded yet.' };
 const DASH = { 'i-perf': 'Performance', 'i-tok': 'Per-Token Performance', 'i-fees': 'Fees and Losses', 'i-pred': 'Prediction', 'i-gain': 'Realized Gains' };
 const panel = (id, title, body) => { PANELS.push({ id, title, body }); return ''; };
 // which dashboard sections are shown: a list of ids, kept on this device (first time: only Performance)
@@ -75,8 +76,8 @@ const dsec = () => { try { const v = JSON.parse(localStorage.getItem('sukli-dpan
 const dshown = (list) => { const v = dsec(); return v ? v.filter((id) => list.some((x) => x.id === id)) : [(list.find((x) => x.id === 'i-perf') || list[0]).id]; };
 ACT['inv-dsw'] = (el) => { const id = el.dataset.v, cur = dshown(PANELS_LAST), next = [id]; /* one section at a time */ try { localStorage.setItem('sukli-dpanels', JSON.stringify(next)); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
 function dashTabs() {
-  const list = Object.keys(DASH).map((id) => PANELS.find((x) => x.id === id)).filter(Boolean); PANELS = [];
-  if (!list.length) return '';
+  const list = Object.keys(DASH).map((id) => PANELS.find((x) => x.id === id) || { id, title: DASH[id], body: `<p class="hint">${EMPTY[id]}</p>` }); const any = PANELS.length > 0; PANELS = [];
+  if (!any) return '';
   PANELS_LAST = list; const shown = dshown(list);
   return `<section class="dashcard cardbox"><h3>Investment Performance</h3>
     <div class="segm" role="group" aria-label="Show or hide sections">${list.map((x) => segChoice({ label: DASH[x.id], on: shown.includes(x.id), act: 'inv-dsw', v: x.id })).join('')}</div>
@@ -244,7 +245,6 @@ export function investments(db) {
     const on = saved.length ? [saved[0]] : [old && ws.has(old) ? old : ws.has('Spot') ? 'Spot' : order[0][0]]; PICKED[ex] = on; (window.__wsOn = window.__wsOn || {})[ex] = on;
     const block = ([w]) => { if (!on.includes(w)) return ''; const l = ws.get(w), nm = w || 'Other';
       return `<div class="wblock" data-w="${esc(nm)}"><p class="hint wtsum"><b>${esc(nm)}</b> ${money(exSum(l))}${earnedTxt(l)}${w === 'Earn' ? ' · Earn only collects interest. Coins move in and out with Internal Transfer.' : ''}</p>
-        ${w === 'Earn' ? `<div class="btnrow left oneline earntop">${button({ label: '+ Transfer In/Out', kind: 'secondary', size: 'sm', act: 'inv-internal', data: 'ex', v: ex, aria: `Transfer in or out of Earn on ${ex}` })}</div>` : ''}
         <div class="rows plain">${srt(l).map((a) => holding(a, t)).join('')}</div></div>`; };
     return `<div class="segm wsw" role="group" aria-label="Account types to show">${order.map(([w]) => segChoice({ label: w || 'Other', on: on.includes(w), act: 'inv-wsw', cls: `w-${(w || 'other').toLowerCase().replace(/[^a-z0-9]/g, '')}`, attr: { 'data-ex': ex, 'data-w': w } })).join('')}</div>${order.map(block).join('')}`; };
   const holding = (a, tot) => { const b = bal.get(a.id) || 0, v = val(db, a, b), ok = priced(db, a), px = homeFx(db, a.cur) || 0;
@@ -254,8 +254,8 @@ export function investments(db) {
   const exHtml = [...byEx.entries()].sort((x, y) => mode === 'risk' ? (((RISK_GROUPS.indexOf(x[0]) + 1) || 99) - ((RISK_GROUPS.indexOf(y[0]) + 1) || 99)) || x[0].localeCompare(y[0]) : exSum(y[1]) - exSum(x[1])).map(([ex, list]) => {
     const t = exSum(list); return `<div class="ivplat" style="--pc:${platColor(ex)}">` + coll('ix-' + ex, `<span class="exname" ${ex === 'Wallets and other' ? '' : `data-act="plat-open" data-ex="${esc(ex)}" role="button" title="Settings for the whole exchange"`}>${esc(ex)}</span> <span class="gsum2"><b>${money(t)}</b>${altOf(db, t) ? ` <small class="muted">≈ ${altOf(db, t)}</small>` : ''}</span>`,
       `${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="platbar">${button({ label: 'Platform Settings', kind: 'link', act: 'plat-open', data: 'ex', v: ex, aria: `Settings for the platform ${ex}` })}</div>` : ''}${list.length ? walletBlocks(list, t) : `<p class="hint">${cryptoAll.some((a) => (exchangeOf(a) || 'Wallets and other') === ex) ? 'Nothing with a balance here. Empty assets are hidden.' : 'No assets here yet.'}</p>`}
-       ${mode === 'platform' && ex !== 'Wallets and other' && !((PICKED[ex] || []).length === 1 && PICKED[ex][0] === 'Earn') ? `<div class="btnrow left oneline">${(() => { const B = (label, act, aria, o = {}) => button({ label, kind: o.kind || 'ghost', size: 'sm', act, data: 'ex', v: ex, aria, cls: o.cls || '' }), on = PICKED[ex] || [], earnOnly = on.length === 1 && on[0] === 'Earn';
-        return earnOnly ? '' : B('Record', 'inv-add', `Record activity on ${ex}`, { kind: 'primary', cls: 'iv-rec' }) + B('Internal', 'inv-internal', `Internal transfer between wallets on ${ex}`); })()}</div>` : ''}`, '') + '</div>'; }).join('');
+       ${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="btnrow left oneline">${(() => { const B = (label, act, aria, o = {}) => button({ label, kind: o.kind || 'ghost', size: 'sm', act, data: 'ex', v: ex, aria, cls: o.cls || '' }), on = PICKED[ex] || [], earnOnly = on.length === 1 && on[0] === 'Earn';
+        return earnOnly ? B('Transfer In/Out', 'inv-internal', `Transfer in or out of Earn on ${ex}`, { kind: 'primary' }) : B('Record', 'inv-add', `Record activity on ${ex}`, { kind: 'primary', cls: 'iv-rec' }) + B('Internal', 'inv-internal', `Internal transfer between wallets on ${ex}`); })()}</div>` : ''}`, '') + '</div>'; }).join('');
   // one header card for all the crypto platforms, so the other investments (bonds, government savings, funds) are not buried below a long list of exchanges
   if (crypto.length && ui.collapsed['i-crypto'] === undefined) ui.collapsed['i-crypto'] = byEx.size >= 3;
   const cryptoCard = crypto.length ? `<div class="ivgroup">${coll('i-crypto', `Crypto <small class="muted gsum">${money(exSum(crypto))} · ${byEx.size} ${byEx.size === 1 ? 'place' : 'places'}</small>`, exHtml)}</div>` : exHtml;

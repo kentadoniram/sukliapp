@@ -20,7 +20,7 @@ with sync_playwright() as p:
     ok('no + Asset button on any account type tab', box.locator('[data-act=inv-coin]').count()==0)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); box.locator('.segi:has-text("Earn")').click(); pg.wait_for_timeout(400)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); box=pg.locator('.ivplat:has(.segi:has-text("Earn"))').first
-    ok('Earn: a single Transfer In/Out', box.locator('[data-act=inv-internal]').count()==1 and 'Transfer In/Out' in box.inner_text())
+    ok('Earn: a single Transfer In/Out, in the bottom row', box.locator('[data-act=inv-internal]').count()==1 and box.locator('.btnrow.oneline [data-act=inv-internal]').count()==1 and 'Transfer In/Out' in box.inner_text())
     ok('the link says Platform Settings only', box.locator('.platbar').inner_text().strip()=='Platform Settings' and 'Rename Platform' not in box.locator('.platbar').inner_text())
     pg.evaluate("(async()=>{const m=await import('/js/invest.js');m.addAsset({platform:'ZzEx'})})()"); pg.wait_for_selector('#ic'); pg.wait_for_timeout(300)
     ok('the Add Asset sheet has no trading-account choice and says every account gets it', not pg.locator('#walf').is_visible() and 'every trading account' in pg.inner_text('#ic'))
@@ -29,5 +29,10 @@ with sync_playwright() as p:
     ok('BONK exists in Spot, Earn and Margin and every other trading account (%s)'%w, {'Spot','Earn','Margin'}<=set(w) and len(w)==len(set(w)))
     pg.evaluate("(async()=>{const m=await import('/js/platform.js');m.openPlatform('ZzEx')})()"); pg.wait_for_selector('.platset'); 
     ok('Platform Settings has + Asset (Add Asset) and Rename Platform stays here', pg.locator('.platset [data-do=inv-coin]').count()==1 and pg.locator('.platset [data-do=inv-rename]').count()==1)
+    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.dashcard',timeout=8000); pg.wait_for_timeout(300)
+    labs=pg.locator('.dashcard .segi').all_inner_texts()
+    ok('all five dashboard sections are always listed %s'%labs, {'Performance','Per-Token Performance','Fees and Losses','Prediction','Realized Gains'}<=set(labs))
+    pg.click('.dashcard .segi:has-text("Realized Gains")'); pg.wait_for_timeout(300)
+    ok('a section without data shows a plain message, not nothing', pg.locator('.dashcard .dashbody').count()==1 and 'Realized Gains' in pg.inner_text('.dashcard .dashbody'))
     ok('no errors %s'%errs, not errs)
 print('fails',res.count(False))
