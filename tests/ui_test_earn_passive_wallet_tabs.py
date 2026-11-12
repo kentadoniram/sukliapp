@@ -12,15 +12,15 @@ with sync_playwright() as p:
       A('zs','ZzEx Spot USDT','Spot',100);A('ze','ZzEx Earn USDT','Earn',50);A('zf','ZzEx Fut USDT','Futures',30);A('zm','ZzEx Margin USDT','Margin',20);})})()""")
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(500)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
-    box=pg.locator('.ivplat:has(.swb:has-text("Earn"))').first
-    tabs=box.locator('.swb').all_inner_texts()
+    box=pg.locator('.ivplat:has(.segi:has-text("Earn"))').first
+    tabs=box.locator('.segi').all_inner_texts()
     ok('one switch per wallet %s'%tabs, {'Spot','Margin','Futures','Earn'}<=set(tabs))
-    ok('only the selected wallet (Spot) lists assets', box.locator('.hold').count()==1 and 'Spot' in box.locator('.swb.on').inner_text())
-    box.locator('.swb:has-text("Earn")').click(); pg.wait_for_timeout(500)
-    box=pg.locator('.ivplat:has(.swb:has-text("Earn"))').first
+    ok('only the selected wallet (Spot) lists assets', box.locator('.hold').count()==1 and 'Spot' in box.locator('.segi.on').inner_text())
+    box.locator('.segi:has-text("Earn")').click(); pg.wait_for_timeout(500)
+    box=pg.locator('.ivplat:has(.segi:has-text("Earn"))').first
     ok('Earn switched on (Spot stays on): both blocks list their own assets, and the Earn block has the passive note', box.locator('.wblock[data-w=Spot] .hold').count()==1 and box.locator('.wblock[data-w=Earn] .hold').count()==1 and 'Earn only collects interest' in box.locator('.wblock[data-w=Earn]').text_content())
     pg.reload(); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(500); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
-    ok('switch choice remembered (Spot and Earn both still on)', set(pg.locator('.ivplat:has(.swb:has-text("Earn")) .swb.on').all_inner_texts())=={'Spot','Earn'})
+    ok('switch choice remembered (Spot and Earn both still on)', set(pg.locator('.ivplat:has(.segi:has-text("Earn")) .segi.on').all_inner_texts())=={'Spot','Earn'})
     # form refuses entries on Earn
     R=pg.evaluate("""(async()=>{const m=await import('/js/entry.js');m.openEntry({preset:{kind:'expense',acct:'ze'}});return 1})()""")
     pg.wait_for_selector('#f-amount'); pg.evaluate("document.querySelector('#f-amount').focus()")

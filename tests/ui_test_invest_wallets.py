@@ -11,7 +11,7 @@ with sync_playwright() as p:
     # Investments tab shows wallets under the platform
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(700)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
-    h=pg.evaluate("[...document.querySelectorAll('.swb')].map(e=>e.textContent.trim())")
+    h=pg.evaluate("[...document.querySelectorAll('.segi')].map(e=>e.textContent.trim())")
     ok('platform card lists wallets (Spot, Futures, Earn)', {'Spot','Futures','Earn'}<=set(h))
     # transfer from KuCoin: From = USDT spot, To list still shows the other USDT and every wallet
     pg.evaluate("""(async()=>{const m=await import('/js/entry.js');m.openEntry({preset:{kind:'transfer',acct:'k1'}})})()""")

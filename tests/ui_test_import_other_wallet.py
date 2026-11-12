@@ -21,6 +21,6 @@ with sync_playwright() as p:
     ok('each platform with an Other wallet has a USDT line %s'%R['usdtOther'], 'Bybit' in R['usdtOther'] and 'OKX' in R['usdtOther'])
     ok('all entries still belong to an account (%s txs)'%R['txs'], R['orphans']==0 and R['txs']>1000)
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(600); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
-    ok('Other tab is shown on Investments', pg.locator('.swb:has-text("Other")').count()>=1)
+    ok('Other tab is shown on Investments', pg.locator('.segi:has-text("Other")').count()>=1)
     ok('no errors %s'%errs, not errs)
 print('fails',res.count(False))

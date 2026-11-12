@@ -12,14 +12,14 @@ with sync_playwright() as p:
       A('zs','ZzEx Spot USDT','Spot',100);A('ze','ZzEx Earn USDT','Earn',50);A('zm','ZzEx Margin USDT','Margin',20);})})()""")
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(500)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
-    box=pg.locator('.ivplat:has(.swb:has-text("Earn"))').first
+    box=pg.locator('.ivplat:has(.segi:has-text("Earn"))').first
     ok('Spot only: no Earn transfer button; bottom row has Record, + Asset and Internal', box.locator('.earntop').count()==0 and box.locator('[data-act=inv-add]').count()==1 and box.locator('[data-act=inv-coin]').count()==1 and box.locator('[data-act=inv-internal]').count()==1)
     ok('Rename is not in the bottom row any more; Platform Settings is', box.locator('[data-act=inv-rename]').count()==0 and box.locator('[data-act=plat-open]').count()>=1)
-    box.locator('.swb:has-text("Earn")').click(); pg.wait_for_timeout(500)
-    box=pg.locator('.ivplat:has(.swb:has-text("Earn"))').first
+    box.locator('.segi:has-text("Earn")').click(); pg.wait_for_timeout(500)
+    box=pg.locator('.ivplat:has(.segi:has-text("Earn"))').first
     ok('Earn on with Spot: the Earn block has "+ Transfer In/Out"; bottom row unchanged', box.locator('[data-w=Earn] .earntop [data-act=inv-internal]').count()==1 and box.locator('[data-act=inv-add]').count()==1)
-    pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); box.locator('.swb:has-text("Spot")').first.click(); pg.wait_for_timeout(500)
-    box=pg.locator('.ivplat:has(.swb:has-text("Earn"))').first
+    pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); box.locator('.segi:has-text("Spot")').first.click(); pg.wait_for_timeout(500)
+    box=pg.locator('.ivplat:has(.segi:has-text("Earn"))').first
     ok('Earn only: Transfer In/Out replaces Record; no + Asset, no Record', 'Transfer In/Out' in box.locator('.btnrow.oneline:not(.earntop)').inner_text() and box.locator('[data-act=inv-add]').count()==0 and box.locator('[data-act=inv-coin]').count()==0)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); box.locator('.earntop [data-act=inv-internal]').click(); pg.wait_for_selector('.sheet',timeout=4000); pg.wait_for_timeout(400)
     ok('the button opens Internal Transfer', 'Internal' in pg.inner_text('.sheet'))

@@ -10,7 +10,7 @@ import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
 import { pendingReview } from './tradereview.js';
 import { tokenPerformance } from './tokenperf.js';
-import { button, tabs, switchBtn } from './components.js';
+import { button, tabs, segChoice } from './components.js';
 import { ensureUsdt, TRADING_WALLETS } from './tokens.js';
 
 const live = (l) => l.filter((x) => !x.deleted);
@@ -79,7 +79,7 @@ function dashTabs() {
   if (!list.length) return '';
   PANELS_LAST = list; const shown = dshown(list);
   return `<section class="dashcard cardbox"><h3>Investment Performance</h3>
-    <div class="swgrid" role="group" aria-label="Show or hide sections">${list.map((x) => switchBtn({ label: DASH[x.id], on: shown.includes(x.id), act: 'inv-dsw', v: x.id })).join('')}</div>
+    <div class="segm" role="group" aria-label="Show or hide sections">${list.map((x) => segChoice({ label: DASH[x.id], on: shown.includes(x.id), act: 'inv-dsw', v: x.id })).join('')}</div>
     ${list.filter((x) => shown.includes(x.id)).map((x) => `<div class="dashbody" data-sec="${x.id}">${coll('d-' + x.id, x.title, x.body)}</div>`).join('') || '<p class="hint">Turn a section on to see it.</p>'}</section>`;
 }
 const wtabs = () => { try { return JSON.parse(localStorage.getItem('sukli-wtab') || '{}'); } catch { return {}; } };
@@ -246,7 +246,7 @@ export function investments(db) {
       return `<div class="wblock" data-w="${esc(nm)}"><p class="hint wtsum"><b>${esc(nm)}</b> ${money(exSum(l))}${earnedTxt(l)}${w === 'Earn' ? ' · Earn only collects interest. Coins move in and out with Internal Transfer.' : ''}</p>
         ${w === 'Earn' ? `<div class="btnrow left oneline earntop">${button({ label: '+ Transfer In/Out', kind: 'secondary', size: 'sm', act: 'inv-internal', data: 'ex', v: ex, aria: `Transfer in or out of Earn on ${ex}` })}</div>` : ''}
         <div class="rows plain">${srt(l).map((a) => holding(a, t)).join('')}</div></div>`; };
-    return `<div class="swgrid wsw" role="group" aria-label="Account types to show">${order.map(([w]) => switchBtn({ label: w || 'Other', on: on.includes(w), act: 'inv-wsw', cls: `w-${(w || 'other').toLowerCase().replace(/[^a-z0-9]/g, '')}`, attr: { 'data-ex': ex, 'data-w': w } })).join('')}</div>${order.map(block).join('')}`; };
+    return `<div class="segm wsw" role="group" aria-label="Account types to show">${order.map(([w]) => segChoice({ label: w || 'Other', on: on.includes(w), act: 'inv-wsw', cls: `w-${(w || 'other').toLowerCase().replace(/[^a-z0-9]/g, '')}`, attr: { 'data-ex': ex, 'data-w': w } })).join('')}</div>${order.map(block).join('')}`; };
   const holding = (a, tot) => { const b = bal.get(a.id) || 0, v = val(db, a, b), ok = priced(db, a), px = homeFx(db, a.cur) || 0;
     const ic = assetIcon(a, tickers); return `<button class="row acct hold" data-act="acct" data-id="${a.id}"><i class="badge sm ${ic.coin ? 'coinbadge' : ''}" style="background:${ic.coin ? 'transparent' : ic.manual ? groupColor(a.type) : 'var(--xfer)'}">${ic.html}</i>
       <span class="rmain"><strong>${a.cur === 'USD' || a.cur === HOME ? esc(a.name) : `${esc((tickers[a.cur] && tickers[a.cur].ticker) || a.cur)} <small class="muted">${esc(curName(a.cur) || '')}${a.market ? ` · ${esc(a.market)}` : ''}</small>`}</strong><small>${qty(b, a.cur)}${paidTxt(a)}${ok && a.cur !== HOME ? ` · price ${money(px)}` : ''}${tot > 0 && ok ? ` · ${Math.round((v / tot) * 100)}%` : ''}${basis(a)}</small></span>

@@ -18,7 +18,7 @@ with sync_playwright() as p:
     pg.evaluate("(async()=>{const m=await import('/js/entry.js');m.openEntry()})()"); pg.wait_for_selector('#f-amount')
     ok('no script errors', not errs)
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(600); pg.evaluate("document.querySelectorAll('details').forEach(d=>d.open=true)")
-    ok('wallet heading renders', pg.locator('.swb').count()>=1)
+    ok('wallet heading renders', pg.locator('.segi').count()>=1)
     pg.goto('http://localhost:8123/#/budget'); pg.wait_for_timeout(500)
     ok('budget has Spending from select', pg.locator('[data-bscope]').count()==1)
     ok('still no script errors', not errs)

@@ -25,10 +25,11 @@ export function seg({ options = [], value, e, act, data, aria = '', size = 'sm',
 // toggle({ label, on, e|act, v }): a small pill that is on or off
 export const toggle = (o) => button({ ...o, kind: 'toggle', pressed: !!o.on });
 
-// switchBtn({ label, on, act|e, v, data, aria, size, cls }): a real on/off switch (track and knob) with its name beside it; shows or hides something
-export function switchBtn({ label = '', on = false, aria = '', size = '', cls: extra = '', sub = '', ...rest } = {}) {
-  const cls = ['swb', size, on ? 'on' : '', extra].filter(Boolean).join(' ');
-  return `<button type="button" role="switch" class="${cls}" aria-checked="${on ? 'true' : 'false'}"${aria ? ` aria-label="${esc(aria)}"` : ''}${dataOf({ ...rest })}><i class="swtrack" aria-hidden="true"></i><span class="swlab">${esc(label)}${sub ? ` <small>${esc(sub)}</small>` : ''}</span></button>`;
+// segChoice({ label, on, act|e, v, data, attr, aria, size, cls, sub }): one segment of a segmented control where any number can be selected (a row of these sits inside `.segm`)
+// the whole row has rounded outer corners and the selected segment is its own rounded pill, so the choice is easy to see
+export function segChoice({ label = '', on = false, aria = '', size = '', cls: extra = '', sub = '', ...rest } = {}) {
+  const cls = ['segi', size, on ? 'on' : '', extra].filter(Boolean).join(' ');
+  return `<button type="button" class="${cls}"${aria ? ` aria-label="${esc(aria)}"` : ''}${dataOf({ ...rest, pressed: !!on })}><span class="swlab">${esc(label)}${sub ? ` <small>${esc(sub)}</small>` : ''}</span></button>`;
 }
 
 // field({ label, control, cls, hint }): a label above a control
