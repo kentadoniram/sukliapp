@@ -47,8 +47,8 @@ function history(nb) {
   const h = undoHistory(), kb = h.undo.reduce((q, x) => q + x.kb, 0);
   return `${hdr('Undo History')}${binTabs(true, nb, h.undo.length)}
   <section class="card"><p class="hint">Your last changes to entries, accounts, categories and budgets, newest first. Tap <b>Undo to here</b> to go back to just before that change; you will see every change that gets undone before you confirm. History is kept when you close the app, up to 25 changes, and older ones drop off. It is cleared if your data was changed from another device or restored from a backup. Entries you added go to the Recycle bin.</p>
-    ${h.redo.length ? `<div class="btnrow left"><button type="button" class="btn ghost sm" data-act="hist-redo">Redo: ${esc(h.redo[0].label)}</button></div>` : ''}</section>
-  ${h.undo.length ? `<ul class="binlist">${h.undo.map((x, k) => `<li class="binrow"><div class="binmain"><b>${esc(x.label)}</b><small class="muted">${esc(stamp(x.at))} · ${esc(ago(x.at))}</small>${(x.detail || []).map((l) => `<small class="hdet">${esc(l)}</small>`).join('')}</div><div class="binbtn"><button class="btn sm ${k ? 'ghost' : ''}" data-act="hist-to" data-n="${k + 1}">${k ? 'Undo to here' : 'Undo'}</button></div></li>`).join('')}</ul>
+    ${h.redo.length ? `<div class="btnrow left">${button({ label: `Redo: ${h.redo[0].label}`, kind: 'ghost', size: 'sm', act: 'hist-redo' })}</div>` : ''}</section>
+  ${h.undo.length ? `<ul class="binlist">${h.undo.map((x, k) => `<li class="binrow"><div class="binmain"><b>${esc(x.label)}</b><small class="muted">${esc(stamp(x.at))} · ${esc(ago(x.at))}</small>${(x.detail || []).map((l) => `<small class="hdet">${esc(l)}</small>`).join('')}</div><div class="binbtn">${button({ html: `${k ? 'Undo to here' : 'Undo'}`, kind: 'primary', size: 'sm', cls: `${k ? 'ghost' : ''}`, act: 'hist-to', attr: { 'data-n': k + 1 } })}</div></li>`).join('')}</ul>
   <div class="binhead"><small class="muted">${h.undo.length} of 25 changes kept · about ${Math.max(1, Math.round(kb / 1024))} MB</small>${button({ label: 'Clear history', kind: 'danger-ghost', size: 'sm', act: 'hist-clear' })}</div>` : '<p class="empty">No changes to undo yet.</p>'}`;
 }
 export function bin(db) {
@@ -62,7 +62,7 @@ export function bin(db) {
   ${rows.length ? `<div class="binhead"><b>${rows.length} ${rows.length === 1 ? 'item' : 'items'}</b>${button({ label: 'Empty bin', kind: 'danger-ghost', size: 'sm', act: 'bin-empty' })}</div>
   <ul class="binlist">${rows.map((r, i) => { const l = left(db, r.at); return `<li class="binrow"><div class="binmain"><span class="pill">${r.type}</span><b>${esc(r.title)}</b><small>${esc(r.sub)}</small>
     <small class="${l.soon ? 'warnt' : 'muted'}">Deleted ${when(r.at)} · ${l.text}</small></div>
-    <div class="binbtn"><button class="btn sm" data-act="bin-restore" data-i="${i}">Restore</button><button class="btn ghost danger sm" data-act="bin-purge" data-i="${i}">Delete forever</button></div></li>`; }).join('')}</ul>`
+    <div class="binbtn">${button({ label: 'Restore', kind: 'primary', size: 'sm', act: 'bin-restore', attr: { 'data-i': i } })}<button class="btn ghost danger sm" data-act="bin-purge" data-i="${i}">Delete forever</button></div></li>`; }).join('')}</ul>`
   : `<p class="empty">The recycle bin is empty.</p>`}`;
 }
 
@@ -104,7 +104,7 @@ ACT['hist-to'] = (el) => {
   const list = steps.map((x) => `<li><b>${esc(x.label)}</b> <small class="muted">${esc(ago(x.at))}</small>${(x.detail || []).map((l) => `<small class="hdet">${esc(l)}</small>`).join('')}</li>`).join('');
   const s = sheet(`<p class="confirm-text">${n === 1 ? 'This change will be undone:' : `These ${n} changes will be undone, newest first:`}</p><ul class="undolist">${list}</ul>
     <p class="hint">Your data goes back to how it was before the oldest one. You can use Redo afterwards. Entries you added go to the Recycle bin.</p>
-    <div class="btnrow"><button type="button" class="btn ghost" data-no>Keep my data as it is</button><button type="button" class="btn" data-yes>Undo ${n === 1 ? 'this change' : `all ${n}`}</button></div>`, { title: 'What Will Be Undone' });
+    <div class="btnrow">${button({ label: 'Keep my data as it is', kind: 'ghost', attr: { 'data-no': true } })}${button({ html: `Undo ${n === 1 ? 'this change' : `all ${n}`}`, kind: 'primary', attr: { 'data-yes': true } })}</div>`, { title: 'What Will Be Undone' });
   s.el.querySelector('[data-no]').onclick = () => s.close();
   s.el.querySelector('[data-yes]').onclick = () => { s.silent = true; s.dispose(); const l = undoSteps(n); toast(l ? `Went back ${n} change${n === 1 ? '' : 's'}.` : 'Nothing to undo.'); };
 };

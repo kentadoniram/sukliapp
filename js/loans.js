@@ -14,6 +14,7 @@ const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/,/
 const m2 = (n) => (Math.round(n * 100) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 import { tipBtn, calcHtml, bindCalc } from './interest.js';
+import { button, textField } from './components.js';
 export function openLoanPlanner(pre = {}) {
   const db = get(), live = db.accounts.filter((a) => !a.deleted && !a.archived);
   const recv = live.filter((a) => !isLiability(a)), debts = live.filter((a) => a.type === 'loan');
@@ -23,14 +24,14 @@ export function openLoanPlanner(pre = {}) {
     <div class="two"><label class="field"><span>Amount borrowed ${tipBtn('principal')}</span><input name="principal" inputmode="decimal" value="${pre.principal || ''}" placeholder="e.g. 500000"></label>
       <label class="field"><span>Interest % a year ${tipBtn('rate')}${tipBtn('effective')}${tipBtn('addon')}</span><input name="rate" inputmode="decimal" value="${pre.rate || ''}" placeholder="e.g. 8.5"></label></div>
     <div class="two"><label class="field"><span>Length (months) ${tipBtn('term')}</span><input name="months" inputmode="numeric" value="${pre.months || ''}" placeholder="e.g. 60"></label>
-      <label class="field"><span>Due day of month</span><input name="dueDay" inputmode="numeric" value="${pre.dueDay || ''}" placeholder="1–31"></label></div>
-    <div class="two"><label class="field"><span>Upfront fees</span><input name="fees" inputmode="decimal" value="${pre.fees || ''}" placeholder="processing, other"></label>
-      <label class="field"><span>Late fee % of the payment</span><input name="lateFee" inputmode="decimal" value="${pre.lateFee || ''}" placeholder="e.g. 3"></label></div>
+      ${textField({ label: 'Due day of month', name: 'dueDay', inputmode: 'numeric', value: pre.dueDay || '', placeholder: '1–31' })}</div>
+    <div class="two">${textField({ label: 'Upfront fees', name: 'fees', inputmode: 'decimal', value: pre.fees || '', placeholder: 'processing, other' })}
+      ${textField({ label: 'Late fee % of the payment', name: 'lateFee', inputmode: 'decimal', value: pre.lateFee || '', placeholder: 'e.g. 3' })}</div>
     ${calcHtml('monthly')}
     <div id="lp-out" class="lpout" aria-live="polite"></div>
     ${recv.length ? `<label class="field"><span>Money arrives in</span><select name="recv">${recv.map((a) => `<option value="${a.id}">${esc(a.name)} · ${a.cur}</option>`).join('')}</select></label>
     <label class="field"><span>Record the debt in</span><select name="debt"><option value="">A new loan account</option>${debts.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select></label>` : '<p class="hint">Add an account first to record a loan.</p>'}
-    <div class="btnrow"><button type="button" class="btn ghost" data-close2>Close</button>${recv.length ? '<button type="button" class="btn" data-rec>Record this loan</button>' : ''}</div></form>`, { title: 'Loan Planner', wide: true });
+    <div class="btnrow">${button({ label: 'Close', kind: 'ghost', attr: { 'data-close2': true } })}${recv.length ? button({ label: 'Record this loan', kind: 'primary', attr: { 'data-rec': true } }) : ''}</div></form>`, { title: 'Loan Planner', wide: true });
   pickAll(s.el);
   const form = s.el.querySelector('#lp'), out = s.el.querySelector('#lp-out');
   bindCalc(s.el, { onUse: (nm) => { form.rate.value = String(+nm.toFixed(4)); form.rate.dispatchEvent(new Event('input', { bubbles: true })); } });
@@ -77,7 +78,7 @@ export function openLoanCharge(acctId) {
   const a = get().accounts.find((x) => x.id === acctId); if (!a) return;
   const s = sheet(`<form id="lc"><label class="field"><span>What was charged</span><select name="what"><option>Interest charge</option><option>Late fee</option><option>Penalty</option><option>Annual fee</option><option>Other charge</option></select></label>
     <label class="field"><span>Amount (${esc(a.cur)})</span><input name="amt" inputmode="decimal" autofocus></label>
-    <div class="btnrow"><button type="button" class="btn ghost" data-close2>Cancel</button><button class="btn">Add charge</button></div></form>`, { title: `Charge on ${a.name}` });
+    <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-close2': true } })}${button({ label: 'Add charge', kind: 'primary', submit: true })}</div></form>`, { title: `Charge on ${a.name}` });
   s.el.querySelector('[data-close2]').onclick = () => s.close();
   pickAll(s.el);
   s.el.querySelector('#lc').onsubmit = (e) => { e.preventDefault(); const f = e.target, amt = num(f.amt.value); if (!(amt > 0)) return;
@@ -99,7 +100,7 @@ export function loanBox(db, a, money) {
   return `<div class="cardbox"><h3>${L ? esc(LOAN_KINDS[L.kind] || 'Loan') : 'Payments'}</h3>
     ${L ? `<ul class="calfacts"><li><span>Borrowed</span><b>${money(L.principal, a.cur)}</b></li><li><span>Received after fees</span><b>${money(L.net, a.cur)}</b></li><li><span>Monthly payment</span><b>${money(L.monthly, a.cur)}</b></li><li><span>Rate and length</span><b>${L.rate}% · ${L.months} months</b></li></ul>${(() => { const pr = loanProgress(L, loanPayments(db, a)); return pr.count ? `<h3 class="subh">Paid so far (${pr.count} ${pr.count === 1 ? 'payment' : 'payments'})</h3><ul class="calfacts"><li><span>Total paid</span><b>${money(pr.paid, a.cur)}</b></li><li><span>Of which interest (estimate)</span><b class="cr">${money(pr.interest, a.cur)}</b></li><li><span>Of which principal</span><b>${money(pr.principal, a.cur)}</b></li><li><span>Still owed (principal)</span><b>${money(pr.balance, a.cur)}</b></li><li><span>Payments left</span><b>about ${pr.paymentsLeft}</b></li></ul>` : '<p class="hint">Payments you record as transfers into this account are split into interest and principal here.</p>'; })()}` : ''}
     ${status}
-    <div class="btnrow tight"><button class="btn sm ghost" data-act="loan-charge" data-id="${a.id}">Add interest, late fee or penalty</button></div></div>`;
+    <div class="btnrow tight">${button({ label: 'Add interest, late fee or penalty', kind: 'ghost', size: 'sm', act: 'loan-charge', attr: { 'data-id': a.id } })}</div></div>`;
 }
 
 // Home card: money lost to fees, interest and penalties, plus tax taken from interest

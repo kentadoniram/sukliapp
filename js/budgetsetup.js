@@ -2,6 +2,7 @@
 // and choose when to be warned (default 80%). Category budgets are budget records with `cat`; the older group budgets (`group`) keep working.
 import { get, commit, uid, stamp, softDelete, monthParts, catMap, fmt, HOME, thisMonth, shiftMonth } from './core.js';
 import { ACT, sheet, esc, toast } from './ui.js';
+import { button, textField } from './components.js';
 
 export const CLASSES = { need: 'Need', want: 'Want', luxury: 'Luxury' };
 const NEED = /grocer|food at home|household|utilit|rent|mortgage|electric|water|gas bill|internet|phone|mobile|transport|commute|fare|train|bus|fuel|health|medic|doctor|pharmac|insur|tax|education|school|tuition|loan|debt|child|bills?\b|fees?\b|supplies/i;
@@ -73,15 +74,15 @@ export function openBudgetSetup() {
   const groups = new Map(); for (const c of cats) { if (!groups.has(c.group)) groups.set(c.group, []); groups.get(c.group).push(c); }
   const rowOf = (c) => { const b = cb.get(c.id), on = !!b && !b.off, cls = classOf(c);
     return `<div class="bsrow" data-cat="${c.id}"><label class="bson"><input type="checkbox" data-on ${on ? 'checked' : ''} aria-label="Budget for ${esc(c.name)}"><span>${esc(c.name)}${spent.get(c.id) ? ` <small class="muted">${money(spent.get(c.id))} this month</small>` : ''}${usual.get(c.id) ? ` <small class="muted usual">usual ${money(usual.get(c.id).usual)}/mo</small>` : ''}</span></label>
-      <div class="bscls" role="group" aria-label="Kind">${Object.entries(CLASSES).map(([k, l]) => `<button type="button" data-cls="${k}" class="${cls === k ? 'on' : ''}" aria-pressed="${cls === k}">${l[0]}<span>${l.slice(1)}</span></button>`).join('')}</div>
+      <div class="bscls" role="group" aria-label="Kind">${Object.entries(CLASSES).map(([k, l]) => `${button({ html: `${l[0]}<span>${l.slice(1)}</span>`, kind: 'plain', cls: `${cls === k ? 'on' : ''}`, pressed: cls === k, attr: { 'data-cls': k } })}`).join('')}</div>
       <input class="bsamt" data-amt inputmode="decimal" placeholder="${usual.get(c.id) ? 'try ' + usual.get(c.id).suggest : 'Monthly ' + HOME}" data-sug="${usual.get(c.id) ? usual.get(c.id).suggest : ''}" value="${b && b.amount ? b.amount : ''}" ${on ? '' : 'disabled'} aria-label="Monthly budget for ${esc(c.name)}"></div>`; };
-  const html = `<form id="bs" novalidate><div class="bsalert"><label class="field"><span>Warn me when a budget reaches (%)</span><input name="alert" inputmode="numeric" value="${alertPct(db)}"></label>
+  const html = `<form id="bs" novalidate><div class="bsalert">${textField({ label: 'Warn me when a budget reaches (%)', name: 'alert', inputmode: 'numeric', value: alertPct(db) })}
       <p class="hint">You will see an alert on Home and the Budget tab, and a message when an entry pushes you past this line. Needs get a gentler message.</p></div>
     <p class="hint">Tick the categories to budget, choose Need / Want / Luxury (a first guess is made from the name), and type the monthly amount. The grey “try” number is a round figure just above what you usually spend.</p>
     <div class="bssum" id="bssum" aria-live="polite"></div>
     ${usual.size ? '<div class="btnrow left"><button type="button" class="btn sm ghost" data-suggest>Suggest budgets from my spending</button></div>' : ''}
     ${[...groups.entries()].sort((a, b) => (b[1].reduce((q, c) => q + (recent.get(c.id) || 0), 0) - a[1].reduce((q, c) => q + (recent.get(c.id) || 0), 0)) || a[0].localeCompare(b[0])).map(([g, l]) => { l.sort((a, b2) => (recent.get(b2.id) || 0) - (recent.get(a.id) || 0) || a.name.localeCompare(b2.name)); const n = l.filter((c) => cb.get(c.id) && !cb.get(c.id).off).length, open = n || l.some((c) => recent.get(c.id) > 0); return `<details class="bsgrp" ${open ? 'open' : ''}><summary><b>${esc(g)}</b> <small class="muted">${n ? n + ' budgeted' : l.length + (l.length === 1 ? ' category' : ' categories')}</small></summary>${l.sort((a, b) => a.name.localeCompare(b.name)).map(rowOf).join('')}</details>`; }).join('')}
-    <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Save budget</button></div></form>`;
+    <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-x': true } })}${button({ label: 'Save budget', kind: 'primary', submit: true })}</div></form>`;
   const s = sheet(html, { title: 'Budget Setup', wide: true });
   const f = s.el.querySelector('#bs');
   f.addEventListener('change', (e) => { if (e.target.matches('[data-on]')) { const r = e.target.closest('.bsrow'), a = r.querySelector('[data-amt]'); a.disabled = !e.target.checked; if (e.target.checked) a.focus(); } });

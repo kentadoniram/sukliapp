@@ -4,6 +4,7 @@ import { sheet, esc, toast } from './ui.js';
 import { parseTags, joinTags } from './tags.js';
 import { openDatePicker } from './datepicker.js';
 import { merchantList, canonMerchant } from './merchantpick.js';
+import { button } from './components.js';
 
 const BEFORE = ['kind', 'date', 'name', 'amount', 'cur', 'fx', 'acct', 'toAcct', 'toAmount', 'cat', 'notes', 'fee', 'feeCat', 'feeBy'];
 const distinct = (l) => [...new Set(l)];
@@ -20,15 +21,15 @@ export function openBulkEdit(ids, onDone) {
   const s = sheet(`<form id="be"><p class="hint">Changing <b>${n}</b> ${n === 1 ? 'entry' : 'entries'}. Only the boxes you change are applied, to all of them. Amounts are not changed here.</p>
     <label class="field"><span>Name</span><input id="be-name" placeholder="Keep as is" autocomplete="off">${info(txs.map((t) => t.name || ''), (v) => v)}</label>
     <label class="field"><span>Category (group and name)</span><select id="be-cat"><option value="">Keep as is</option>${groups.map((g) => `<optgroup label="${esc(g)}">${cats.filter((c) => c.group === g).sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</optgroup>`).join('')}</select>${nonT.length ? info(nonT.map((t) => t.cat || ''), (v) => { const c = cm.get(v); return c ? `${c.group} · ${c.name}` : 'none'; }) : '<small class="muted">Transfers have no category.</small>'}</label>
-    <div class="field"><span>Tags</span><div class="seg sm three" role="group" aria-label="Tag action">${[['add', 'Add'], ['replace', 'Replace all'], ['remove', 'Remove']].map(([v, l], i) => `<button type="button" data-tm="${v}" class="${i ? '' : 'on'}" aria-pressed="${i ? 'false' : 'true'}">${l}</button>`).join('')}</div>
+    <div class="field"><span>Tags</span><div class="seg sm three" role="group" aria-label="Tag action">${[['add', 'Add'], ['replace', 'Replace all'], ['remove', 'Remove']].map(([v, l], i) => `${button({ html: `${l}`, kind: 'plain', cls: `${i ? '' : 'on'}`, pressed: i ? 'false' : 'true', attr: { 'data-tm': v } })}`).join('')}</div>
       <input id="be-tags" placeholder="Keep as is, or type tags separated by commas" autocomplete="off">
       <small class="muted">${tagCount.size ? `In the selection: ${[...tagCount].map(([k, c]) => `#${esc(k)} (${c})`).join(', ')}` : 'No tags on these entries yet.'}</small></div>
     <label class="field"><span>Merchant (expenses)</span><input id="be-merch" placeholder="Keep as is" autocomplete="off" list="be-merchl">${info(nonT.filter((t) => t.kind === 'expense').map((t) => t.merchant || ''), (v) => v)}<datalist id="be-merchl">${merchantList(db).map((m) => `<option value="${esc(m.name)}">`).join('')}</datalist></label>
     <label class="field"><span>Notes</span><input id="be-notes" placeholder="Keep as is" autocomplete="off">${info(txs.map((t) => t.notes || ''), (v) => v)}</label>
     <label class="field"><span>Account (not for transfers)</span><select id="be-acct"><option value="">Keep as is</option>${accts.map((a) => `<option value="${a.id}">${esc(accLabel(a))} · ${esc(a.cur)}</option>`).join('')}</select>${nonT.length ? info(nonT.map((t) => t.acct), (v) => (am.get(v) ? accLabel(am.get(v)) : '?')) : ''}<small class="muted">Only entries in the same currency as that account are moved.</small></label>
-    <div class="field"><span>Day</span><button type="button" class="whenbtn" id="be-date">Keep as is</button>${info(txs.map((t) => String(t.date).slice(0, 10)), (v) => dayLabel(v + ' 00:00:00'))}<small class="muted">Each entry keeps its own time of day.</small></div>
+    <div class="field"><span>Day</span>${button({ label: 'Keep as is', kind: 'plain', cls: 'whenbtn', id: 'be-date' })}${info(txs.map((t) => String(t.date).slice(0, 10)), (v) => dayLabel(v + ' 00:00:00'))}<small class="muted">Each entry keeps its own time of day.</small></div>
     <p class="err" id="be-err" hidden></p>
-    <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button type="submit" class="btn" id="be-go" disabled>Change ${n}</button></div></form>`, { title: `Edit ${n} ${n === 1 ? 'entry' : 'entries'}` });
+    <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-x': true } })}${button({ html: `Change ${n}`, kind: 'primary', submit: true, id: 'be-go', disabled: true })}</div></form>`, { title: `Edit ${n} ${n === 1 ? 'entry' : 'entries'}` });
   const q = (id) => s.el.querySelector('#' + id); let mode = 'add', day = '';
   const touched = () => { const any = q('be-name').value.trim() || q('be-cat').value || q('be-tags').value.trim() || q('be-notes').value.trim() || q('be-merch').value.trim() || q('be-acct').value || day; q('be-go').disabled = !any; };
   s.el.querySelectorAll('input,select').forEach((e) => e.addEventListener('input', touched)); s.el.querySelectorAll('select').forEach((e) => e.addEventListener('change', touched));

@@ -4,6 +4,7 @@ import { merchPic } from './pictures.js';
 import { get, groupColor } from './core.js';
 import { sheet, esc } from './ui.js';
 import { norm } from './merchants.js';
+import { button } from './components.js';
 
 export const STARTERS = ['Shopee', 'Lazada', 'Amazon', 'Supermarket', 'Wet market', 'Mall', 'Convenience store', 'Pharmacy'];
 const BRANDS = STARTERS.slice(0, 3);   // shop names; the rest are kinds of place, only ever suggested while typing
@@ -41,7 +42,7 @@ export function openMerchantPicker({ selected = '', title = 'Merchant' } = {}, o
     <div id="mlist"></div>`, { title, cls: 'pickfix' });
   const draw = () => {
     const q = s.el.querySelector('#mq').value, k = norm(q), has = (n) => !k || norm(n).includes(k);
-    const row = (name, small, cls = '') => `<button type="button" class="row cur mpr ${cls}" data-m="${esc(name)}"><i class="badge sm" style="background:${groupColor(name)}">${merchPic(db, name)}</i><span class="rmain"><strong>${esc(name)}</strong>${small ? `<small>${esc(small)}</small>` : ''}</span>${norm(name) === norm(selected) ? '<span class="ramt">✓</span>' : ''}</button>`;
+    const row = (name, small, cls = '') => `${button({ html: `<i class="badge sm" style="background:${groupColor(name)}">${merchPic(db, name)}</i><span class="rmain"><strong>${esc(name)}</strong>${small ? `<small>${esc(small)}</small>` : ''}</span>${norm(name) === norm(selected) ? '<span class="ramt">✓</span>' : ''}`, kind: 'plain', cls: `row cur mpr ${cls}`, attr: { 'data-m': name } })}`;
     const u = used.filter((m) => has(m.name)), g = sugg.filter(has);
     const add = clean(q) && !used.some((m) => norm(m.name) === k) && !STARTERS.some((x) => norm(x) === k) ? `<h3>New</h3><div class="rows plain">${row(clean(q), 'Add as a new merchant', 'addnew')}</div>` : '';
     s.el.querySelector('#mlist').innerHTML = `${selected ? '<div class="rows plain"><button type="button" class="row cur" data-m=""><span class="rmain"><strong>No merchant</strong><small>Clear it for this entry</small></span></button></div>' : ''}

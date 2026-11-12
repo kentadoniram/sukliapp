@@ -1,5 +1,5 @@
 // Settings > Merchants: add a merchant before you use it, rename one (everywhere), merge two spellings, or remove one from your entries.
-import { button } from './components.js';
+import { button, textField } from './components.js';
 import { get, commit, stamp } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { norm } from './merchants.js';
@@ -18,13 +18,13 @@ export function merchantsSection(db) {
   const list = merchantList(db);
   return `<section id="merch-set"><h2>Merchants</h2>
     <p class="hint">Where you bought something (Shopee, Lazada, wet market, mall). The category still says what it was. Add one here, or tap one to rename it or take it off your entries.</p>
-    ${list.length ? `<div class="rows plain">${list.map((m) => `<button type="button" class="row cur ln1" data-act="mer-edit" data-m="${esc(m.name)}"><i class="badge sm" style="background:${groupColor(m.name)}">${merchPic(db, m.name)}</i><span class="rmain"><strong>${esc(m.name)}</strong><small>${m.n ? `${m.n} ${m.n === 1 ? 'entry' : 'entries'}` : 'Added by you, not used yet'}</small></span></button>`).join('')}</div>` : '<p class="hint">No merchants yet. They appear here once you use the Merchant row on an expense.</p>'}
+    ${list.length ? `<div class="rows plain">${list.map((m) => `${button({ html: `<i class="badge sm" style="background:${groupColor(m.name)}">${merchPic(db, m.name)}</i><span class="rmain"><strong>${esc(m.name)}</strong><small>${m.n ? `${m.n} ${m.n === 1 ? 'entry' : 'entries'}` : 'Added by you, not used yet'}</small></span>`, kind: 'plain', cls: 'row cur ln1', act: 'mer-edit', attr: { 'data-m': m.name } })}`).join('')}</div>` : '<p class="hint">No merchants yet. They appear here once you use the Merchant row on an expense.</p>'}
     <div class="btnrow left">${button({ label: 'Add a merchant', kind: 'ghost', act: 'mer-add' })}</div></section>`;
 }
 
 ACT['mer-add'] = () => {
-  const s = sheet(`<form novalidate><label class="field"><span>Merchant name</span><input name="m" autocomplete="off" autocapitalize="words" placeholder="e.g. Shopee" autofocus></label>
-    <p class="hint">It will show in the Merchant list when you add an expense.</p><div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">Add</button></div></form>`, { title: 'Add a Merchant' });
+  const s = sheet(`<form novalidate>${textField({ label: 'Merchant name', name: 'm', placeholder: 'e.g. Shopee', attr: { 'autocapitalize': 'words', 'autofocus': true } })}
+    <p class="hint">It will show in the Merchant list when you add an expense.</p><div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}${button({ label: 'Add', kind: 'primary', submit: true })}</div></form>`, { title: 'Add a Merchant' });
   s.el.querySelector('[data-no]').onclick = () => s.close();
   s.el.querySelector('form').onsubmit = (e) => {
     e.preventDefault(); const v = clean(e.target.m.value); if (!v) return; s.dispose();
@@ -60,16 +60,16 @@ export function suggestBranch(db, m, loc) {
 export const branchFar = (db, m, b, loc) => { if (!b || !loc || loc.la == null) return 0; const p = branchLoc(db, m, b); if (!p) return 0; const d = _dk(loc, p); return d > 2 ? d : 0; };
 const setInfo = (d, m, fn) => { const all = (d.settings.merchantInfo = d.settings.merchantInfo || {}); const o = (all[m] = all[m] || { branches: {} }); o.branches = o.branches || {}; fn(o); };
 async function placeFields(cur) {
-  return `<label class="field"><span>Place (Optional)</span><input name="place" autocomplete="off" value="${esc(cur.place || '')}" placeholder="e.g. Tsukagoshi, Saiwai Ward, Kawasaki, Kanagawa"></label>
-    <div class="btnrow left"><button type="button" class="btn ghost sm" data-here>Use Where I Am Now</button><small class="muted" data-pt>${cur.loc ? `Saved location: ${ptTxt(cur.loc)}` : 'No point saved.'}</small></div>`;
+  return `${textField({ label: 'Place (Optional)', name: 'place', value: cur.place || '', placeholder: 'e.g. Tsukagoshi, Saiwai Ward, Kawasaki, Kanagawa' })}
+    <div class="btnrow left">${button({ label: 'Use Where I Am Now', kind: 'ghost', size: 'sm', attr: { 'data-here': true } })}<small class="muted" data-pt>${cur.loc ? `Saved location: ${ptTxt(cur.loc)}` : 'No point saved.'}</small></div>`;
 }
 function openBranch(m, b) {
   const db = get(), cur = (infoOf(db, m).branches || {})[b] || {}, n = db.txs.filter((t) => !t.deleted && t.branch === b && t.merchant && norm(t.merchant) === norm(m)).length;
   let loc = cur.loc || null;
   placeFields({ place: cur.place, loc }).then((pf) => {
-    const s = sheet(`<form novalidate><label class="field"><span>Branch Name</span><input name="b" autocomplete="off" value="${esc(b)}"></label>${pf}
+    const s = sheet(`<form novalidate>${textField({ label: 'Branch Name', name: 'b', value: b })}${pf}
       <p class="hint">${n} ${n === 1 ? 'entry' : 'entries'} at this branch of ${esc(m)}. Renaming changes them all.</p>
-      <div class="btnrow"><button type="button" class="btn ghost danger" data-rm>Remove Branch</button><button class="btn">Save</button></div></form>`, { title: `${m}: ${b}` });
+      <div class="btnrow"><button type="button" class="btn ghost danger" data-rm>Remove Branch</button>${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>`, { title: `${m}: ${b}` });
     const q = s.el.querySelector('form');
     q.querySelector('[data-here]').onclick = async () => { const { hereWhy } = await import('./loc.js'); const r = await hereWhy(); if (r.p) { loc = r.p; q.querySelector('[data-pt]').textContent = `Saved location: ${ptTxt(r.p)}`; } else toast('Could not get your location. Type the place instead.'); };
     q.querySelector('[data-rm]').onclick = () => { s.dispose(); commit((d) => { for (const t of d.txs) if (!t.deleted && t.branch === b && t.merchant && norm(t.merchant) === norm(m)) { delete t.branch; stamp(t); } setInfo(d, m, (o) => { delete o.branches[b]; }); }); toast('Branch removed. Entries keep the merchant.'); };
@@ -82,14 +82,14 @@ ACT['mer-branch'] = (el) => openBranch(el.dataset.m, el.dataset.b);
 ACT['mer-edit'] = (el) => {
   const db = get(), name = el.dataset.m, n = count(db, name), info = infoOf(db, name), bl = branchesOf(db, name); let loc = info.loc || null;
   placeFields({ place: info.place, loc }).then((pf) => {
-  const s = sheet(`<form novalidate><label class="field"><span>Merchant Name</span><input name="m" autocomplete="off" autocapitalize="words" value="${esc(name)}" autofocus></label>
-    <div class="field"><span>Picture</span><button type="button" class="picbtn" id="mer-pic" aria-label="Choose a picture for this merchant"><i class="badge sm" style="background:${groupColor(name)}">${merchPic(db, name)}</i><span>${info.icon ? (isImg(info.icon) ? 'Your own image' : 'Chosen picture') : 'Automatic'} · tap to change</span></button></div>
-    <label class="field"><span>Branch (Optional)</span><input name="br" autocomplete="off" autocapitalize="words" placeholder="e.g. Tsukagoshi"></label>
+  const s = sheet(`<form novalidate>${textField({ label: 'Merchant Name', name: 'm', value: name, attr: { 'autocapitalize': 'words', 'autofocus': true } })}
+    <div class="field"><span>Picture</span>${button({ html: `<i class="badge sm" style="background:${groupColor(name)}">${merchPic(db, name)}</i><span>${info.icon ? (isImg(info.icon) ? 'Your own image' : 'Chosen picture') : 'Automatic'} · tap to change</span>`, kind: 'plain', cls: 'picbtn', id: 'mer-pic', aria: 'Choose a picture for this merchant' })}</div>
+    ${textField({ label: 'Branch (Optional)', name: 'br', placeholder: 'e.g. Tsukagoshi', attr: { 'autocapitalize': 'words' } })}
     <p class="hint">${n ? `Renaming changes it on ${n} ${n === 1 ? 'entry' : 'entries'}. If the new name is already in your list, the two are joined.` : 'Not used on any entry yet.'} For a name like “Life Tsukagoshi”, type <b>Life</b> as the merchant and <b>Tsukagoshi</b> as the branch: all ${n || ''} entries keep their link and get the branch.</p>
     ${pf}
-    ${bl.length ? `<h3>Branches</h3><div class="rows plain">${bl.map((b) => `<button type="button" class="row cur" data-act="mer-branch" data-m="${esc(name)}" data-b="${esc(b.name)}"><span class="rmain"><strong>${esc(b.name)}</strong><small>${b.n} ${b.n === 1 ? 'entry' : 'entries'}${((infoOf(db, name).branches || {})[b.name] || {}).place ? ' · ' + esc(infoOf(db, name).branches[b.name].place) : ''}</small></span></button>`).join('')}</div>` : ''}
-    <div class="btnrow left"><button type="button" class="btn ghost sm" data-addbr>Add a Branch</button></div>
-    <div class="btnrow"><button type="button" class="btn ghost danger" data-rm>${n ? 'Remove from entries' : 'Delete'}</button><button class="btn">Save</button></div></form>`, { title: name });
+    ${bl.length ? `<h3>Branches</h3><div class="rows plain">${bl.map((b) => `${button({ html: `<span class="rmain"><strong>${esc(b.name)}</strong><small>${b.n} ${b.n === 1 ? 'entry' : 'entries'}${((infoOf(db, name).branches || {})[b.name] || {}).place ? ' · ' + esc(infoOf(db, name).branches[b.name].place) : ''}</small></span>`, kind: 'plain', cls: 'row cur', act: 'mer-branch', attr: { 'data-m': name, 'data-b': b.name } })}`).join('')}</div>` : ''}
+    <div class="btnrow left">${button({ label: 'Add a Branch', kind: 'ghost', size: 'sm', attr: { 'data-addbr': true } })}</div>
+    <div class="btnrow"><button type="button" class="btn ghost danger" data-rm>${n ? 'Remove from entries' : 'Delete'}</button>${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>`, { title: name });
   const q = s.el.querySelector('form'); let ico = info.icon || '';
   q.querySelector('#mer-pic').onclick = async () => { const { openIconLibrary } = await import('./entry.js'); openIconLibrary(ico, (v) => { ico = v; q.querySelector('#mer-pic').innerHTML = `<i class="badge sm" style="background:${groupColor(name)}">${picHtml(ico, guessMerchIcon(q.m.value || name))}</i><span>${ico ? (isImg(ico) ? 'Your own image' : 'Chosen picture') : 'Automatic'} · tap to change</span>`; }, { own: true, title: 'Merchant Pictures', hint: 'Pick a picture for this merchant. It shows in the merchant list and pickers.', auto: 'Automatic (from the merchant name)' }); };
   q.querySelector('[data-here]').onclick = async () => { const { hereWhy } = await import('./loc.js'); const r = await hereWhy(); if (r.p) { loc = r.p; q.querySelector('[data-pt]').textContent = `Saved location: ${ptTxt(r.p)}`; } else toast('Could not get your location. Type the place instead.'); };

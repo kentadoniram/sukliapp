@@ -1,3 +1,4 @@
+import { button } from './components.js';
 // Interest helpers shared by savings, debts and the loan planner: the maths, the tap-to-open explanations and a small calculator.
 // Pure functions only (no imports) so finance.js and the screens can both use them.
 export const PER_YEAR = { daily: 365, monthly: 12, quarterly: 4, yearly: 1 };
@@ -62,7 +63,7 @@ export const TIPS = {
   tags: ['Tag or event', 'A tag groups entries from any category, for example a trip. Tag your dining out, hotel and train entries #Okinawa trip, then tap that tag in Entries to see the whole trip’s total. Pick one you used before or add a new one.'],
   debt: ['Interest on a debt', 'When this is on, Sukli adds an interest charge to what you owe once the deadline is reached and the amount is still unpaid. Each charge also counts as a financial loss.'],
 };
-export const tipBtn = (k) => (TIPS[k] ? `<button type="button" class="tipbtn" data-tip="${k}" aria-label="What is ${TIPS[k][0]}?" aria-expanded="false">?</button>` : '');
+export const tipBtn = (k) => (TIPS[k] ? `${button({ label: '?', kind: 'plain', cls: 'tipbtn', aria: `What is ${TIPS[k][0]}?`, attr: { 'data-tip': k, 'aria-expanded': 'false' } })}` : '');
 if (typeof document !== 'undefined') document.addEventListener('click', (e) => {
   const b = e.target.closest && e.target.closest('.tipbtn'); if (!b) return;
   e.preventDefault(); e.stopPropagation();
@@ -84,7 +85,7 @@ export function calcHtml(comp = 'monthly') {
     <div class="two">${f('add', 'Add-on rate % a year', 'addon', 'flat rate')}${f('term', 'Term (months)', 'term', 'e.g. 12')}</div>
     ${f('int', 'Interest for the whole term', 'interest', 'worked out')}
     <p class="hint icnote" data-ic-note aria-live="polite"></p>
-    <button type="button" class="linkbtn" data-ic-use>Use the yearly rate in this form</button></details>`;
+    ${button({ label: 'Use the yearly rate in this form', kind: 'link', attr: { 'data-ic-use': true } })}</details>`;
 }
 export function bindCalc(root, { onUse } = {}) {
   const box = root.querySelector('.icalc'); if (!box) return;

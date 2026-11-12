@@ -19,7 +19,7 @@ export function openAccountPicker({ selected = '', skip = '', cur = '', only = '
   const s = sheet(`<input type="search" id="acq" class="search" data-noclear="1" placeholder="Search account, type or currency" autocomplete="off" autofocus>
     ${button({ label: `Currency: ${chip || 'All'} ${fold ? '▸' : '▾'}`, kind: 'link', cls: 'chipfold', id: 'chipnow', attr: { 'data-chipfold': '', 'aria-expanded': String(!fold), 'aria-controls': 'acchips' } })}
     <div class="seg sm scrollx acchips" id="acchips" role="group" aria-label="Currency" ${fold ? 'hidden' : ''}>${['', ...curs].map((c) => `<button type="button" data-chip="${esc(c)}">${c || 'All'}</button>`).join('')}</div>
-    ${add ? `<button type="button" class="btn ghost wide addnew" data-addnew>+ ${esc(add.label)}</button>` : ''}<div id="aclist"></div>`, { title, cls: 'pickfix' });
+    ${add ? `${button({ label: `+ ${add.label}`, kind: 'ghost', cls: 'wide addnew', attr: { 'data-addnew': true } })}` : ''}<div id="aclist"></div>`, { title, cls: 'pickfix' });
   const draw = () => {
     const q = s.el.querySelector('#acq').value.trim().toLowerCase();
     { const q2 = q ? '' : chip, cn = s.el.querySelector('#chipnow'); if (cn) cn.textContent = `Currency: ${q2 || 'All'} ${fold ? '▸' : '▾'}`; }

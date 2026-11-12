@@ -16,10 +16,10 @@ function openList(kind) {
     const rows = kind === 'acct'
       ? db.accounts.filter((a) => !a.deleted).sort((a, b) => a.name.localeCompare(b.name)).map((a) => ({ id: a.id, name: a.name, pic: acctPic(a), sub: state(a.icon), col: groupColor(a.type) }))
       : merchantList(db).map((m) => ({ id: m.name, name: m.name, pic: merchPic(db, m.name), sub: state(merchIconOf(db, m.name)), col: groupColor(m.name) }));
-    return rows.length ? `<div class="rows plain picrows">${rows.map((r) => `<button type="button" class="row cur" data-pid="${esc(r.id)}"><i class="badge sm" style="background:${r.col}">${r.pic}</i><span class="rmain"><strong>${esc(r.name)}</strong><small>${r.sub}</small></span></button>`).join('')}</div>` : `<p class="empty">${kind === 'acct' ? 'No accounts yet.' : 'No merchants yet. They appear once you use the Merchant row on an entry.'}</p>`;
+    return rows.length ? `<div class="rows plain picrows">${rows.map((r) => `${button({ html: `<i class="badge sm" style="background:${r.col}">${r.pic}</i><span class="rmain"><strong>${esc(r.name)}</strong><small>${r.sub}</small></span>`, kind: 'plain', cls: 'row cur', attr: { 'data-pid': r.id } })}`).join('')}</div>` : `<p class="empty">${kind === 'acct' ? 'No accounts yet.' : 'No merchants yet. They appear once you use the Merchant row on an entry.'}</p>`;
   };
   const s = sheet(`<p class="hint">Tap one to change its picture.</p><div id="pic-list">${draw()}</div>
-    <div class="btnrow"><button type="button" class="btn ghost" data-reset>Set All to Automatic</button></div>`, { title: kind === 'acct' ? 'Account Pictures' : 'Merchant Pictures', wide: true });
+    <div class="btnrow">${button({ label: 'Set All to Automatic', kind: 'ghost', attr: { 'data-reset': true } })}</div>`, { title: kind === 'acct' ? 'Account Pictures' : 'Merchant Pictures', wide: true });
   const redraw = () => { s.el.querySelector('#pic-list').innerHTML = draw(); };
   s.el.addEventListener('click', async (e) => {
     if (e.target.closest('[data-reset]')) {

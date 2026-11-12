@@ -67,8 +67,8 @@ export function welcomeHtml(oldHtml) {
     ${button({ label: 'I’ve used a budget app before', kind: 'ghost', cls: 'wide', act: 'wz-old' })}
     <div class="or"><span>or</span></div>${restoreBtn('first-json')}<input type="file" id="first-file" accept=".csv,text/csv" hidden aria-hidden="true" tabindex="-1"></section>`;
   if (!wz.lvl) return `<section class="welcome wz"><h1>How do you want Sukli?</h1><p class="hint">You can change this any time in Settings. Nothing you enter is ever deleted when you switch.</p>
-    <button type="button" class="btn wide lvlbtn" data-act="wz-lvl" data-v="simple">Simple<small class="btnsub">Just the basics: add what you spend, see where it went. Other options stay hidden until you want them.</small></button>
-    <button type="button" class="btn ghost wide lvlbtn" data-act="wz-lvl" data-v="advanced">Advanced<small class="btnsub">Everything: interest, loans, investments, tags, merchants, exports.</small></button>
+    ${button({ html: `Simple<small class="btnsub">Just the basics: add what you spend, see where it went. Other options stay hidden until you want them.</small>`, kind: 'primary', cls: 'wide lvlbtn', act: 'wz-lvl', attr: { 'data-v': 'simple' } })}
+    ${button({ html: `Advanced<small class="btnsub">Everything: interest, loans, investments, tags, merchants, exports.</small>`, kind: 'ghost', cls: 'wide lvlbtn', act: 'wz-lvl', attr: { 'data-v': 'advanced' } })}
     <p class="hint center">${button({ label: 'Back', kind: 'link', act: 'wz-home' })}</p></section>`;
   const s = wz.step, last = s === STEPS - 1;
   const q = [

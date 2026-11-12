@@ -1,6 +1,6 @@
 // A shared bill is ONE bill with linked shares: your part (the expense) and one "Lent" transfer per person.
 // The Entries list shows the bill once (expandable); this window edits the whole bill so every share stays in step with the total.
-import { button } from './components.js';
+import { button, textField } from './components.js';
 import { get, commit, stamp, softDelete, fmt, homeFx, homeRate, homePer, HOME } from './core.js';
 import { esc, ACT, sheet, toast, confirmDialog } from './ui.js';
 import { titleCase } from './entry.js';
@@ -40,8 +40,8 @@ export const splitOpen = new Set();
 // the small bar under the bill's row, and the shares when it is open
 export function splitExtra(g) {
   const open = splitOpen.has(g.id), n = g.people.length + (g.mine ? 1 : 0);
-  let h = `<button type="button" class="splitbar" data-act="split-toggle" data-id="${g.id}" aria-expanded="${open}">${open ? '▾' : '▸'} Shared bill: ${n} ${n === 1 ? 'share' : 'shares'}${open ? '' : ' (tap to see who owes what)'}</button>`;
-  if (open) h += `<div class="splitkids">${g.mine ? `<button type="button" class="splitkid" data-act="split-open" data-id="${g.mine.id}"><span>You</span><b>${fmt(g.mine.amount, g.cur)}</b></button>` : ''}${g.people.map((p) => `<button type="button" class="splitkid" data-act="split-open" data-id="${p.id}"><span>${esc(p.who)}</span><b>${fmt(p.amt, g.cur)}</b></button>`).join('')}</div>`;
+  let h = `${button({ html: `${open ? '▾' : '▸'} Shared bill: ${n} ${n === 1 ? 'share' : 'shares'}${open ? '' : ' (tap to see who owes what)'}`, kind: 'plain', cls: 'splitbar', act: 'split-toggle', attr: { 'data-id': g.id, 'aria-expanded': open } })}`;
+  if (open) h += `<div class="splitkids">${g.mine ? `${button({ html: `<span>You</span><b>${fmt(g.mine.amount, g.cur)}</b>`, kind: 'plain', cls: 'splitkid', act: 'split-open', attr: { 'data-id': g.mine.id } })}` : ''}${g.people.map((p) => `${button({ html: `<span>${esc(p.who)}</span><b>${fmt(p.amt, g.cur)}</b>`, kind: 'plain', cls: 'splitkid', act: 'split-open', attr: { 'data-id': p.id } })}`).join('')}</div>`;
   return h;
 }
 ACT['split-toggle'] = (el) => { const id = el.dataset.id; if (splitOpen.has(id)) splitOpen.delete(id); else splitOpen.add(id); window.dispatchEvent(new Event('sukli-render')); };
@@ -61,17 +61,17 @@ export function openSplit(txId) {
   const known = [...new Set(db0.txs.filter((t) => !t.deleted && t.merchant).map((t) => t.merchant))].sort(), knownBr = () => [...new Set(db0.txs.filter((t) => !t.deleted && t.branch && t.merchant === st.merchant).map((t) => t.branch))].sort();
   const draw = () => { const m = mineOf(), hasMine = !!g.mine;
     root.innerHTML = `<p class="hint">One bill, saved in linked parts. Change the name or the total here and every part follows. The parts must always add up to the bill.</p>
-      <label class="field"><span>What Is It?</span><input data-sb="name" value="${esc(st.name)}"></label>
+      ${textField({ label: 'What Is It?', value: st.name, attr: { 'data-sb': 'name' } })}
       <div class="sbrow2"><label class="field"><span>Whole Bill (${esc(g.cur)})</span><input data-sb="total" inputmode="decimal" value="${st.total}"></label>
       <label class="field"><span>Paid From</span><select data-sb="acct">${fromAccts.map((a) => `<option value="${a.id}" ${a.id === st.acct ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label></div>
-      <div class="field"><span>Date and Time</span><button type="button" class="acctbtn sbdate" data-sb="datepick">${esc(prettyDate(st.date))} ▾</button></div>
+      <div class="field"><span>Date and Time</span>${button({ label: `${prettyDate(st.date)} ▾`, kind: 'plain', cls: 'acctbtn sbdate', attr: { 'data-sb': 'datepick' } })}</div>
       <div class="sbrow2"><label class="field"><span>Merchant</span><input data-sb="merchant" list="sb-mer" autocomplete="off" placeholder="Optional" value="${esc(st.merchant)}"><datalist id="sb-mer">${known.map((m) => `<option value="${esc(m)}">`).join('')}</datalist></label>
       <label class="field"><span>Branch</span><input data-sb="branch" list="sb-br" autocomplete="off" placeholder="Optional" value="${esc(st.branch)}"><datalist id="sb-br">${knownBr().map((m) => `<option value="${esc(m)}">`).join('')}</datalist></label></div>
       ${hasMine ? `<label class="field"><span>Category (Your Part)</span><select data-sb="cat"><option value="">None</option>${expCats.map((c) => `<option value="${c.id}" ${c.id === st.cat ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>` : ''}
-      <label class="field"><span>Notes</span><input data-sb="notes" value="${esc(st.notes)}"></label>
+      ${textField({ label: 'Notes', value: st.notes, attr: { 'data-sb': 'notes' } })}
       ${g.cur !== HOME ? `<div id="sbfx">${fxBlockHtml({ from: g.cur, to: HOME, amount: st.total, rate: st.rate, open: 'data-sb="fxopen"', always: true })}<p class="hint">This rate is kept with the bill. It is the rate used to show every part in ${esc(HOME)}, and it never changes by itself.</p></div>` : ''}
       <h3>Who Owes What</h3>
-      <div class="chips othmode">${[['equal', 'Split Equally'], ['amount', 'Set Each Amount'], ['pct', 'Percentages']].map(([k, l]) => `<button type="button" class="chip ${st.mode === k ? 'on' : ''}" data-sb="mode" data-v="${k}">${l}</button>`).join('')}</div>
+      <div class="chips othmode">${[['equal', 'Split Equally'], ['amount', 'Set Each Amount'], ['pct', 'Percentages']].map(([k, l]) => `${button({ html: `${l}`, kind: 'chip', cls: `${st.mode === k ? 'on' : ''}`, attr: { 'data-sb': 'mode', 'data-v': k } })}`).join('')}</div>
       ${st.shares.map((x, i) => (st.mode === 'pct' ? `<label class="field"><span>${esc(x.who)} (%) <small class="homeeq">= ${esc(fmt(x.amt, g.cur))}</small>${home(x.amt)}</span><input data-sb="pct" data-i="${i}" inputmode="decimal" value="${st.pct[i] != null ? st.pct[i] : 0}"></label>` : st.mode === 'equal' ? `<div class="field"><span>${esc(x.who)}${home(x.amt)}</span><b class="sbfixed">${esc(fmt(x.amt, g.cur))}</b></div>` : `<label class="field"><span>${esc(x.who)}${home(x.amt)}</span><input data-sb="share" data-i="${i}" inputmode="decimal" value="${x.amt}"></label>`)).join('')}
       ${hasMine && st.mode === 'amount' ? `<label class="field"><span>Your Part${home(m)}</span><input data-sb="mine" inputmode="decimal" value="${m}"><small class="hint">Type your own share here. The whole bill becomes your share plus what everyone else owes.</small></label>` : ''}
       <div class="facts"><div><span>${hasMine ? 'Your Part (the rest)' : 'Left to Divide'}</span><b class="${m < -0.005 || (!hasMine && Math.abs(m) > 0.005) ? 'neg' : ''}">${fmt(m, g.cur)}${home(m)}</b></div><div><span>Whole Bill</span><b>${fmt(st.total, g.cur)}${home(st.total)}</b></div></div>

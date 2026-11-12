@@ -4,15 +4,16 @@
 import { esc, ic } from './ui.js';
 
 const attrs = (o) => Object.entries(o || {}).filter(([, v]) => v !== undefined && v !== null && v !== false).map(([k, v]) => (v === true ? ` ${k}` : ` ${k}="${esc(v)}"`)).join('');
-const KIND = { primary: 'btn', secondary: 'btn ghost', ghost: 'btn ghost', danger: 'btn danger', 'danger-ghost': 'btn danger ghost', link: 'linkbtn', 'danger-link': 'linkbtn danger', chip: 'chip', icon: 'iconbtn', toggle: 'tog' };
+const KIND = { primary: 'btn', secondary: 'btn ghost', ghost: 'btn ghost', danger: 'btn danger', 'danger-ghost': 'btn danger ghost', link: 'linkbtn', 'danger-link': 'linkbtn danger', chip: 'chip', icon: 'iconbtn', toggle: 'tog', plain: '' };
 const dataOf = ({ id, e, act, v, data, title, pressed, disabled, attr } = {}) => attrs({ id, 'data-e': e, 'data-act': act, 'data-v': data ? undefined : v, ...(data ? { [`data-${data}`]: v } : {}), title, 'aria-pressed': pressed === undefined ? undefined : String(!!pressed), disabled, ...attr });
 
-// button({ label, kind: primary|secondary|ghost|danger|danger-ghost|link|chip|icon|toggle, size: 'sm', on, e|act, v, id, icon, aria })
-export function button({ label = '', kind = 'secondary', size = '', on = false, icon = '', aria = '', cls: extra = '', ...rest } = {}) {
-  const cls = [KIND[kind] || KIND.secondary, size, on ? 'on' : '', extra].filter(Boolean).join(' ');
+// button({ label | html, kind: primary|secondary|ghost|danger|danger-ghost|link|danger-link|chip|icon|toggle|plain, size: 'sm', on, e|act, v, id, icon, aria, cls, submit, pressed, attr })
+// html = trusted markup for the inside (icons, two lines of text, badges): the caller has already escaped it. kind 'plain' adds no look of its own (row buttons, picker buttons: give the look with cls).
+export function button({ label = '', html = null, kind = 'secondary', size = '', on = false, icon = '', aria = '', cls: extra = '', submit = false, ...rest } = {}) {
+  const cls = [KIND[kind] === undefined ? KIND.secondary : KIND[kind], size, on ? 'on' : '', extra].filter(Boolean).join(' ');
   const pressed = kind === 'toggle' || rest.pressed !== undefined ? (rest.pressed === undefined ? on : rest.pressed) : undefined;
-  const lab = kind === 'icon' ? ic(icon || 'x') : `${icon ? ic(icon) + ' ' : ''}${esc(label)}`;
-  return `<button type="button" class="${cls}"${aria || (kind === 'icon' ? label : '') ? ` aria-label="${esc(aria || label)}"` : ''}${dataOf({ ...rest, pressed })}>${lab}</button>`;
+  const lab = html !== null ? html : kind === 'icon' ? ic(icon || 'x') : `${icon ? ic(icon) + ' ' : ''}${esc(label)}`;
+  return `<button type="${submit ? 'submit' : 'button'}"${cls ? ` class="${cls}"` : ''}${aria || (kind === 'icon' ? label : '') ? ` aria-label="${esc(aria || label)}"` : ''}${dataOf({ ...rest, pressed })}>${lab}</button>`;
 }
 
 // seg({ options: [{ label, value }], value, e|act, aria, size: 'sm', cls }): a switch with one option on, equal widths

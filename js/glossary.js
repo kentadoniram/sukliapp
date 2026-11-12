@@ -1,5 +1,6 @@
 // A short glossary for beginners: words used in Sukli, plus the Japanese words on receipts (kanji, romaji, English).
 import { ACT, sheet, esc } from './ui.js';
+import { button, textField } from './components.js';
 
 export const GLOSSARY = [
   // money basics
@@ -59,7 +60,7 @@ export const GLOSSARY = [
 ];
 
 ACT.glossary = () => {
-  const s = sheet(`<label class="field"><span>Search</span><input id="gl-q" type="search" placeholder="Type a word, for example statement" autocomplete="off"></label><div id="gl-list"></div><div class="btnrow"><button type="button" class="btn" data-x>Close</button></div>`, { title: 'Glossary', wide: true });
+  const s = sheet(`${textField({ label: 'Search', id: 'gl-q', type: 'search', placeholder: 'Type a word, for example statement' })}<div id="gl-list"></div><div class="btnrow">${button({ label: 'Close', kind: 'primary', attr: { 'data-x': true } })}</div>`, { title: 'Glossary', wide: true });
   const list = s.el.querySelector('#gl-list'), q = s.el.querySelector('#gl-q');
   const draw = () => {
     const t = q.value.trim().toLowerCase(), rows = GLOSSARY.filter(([, w, d]) => !t || (w + ' ' + d).toLowerCase().includes(t));

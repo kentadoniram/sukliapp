@@ -8,6 +8,7 @@ import { norm } from './merchants.js';
 import { fillCandidates, canonMerchant } from './merchantpick.js';
 import { commit, stamp } from './core.js';
 import { confirmDialog, toast } from './ui.js';
+import { button } from './components.js';
 
 const A = { range: '30d', from: '', to: '', acct: '', cur: '', group: '', cat: '', by: 'group', prev: false };
 const money = (n, c = HOME) => fmt(n, c, { round: true });
@@ -59,9 +60,9 @@ export function openTxList(title, parts) {
   const total = sum(rows.map((p) => (p.kind === 'income' ? p.v : -p.v)));
   const s = sheet(`<p class="hint">${rows.length} ${rows.length === 1 ? 'entry' : 'entries'} · net <b class="${total < 0 ? 'neg' : 'in'}">${money(total)}</b></p>
     <div class="rows plain">${rows.slice(0, 200).map((p) => { const c = cm.get(p.cat), a = am.get(p.t.acct);
-      return `<button class="row" data-act="edit" data-id="${p.t.id}"><i class="badge sm" style="background:${groupColor(p.group)}">${esc((p.group || '?')[0])}</i>
+      return `${button({ html: `<i class="badge sm" style="background:${groupColor(p.group)}">${esc((p.group || '?')[0])}</i>
         <span class="rmain"><strong>${esc(p.label || p.t.name || (c ? c.name : 'Entry'))}</strong><small>${esc(p.t.date.slice(0, 10))} · ${esc(c ? c.name : '')}${a ? ' · ' + esc(a.name) : ''}</small></span>
-        <span class="ramt ${p.kind === 'income' ? 'income' : 'expense'}"><b>${p.kind === 'income' ? '+' : '−'}${money(p.v)}</b></span></button>`; }).join('') || '<p class="empty">Nothing here.</p>'}</div>
+        <span class="ramt ${p.kind === 'income' ? 'income' : 'expense'}"><b>${p.kind === 'income' ? '+' : '−'}${money(p.v)}</b></span>`, kind: 'plain', cls: 'row', act: 'edit', attr: { 'data-id': p.t.id } })}`; }).join('') || '<p class="empty">Nothing here.</p>'}</div>
     ${rows.length > 200 ? '<p class="hint">Showing the 200 newest.</p>' : ''}`, { title, wide: true });
   return s;
 }
@@ -88,15 +89,15 @@ export function analytics(db) {
   const delta = (cur, prev, goodUp) => { if (!prev) return '<small class="muted">no earlier data</small>'; const d = (cur - prev) / prev * 100; const good = goodUp ? d >= 0 : d <= 0; return `<small class="${good ? 'in' : 'neg'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(d))}% vs earlier</small>`; };
   const { accts, curs, groups } = pickerOptions(db);
   const presets = [['7d', '7 days'], ['30d', '30 days'], ['m', 'This month'], ['pm', 'Last month'], ['3m', '3 months'], ['6m', '6 months'], ['y', 'This year'], ['custom', 'Custom']];
-  const filters = `<div class="afilters"><div class="seg sm scrollx" role="group" aria-label="Period">${presets.map(([v, l]) => `<button type="button" data-act="an-range" data-v="${v}" class="${A.range === v ? 'on' : ''}" aria-pressed="${A.range === v}">${l}</button>`).join('')}</div>
-    ${A.range === 'custom' ? `<div class="two"><button type="button" class="whenbtn" data-act="an-from"><span>${esc(P.from)}</span>${ic('calendar')}</button><button type="button" class="whenbtn" data-act="an-to"><span>${esc(P.to)}</span>${ic('calendar')}</button></div>` : ''}
+  const filters = `<div class="afilters"><div class="seg sm scrollx" role="group" aria-label="Period">${presets.map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${A.range === v ? 'on' : ''}`, act: 'an-range', pressed: A.range === v, attr: { 'data-v': v } })}`).join('')}</div>
+    ${A.range === 'custom' ? `<div class="two">${button({ html: `<span>${esc(P.from)}</span>${ic('calendar')}`, kind: 'plain', cls: 'whenbtn', act: 'an-from' })}${button({ html: `<span>${esc(P.to)}</span>${ic('calendar')}`, kind: 'plain', cls: 'whenbtn', act: 'an-to' })}</div>` : ''}
     <div class="three"><select data-an="acct" aria-label="Platform, wallet or account">${scopeOptionsHtml(db, A.acct, esc)}</select>
       <select data-an="cur" aria-label="Currency"><option value="">All currencies</option>${curs.map((c) => `<option ${A.cur === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
       <select data-an="group" aria-label="Category group"><option value="">All categories</option>${groups.map((g) => `<option ${A.group === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></div>
     <select data-an="cat" aria-label="Category"><option value="">Any category</option>${groups.map((g) => `<optgroup label="${esc(g)}">${db.categories.filter((c) => !c.deleted && c.group === g).map((c) => `<option value="${c.id}" ${A.cat === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`).join('')}</select>
     <small class="muted">${esc(P.from)} to ${esc(P.to > today() ? today() : P.to)} · amounts in ${HOME}. Transfers and card payments are not counted as income or spending.</small></div>`;
 
-  const tile = (k, label, v, d, cls = '') => `<button class="tile" data-act="an-list" data-k="${k}"><span>${label}</span><b class="${cls}">${money(v)}</b>${d}</button>`;
+  const tile = (k, label, v, d, cls = '') => `${button({ html: `<span>${label}</span><b class="${cls}">${money(v)}</b>${d}`, kind: 'plain', cls: 'tile', act: 'an-list', attr: { 'data-k': k } })}`;
   const rate = I > 0 ? Math.round((I - E) / I * 100) : null;
   const kpis = `<div class="tiles">${tile('inc', 'Income', I, delta(I, pI, true), 'in')}${tile('exp', 'Spending', E, delta(E, pE, false))}${tile('net', 'Net', I - E, delta(I - E, pI - pE, true), I - E < 0 ? 'neg' : 'in')}
     <div class="tile static"><span>Saved</span><b>${rate == null ? '—' : rate + '%'}</b><small class="muted">of income</small></div></div>`;
@@ -132,8 +133,8 @@ export function analytics(db) {
     weekday: (p) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(p.t.date.slice(0, 10) + 'T00:00:00Z').getUTCDay()], currency: (p) => (am.get(p.t.acct) || { cur: '?' }).cur }[A.by];
   const m = new Map(); for (const p of exps) { const k = keyOf(p); m.set(k, (m.get(k) || 0) + p.v); }
   const rows = [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12), mx = rows.length ? rows[0][1] : 1;
-  const breakdown = `<div class="seg sm scrollx" role="group" aria-label="Group by">${[['group', 'Group'], ['category', 'Category'], ['account', 'Account'], ['weekday', 'Weekday'], ['currency', 'Currency']].map(([v, l]) => `<button type="button" data-act="an-by" data-v="${v}" class="${A.by === v ? 'on' : ''}" aria-pressed="${A.by === v}">${l}</button>`).join('')}</div>
-    ${rows.map(([k, v]) => `<button class="gbar" data-act="an-key" data-k="${esc(k)}" data-tip="${esc(`${k}: ${money(v)}`)}"><i class="badge sm" style="background:${groupColor(k)}">${esc(k[0])}</i><div class="gmain"><div class="gtop"><span>${esc(k)} <small class="pct">${E ? Math.round(v / E * 100) : 0}%</small></span><b>${money(v)}</b></div><div class="track"><div class="fill" style="width:${Math.max(2, v / mx * 100)}%;background:${groupColor(k)}"></div></div></div></button>`).join('') || '<p class="empty">No spending in this period.</p>'}`;
+  const breakdown = `<div class="seg sm scrollx" role="group" aria-label="Group by">${[['group', 'Group'], ['category', 'Category'], ['account', 'Account'], ['weekday', 'Weekday'], ['currency', 'Currency']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${A.by === v ? 'on' : ''}`, act: 'an-by', pressed: A.by === v, attr: { 'data-v': v } })}`).join('')}</div>
+    ${rows.map(([k, v]) => `${button({ html: `<i class="badge sm" style="background:${groupColor(k)}">${esc(k[0])}</i><div class="gmain"><div class="gtop"><span>${esc(k)} <small class="pct">${E ? Math.round(v / E * 100) : 0}%</small></span><b>${money(v)}</b></div><div class="track"><div class="fill" style="width:${Math.max(2, v / mx * 100)}%;background:${groupColor(k)}"></div></div></div>`, kind: 'plain', cls: 'gbar', act: 'an-key', attr: { 'data-k': k, 'data-tip': `${k}: ${money(v)}` } })}`).join('') || '<p class="empty">No spending in this period.</p>'}`;
 
   // budgets + spending limit
   const monthKey = (P.to > today() ? today() : P.to).slice(0, 7);
@@ -142,14 +143,14 @@ export function analytics(db) {
   const cfg = safetyCfg(db);
   const monthTotal = sum(monthExp.map((p) => p.v));
   const gauge = cfg.limit > 0 ? `<div class="gbar static"><div class="gmain"><div class="gtop"><span>Spending limit (${cfg.mode === 'rolling' ? 'last 30 days' : monthLabel(monthKey)})</span><b>${money(monthTotal)} / ${money(cfg.limit)}</b></div><div class="track"><div class="fill" style="width:${Math.min(100, monthTotal / cfg.limit * 100)}%;background:${monthTotal > cfg.limit ? 'var(--bad)' : monthTotal >= cfg.limit * cfg.warnPct / 100 ? 'var(--warn)' : 'var(--in)'}"></div></div></div></div>` : '<p class="hint">Set an overall spending limit in Settings, Spending safety, to track it here.</p>';
-  const budgets = `${gauge}${buds.map((b) => `<button class="gbar" data-act="an-key" data-k="${esc(b.g)}"><i class="badge sm" style="background:${groupColor(b.g)}">${esc(b.g[0])}</i><div class="gmain"><div class="gtop"><span>${esc(b.g)} <small class="pct ${b.pct > 100 ? 'neg' : ''}">${Math.round(b.pct)}%</small></span><b>${money(b.sp)} / ${money(b.lim)}</b></div><div class="track"><div class="fill" style="width:${Math.min(100, b.pct)}%;background:${b.pct > 100 ? 'var(--bad)' : b.pct >= 80 ? 'var(--warn)' : 'var(--in)'}"></div></div></div></button>`).join('') || '<p class="hint">No budgets yet. Set them on the Budget page.</p>'}`;
+  const budgets = `${gauge}${buds.map((b) => `${button({ html: `<i class="badge sm" style="background:${groupColor(b.g)}">${esc(b.g[0])}</i><div class="gmain"><div class="gtop"><span>${esc(b.g)} <small class="pct ${b.pct > 100 ? 'neg' : ''}">${Math.round(b.pct)}%</small></span><b>${money(b.sp)} / ${money(b.lim)}</b></div><div class="track"><div class="fill" style="width:${Math.min(100, b.pct)}%;background:${b.pct > 100 ? 'var(--bad)' : b.pct >= 80 ? 'var(--warn)' : 'var(--in)'}"></div></div></div>`, kind: 'plain', cls: 'gbar', act: 'an-key', attr: { 'data-k': b.g } })}`).join('') || '<p class="hint">No budgets yet. Set them on the Budget page.</p>'}`;
 
   // credit cards
   const bal = balances(db);
   const cards = live(db.accounts).filter((a) => a.type === 'card' && !a.archived).map((a) => ({ a, c: cardBilling(db, a, bal.get(a.id)) }));
   const owedTotal = sum(cards.map(({ a, c }) => c.owed * (homeFx(db, a.cur) || 0))), dueTotal = sum(cards.map(({ a, c }) => c.dueAmount * (homeFx(db, a.cur) || 0)));
   const cardsHtml = cards.length ? `<div class="facts"><div><span>Total owed</span><b>${money(owedTotal)}</b></div><div><span>Due this cycle</span><b>${money(dueTotal)}</b></div></div>
-    ${cards.sort((x, y) => (x.c.days ?? 999) - (y.c.days ?? 999)).map(({ a, c }) => `<button class="row" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:var(--ink2)">${ic('wallet')}</i><span class="rmain"><strong>${esc(a.name)}</strong><small>${c.due ? (c.overdue ? 'Overdue since ' : c.dueAmount > 0.005 ? 'Due ' : 'Next due ') + c.due : 'No due date set'}${c.used != null ? ' · ' + c.used + '% of limit' : ''}</small></span><span class="ramt"><b>${money(c.dueAmount, a.cur)}</b><small>of ${money(c.owed, a.cur)} owed</small></span></button>`).join('')}` : '<p class="hint">No credit cards yet.</p>';
+    ${cards.sort((x, y) => (x.c.days ?? 999) - (y.c.days ?? 999)).map(({ a, c }) => `${button({ html: `<i class="badge sm" style="background:var(--ink2)">${ic('wallet')}</i><span class="rmain"><strong>${esc(a.name)}</strong><small>${c.due ? (c.overdue ? 'Overdue since ' : c.dueAmount > 0.005 ? 'Due ' : 'Next due ') + c.due : 'No due date set'}${c.used != null ? ' · ' + c.used + '% of limit' : ''}</small></span><span class="ramt"><b>${money(c.dueAmount, a.cur)}</b><small>of ${money(c.owed, a.cur)} owed</small></span>`, kind: 'plain', cls: 'row', act: 'acct', attr: { 'data-id': a.id } })}`).join('')}` : '<p class="hint">No credit cards yet.</p>';
 
   // period comparison
   const gm = (ps) => { const mm = new Map(); for (const p of ps.filter((x) => x.kind === 'expense')) mm.set(p.group || 'Uncategorized', (mm.get(p.group || 'Uncategorized') || 0) + p.v); return mm; };
@@ -164,10 +165,10 @@ export function analytics(db) {
   for (const p of exps) { const m = String(p.t.merchant || '').trim(), k = m ? norm(m) : ''; const o = mm.get(k) || { name: m || 'No merchant', v: 0, ids: new Set(), spell: new Map() }; o.v += p.v; o.ids.add(p.t.id); if (m) o.spell.set(m, (o.spell.get(m) || 0) + 1); mm.set(k, o); }
   const mrows = [...mm.entries()].map(([k, o]) => ({ k, name: o.spell.size ? [...o.spell.entries()].sort((a, b) => b[1] - a[1])[0][0] : o.name, v: o.v, n: o.ids.size })).sort((a, b) => (a.k === '') - (b.k === '') || b.v - a.v);
   const mtot = sum(mrows.map((r) => r.v)), fill = fillCandidates(db), anyM = mrows.some((r) => r.k);
-  const merchHtml = `${anyM ? `<div class="rows plain">${mrows.slice(0, 12).map((r) => { const pc = mtot ? Math.round(r.v / mtot * 100) : 0; return `<button type="button" class="mr" data-act="an-merch" data-k="${esc(r.k)}"><span class="mr-top"><strong>${esc(r.name)}</strong><b class="expense">${money(r.v)}</b></span><small>${r.n} ${r.n === 1 ? 'entry' : 'entries'} · ${pc}% of spending</small><i class="mr-bar"><u style="width:${Math.max(2, pc)}%"></u></i></button>`; }).join('')}</div>` : '<p class="hint">No merchant is set on these entries yet. Add one when you record an expense (Shopee, Lazada, wet market…), and this shows how much goes where, and what it was.</p>'}
-    ${fill.length ? `<div class="btnrow tight"><button type="button" class="btn sm ghost" data-act="merch-fill">Fill merchant from names (${fill.length})</button></div><p class="hint">Entries whose name contains a merchant you use, such as “Shopee order”. The names stay as they are.</p>` : ''}`;
+  const merchHtml = `${anyM ? `<div class="rows plain">${mrows.slice(0, 12).map((r) => { const pc = mtot ? Math.round(r.v / mtot * 100) : 0; return `${button({ html: `<span class="mr-top"><strong>${esc(r.name)}</strong><b class="expense">${money(r.v)}</b></span><small>${r.n} ${r.n === 1 ? 'entry' : 'entries'} · ${pc}% of spending</small><i class="mr-bar"><u style="width:${Math.max(2, pc)}%"></u></i>`, kind: 'plain', cls: 'mr', act: 'an-merch', attr: { 'data-k': r.k } })}`; }).join('')}</div>` : '<p class="hint">No merchant is set on these entries yet. Add one when you record an expense (Shopee, Lazada, wet market…), and this shows how much goes where, and what it was.</p>'}
+    ${fill.length ? `<div class="btnrow tight">${button({ html: `Fill merchant from names (${fill.length})`, kind: 'ghost', size: 'sm', act: 'merch-fill' })}</div><p class="hint">Entries whose name contains a merchant you use, such as “Shopee order”. The names stay as they are.</p>` : ''}`;
   const top5 = exps.slice().sort((a, b) => b.v - a.v).slice(0, 8);
-  const topHtml = `<div class="rows plain">${top5.map((p) => `<button class="row" data-act="edit" data-id="${p.t.id}"><i class="badge sm" style="background:${groupColor(p.group)}">${esc((p.group || '?')[0])}</i><span class="rmain"><strong>${esc(p.label || p.t.name || 'Entry')}</strong><small>${esc(p.t.date.slice(0, 10))} · ${esc(p.group)}</small></span><span class="ramt expense"><b>${money(p.v)}</b></span></button>`).join('') || '<p class="empty">Nothing yet.</p>'}</div>`;
+  const topHtml = `<div class="rows plain">${top5.map((p) => `${button({ html: `<i class="badge sm" style="background:${groupColor(p.group)}">${esc((p.group || '?')[0])}</i><span class="rmain"><strong>${esc(p.label || p.t.name || 'Entry')}</strong><small>${esc(p.t.date.slice(0, 10))} · ${esc(p.group)}</small></span><span class="ramt expense"><b>${money(p.v)}</b></span>`, kind: 'plain', cls: 'row', act: 'edit', attr: { 'data-id': p.t.id } })}`).join('') || '<p class="empty">Nothing yet.</p>'}</div>`;
 
   LAST = { parts, P };
   return `${hdr('Analytics')}${filters}${kpis}
@@ -200,7 +201,7 @@ ACT['an-merch'] = (el) => {
   const rows = ps.slice().sort((a, b) => (a.t.date < b.t.date ? 1 : -1));
   sheet(`<p class="hint">${new Set(ps.map((p) => p.t.id)).size} entries · <b>${money(total)}</b></p><h3>What It Was</h3>
     <ul class="calfacts">${[...by.entries()].sort((a, b) => b[1] - a[1]).map(([n, v]) => `<li><span>${esc(n)} <small class="muted">${total ? Math.round(v / total * 100) : 0}%</small></span><b>${money(v)}</b></li>`).join('')}</ul>
-    <h3>Entries</h3><div class="rows plain">${rows.slice(0, 100).map((p) => { const c = cm.get(p.cat), a = am.get(p.t.acct); return `<button class="row" data-act="edit" data-id="${p.t.id}"><i class="badge sm" style="background:${groupColor(p.group)}">${esc((p.group || '?')[0])}</i><span class="rmain"><strong>${esc(p.label || p.t.name || (c ? c.name : 'Entry'))}</strong><small>${esc(p.t.date.slice(0, 10))} · ${esc(c ? c.name : '')}${a ? ' · ' + esc(a.name) : ''}</small></span><span class="ramt expense"><b>−${money(p.v)}</b></span></button>`; }).join('')}</div>${rows.length > 100 ? '<p class="hint">Showing the 100 newest.</p>' : ''}`, { title: name, wide: true });
+    <h3>Entries</h3><div class="rows plain">${rows.slice(0, 100).map((p) => { const c = cm.get(p.cat), a = am.get(p.t.acct); return `${button({ html: `<i class="badge sm" style="background:${groupColor(p.group)}">${esc((p.group || '?')[0])}</i><span class="rmain"><strong>${esc(p.label || p.t.name || (c ? c.name : 'Entry'))}</strong><small>${esc(p.t.date.slice(0, 10))} · ${esc(c ? c.name : '')}${a ? ' · ' + esc(a.name) : ''}</small></span><span class="ramt expense"><b>−${money(p.v)}</b></span>`, kind: 'plain', cls: 'row', act: 'edit', attr: { 'data-id': p.t.id } })}`; }).join('')}</div>${rows.length > 100 ? '<p class="hint">Showing the 100 newest.</p>' : ''}`, { title: name, wide: true });
 };
 ACT['merch-fill'] = async () => {
   const db = get(), c = fillCandidates(db); if (!c.length) { toast('Nothing to fill.'); return; }

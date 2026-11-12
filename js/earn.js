@@ -1,7 +1,7 @@
 // Crypto Earn: automatic subscriptions and hourly earnings, always on UTC+8 (the exchange clock), never the phone's own timezone.
 // A subscription at 15:09 starts earning at 16:00 and the first hourly payout is recorded at 17:00 (both rules can be changed per product).
 // Hourly payouts are kept in a small log (settings.earnLog). After midnight UTC+8 each finished day becomes ONE entry, so Entries stays short.
-import { get, balances, stamp, rateFor, findOrAddCategory, nowStamp, uid } from './core.js';
+import { get, balances, stamp, rateFor, findOrAddCategory, nowStamp, uid, walletOf } from './core.js';
 export const H = 3600e3, E8 = 8 * H, YEAR_H = 8760;
 const p2 = (n) => String(n).padStart(2, '0');
 const r8 = (n) => Math.round(n * 1e8) / 1e8;
@@ -27,6 +27,32 @@ export function apyChangeFrom(oldH, newH) {
   const o = { apyHist: oldH }, n = { apyHist: newH }, pts = [...new Set([...oldH, ...newH].map((x) => +x.at))].sort((p, q) => p - q);
   for (const t of pts) { const T = t + H; if (apyAt(o, T) !== apyAt(n, T)) return Math.max(0, t); }
   return null;
+}
+// ONE rate history for an Earn account: earn.apyHist (Subscription Settings > APR History). The older account fields (apy and rates, shown in Interest Details)
+// are only a mirror of it, so every view shows the same rates. Rates typed on the account in the older place are adopted once, nothing is lost.
+export function syncEarnRates(db, now = Date.now()) {
+  let changed = 0;
+  for (const a of db.accounts) {
+    if (a.deleted || !a.exchange || a.type !== 'crypto' || walletOf(a) !== 'Earn') continue;
+    const E0 = a.earn || {}, legacy = +a.apy > 0 || (a.rates || []).length > 0; if (!apyHistOf(E0).length && !(+E0.apy > 0) && !legacy) continue;
+    const off = tzOf(db, a), E = a.earn = { ...E0 }; let h = apyHistOf(E); const before = JSON.stringify([E.apyHist, E.apy, a.apy, a.rates, E.ratesAdopted]);
+    if (!h.length && +E.apy > 0) h = [{ at: 0, apy: +E.apy }];
+    if (!E.ratesAdopted) {
+      if (!h.length && +a.apy > 0) h = [{ at: 0, apy: +a.apy }];
+      for (const r of [...(a.rates || [])].filter((x) => x && x.from && +x.rate >= 0).sort((p, q) => (p.from < q.from ? -1 : 1))) {
+        const at = e8Ms(r.from, '00:00', off);
+        if (!h.some((x) => x.at === at || (x.apy === +r.rate && Math.abs(x.at - at) < 24 * H))) h.push({ at, apy: +r.rate });
+      }
+      E.ratesAdopted = true;
+    }
+    h.sort((p, q) => p.at - q.at);
+    if (h.length) {
+      E.apyHist = h; const cur = h.filter((y) => y.at <= now).pop(); E.apy = cur ? cur.apy : h[0].apy;
+      a.apy = h[0].apy; a.rates = h.slice(1).map((x) => ({ from: e8(x.at, off).day, rate: x.apy }));
+    }
+    if (JSON.stringify([E.apyHist, E.apy, a.apy, a.rates, E.ratesAdopted]) !== before) { stamp(a); changed++; }
+  }
+  return changed;
 }
 export const isEarnOn = (a) => !!(a && !a.deleted && a.earn && a.earn.on);
 export const logOf = (db, id) => ((db.settings.earnLog = db.settings.earnLog || {})[id] = (db.settings.earnLog[id] || { hours: [], days: [] }));

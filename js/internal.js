@@ -46,12 +46,12 @@ export function openInternal({ asset = '', platform = '', replaceId = '', amount
   let cur = a0 && exchangeOf(a0) === plat ? a0.cur : '', from = a0 && exchangeOf(a0) === plat ? walletOf(a0) : '', to = '', when = nowStamp();
   const s = sheet(`<div id="itf" class="itx">
     ${fixed ? `<p class="hint">Inside <b>${esc(plat)}</b> only, free, no fee. To move between platforms use Transfer/Move.</p>` : `<label class="field"><span>Platform</span><select name="plat">${plats.map((p) => `<option ${p === plat ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label><p class="hint">Inside one platform only, free, no fee.</p>`}
-    <div class="itrow"><label class="field"><span>From</span><select name="from"></select></label><div class="field itmid"><span aria-hidden="true">&nbsp;</span><button type="button" class="btn ghost itrev" id="it-rev" aria-label="Reverse From and To" title="Reverse">⇄</button></div><label class="field"><span>To</span><select name="to"></select></label></div>
+    <div class="itrow"><label class="field"><span>From</span><select name="from"></select></label><div class="field itmid"><span aria-hidden="true">&nbsp;</span>${button({ label: '⇄', kind: 'ghost', cls: 'itrev', id: 'it-rev', aria: 'Reverse From and To', title: 'Reverse' })}</div><label class="field"><span>To</span><select name="to"></select></label></div>
     <label class="field"><span>Coin or Asset</span><select name="cur"></select></label>
     <label class="field"><span>Amount</span><div class="itamt"><input name="amt" inputmode="decimal" placeholder="0" autocomplete="off"><b id="it-cur"></b>${button({ label: 'Max', kind: 'primary', size: 'sm', id: 'it-all' })}</div><small class="muted" id="it-bal"></small></label>
-    <button type="button" class="btn ghost" id="it-when"></button>
+    ${button({ label: ``, kind: 'ghost', id: 'it-when' })}
     <p class="hint" id="it-eff"></p>
-    <div class="btnrow"><button type="button" class="btn primary" id="it-save">Move</button></div></div>`, { title: 'Internal Transfer' });
+    <div class="btnrow">${button({ label: 'Move', kind: 'primary', cls: 'primary', id: 'it-save' })}</div></div>`, { title: 'Internal Transfer' });
   const q = (n) => s.el.querySelector(`[name=${n}]`), el = (id) => s.el.querySelector('#' + id), whenBtn = el('it-when');
   const opts = (list, v) => list.map((x) => `<option value="${esc(x)}" ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
   const wallets = () => accountTypesOf(get(), plat);

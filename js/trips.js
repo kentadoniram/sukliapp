@@ -102,14 +102,14 @@ function card(t) {
   const cats = t.byCat.filter((c) => c.expected != null && Math.abs(c.extra) >= 1).slice(0, 4), reasons = [...new Set(t.why.map((w) => WHY[w]).filter(Boolean))];
   const asked = t.note && t.note.s === 'yes';
   return `<article class="card tripcard" data-from="${t.from}"><div class="sgtop"><b>${esc(title(t))}</b><span>${money(t.trueCost)}</span></div>
-    <small><button type="button" class="linkbtn tripdates" data-act="trip-days" data-from="${t.from}">${niceDate(t.from)}${t.days > 1 ? ' to ' + niceDate(t.to) : ''}</button> · ${t.days} day${t.days === 1 ? '' : 's'} · ${asked ? 'you confirmed this' : 'Sukli thinks: ' + esc(reasons.join(', ') || 'looks different from daily life')}</small>
+    <small>${button({ html: `${niceDate(t.from)}${t.days > 1 ? ' to ' + niceDate(t.to) : ''}`, kind: 'link', cls: 'tripdates', act: 'trip-days', attr: { 'data-from': t.from } })} · ${t.days} day${t.days === 1 ? '' : 's'} · ${asked ? 'you confirmed this' : 'Sukli thinks: ' + esc(reasons.join(', ') || 'looks different from daily life')}</small>
     <ul class="calfacts">
       ${t.prepaid > 0 ? `<li><span>Paid ahead (flights, hotel)</span><b>${money(t.prepaid)}</b></li>` : ''}
       <li><span>Spent during it</span><b>${money(t.onTrip)}</b></li>
       ${cats.map((c) => `<li><span>${esc(c.name)}: usual about ${money(c.expected)}</span><b>${c.extra >= 0 ? '+' : '-'}${money(Math.abs(c.extra))}</b></li>`).join('')}
     </ul>
     <p class="hint">Cost of the ${t.tags.length ? 'event' : 'trip'}: what you paid ahead, plus what everyday spending went above your usual, plus things you do not usually buy. What you would have eaten anyway stays in daily life.</p>
-    <div class="btnrow">${asked ? '' : `<button type="button" class="btn sm" data-act="trip-yes" data-from="${t.from}">Yes, that is right</button>`}<button type="button" class="btn sm ghost" data-act="trip-name" data-from="${t.from}">Name it</button><button type="button" class="btn sm ghost" data-act="trip-no" data-from="${t.from}">Not a trip</button></div></article>`;
+    <div class="btnrow">${asked ? '' : `${button({ label: 'Yes, that is right', kind: 'primary', size: 'sm', act: 'trip-yes', attr: { 'data-from': t.from } })}`}${button({ label: 'Name it', kind: 'ghost', size: 'sm', act: 'trip-name', attr: { 'data-from': t.from } })}${button({ label: 'Not a trip', kind: 'ghost', size: 'sm', act: 'trip-no', attr: { 'data-from': t.from } })}</div></article>`;
 }
 
 export function trips(db) {
@@ -145,7 +145,7 @@ function dayBody(from) {
   const kind = (x) => (ahead.has(x.id) ? ['Paid ahead', 'ahead'] : (inTrip.has(x.id) && !usual.has(x.id) && pickOf(db, x) !== 'out') ? [pickOf(db, x) === 'in' ? 'Trip (you chose)' : 'Trip', 'trip'] : usual.has(x.id) ? ['Normal payment (usual shop)', 'normal'] : x.kind === 'transfer' ? ['Transfer, not counted', 'normal'] : [pickOf(db, x) === 'out' ? 'Normal (you chose)' : 'Normal payment', 'normal']);
   const n = (k) => rows.filter((x) => kind(x)[1] === k).length;
   return `<p class="hint">${n('trip')} counted as the trip, ${n('ahead')} paid ahead, ${n('normal')} normal. You decide: tap the button on any row. Sukli remembers the shop name, so similar shops follow your choice.</p>
-    <ul class="tripdays">${rows.map((x) => { const [lab, k] = kind(x), isTrip = k !== 'normal'; return `<li class="tdr ${k}"><span><b>${esc(x.name || cats.get(x.cat) || 'Entry')}</b><small>${niceDate(x.date)} · ${esc(x.kind === 'transfer' ? 'Transfer' : cats.get(x.cat) || '')}</small></span><span class="tdr-r"><b>${fmt(x.amount, x.cur, { round: true })}</b><em class="tdtag ${k}">${lab}</em><button type="button" class="linkbtn" data-act="trip-pick" data-id="${x.id}" data-from="${t.from}" data-v="${isTrip ? 'out' : 'in'}">${isTrip ? 'Not part of the trip' : 'Part of the trip'}</button></span></li>`; }).join('') || '<li class="empty">No entries in these dates.</li>'}</ul>`;
+    <ul class="tripdays">${rows.map((x) => { const [lab, k] = kind(x), isTrip = k !== 'normal'; return `<li class="tdr ${k}"><span><b>${esc(x.name || cats.get(x.cat) || 'Entry')}</b><small>${niceDate(x.date)} · ${esc(x.kind === 'transfer' ? 'Transfer' : cats.get(x.cat) || '')}</small></span><span class="tdr-r"><b>${fmt(x.amount, x.cur, { round: true })}</b><em class="tdtag ${k}">${lab}</em>${button({ html: `${isTrip ? 'Not part of the trip' : 'Part of the trip'}`, kind: 'link', act: 'trip-pick', attr: { 'data-id': x.id, 'data-from': t.from, 'data-v': isTrip ? 'out' : 'in' } })}</span></li>`; }).join('') || '<li class="empty">No entries in these dates.</li>'}</ul>`;
 }
 function dayList(from) {
   const t = tripReport(get()).trips.find((x) => x.from === from); if (!t) return;

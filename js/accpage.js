@@ -1,6 +1,6 @@
 // Accounts page (grouped and sorted), account detail with history, net worth, interest and credit-card details.
 import { catIcon } from './caticons.js';
-import { button } from './components.js';
+import { button, textField } from './components.js';
 import { pickAll } from './picker.js';
 import { isEarnAcct, EARN_BLOCK, openDateOf, openDates, WALLETS, WALLET_INFO, walletOf } from './core.js';
 import { tipBtn, calcHtml, bindCalc, COMP_LABEL, rateAt, hasRate } from './interest.js';
@@ -32,7 +32,7 @@ const SPEND = ['cash', 'bank', 'ewallet', 'ic'], INVT = ['crypto', 'invest'];
 export function openReclass(id) {
   const a0 = get().accounts.find((x) => x.id === id); if (!a0) return;
   const s = sheet(`<p class="hint">What is <b>${esc(a0.name)}</b>? Its balance and entries stay exactly as they are. Only where it shows up changes.</p>
-    <div class="invopts">${Object.entries(typeNames).map(([k, l]) => `<button type="button" class="invopt ${a0.type === k ? 'main' : ''}" data-t="${k}"><b>${esc(l)}${a0.type === k ? ' (now)' : ''}</b><small>${esc(typeWhere[k] || '')}</small></button>`).join('')}</div>`, { title: 'Change Account Type' });
+    <div class="invopts">${Object.entries(typeNames).map(([k, l]) => `${button({ html: `<b>${esc(l)}${a0.type === k ? ' (now)' : ''}</b><small>${esc(typeWhere[k] || '')}</small>`, kind: 'plain', cls: `invopt ${a0.type === k ? 'main' : ''}`, attr: { 'data-t': k } })}`).join('')}</div>`, { title: 'Change Account Type' });
   s.el.querySelectorAll('[data-t]').forEach((b) => { b.onclick = () => { const t = b.dataset.t; s.close(); if (t === a0.type) return;
     const before = { type: a0.type, include: a0.include, invtab: a0.invtab, guessed: a0.guessed, apy: a0.apy };
     commit((d) => { const x = d.accounts.find((q) => q.id === id); if (!x) return; const was = x.type; x.type = t; x.guessed = false; x.include = SPEND.includes(t);
@@ -77,9 +77,8 @@ export function reminderBanner(db) {
   return `<section class="remind" aria-label="Credit card reminders">${list.map((r) => {
     const due = r.due && r.dueAmount > 0.005 && (r.days <= (db.settings.remindDays || 3));
     const when = r.overdue ? `was due ${dayLabel(r.due + ' 00:00:00')}` : r.days === 0 ? 'is due today, until midnight' : r.days === 1 ? 'is due tomorrow' : `is due in ${r.days} days`;
-    return `<button class="rem ${due ? (r.days <= 1 ? 'urgent' : '') : 'high'}" data-act="${due ? 'card-pay' : 'acct'}" data-id="${r.a.id}">
-      <i>${ic('wallet')}</i><span><strong>${esc(r.a.name)} ${due ? when : `is ${r.used}% of its limit`}</strong>
-      <small>${due ? `Pay ${money(r.dueAmount, r.a.cur)}${r.dueAmount < r.owed - 0.005 ? ` (total owed ${money(r.owed, r.a.cur)})` : ''}` : `Owed ${money(r.owed, r.a.cur)} of ${money(r.limit, r.a.cur)}`}</small></span>${ic('right')}</button>`;
+    return `${button({ html: `<i>${ic('wallet')}</i><span><strong>${esc(r.a.name)} ${due ? when : `is ${r.used}% of its limit`}</strong>
+      <small>${due ? `Pay ${money(r.dueAmount, r.a.cur)}${r.dueAmount < r.owed - 0.005 ? ` (total owed ${money(r.owed, r.a.cur)})` : ''}` : `Owed ${money(r.owed, r.a.cur)} of ${money(r.limit, r.a.cur)}`}</small></span>${ic('right')}`, kind: 'plain', cls: `rem ${due ? (r.days <= 1 ? 'urgent' : '') : 'high'}`, act: due ? 'card-pay' : 'acct', attr: { 'data-id': r.a.id } })}`;
   }).join('')}</section>`;
 }
 
@@ -139,25 +138,24 @@ export function accounts(db) {
     if (c && c.due && c.owed > 0) meta.push(c.days === 0 ? 'due today' : `due in ${c.days}d`);
     if (!a.include && !isLiability(a)) meta.push('not in spendable');
     const bar = c && c.limit ? `<span class="util ${c.used >= 80 ? 'hot' : c.used >= 50 ? 'mid' : ''}" role="img" aria-label="${c.used}% of limit used"><i style="width:${c.used}%"></i></span>` : '';
-    return `<button class="row acct" data-act="acct" data-id="${a.id}"><i class="badge sm" style="background:${groupColor(a.type)}">${acctPic(a)}</i>
+    return `${button({ html: `<i class="badge sm" style="background:${groupColor(a.type)}">${acctPic(a)}</i>
       <span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(meta.join(' · '))}</small>${bar}</span>
-      <span class="ramt"><b class="${v < 0 ? 'neg' : ''}">${money(v, a.cur)}</b>${eq(v, a.cur, rateFor(db, a.cur)) ? `<small>${eq(v, a.cur, rateFor(db, a.cur))}</small>` : ''}</span></button>`;
+      <span class="ramt"><b class="${v < 0 ? 'neg' : ''}">${money(v, a.cur)}</b>${eq(v, a.cur, rateFor(db, a.cur)) ? `<small>${eq(v, a.cur, rateFor(db, a.cur))}</small>` : ''}</span>`, kind: 'plain', cls: 'row acct', act: 'acct', attr: { 'data-id': a.id } })}`;
   };
   // when grouped by exchange, each group can be renamed on all its accounts at once
-  const exBtn = (g) => (grp === 'exchange' && g.key.startsWith('ex-') && g.title !== 'No exchange' ? `<button type="button" class="linkbtn sm" data-act="inv-rename" data-ex="${esc(g.title)}">Rename</button>` : '');
+  const exBtn = (g) => (grp === 'exchange' && g.key.startsWith('ex-') && g.title !== 'No exchange' ? `${button({ label: 'Rename', kind: 'link', size: 'sm', act: 'inv-rename', attr: { 'data-ex': g.title } })}` : '');
   const secOf = (g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.top === 'Liabilities' ? Math.abs(g.total) : g.total)}</small>`,
     `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, exBtn(g));
   const sections = grp === 'class' ? ['Assets', 'Liabilities'].map((top) => { const gs = groups.filter((g) => g.top === top); if (!gs.length) return ''; const tot = sum(gs.map((g) => g.total));
     return `<section class="topgrp ${top === 'Assets' ? 'assets' : 'liabs'}"><div class="tophead"><h2>${top}</h2><b>${money(Math.abs(tot))}</b></div><p class="hint">${top === 'Assets' ? 'What you own: cash, bank, investments, property.' : 'What you owe: credit cards, loans, money owed.'}</p>${gs.map(secOf).join('')}</section>`; }).join('') : groups.map((g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.total)}</small>`,
     `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, exBtn(g))).join('');
-  const segs = (name, opts, cur) => `<div class="seg sm" role="group" aria-label="${name}">${opts.map(([v, l]) => `<button type="button" data-act="aview" data-k="${name}" data-v="${v}" class="${cur === v ? 'on' : ''}" aria-pressed="${cur === v}">${l}</button>`).join('')}</div>`;
-  return `${hdr('Accounts', `${button({ label: 'Loan planner', kind: 'ghost', size: 'sm', act: 'loan-plan' })} ${button({ label: 'Bills', kind: 'ghost', size: 'sm', act: 'bills-open' })} <button class="btn sm" data-act="acct-new">Add account</button>`)}
+  const segs = (name, opts, cur) => `<div class="seg sm" role="group" aria-label="${name}">${opts.map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${cur === v ? 'on' : ''}`, act: 'aview', pressed: cur === v, attr: { 'data-k': name, 'data-v': v } })}`).join('')}</div>`;
+  return `${hdr('Accounts', `${button({ label: 'Loan planner', kind: 'ghost', size: 'sm', act: 'loan-plan' })} ${button({ label: 'Bills', kind: 'ghost', size: 'sm', act: 'bills-open' })} ${button({ label: 'Add account', kind: 'primary', size: 'sm', act: 'acct-new' })}`)}
     ${reminderBanner(db)}
-    <section class="nwcard"><button class="nwmain" data-act="nw" aria-label="Net worth details">
-      <span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b>
+    <section class="nwcard">${button({ html: `<span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b>
       <small>Assets ${money(nw.assets)} · Debts ${money(nw.debts)}</small>
-      ${nw.assets + nw.debts > 0 ? `<span class="nwbar" role="img" aria-label="Assets against debts"><i style="width:${Math.round(nw.assets / (nw.assets + nw.debts) * 100)}%"></i></span>` : ''}</button>
-      <button class="nwsp" data-act="acct-sp"><span>Spendable now</span><b>${money(sp)}</b></button></section>
+      ${nw.assets + nw.debts > 0 ? `<span class="nwbar" role="img" aria-label="Assets against debts"><i style="width:${Math.round(nw.assets / (nw.assets + nw.debts) * 100)}%"></i></span>` : ''}`, kind: 'plain', cls: 'nwmain', act: 'nw', aria: 'Net worth details' })}
+      ${button({ html: `<span>Spendable now</span><b>${money(sp)}</b>`, kind: 'plain', cls: 'nwsp', act: 'acct-sp' })}</section>
     ${nw.missing ? `<p class="hint">Some accounts have no exchange rate yet, so they are left out of these totals. Set rates in Settings.</p>` : ''}
     <div class="aview compact"><label>Group <select data-aview="group" aria-label="Group accounts by">${[['class', 'Assets / debts'], ['cur', 'Currency'], ['type', 'Category'], ['exchange', 'Exchange'], ['none', 'None']].map(([v, l]) => `<option value="${v}" ${grp === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <label>Sort <select data-aview="sort" aria-label="Sort accounts">${[['high', 'High → low'], ['low', 'Low → high'], ['name', 'A–Z'], ['cat', 'Category']].map(([v, l]) => `<option value="${v}" ${view.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -221,9 +219,9 @@ function openNetWorth() {
       <rect x="${i * bw + 4}" y="${p.v >= 0 ? mid - h : mid}" width="${bw - 8}" height="${Math.max(h, 1)}" rx="2" fill="${p.v >= 0 ? (i === 11 ? 'var(--line)' : 'var(--bar)') : 'var(--bad)'}"/>
       <text x="${i * bw + bw / 2}" y="${H - 3}" text-anchor="middle" class="axis">${monthLabel(p.ym).slice(0, 1)}</text></g>`;
   }).join('');
-  const rowOf = (i) => `<button class="row acct" data-act="acct" data-id="${i.a.id}"><i class="badge sm" style="background:${groupColor(i.a.type)}">${acctPic(i.a)}</i>
+  const rowOf = (i) => `${button({ html: `<i class="badge sm" style="background:${groupColor(i.a.type)}">${acctPic(i.a)}</i>
     <span class="rmain"><strong>${esc(i.a.name)}</strong><small>${esc(typeNames[i.a.type] || i.a.type)}</small></span>
-    <span class="ramt"><b class="${i.base < 0 ? 'neg' : ''}">${money(i.base)}</b>${i.a.cur !== HOME ? `<small>${money(i.v, i.a.cur)}</small>` : ''}</span></button>`;
+    <span class="ramt"><b class="${i.base < 0 ? 'neg' : ''}">${money(i.base)}</b>${i.a.cur !== HOME ? `<small>${money(i.v, i.a.cur)}</small>` : ''}</span>`, kind: 'plain', cls: 'row acct', act: 'acct', attr: { 'data-id': i.a.id } })}`;
   s.el.querySelector('#nw').innerHTML = `
     <div class="gdhead"><b class="big ${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b><span class="muted">Assets ${money(nw.assets)} − debts ${money(nw.debts)}, in ${BASE} at your current rates.</span></div>
     <h3>Last 12 months <small class="muted">(today’s rates · tap a bar)</small></h3>
@@ -307,9 +305,9 @@ export function openAccountDetail(id) {
       const dShow = h.d + feeD, balShow = top.bal;
       const feeTxt = kids.length ? kids.map((k) => `fee ${money(k.t.amount, k.t.cur)}`).join(', ') : (t.fee > 0 ? `fee ${money(t.fee, t.feeCur || t.cur)}` : '');
       const sub = `${dayLabel(t.date)} · ${tr ? (t.acct === id ? 'to ' : 'from ') + esc(other || '?') : esc(c ? c.name : 'No category')}${t.auto || t.autoDebt ? ' · automatic' : ''}${t.posted && t.posted > String(t.date).slice(0, 10) ? ' · posted ' + esc(dayLabel(t.posted + ' 00:00:00').split(',')[0]) : ''}${feeTxt ? ' · ' + esc(feeTxt) : ''}`;
-      return `<button class="row" data-act="edit" data-id="${t.id}"><i class="badge sm" style="background:${tr ? 'var(--xfer)' : groupColor(c ? c.group : 'Uncategorized')}">${tr || !c ? groupLetter(tr ? 'Transfer' : 'U') : catIcon(c)}</i>
+      return `${button({ html: `<i class="badge sm" style="background:${tr ? 'var(--xfer)' : groupColor(c ? c.group : 'Uncategorized')}">${tr || !c ? groupLetter(tr ? 'Transfer' : 'U') : catIcon(c)}</i>
         <span class="rmain"><strong>${esc(title)}</strong><small>${sub}</small><small class="eff">${effectLine(t, null)}</small></span>
-        <span class="ramt ${dShow >= 0 ? 'income' : 'expense'}"><b>${dShow >= 0 ? '+' : ''}${money(dShow, a.cur)}</b><small>${money(balShow, a.cur)}</small></span></button>`;
+        <span class="ramt ${dShow >= 0 ? 'income' : 'expense'}"><b>${dShow >= 0 ? '+' : ''}${money(dShow, a.cur)}</b><small>${money(balShow, a.cur)}</small></span>`, kind: 'plain', cls: 'row', act: 'edit', attr: { 'data-id': t.id } })}`;
     };
     const listed = shownH.slice(0, st.more); let rowsHtml = '', placed = !showOpen;
     for (const h of listed) { if (!placed && h.t.date.slice(0, 10) < hist.opening.date) { rowsHtml += openRowHtml(hist.opening); placed = true; } rowsHtml += rowOf(h); }
@@ -319,11 +317,11 @@ export function openAccountDetail(id) {
       <div class="gdhead"><span class="muted">${esc(typeNames[a.type] || a.type)} · ${a.cur}</span><b class="big ${bal < 0 ? 'neg' : ''}">${money(bal, a.cur)}</b>
         ${a.cur !== HOME && r ? `<span class="muted">≈ ${money(bal * r)} at ${fmt(r, HOME)} per ${a.cur}</span>` : ''}<strong class="adname">${esc(a.name)}</strong> ${button({ label: 'Change type', kind: 'link', size: 'sm', attr: { 'data-ad': 'reclass' } })}</div>
       ${openLine}
-      <div class="btnrow tight${a.exchange && walletOf(a) === 'Earn' ? ' earnacts' : ''}">${isEarnAcct(a) ? '' : '<button class="btn sm" data-ad="add">Add entry</button>'}${isLiability(a) ? `<button class="btn sm ghost" data-act="loan-charge" data-id="${a.id}">Add charge</button>` : ''}
-        ${['asset', 'invest', 'other'].includes(a.type) ? '<button class="btn sm ghost" data-ad="reval">Update value</button>' : ''}
-        <button class="btn sm ghost" data-ad="edit">Edit</button>${a.exchange && a.type === 'crypto' && walletOf(a) === 'Earn' ? `${button({ label: 'Subscription Settings', kind: 'ghost', size: 'sm', act: 'earn-open', attr: { 'data-id': a.id } })}${button({ label: 'APR Changes', kind: 'ghost', size: 'sm', act: 'earn-open', attr: { 'data-id': a.id, 'data-focus': 'apr' } })}<label class="switch" aria-label="Subscription Settings On or Off"><input type="checkbox" data-act="earn-toggle" data-id="${a.id}" ${a.earn && a.earn.on ? 'checked' : ''}><span>${a.earn && a.earn.on ? 'On' : 'Off'}</span></label>` : ''}</div>
-      ${a.exchange ? `<details class="wmove"><summary class="muted">Wrong wallet on ${esc(a.exchange)}? Change this account’s wallet</summary><div class="chips">${[...new Set([...WALLETS, ...db.accounts.filter((x) => !x.deleted && x.exchange === a.exchange).map(walletOf)])].map((w) => `<button type="button" class="chip ${walletOf(a) === w ? 'on' : ''}" data-act="wallet-move" data-id="${a.id}" data-w="${esc(w)}" aria-pressed="${walletOf(a) === w}">${esc(w)}</button>`).join('')}<button type="button" class="chip" data-act="wallet-move" data-id="${a.id}" data-w="__new">+ New wallet</button></div></details>` : ''}
-      <div class="rangebar seg sm" role="group" aria-label="Chart range">${[[30, '30 days'], [90, '90 days'], [365, '1 year'], [0, 'All']].map(([v, l]) => `<button type="button" data-ad="range" data-v="${v}" class="${st.range === v ? 'on' : ''}" aria-pressed="${st.range === v}">${l}</button>`).join('')}</div>
+      <div class="btnrow tight${a.exchange && walletOf(a) === 'Earn' ? ' earnacts' : ''}">${isEarnAcct(a) ? '' : button({ label: 'Add entry', kind: 'primary', size: 'sm', attr: { 'data-ad': 'add' } })}${isLiability(a) ? `${button({ label: 'Add charge', kind: 'ghost', size: 'sm', act: 'loan-charge', attr: { 'data-id': a.id } })}` : ''}
+        ${['asset', 'invest', 'other'].includes(a.type) ? button({ label: 'Update value', kind: 'ghost', size: 'sm', attr: { 'data-ad': 'reval' } }) : ''}
+        ${button({ label: 'Edit', kind: 'ghost', size: 'sm', attr: { 'data-ad': 'edit' } })}${a.exchange && a.type === 'crypto' && walletOf(a) === 'Earn' ? `${button({ label: 'Subscription Settings', kind: 'ghost', size: 'sm', act: 'earn-open', attr: { 'data-id': a.id } })}${button({ label: 'APR Changes', kind: 'ghost', size: 'sm', act: 'earn-open', attr: { 'data-id': a.id, 'data-focus': 'apr' } })}<label class="switch" aria-label="Subscription Settings On or Off"><input type="checkbox" data-act="earn-toggle" data-id="${a.id}" ${a.earn && a.earn.on ? 'checked' : ''}><span>${a.earn && a.earn.on ? 'On' : 'Off'}</span></label>` : ''}</div>
+      ${a.exchange ? `<details class="wmove"><summary class="muted">Wrong wallet on ${esc(a.exchange)}? Change this account’s wallet</summary><div class="chips">${[...new Set([...WALLETS, ...db.accounts.filter((x) => !x.deleted && x.exchange === a.exchange).map(walletOf)])].map((w) => `${button({ label: w, kind: 'chip', cls: `${walletOf(a) === w ? 'on' : ''}`, act: 'wallet-move', pressed: walletOf(a) === w, attr: { 'data-id': a.id, 'data-w': w } })}`).join('')}${button({ label: '+ New wallet', kind: 'chip', act: 'wallet-move', attr: { 'data-id': a.id, 'data-w': '__new' } })}</div></details>` : ''}
+      <div class="rangebar seg sm" role="group" aria-label="Chart range">${[[30, '30 days'], [90, '90 days'], [365, '1 year'], [0, 'All']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${st.range === v ? 'on' : ''}`, pressed: st.range === v, attr: { 'data-ad': 'range', 'data-v': v } })}`).join('')}</div>
       <svg class="chart scrub" data-pts="${esc(JSON.stringify(pts))}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Balance over time. Touch and drag to read each day.">
         <path d="${area}" fill="var(--tint)"/><path d="${path}" fill="none" stroke="var(--line)" stroke-width="2.4" stroke-linejoin="round"/></svg>
       <p class="hint tap">Touch and drag along the line to read the balance on each day.</p>
@@ -333,7 +331,7 @@ export function openAccountDetail(id) {
         ${card.limit ? `<span class="util big ${card.used >= 80 ? 'hot' : card.used >= 50 ? 'mid' : ''}" role="img" aria-label="${card.used}% used"><i style="width:${card.used}%"></i></span><p class="hint">${card.used}% of the limit is used. Staying under about 30% is easier on your credit.</p>` : '<p class="hint">Add the credit limit in Edit to see how much is used.</p>'}
         ${card.stmt ? `<p class="hint">Statement date: <strong>${dayLabel(card.stmt + ' 00:00:00')}</strong>. Owed at the statement ${money(card.owedAtStmt, a.cur)}, paid since ${money(card.paid, a.cur)}.</p>` : '<p class="hint">Add the statement day in Edit to track each billing cycle.</p>'}
         ${card.due ? `<p>${card.dueAmount > 0.005 ? `Amount due: <strong>${money(card.dueAmount, a.cur)}</strong> by <strong>${dayLabel(card.due + ' 00:00:00')}</strong> (${card.overdue ? 'overdue' : card.days === 0 ? 'today, until midnight' : card.days + ' days'}).` : `Paid in full for this cycle. Next due date ${dayLabel(card.due + ' 00:00:00')}.`}</p>` : '<p class="hint">Add the due day in Edit to get reminders.</p>'}
-        <div class="btnrow tight">${card.owed > 0.005 ? '<button class="btn sm" data-ad="pay">Pay card</button>' : ''}${card.due ? '<button class="btn sm ghost" data-ad="ics">Add reminders to my calendar (.ics)</button>' : ''}</div>
+        <div class="btnrow tight">${card.owed > 0.005 ? button({ label: 'Pay card', kind: 'primary', size: 'sm', attr: { 'data-ad': 'pay' } }) : ''}${card.due ? button({ label: 'Add reminders to my calendar (.ics)', kind: 'ghost', size: 'sm', attr: { 'data-ad': 'ics' } }) : ''}</div>
         <p class="hint">Paying moves money from one of your accounts into the card. It lowers what you owe and is not counted as spending a second time.</p></div>` : ''}
       ${(a.type === 'loan' || a.loan) ? loanBox(db, a, money) : ''}
       ${a.type === 'card' && a.limits && a.limits.length > 1 ? `<div class="cardbox"><h3>Credit Limit History</h3><ul class="calfacts">${[...a.limits].reverse().map((l, i, arr) => { const nx = arr[i + 1]; return `<li><span>${l.date ? esc(l.date) : 'Earlier'}</span><b>${money(l.limit, a.cur)}${nx ? ` <small class="${l.limit >= nx.limit ? 'in' : 'neg'}">${l.limit >= nx.limit ? '+' : '−'}${money(Math.abs(l.limit - nx.limit), a.cur)}</small>` : ''}</b></li>`; }).join('')}</ul></div>` : ''}
@@ -353,10 +351,10 @@ export function openAccountDetail(id) {
         <ul class="calfacts ipreview">${dv.rows.map((r) => `<li><span>${esc(dayLabel(r.date + ' 12:00:00'))}</span><b>${r.on ? money(r.charge, a.cur, { force: false }) : '<span class="muted">not yet</span>'}</b></li>`).join('')}</ul>
         <p class="hint">Charges are added at 23:55 (next: ${esc(dv.nextCharge)}) and count as a financial loss. Paying the debt off stops them.</p></div>`; })() : ''}
       <h3>History</h3>
-      <div class="histfilter"><div class="seg sm" role="group" aria-label="Show">${[['all', 'All'], ['in', 'Money in'], ['out', 'Money out'], ['tr', 'Transfers']].map(([v, l]) => `<button type="button" data-ad="type" data-v="${v}" class="${st.type === v ? 'on' : ''}" aria-pressed="${st.type === v}">${l}</button>`).join('')}</div>
-        <div class="seg sm" role="group" aria-label="Period">${[['m', 'This month'], ['p', 'Last month'], ['y', 'This year'], ['', 'All time']].map(([v, l]) => `<button type="button" data-ad="preset" data-v="${v}" class="${(st.preset ?? '') === v && (v === '' ? (!st.from && !st.to) : true) ? 'on' : ''}" aria-pressed="${(st.preset ?? '') === v}">${l}</button>`).join('')}</div>
+      <div class="histfilter"><div class="seg sm" role="group" aria-label="Show">${[['all', 'All'], ['in', 'Money in'], ['out', 'Money out'], ['tr', 'Transfers']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${st.type === v ? 'on' : ''}`, pressed: st.type === v, attr: { 'data-ad': 'type', 'data-v': v } })}`).join('')}</div>
+        <div class="seg sm" role="group" aria-label="Period">${[['m', 'This month'], ['p', 'Last month'], ['y', 'This year'], ['', 'All time']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${(st.preset ?? '') === v && (v === '' ? (!st.from && !st.to) : true) ? 'on' : ''}`, pressed: (st.preset ?? '') === v, attr: { 'data-ad': 'preset', 'data-v': v } })}`).join('')}</div>
         ${a.type === 'card' && a.stmtDay > 0 ? (() => { const ps = billingPeriods(a), cur = ps.find((p) => p.from === st.from && p.to === st.to); return `<label class="field bperiod"><span>Billing period</span><select data-bp aria-label="Billing period"><option value="">Any (use the dates below)</option>${ps.map((p, i) => `<option value="${p.from}|${p.to}" ${cur === p ? 'selected' : ''}>${i === 0 ? 'Current: ' : ''}${esc(p.label)}</option>`).join('')}</select><small class="muted">From the day after the statement date to the next statement date. An entry counts on the day it was posted.</small></label>`; })() : ''}
-        <div class="two"><button type="button" class="whenbtn" data-ad="from"><span>${st.from ? esc(st.from) : 'From: any date'}</span>${ic('calendar')}</button><button type="button" class="whenbtn" data-ad="to"><span>${st.to ? esc(st.to) : 'To: any date'}</span>${ic('calendar')}</button></div></div>
+        <div class="two">${button({ html: `<span>${st.from ? esc(st.from) : 'From: any date'}</span>${ic('calendar')}`, kind: 'plain', cls: 'whenbtn', attr: { 'data-ad': 'from' } })}${button({ html: `<span>${st.to ? esc(st.to) : 'To: any date'}</span>${ic('calendar')}`, kind: 'plain', cls: 'whenbtn', attr: { 'data-ad': 'to' } })}</div></div>
       ${(st.from || st.to || st.type !== 'all') && !(a.type === 'card' && a.stmtDay > 0 && billingPeriods(a).some((p) => p.from === st.from && p.to === st.to)) ? `<div class="facts"><div><span>Income / in</span><b class="in">${money(rsum.inc, a.cur)}</b></div><div><span>Expenses / out</span><b>${money(rsum.exp, a.cur)}</b></div><div><span>Transfers in</span><b>${money(rsum.tin, a.cur)}</b></div><div><span>Transfers out</span><b>${money(rsum.tout, a.cur)}</b></div><div><span>Opening</span><b>${openBal == null ? '—' : money(openBal, a.cur)}</b></div><div><span>Closing</span><b>${closeBal == null ? '—' : money(closeBal, a.cur)}</b></div></div>` : ''}
       ${(() => { const per = a.type === 'card' && a.stmtDay > 0 ? billingPeriods(a).find((p) => p.from === st.from && p.to === st.to) : null; if (!per) return ''; const m = statementSummary(db, a, per), $ = (n) => money(n, a.cur);
         return `<div class="cardbox stmt"><h3>Statement ${esc(per.label)}${m.closed ? '' : ' <small class="muted">· not closed yet</small>'}</h3><ul class="calfacts">
@@ -366,8 +364,8 @@ export function openAccountDetail(id) {
           ${m.closed && m.due ? `<li><span>Pay by <b>${esc(dayLabel(m.due + ' 00:00:00'))}</b></span><b>${m.stillDue > 0.005 ? $(m.stillDue) : 'Paid'}</b></li>${m.paidAfter > 0 ? `<li><span>Paid since the statement</span><b>− ${$(m.paidAfter)}</b></li>` : ''}` : ''}</ul>
           ${m.overdue ? '<p class="hint warnline">The due date has passed and some of this statement is still unpaid.</p>' : ''}<p class="hint">Entries count on their posted date when one is set. Payments before the statement date are counted in that period.</p></div>`; })()}
       <div class="rows plain">${rowsHtml || '<p class="empty">No entries for this filter.</p>'}</div>
-      ${shownH.length > st.more ? `<button class="btn ghost wide" data-ad="more">Show more (${shownH.length - st.more} left)</button>` : ''}
-      <div class="adfab ${st.fab ? 'open' : ''}">${st.fab ? `<div class="adfab-menu" role="menu">${(isEarnAcct(a) ? ['internal'] : inInvestAcct(a) ? ['trade', ...(a.exchange ? ['internal'] : []), 'transfer', 'expense', 'income'] : ['expense', 'income', 'transfer']).map((k) => `<button type="button" role="menuitem" data-ad="fab-new" data-v="${k}">${k === 'transfer' ? 'Transfer/Move' : k === 'internal' ? 'Internal Transfer' : k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</div>` : ''}<button type="button" class="adfab-btn" data-ad="fab" aria-label="Add to this account" aria-expanded="${!!st.fab}">${ic(st.fab ? 'x' : 'plus')}</button></div>`;
+      ${shownH.length > st.more ? `${button({ html: `Show more (${shownH.length - st.more} left)`, kind: 'ghost', cls: 'wide', attr: { 'data-ad': 'more' } })}` : ''}
+      <div class="adfab ${st.fab ? 'open' : ''}">${st.fab ? `<div class="adfab-menu" role="menu">${(isEarnAcct(a) ? ['internal'] : inInvestAcct(a) ? ['trade', ...(a.exchange ? ['internal'] : []), 'transfer', 'expense', 'income'] : ['expense', 'income', 'transfer']).map((k) => `<button type="button" role="menuitem" data-ad="fab-new" data-v="${k}">${k === 'transfer' ? 'Transfer/Move' : k === 'internal' ? 'Internal Transfer' : k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</div>` : ''}${button({ html: `${ic(st.fab ? 'x' : 'plus')}`, kind: 'plain', cls: 'adfab-btn', aria: 'Add to this account', attr: { 'data-ad': 'fab', 'aria-expanded': !!st.fab } })}</div>`;
   };
   draw();
   const un = (() => { let q = false; const f = () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; if (root.isConnected) draw(); }); }; window.addEventListener('sukli-render', f); const u2 = subscribe(f); return () => { window.removeEventListener('sukli-render', f); u2(); }; })();
@@ -425,7 +423,7 @@ function askValue(a, cur) {
   return new Promise((res) => {
     const s = sheet(`<form><label class="field"><span>What is it worth now? (${a.cur})</span><input name="v" inputmode="decimal" value="${cur}" autofocus></label>
       <p class="hint">The change is recorded as a value update, and left out of income and spending.</p>
-      <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">Update</button></div></form>`, { title: 'Update Value', onClose: () => res(null) });
+      <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}${button({ label: 'Update', kind: 'primary', submit: true })}</div></form>`, { title: 'Update Value', onClose: () => res(null) });
     s.el.querySelector('[data-no]').onclick = () => s.close();
     s.el.querySelector('form').onsubmit = (e) => { e.preventDefault(); const v = num(e.target.v.value); if (!isFinite(v)) return; s.dispose(); res(v); };
   });
@@ -440,7 +438,7 @@ export function openAccount(id, preset = {}) {
   const curs = [...new Set([...favCurs(), ...db.accounts.map((x) => x.cur), ...allCurrencies()])];
   const s = sheet(`<form id="acct-form">
     <label class="field"><span>Name</span><input name="name" value="${esc(a.name)}" required ${id ? '' : 'autofocus'}></label>
-    <div class="field"><span>Picture</span><input type="hidden" name="icon" value="${isImg(a.icon) ? '' : esc(a.icon || '')}"><button type="button" class="picbtn" id="acct-pic" aria-label="Choose a picture for this account"><i class="badge sm" style="background:${groupColor(a.type)}">${acctPic(a)}</i><span>${a.icon ? (isImg(a.icon) ? 'Your own image' : 'Chosen picture') : 'Automatic'} · tap to change</span></button></div>
+    <div class="field"><span>Picture</span><input type="hidden" name="icon" value="${isImg(a.icon) ? '' : esc(a.icon || '')}">${button({ html: `<i class="badge sm" style="background:${groupColor(a.type)}">${acctPic(a)}</i><span>${a.icon ? (isImg(a.icon) ? 'Your own image' : 'Chosen picture') : 'Automatic'} · tap to change</span>`, kind: 'plain', cls: 'picbtn', id: 'acct-pic', aria: 'Choose a picture for this account' })}</div>
     <label class="field"><span>Exchange or platform (optional)</span><select name="exchange" data-keep="${esc(exchangeOf(a))}">${(() => { const cur = exchangeOf(a), pn = platformNames(), all = [...new Set([...(cur ? [cur] : []), ...pn.used])]; return `<option value="">None</option><optgroup label="Yours">${all.map((x) => `<option value="${esc(x)}" ${x === cur ? 'selected' : ''}>${esc(x)}</option>`).join('')}</optgroup><optgroup label="Popular">${pn.popular.map((x) => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}</optgroup>`; })()}</select></label>
     <label class="field" id="walletf" ${exchangeOf(a) ? '' : 'hidden'}><span>Trading Account Inside the Platform</span><select name="wallet">${[...new Set([...WALLETS, ...Object.values(db.settings.acctTypes || {}).flat(), ...db.accounts.map((x) => x.wallet).filter(Boolean)])].map((w) => `<option value="${esc(w)}" ${(a.wallet || 'Spot') === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select><small class="muted" id="wallet-h">One coin can sit in several trading accounts, for example USDT in Spot and USDT in Earn. Each keeps its own balance.</small></label>
     <div class="two"><label class="field"><span>Currency</span><input type="hidden" name="cur" value="${esc(a.cur)}"><button type="button" class="curbtn wide" data-act="acct-cur" ${used ? 'disabled' : ''}>${curIcon(a.cur)} ${esc(a.cur)} ▾</button></label>
@@ -449,22 +447,22 @@ export function openAccount(id, preset = {}) {
     <label class="field"><span>Opening Date ${tipBtn('opendate')}</span><input name="openDate" type="date" value="${esc(openDateOf(a))}"></label></div>
     <p class="hint" id="open-h"></p>
     <div id="cardfields" ${a.type === 'card' ? '' : 'hidden'}>
-      <label class="field"><span>Credit limit</span><input name="limit" inputmode="decimal" value="${a.limit || ''}" placeholder="e.g. 50000"></label>
-      <div class="two"><label class="field"><span>Statement closes on day</span><input name="stmtDay" inputmode="numeric" value="${a.stmtDay || ''}" placeholder="1–31"></label>
-      <label class="field"><span>Payment due on day</span><input name="dueDay" inputmode="numeric" value="${a.dueDay || ''}" placeholder="1–31"></label></div>
+      ${textField({ label: 'Credit limit', name: 'limit', inputmode: 'decimal', value: a.limit || '', placeholder: 'e.g. 50000' })}
+      <div class="two">${textField({ label: 'Statement closes on day', name: 'stmtDay', inputmode: 'numeric', value: a.stmtDay || '', placeholder: '1–31' })}
+      ${textField({ label: 'Payment due on day', name: 'dueDay', inputmode: 'numeric', value: a.dueDay || '', placeholder: '1–31' })}</div>
       <p class="hint">Sukli shows a banner on Home when the payment is near, and can give you calendar reminders (.ics) from the account page.</p></div>
     <p class="hint" id="earnnote" hidden>Exchanges pay interest on coins in <b>Earn</b>, not in Spot. To earn interest, move this coin to an Earn account with an Internal Transfer (the + menu), and set the rate on that account.</p>
     <div id="intfields" class="${(+a.apy > 0 || (a.promos || []).length || (a.rates || []).length) ? 'keep' : 'adv-only'}" ${isLiability(a) ? 'hidden' : ''}><div class="field"><span>Interest (optional) ${tipBtn('rate')}${tipBtn('start')}${tipBtn('tax')}</span>
       <small class="hint">For Maya Savings, Binance Earn and the like. Sukli adds one small entry a day (Interest, or Crypto earned for crypto accounts) based on that day’s balance. It is an estimate, so set the rate your app shows.</small></div>
-      <div class="two ifld"><label class="field"><span>Rate (% a year)</span><input name="apy" inputmode="decimal" value="${a.apy || ''}" placeholder="0" aria-label="Yearly interest percent"></label>
-      <label class="field"><span>Starts on</span><input name="interestFrom" type="date" value="${esc(a.interestFrom || today())}" aria-label="Start date"></label></div>
-      <div class="two ifld"><label class="field"><span>Tax on interest (%)</span><input name="taxPct" inputmode="decimal" value="${interestTaxPct(a)}" placeholder="0" aria-label="Tax withheld on interest percent"></label>
+      <div class="two ifld"><label class="field"><span>Rate (% a year)</span><input name="apy" inputmode="decimal" value="${a.apy || ''}" placeholder="0" aria-label="Yearly interest percent" ${a.exchange && walletOf(a) === 'Earn' ? 'readonly' : ''}></label>
+      ${textField({ label: 'Starts on', name: 'interestFrom', type: 'date', value: a.interestFrom || today(), aria: 'Start date' })}</div>
+      <div class="two ifld">${textField({ label: 'Tax on interest (%)', name: 'taxPct', inputmode: 'decimal', value: interestTaxPct(a), placeholder: '0', aria: 'Tax withheld on interest percent' })}
       <label class="field"><span>Added to balance ${tipBtn('compounding')}</span><select name="compound" aria-label="Compounding">${Object.entries(COMP_LABEL).map(([v, l]) => `<option value="${v}" ${(a.compound || 'daily') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
       <label class="field" id="f-intto" ${a.exchange ? '' : 'hidden'}><span>Interest Is Received In</span><select name="interestTo" aria-label="Where interest is received"><option value="" ${a.interestTo === 'spot' ? '' : 'selected'}>This account (stays in ${esc(a.wallet || 'Earn')})</option><option value="spot" ${a.interestTo === 'spot' ? 'selected' : ''}>Spot (same coin on this platform)</option></select><small class="hint">Most exchanges pay Earn interest straight to Spot. Pick where it really arrives. Interest paid to Spot does not grow this Earn balance.</small></label>
       <small class="hint">Local banks withhold tax on interest before crediting it (usually 20%), so only the rest is added. Use 0 for e-wallets, crypto or anything that pays gross. It applies to interest added from now on.</small>
-      <p class="hint" id="aprnote" ${a.exchange && walletOf(a) === 'Earn' ? '' : 'hidden'}>For Earn, rate changes are kept by the hour (date and exact time) in Subscription Settings, under APR History. Earnings are worked out again from the moment a rate changes.</p>
-      <div class="field tiphost" id="ratefld" ${a.exchange && walletOf(a) === 'Earn' && !(a.rates || []).length ? 'hidden' : ''}><span>When the rate changes ${tipBtn('ratechange')}</span><div data-rows="rc">${(a.rates || []).map(rateRow).join('')}</div><button type="button" class="linkbtn addrow" data-add-row="rc">Add a rate change</button></div>
-      <div class="field tiphost"><span>Promotional rates ${tipBtn('promo')}</span><div data-rows="pr">${(a.promos || []).map(promoRow).join('')}</div><button type="button" class="linkbtn addrow" data-add-row="pr">Add a promotional rate</button></div>
+      <p class="hint" id="aprnote" ${a.exchange && walletOf(a) === 'Earn' ? '' : 'hidden'}>For Earn, the rate and every rate change are kept by the hour (date and exact time) in Subscription Settings, under APR History. This page shows the same rates; change them there. Earnings are worked out again from the moment a rate changes.</p>
+      <div class="field tiphost" id="ratefld" ${a.exchange && walletOf(a) === 'Earn' ? 'hidden' : ''}><span>When the rate changes ${tipBtn('ratechange')}</span><div data-rows="rc">${(a.rates || []).map(rateRow).join('')}</div>${button({ label: 'Add a rate change', kind: 'link', cls: 'addrow', attr: { 'data-add-row': 'rc' } })}</div>
+      <div class="field tiphost"><span>Promotional rates ${tipBtn('promo')}</span><div data-rows="pr">${(a.promos || []).map(promoRow).join('')}</div>${button({ label: 'Add a promotional rate', kind: 'link', cls: 'addrow', attr: { 'data-add-row': 'pr' } })}</div>
       ${calcHtml(a.compound || 'monthly')}</div>
     <div id="debtfields" ${isLiability(a) ? '' : 'hidden'}>${debtInt(a)}</div>
     <p class="hint" id="liabnote" hidden>Debts do not earn interest. Record interest charges, late fees and penalties from the account page with “Add charge”.</p>
@@ -472,10 +470,10 @@ export function openAccount(id, preset = {}) {
     <label class="check"><input type="checkbox" name="invtab" ${a.invtab || ['crypto', 'invest'].includes(a.type) ? 'checked' : ''}> Show in the Investments tab (crypto, funds, MP2…)</label>
     ${id ? `<label class="check"><input type="checkbox" name="archived" ${a.archived ? 'checked' : ''}> Hide this account (archive)</label>` : ''}
     ${used ? '<p class="hint">Currency is locked because this account has entries.</p>' : ''}
-    <div class="btnrow">${id && !used ? '<button type="button" class="btn danger ghost" data-del>Delete</button>' : ''}<button class="btn">Save</button></div></form>
+    <div class="btnrow">${id && !used ? '<button type="button" class="btn danger ghost" data-del>Delete</button>' : ''}${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>
     ${id ? `<form id="recon" class="recon"><h3>Does the Real Balance Differ?</h3>
       <p class="hint">App says ${money(bal, a.cur)}. Type what your bank or wallet really shows and the app adds one correcting entry.</p>
-      <div class="two"><input name="real" inputmode="decimal" placeholder="Real balance" aria-label="Real balance"><button class="btn ghost">Correct it</button></div></form>` : ''}`,
+      <div class="two"><input name="real" inputmode="decimal" placeholder="Real balance" aria-label="Real balance">${button({ label: 'Correct it', kind: 'ghost', submit: true })}</div></form>` : ''}`,
   { title: id ? 'Edit account' : 'New account' });
   const walletAdd = { title: 'Trading Account', addLabel: 'Add a new trading account', onAdd: async () => { const nm = (await promptDialog('New trading account', '', { okLabel: 'Add', hint: 'For example: Launchpool, Savings, Copy trading' }))?.trim(); if (!nm) return; const sel = s.el.querySelector('select[name=wallet]'); if (![...sel.options].some((o) => o.value.toLowerCase() === nm.toLowerCase())) sel.add(new Option(nm, nm)); sel.value = [...sel.options].find((o) => o.value.toLowerCase() === nm.toLowerCase()).value; sel.dispatchEvent(new Event('change', { bubbles: true })); } };
   s.el.querySelector('select[name=exchange]').addEventListener('change', (e) => { s.el.querySelector('#walletf').hidden = !e.target.value; syncInt(); });
@@ -532,7 +530,8 @@ export function openAccount(id, preset = {}) {
     extra.rates = rcF.map((f, i) => ({ from: f, rate: num(rcR[i]) })).filter((r, i) => r.from && String(rcR[i]).trim() !== '');
     extra.promos = pF.map((f, i) => ({ depFrom: f, depTo: pT[i], rate: num(pR[i]), until: pU[i] || '', lockDays: Math.max(0, Math.round(num(pL[i]))) || 0, lockEnd: pLE[i] || '' })).filter((p) => p.depFrom && p.depTo && p.rate > 0);
     extra.debtInt = fd.has('d-on') ? { on: true, rate: num(fd.get('d-rate')), kind: fd.get('d-kind') || 'effective', comp: fd.get('d-comp') || 'monthly', fromDue: fd.has('d-due'), start: fd.get('d-start') || today(), principal: num(fd.get('d-principal')) } : { on: false };
-    if (isLiability({ type: fd.get('type') }) || spotCrypto()) { extra.apy = 0; extra.rates = []; extra.promos = []; } if (!isLiability({ type: fd.get('type') })) extra.debtInt = { on: false };
+    if (isLiability({ type: fd.get('type') }) || spotCrypto()) { extra.apy = 0; extra.rates = []; extra.promos = []; }
+    if (a.id && a.exchange && walletOf(a) === 'Earn') { extra.apy = a.apy || 0; extra.rates = a.rates || []; }   // Earn rates live in Subscription Settings > APR History if (!isLiability({ type: fd.get('type') })) extra.debtInt = { on: false };
     if (fd.get('type') !== 'card') { extra.limit = 0; extra.stmtDay = 0; extra.dueDay = 0; }
     let retaxed = 0, recalced = 0, redo = null;
     commit((d) => {
@@ -594,8 +593,8 @@ document.addEventListener('change', async (e) => {
 });
 
 // ---- interest fields in the account form ----
-const rateRow = (r = {}) => `<div class="rcline rowline" data-row><label class="field"><span>Changes on</span><input type="date" name="rc-from" value="${esc(r.from || '')}" aria-label="Rate changes on"></label><label class="field"><span>New rate (% a year)</span><input name="rc-rate" inputmode="decimal" value="${r.rate ?? ''}" placeholder="0" aria-label="New yearly rate"></label><button type="button" class="linkbtn rmx" data-rm-row aria-label="Remove this rate change">✕</button></div>`;
-const promoRow = (p = {}) => `<div class="promoline rowline" data-row><div class="two"><label class="field"><span>Deposited from</span><input type="date" name="pr-from" value="${esc(p.depFrom || '')}"></label><label class="field"><span>Deposited to</span><input type="date" name="pr-to" value="${esc(p.depTo || '')}"></label></div><div class="two"><label class="field"><span>Rate (% a year)</span><input name="pr-rate" inputmode="decimal" value="${p.rate ?? ''}" placeholder="0"></label><label class="field"><span>Rate ends on</span><input type="date" name="pr-until" value="${esc(p.until || '')}"></label></div><div class="two"><label class="field"><span>Lock (days after deposit)</span><input name="pr-lock" inputmode="numeric" value="${p.lockDays || ''}" placeholder="0 = none"></label><label class="field"><span>Or locked until</span><input type="date" name="pr-lockend" value="${esc(p.lockEnd || '')}"></label></div><button type="button" class="linkbtn rmx" data-rm-row>Remove this promotional rate</button></div>`;
+const rateRow = (r = {}) => `<div class="rcline rowline" data-row>${textField({ label: 'Changes on', type: 'date', name: 'rc-from', value: r.from || '', aria: 'Rate changes on' })}${textField({ label: 'New rate (% a year)', name: 'rc-rate', inputmode: 'decimal', value: r.rate ?? '', placeholder: '0', aria: 'New yearly rate' })}${button({ label: '✕', kind: 'link', cls: 'rmx', aria: 'Remove this rate change', attr: { 'data-rm-row': true } })}</div>`;
+const promoRow = (p = {}) => `<div class="promoline rowline" data-row><div class="two">${textField({ label: 'Deposited from', type: 'date', name: 'pr-from', value: p.depFrom || '' })}${textField({ label: 'Deposited to', type: 'date', name: 'pr-to', value: p.depTo || '' })}</div><div class="two">${textField({ label: 'Rate (% a year)', name: 'pr-rate', inputmode: 'decimal', value: p.rate ?? '', placeholder: '0' })}${textField({ label: 'Rate ends on', type: 'date', name: 'pr-until', value: p.until || '' })}</div><div class="two">${textField({ label: 'Lock (days after deposit)', name: 'pr-lock', inputmode: 'numeric', value: p.lockDays || '', placeholder: '0 = none' })}${textField({ label: 'Or locked until', type: 'date', name: 'pr-lockend', value: p.lockEnd || '' })}</div>${button({ label: 'Remove this promotional rate', kind: 'link', cls: 'rmx', attr: { 'data-rm-row': true } })}</div>`;
 function debtInt(a) {
   const D = a.debtInt || {};
   return `<div class="field tiphost"><label class="check"><input type="checkbox" name="d-on" ${D.on ? 'checked' : ''}> This debt charges interest when the deadline passes ${tipBtn('debt')}</label>
@@ -617,7 +616,7 @@ export function openInterestDetail(t) {
   const s = sheet(`<div class="facts three"><div><span>Interest</span><b>${money(gross, a.cur)}</b></div><div><span>Tax ${pct}%</span><b class="cr">${money(t.tax || 0, a.cur)}</b></div><div><span>Credited</span><b class="cg">${money(t.amount, a.cur)}</b></div></div>
     <p class="hint">${esc(a.name)} · ${esc(String(t.date).slice(0, 10))}. Current tax rate for this account: <b>${interestTaxPct(a)}%</b>. Changing it recalculates every interest entry this account has earned.</p>
     <label class="amtwrap sm"><input id="it-pct" inputmode="decimal" value="${interestTaxPct(a)}" aria-label="Tax percent"><b>% tax on interest</b></label>
-    <div class="btnrow"><button class="btn ghost" data-close2>Close</button><button class="btn" data-go>Apply to all</button></div>`, { title: 'Interest Details' });
+    <div class="btnrow">${button({ label: 'Close', kind: 'ghost', attr: { 'data-close2': true } })}${button({ label: 'Apply to all', kind: 'primary', attr: { 'data-go': true } })}</div>`, { title: 'Interest Details' });
   s.el.querySelector('[data-close2]').onclick = () => s.close();
   s.el.querySelector('[data-go]').onclick = () => { const p = Math.min(100, Math.max(0, parseFloat(s.el.querySelector('#it-pct').value) || 0)); let n = 0; commit((d) => { const x = d.accounts.find((q) => q.id === a.id); x.taxPct = p; stamp(x); n = retaxInterest(d, a.id, p); }); s.close(); toast(`Tax rate ${p}%: ${n} ${n === 1 ? 'entry' : 'entries'} updated.`); };
   return true;

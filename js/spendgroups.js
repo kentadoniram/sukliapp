@@ -73,7 +73,7 @@ const RANGES = [['month', 'This month'], ['last', 'Last month'], ['3m', '3 month
 
 export function spend(db) {
   const key = ui.spendRange || 'month', { res, range, spentAll, onTrips, counted, countedAll } = spendReport(db, key), groups = groupsOf(db);
-  const chips = `<div class="chips" role="group" aria-label="Period">${RANGES.map(([k, l]) => `<button type="button" class="chip ${key === k ? 'on' : ''}" data-act="spend-range" data-k="${k}" aria-pressed="${key === k}">${l}</button>`).join('')}</div>`;
+  const chips = `<div class="chips" role="group" aria-label="Period">${RANGES.map(([k, l]) => `${button({ html: `${l}`, kind: 'chip', cls: `${key === k ? 'on' : ''}`, act: 'spend-range', pressed: key === k, attr: { 'data-k': k } })}`).join('')}</div>`;
   let body;
   if (!countedAll) {
     body = `<section class="card"><h2>How It Works</h2>
@@ -96,7 +96,7 @@ export function spend(db) {
   const used = new Set(live(db.txs).flatMap((t) => (t.counts || []).map((c) => c.g)));
   const mine = Object.keys(groups);
   body += `<section class="card"><h2>Groups</h2><p class="hint">Make groups by price level, for example drinks and ready meals apart, because that is what lets Sukli tell them apart.</p>
-    <div class="chips">${mine.map((g) => `<span class="chip">${esc(g)}${groups[g].unit === 'kg' ? ' (kg)' : ''}${used.has(g) ? '' : ` <button type="button" class="iconbtn" data-act="spend-del" data-g="${esc(g)}" aria-label="Remove ${esc(g)}">${ic('x')}</button>`}</span>`).join('')}</div></section>`;
+    <div class="chips">${mine.map((g) => `<span class="chip">${esc(g)}${groups[g].unit === 'kg' ? ' (kg)' : ''}${used.has(g) ? '' : ` ${button({ html: `${ic('x')}`, kind: 'plain', cls: 'iconbtn', act: 'spend-del', aria: `Remove ${g}`, attr: { 'data-g': g } })}`}</span>`).join('')}</div></section>`;
   return `${hdr('Spending by Group')}<main class="page" id="spendpage">${chips}${body}</main>`;
 }
 

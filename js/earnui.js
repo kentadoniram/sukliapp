@@ -1,12 +1,13 @@
 // The Earn schedule window of an Earn account: settings, subscriptions, today's hours and the daily history. Times follow each platform’s own clock.
-import { get, commit, stamp, fmt, CUR, walletOf } from './core.js';
+import { get, commit, commitQuiet, stamp, fmt, CUR, walletOf } from './core.js';
 import { esc, sheet, toast, ACT } from './ui.js';
 import { button, textField } from './components.js';
-import { apyHistOf, apyAt, dayHours, cfgOf, e8, e8Ms, e8Label, logOf, subscriptions, H, runEarn, tzOf, tzName, earnStartOf, defaultFrom } from './earn.js';
+import { syncEarnRates, apyHistOf, apyAt, dayHours, cfgOf, e8, e8Ms, e8Label, logOf, subscriptions, H, runEarn, tzOf, tzName, earnStartOf, defaultFrom } from './earn.js';
 const dec = (cur) => Math.max(2, Math.min(8, (CUR[cur] || { dec: 8 }).dec));
 const num = (n, cur) => fmt(n, cur);
 export function openEarn(id, focus = '') {
   let pick = '09:00';
+  commitQuiet((d) => { syncEarnRates(d); });   // adopt any rate typed on the account page, so both views agree
   const s = sheet('<div id="ew"></div>', { title: 'Subscription Settings', wide: true }), root = s.el.querySelector('#ew'), open = new Set();
   const set = (patch) => { commit((d) => { const x = d.accounts.find((q) => q.id === id); x.earn = { ...(x.earn || {}), ...patch }; stamp(x); if (x.earn.on) runEarn(d); }); draw(); };
   // APR history: every rate with the exact time it took effect (the platform's clock), how long it lasted, and what it earned
@@ -50,7 +51,7 @@ export function openEarn(id, focus = '') {
       const at = first ? 0 : atOf();
       commit((d) => { const x = d.accounts.find((q) => q.id === id), e = (x.earn = { ...(x.earn || {}) }); let h = apyHistOf(e); if (!h.length && e.apy > 0) h = [{ at: 0, apy: +e.apy }];
         if (idx != null) h[idx] = { at, apy }; else h.push({ at, apy });
-        h.sort((p, q) => p.at - q.at); e.apyHist = h; e.apy = h.filter((y) => y.at <= Date.now()).pop() ? h.filter((y) => y.at <= Date.now()).pop().apy : h[0].apy; stamp(x); if (e.on) runEarn(d); });
+        h.sort((p, q) => p.at - q.at); e.apyHist = h; e.apy = h.filter((y) => y.at <= Date.now()).pop() ? h.filter((y) => y.at <= Date.now()).pop().apy : h[0].apy; syncEarnRates(d); stamp(x); if (e.on) runEarn(d); });
       sh.close(); draw(); toast('Saved. Earnings from that time were worked out again.'); };
   };
   const draw = () => {
@@ -95,7 +96,7 @@ export function openEarn(id, focus = '') {
   if (focus === 'apr') setTimeout(() => { const t = root.querySelector('#aprhist'); if (t) t.scrollIntoView({ block: 'start' }); }, 60);
   root.addEventListener('change', (e) => { const k = e.target.dataset.ew; if (!k) return; const v = e.target.value;
     if (k === 'apy') { const nv = Math.max(0, parseFloat(v) || 0); commit((d) => { const x = d.accounts.find((q) => q.id === id), e = (x.earn = { ...(x.earn || {}) }); let h = apyHistOf(e); if (!h.length && e.apy > 0) h = [{ at: 0, apy: +e.apy }];
-        if ((h.length ? h[h.length - 1].apy : 0) !== nv || !h.length) h.push({ at: h.length ? Date.now() : 0, apy: nv }); e.apyHist = h; e.apy = nv; stamp(x); if (e.on) runEarn(d); }); return draw(); }
+        if ((h.length ? h[h.length - 1].apy : 0) !== nv || !h.length) h.push({ at: h.length ? Date.now() : 0, apy: nv }); e.apyHist = h; e.apy = nv; syncEarnRates(d); stamp(x); if (e.on) runEarn(d); }); return draw(); }
     if (k === 'firstLagH') return set({ [k]: Math.max(0, parseInt(v, 10) || 0) });
     if (k === 'from') return set({ from: v });
     if (k === 'payTo') return set({ payTo: v === 'earn' ? 'earn' : 'spot' });
@@ -105,7 +106,7 @@ export function openEarn(id, focus = '') {
   root.addEventListener('click', (e) => { const b = e.target.closest('button[data-ew]'); if (!b) return; const k = b.dataset.ew, c = cfgOf(get().accounts.find((x) => x.id === id));
     if (k === 'aprAdd') return aprSheet(null);
     if (k === 'aprEdit') return aprSheet(+b.dataset.v);
-    if (k === 'aprDel') { const i = +b.dataset.v; commit((d) => { const x = d.accounts.find((q) => q.id === id), e = x.earn; const h = apyHistOf(e); h.splice(i, 1); if (h.length) h[0] = { at: 0, apy: h[0].apy }; e.apyHist = h; e.apy = h.filter((y) => y.at <= Date.now()).pop() ? h.filter((y) => y.at <= Date.now()).pop().apy : (h[0] ? h[0].apy : 0); stamp(x); if (e.on) runEarn(d); }); return draw(); }
+    if (k === 'aprDel') { const i = +b.dataset.v; commit((d) => { const x = d.accounts.find((q) => q.id === id), e = x.earn; const h = apyHistOf(e); h.splice(i, 1); if (h.length) h[0] = { at: 0, apy: h[0].apy }; e.apyHist = h; e.apy = h.filter((y) => y.at <= Date.now()).pop() ? h.filter((y) => y.at <= Date.now()).pop().apy : (h[0] ? h[0].apy : 0); syncEarnRates(d); stamp(x); if (e.on) runEarn(d); }); return draw(); }
     if (k === 'day') { open.has(b.dataset.v) ? open.delete(b.dataset.v) : open.add(b.dataset.v); draw(); }
     if (k === 'suby') return set({ subOn: true });
     if (k === 'subn') return set({ subOn: false });

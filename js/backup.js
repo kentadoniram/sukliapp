@@ -1,6 +1,6 @@
 // Local backup reminder. A web page cannot save files by itself, so Sukli reminds you at the time you choose
 // (when the app is open) and one tap downloads the backup. Turning the app into an Android app later can make this automatic.
-import { button } from './components.js';
+import { button, textField } from './components.js';
 import { get, commitQuiet } from './core.js';
 import { ACT, esc } from './ui.js';
 
@@ -45,5 +45,5 @@ export const backupSection = (db) => {
   const c = backupCfg(db), last = db.settings.lastLocalBackup;
   return `<section><h2>Backup Reminder</h2><p class="hint">${last ? 'Last download: ' + esc(new Date(last).toLocaleString()) + '. ' : 'No backup downloaded yet. '}A reminder appears when the app is open after the time you choose.</p>
     <div class="bkrow"><label class="field inline"><span>Remind me</span><select data-bk="mode">${[['daily', 'Every day'], ['weekly', 'Every week'], ['off', 'Never']].map(([v, l]) => `<option value="${v}" ${c.mode === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-    <label class="field inline"><span>At</span><input type="time" data-bk="time" value="${esc(c.time)}" data-noclear="1"></label></div></section>`;
+    ${textField({ label: 'At', type: 'time', value: c.time, cls: 'inline', attr: { 'data-bk': 'time', 'data-noclear': '1' } })}</div></section>`;
 };

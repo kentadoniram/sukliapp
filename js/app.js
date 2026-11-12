@@ -14,7 +14,7 @@ import { openEntry } from './entry.js';
 import { calendar, budget, cashflow, categories, outlook } from './views.js';
 import { ACT, ic, toast, $ } from './ui.js';
 import { initAppearance, applyHide, applyLook } from './appearance.js';
-import { runEarn, earnDue } from './earn.js';
+import { runEarn, earnDue, syncEarnRates } from './earn.js';
 import { postInterest, postDebtInterest, hasDebtInt } from './finance.js';
 import { hasRate } from './interest.js';
 import { ratesInit } from './rates.js';
@@ -66,7 +66,7 @@ function tabs(route) {
   const t = ids.map((id) => [id, TAB_DEFS[id][0], TAB_DEFS[id][1]]); t.splice(half, 0, null);
   const n = reviewCount(get());
   return t.map((x) => x === null
-    ? `<button class="fab${route === 'invest' ? ' inv' : ''}" data-act="add" aria-label="Add an entry">${ic('plus')}</button>`
+    ? `${button({ html: `${ic('plus')}`, kind: 'plain', cls: `fab${route === 'invest' ? ' inv' : ''}`, act: 'add', aria: 'Add an entry' })}`
     : `<a href="#/${x[0]}" class="${route === x[0] ? 'on' : ''}" ${route === x[0] ? 'aria-current="page"' : ''}>${ic(x[2])}<span>${x[1]}</span>${x[0] === 'home' && n ? `<em class="dot" aria-label="${n} to check"></em>` : ''}</a>`).join('');
 }
 
@@ -117,6 +117,7 @@ export function showLatest() {
 // post any interest days that have passed (no-op unless an account has a rate)
 function runInterest() {
   let n = 0;
+  commitQuiet((d) => { syncEarnRates(d); });
   if (earnDue(get())) commitQuiet((d) => { const m = runEarn(d); n += m.subs + m.hours + m.days; });
   if (!get().accounts.some((a) => !a.deleted && (hasRate(a) || hasDebtInt(a)))) return n;
   commitQuiet((d) => { n += postInterest(d).length + postDebtInterest(d).length; });

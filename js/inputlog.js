@@ -3,6 +3,7 @@
 import { get, commit, stamp, accountMap, catMap, fmt, HOME, restoreRec, softDelete } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { openEntry } from './entry.js';
+import { button } from './components.js';
 
 const st = { f: 'all', limit: 40 };
 const day = (ms) => new Date(ms - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -24,16 +25,16 @@ export function inputHistory(db) {
     const a = am.get(t.acct), c = cm.get(t.cat), g = t.date ? gap(t) : 0, old = !t.deleted && !t.src && Math.abs(g) > 31;
     const amt = t.kind === 'transfer' ? fmt(t.amount, t.cur) : fmt(t.kind === 'income' ? t.amount : -t.amount, t.cur);
     const how = t.deleted ? 'Deleted' : t.src ? 'Imported' : t.rev && t.rev.length ? 'Edited' : 'Added';
-    html += `<div class="ihrow ${old ? 'odd' : ''}"><button type="button" class="row ihmain" data-act="ih-edit" data-id="${t.id}"><i class="badge sm" style="background:var(--line)">${esc(how[0])}</i>
+    html += `<div class="ihrow ${old ? 'odd' : ''}">${button({ html: `<i class="badge sm" style="background:var(--line)">${esc(how[0])}</i>
       <span class="rmain"><strong>${esc(t.name || (c && c.name) || (t.kind === 'transfer' ? 'Transfer' : 'Entry'))}</strong>
       <small>${esc(how)} ${esc(when(t.deleted ? t.deletedAt || t.updatedAt : t.updatedAt))} · dated <b>${esc((t.date || '').slice(0, 10))}</b>${a ? ' · ' + esc(a.name) : ''}</small>
-      ${old ? `<small class="ihwarn">Unusual date: ${esc(label(g))}</small>` : ''}</span><span class="ramt"><b>${amt}</b></span></button>
-      <div class="ihact">${t.deleted ? `<button type="button" class="linkbtn" data-act="ih-restore" data-id="${t.id}">Restore</button>` : ''}${!t.deleted && t.rev && t.rev.length ? `<button type="button" class="linkbtn" data-act="ih-revert" data-id="${t.id}">Put back the earlier version (${esc((t.rev[0].date || '').slice(0, 10))}, ${fmt(t.rev[0].kind === 'income' || t.rev[0].kind === 'transfer' ? t.rev[0].amount : -t.rev[0].amount, t.rev[0].cur || t.cur)})</button>` : ''}</div></div>`;
+      ${old ? `<small class="ihwarn">Unusual date: ${esc(label(g))}</small>` : ''}</span><span class="ramt"><b>${amt}</b></span>`, kind: 'plain', cls: 'row ihmain', act: 'ih-edit', attr: { 'data-id': t.id } })}
+      <div class="ihact">${t.deleted ? `${button({ label: 'Restore', kind: 'link', act: 'ih-restore', attr: { 'data-id': t.id } })}` : ''}${!t.deleted && t.rev && t.rev.length ? `${button({ html: `Put back the earlier version (${esc((t.rev[0].date || '').slice(0, 10))}, ${fmt(t.rev[0].kind === 'income' || t.rev[0].kind === 'transfer' ? t.rev[0].amount : -t.rev[0].amount, t.rev[0].cur || t.cur)})`, kind: 'link', act: 'ih-revert', attr: { 'data-id': t.id } })}` : ''}</div></div>`;
   }
   const chips = [['all', 'All'], ['odd', 'Odd dates'], ['edited', 'Edited'], ['deleted', 'Deleted']];
   return `<p class="hint">Listed by when you typed them in. “Odd dates” are entries dated far from the day they were typed in, like a wrong year.</p>
-    <div class="filters" role="group" aria-label="Show">${chips.map(([v, l]) => `<button type="button" class="chip ${st.f === v ? 'on' : ''}" data-act="ih-filter" data-v="${v}">${l}</button>`).join('')}</div>
-    <div id="ihlist">${html || '<p class="empty">Nothing here.</p>'}</div>${list.length > shown.length ? `<button class="btn ghost wide" data-act="ih-more">Show more (${list.length - shown.length} left)</button>` : ''}`;
+    <div class="filters" role="group" aria-label="Show">${chips.map(([v, l]) => `${button({ html: `${l}`, kind: 'chip', cls: `${st.f === v ? 'on' : ''}`, act: 'ih-filter', attr: { 'data-v': v } })}`).join('')}</div>
+    <div id="ihlist">${html || '<p class="empty">Nothing here.</p>'}</div>${list.length > shown.length ? `${button({ html: `Show more (${list.length - shown.length} left)`, kind: 'ghost', cls: 'wide', act: 'ih-more' })}` : ''}`;
 }
 let sh = null;
 const redraw = () => { if (sh && sh.el.isConnected) sh.el.innerHTML = inputHistory(get()); };

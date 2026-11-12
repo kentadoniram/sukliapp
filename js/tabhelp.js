@@ -15,7 +15,7 @@ export const HELP = {
   owed: ['Owed to you', 'Money other people owe you.', ['Record lending with + then Lent then “I lent money”.', 'When they pay, use “They paid me back”. It is not income.', 'Lent money is not counted as spending.'], 'Tap Change on a person to set the date you expect it back. It is only a reminder for you.'],
 };
 const key = () => (location.hash.replace(/^#\/?/, '').split(/[?/]/)[0] || 'home');
-export const helpBtn = () => (HELP[key()] && appMode(get()) === 'simple' ? `<button type="button" class="iconbtn helpbtn" data-act="tab-help" aria-label="Help for this page">?</button>` : '');
+export const helpBtn = () => (HELP[key()] && appMode(get()) === 'simple' ? `${button({ label: '?', kind: 'plain', cls: 'iconbtn helpbtn', act: 'tab-help', aria: 'Help for this page' })}` : '');
 ACT['tab-help'] = () => {
   const h = HELP[key()]; if (!h) return;
   sheet(`<p><b>${esc(h[1])}</b></p><ul class="helplist">${h[2].map((x) => `<li>${esc(x)}</li>`).join('')}</ul><p class="hint"><b>Tip:</b> ${esc(h[3])}</p><div class="btnrow left">${button({ label: 'Words explained', kind: 'link', act: 'glossary' })}</div>`, { title: h[0] + ': help' });

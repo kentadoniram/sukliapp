@@ -31,7 +31,7 @@ export async function pickOnMap(pt) {
     const s = sheet(`<p class="hint">Tap the map to put the pin on a place, or drag the pin. Saved as about 1 km, like your other places.</p>
       <div id="mp-map" class="mpmap" role="application" aria-label="Map"></div>
       <p class="hint" id="mp-txt"></p>
-      <div class="btnrow">${button({ label: 'Where I Am', kind: 'ghost', attr: { 'data-mp': 'me' } })}<button type="button" class="btn" data-mp="use" disabled>Use This Place</button></div>`,
+      <div class="btnrow">${button({ label: 'Where I Am', kind: 'ghost', attr: { 'data-mp': 'me' } })}${button({ label: 'Use This Place', kind: 'primary', disabled: true, attr: { 'data-mp': 'use' } })}</div>`,
       { title: 'Pick a Place', wide: true, onClose: () => { if (!done) resolve(null); } });
     const el = s.el.querySelector('#mp-map'), txt = s.el.querySelector('#mp-txt'), use = s.el.querySelector('[data-mp=use]'), st = startPoint(get(), chosen);
     const map = L.map(el, { zoomControl: true }).setView([st.p.la, st.p.lo], st.z);

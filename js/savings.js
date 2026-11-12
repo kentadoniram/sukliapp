@@ -6,7 +6,7 @@
 import { get, commit, stamp, balances, softDelete, fmt, HOME, uid, homeFx, nowStamp, groupColor } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { hdr, coll } from './screens.js';
-import { button } from './components.js';
+import { button, textField } from './components.js';
 import { openDatePicker } from './datepicker.js';
 import { picHtml, isImg } from './pictures.js';
 import { goalOutlook, goalReminders } from './goalcheck.js';
@@ -63,7 +63,7 @@ const card = (db, g) => {
     <p class="goalnum"><b>${money(s.saved)}</b> of ${money(s.target)} · ${Math.round(s.pct)}%${s.reached ? ' · Reached!' : ''}</p>
     <ul class="calfacts">${facts.join('')}</ul>
     ${check}
-    <div class="btnrow tight">${s.linked ? `<span class="hint">Progress follows the balance of ${esc(s.acct.name)}.</span>` : `<button type="button" class="btn sm" data-act="goal-add" data-id="${g.id}">Add Money</button><button type="button" class="btn sm ghost" data-act="goal-take" data-id="${g.id}">Take Out</button><button type="button" class="linkbtn" data-act="goal-hist" data-id="${g.id}">History</button>`}
+    <div class="btnrow tight">${s.linked ? `<span class="hint">Progress follows the balance of ${esc(s.acct.name)}.</span>` : `${button({ label: 'Add Money', kind: 'primary', size: 'sm', act: 'goal-add', attr: { 'data-id': g.id } })}${button({ label: 'Take Out', kind: 'ghost', size: 'sm', act: 'goal-take', attr: { 'data-id': g.id } })}${button({ label: 'History', kind: 'link', act: 'goal-hist', attr: { 'data-id': g.id } })}`}
       ${s.reached ? `${button({ label: 'Mark as Done', kind: 'ghost', size: 'sm', act: 'goal-done', attr: { 'data-id': g.id } })}` : ''}</div></div>`;
 };
 export function savings(db) {
@@ -94,17 +94,17 @@ function openGoal(id, name = '') {
     q('#g-startrow').hidden = !!g.acct;
   };
   const s = sheet(`<form novalidate>
-    <label class="field"><span>What are you saving for?</span><input name="n" autocomplete="off" autocapitalize="words" value="${esc(g.name)}" placeholder="e.g. Japan Trip, Laptop, House" autofocus></label>
+    ${textField({ label: 'What are you saving for?', name: 'n', value: g.name, placeholder: 'e.g. Japan Trip, Laptop, House', attr: { 'autocapitalize': 'words', 'autofocus': true } })}
     ${old ? '' : `<div class="chips">${IDEAS.map(([n]) => `${button({ label: n, kind: 'chip', attr: { 'data-idea': n } })}`).join('')}</div>`}
-    <div class="field"><span>Picture</span><button type="button" class="picbtn" id="g-pic" aria-label="Choose a picture for this goal"></button></div>
+    <div class="field"><span>Picture</span>${button({ label: ``, kind: 'plain', cls: 'picbtn', id: 'g-pic', aria: 'Choose a picture for this goal' })}</div>
     <label class="field"><span>Target amount (${esc(HOME)})</span><input name="t" inputmode="decimal" autocomplete="off" value="${g.target ? g.target : ''}" placeholder="0.00"></label>
     <div class="field"><span>Short or long term</span><div class="chips" data-term>${button({ label: 'Short-term (within a year)', kind: 'chip', v: 'short' })}${button({ label: 'Long-term', kind: 'chip', v: 'long' })}</div></div>
-    <div class="field"><span>Target date (optional)</span><div class="btnrow tight"><button type="button" class="btn ghost sm" data-due></button><button type="button" class="btn ghost sm" data-nodue>No date</button></div></div>
+    <div class="field"><span>Target date (optional)</span><div class="btnrow tight">${button({ label: ``, kind: 'ghost', size: 'sm', attr: { 'data-due': true } })}${button({ label: 'No date', kind: 'ghost', size: 'sm', attr: { 'data-nodue': true } })}</div></div>
     <label class="field"><span>Follow an account (optional)</span><select name="a"><option value="">No, I add money myself</option>${accts.map((a) => `<option value="${a.id}" ${g.acct === a.id ? 'selected' : ''}>${esc(a.name)} (${esc(a.cur)})</option>`).join('')}</select></label>
     <p class="hint">If you follow an account, progress is that account's balance. Otherwise you add and take out money by hand.</p>
     <label class="field" id="g-startrow"><span>Already saved (optional)</span><input name="s" inputmode="decimal" autocomplete="off" value="${g.start || ''}" placeholder="0.00"></label>
     ${old ? button({ label: 'Remove This Goal', kind: 'danger-link', attr: { 'data-del': true } }) : ''}
-    <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}<button class="btn">Save</button></div></form>`, { title: old ? 'Edit Goal' : 'New Goal' });
+    <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>`, { title: old ? 'Edit Goal' : 'New Goal' });
   const q = (sel) => s.el.querySelector(sel), form = q('form');
   draw();
   s.el.addEventListener('click', async (e) => {
@@ -136,9 +136,9 @@ function openMoney(id, sign) {
   const g = live(get().goals).find((x) => x.id === id); if (!g) return; let date = todayStr();
   const s = sheet(`<form novalidate><p class="hint">${sign > 0 ? 'Money you put aside for this goal.' : 'Money you took out of this goal.'} This only changes the goal's progress. It does not move money between your accounts.</p>
     <label class="field"><span>Amount (${esc(HOME)})</span><input name="a" inputmode="decimal" autocomplete="off" placeholder="0.00" autofocus></label>
-    <div class="field"><span>Date</span><button type="button" class="btn ghost sm" data-date></button></div>
-    <label class="field"><span>Note (optional)</span><input name="n" autocomplete="off"></label>
-    <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">${sign > 0 ? 'Add' : 'Take Out'}</button></div></form>`, { title: `${sign > 0 ? 'Add Money to' : 'Take Money from'} ${g.name}` });
+    <div class="field"><span>Date</span>${button({ label: ``, kind: 'ghost', size: 'sm', attr: { 'data-date': true } })}</div>
+    ${textField({ label: 'Note (optional)', name: 'n' })}
+    <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}${button({ html: `${sign > 0 ? 'Add' : 'Take Out'}`, kind: 'primary', submit: true })}</div></form>`, { title: `${sign > 0 ? 'Add Money to' : 'Take Money from'} ${g.name}` });
   const form = s.el.querySelector('form'), dateBtn = s.el.querySelector('[data-date]'), draw = () => { dateBtn.textContent = niceDate(date); }; draw();
   dateBtn.onclick = () => openDatePicker(date + ' 00:00:00', (v) => { date = v.slice(0, 10); draw(); }, { time: false, title: 'Date' });
   s.el.querySelector('[data-no]').onclick = () => s.close();
@@ -153,7 +153,7 @@ ACT['goal-take'] = (el) => openMoney(el.dataset.id, -1);
 ACT['goal-hist'] = (el) => {
   const g = live(get().goals).find((x) => x.id === el.dataset.id); if (!g) return;
   const rows = [...(g.log || [])].sort((a, b) => (a.date < b.date ? 1 : -1));
-  const s = sheet(`${g.start ? `<p class="hint">Already saved when you started: ${money(g.start)}</p>` : ''}${rows.length ? `<div class="rows plain">${rows.map((r) => `<div class="orow"><span class="rmain"><strong>${r.amt >= 0 ? '+' : '−'}${money(Math.abs(r.amt))}</strong><small>${niceDate(r.date)}${r.note ? ' · ' + esc(r.note) : ''}</small></span><button type="button" class="linkbtn danger" data-rm="${r.id}">Remove</button></div>`).join('')}</div>` : '<p class="empty">No money added yet.</p>'}`, { title: `${g.name}: History` });
+  const s = sheet(`${g.start ? `<p class="hint">Already saved when you started: ${money(g.start)}</p>` : ''}${rows.length ? `<div class="rows plain">${rows.map((r) => `<div class="orow"><span class="rmain"><strong>${r.amt >= 0 ? '+' : '−'}${money(Math.abs(r.amt))}</strong><small>${niceDate(r.date)}${r.note ? ' · ' + esc(r.note) : ''}</small></span>${button({ label: 'Remove', kind: 'danger-link', attr: { 'data-rm': r.id } })}</div>`).join('')}</div>` : '<p class="empty">No money added yet.</p>'}`, { title: `${g.name}: History` });
   s.el.addEventListener('click', (e) => { const b = e.target.closest('[data-rm]'); if (!b) return; commit((d) => { const x = d.goals.find((y) => y.id === g.id); if (x) { x.log = (x.log || []).filter((r) => r.id !== b.dataset.rm); stamp(x); } }); s.close(); toast('Removed.'); });
 };
 ACT['goal-done'] = (el) => { commit((d) => { const x = d.goals.find((y) => y.id === el.dataset.id); if (x) { x.reachedAck = true; stamp(x); } }); toast('Done. It moved to Done at the bottom.'); };

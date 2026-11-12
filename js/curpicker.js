@@ -2,6 +2,7 @@
 import { get, commit, allCurrencies, curName, ensureCurrency, CUR, CRYPTO, platformOf } from './core.js';
 import { esc, sheet } from './ui.js';
 import { picHtml, isImg } from './pictures.js';
+import { button } from './components.js';
 
 // every fiat currency belongs to a country: search "japan" or "thailand" and flags make the list easy to scan
 const REGION = (() => { try { return new Intl.DisplayNames(['en'], { type: 'region' }); } catch { return { of: () => '' }; } })();
@@ -27,7 +28,7 @@ export function addFav(c) { commit((d) => { const f = [...(Array.isArray(d.setti
 export function openCurrencyPicker(onPick, { title = 'Choose a currency', keep = true } = {}) {
   const s = sheet(`<input type="search" id="curq" class="search" data-noclear="1" placeholder="Search currency or country: peso, Japan, THB, bitcoin…" autocomplete="off" autofocus><div id="curlist" class="curlist"></div>`, { title });
   const list = s.el.querySelector('#curlist');
-  const row = (c) => `<button type="button" class="row cur" data-c="${c}"><i class="badge sm" style="background:var(--tint);color:var(--line)">${isCoin(c) ? coinIcon(c) : flagOf(c) || esc((CUR[c].sym || c).trim().slice(0, 3))}</i><span class="rmain"><strong>${c}</strong><small>${esc(curName(c))}${regionName(c) ? ' · ' + esc(regionName(c)) : ''}</small></span></button>`;
+  const row = (c) => `${button({ html: `<i class="badge sm" style="background:var(--tint);color:var(--line)">${isCoin(c) ? coinIcon(c) : flagOf(c) || esc((CUR[c].sym || c).trim().slice(0, 3))}</i><span class="rmain"><strong>${c}</strong><small>${esc(curName(c))}${regionName(c) ? ' · ' + esc(regionName(c)) : ''}</small></span>`, kind: 'plain', cls: 'row cur', attr: { 'data-c': c } })}`;
   const draw = (q = '') => {
     q = q.trim().toLowerCase();
     const favs = favCurs();
@@ -38,7 +39,7 @@ export function openCurrencyPicker(onPick, { title = 'Choose a currency', keep =
       ? (rest.length ? `<h3>Matches</h3><div class="rows plain">${rest.map(row).join('')}</div>` : '')
       : `<h3>Others</h3>${letters.map((L) => `<h4 class="letter">${L}</h4><div class="rows plain">${rest.filter((c) => c[0] === L).map(row).join('')}</div>`).join('')}`;
     list.innerHTML = (f.length ? `<h3>${q ? 'Quick list matches' : 'Quick list'}</h3><div class="rows plain">${f.map(row).join('')}</div>` : '') + others +
-      (!f.length && !rest.length ? (/^[A-Za-z0-9]{2,10}$/.test(q) ? `<button type="button" class="row cur" data-new="${q.toUpperCase()}"><i class="badge sm">+</i><span class="rmain"><strong>Add ${esc(q.toUpperCase())}</strong><small>Use it as your own currency or coin</small></span></button><p class="hint">Not in the list. Add it as your own coin or currency.</p>` : '<p class="empty">Nothing matches. Try the currency name, its code or the country.</p>') : '');
+      (!f.length && !rest.length ? (/^[A-Za-z0-9]{2,10}$/.test(q) ? `${button({ html: `<i class="badge sm">+</i><span class="rmain"><strong>Add ${esc(q.toUpperCase())}</strong><small>Use it as your own currency or coin</small></span>`, kind: 'plain', cls: 'row cur', attr: { 'data-new': q.toUpperCase() } })}<p class="hint">Not in the list. Add it as your own coin or currency.</p>` : '<p class="empty">Nothing matches. Try the currency name, its code or the country.</p>') : '');
   };
   draw();
   s.el.querySelector('#curq').addEventListener('input', (e) => draw(e.target.value));

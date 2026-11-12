@@ -1,7 +1,7 @@
 // Buy / sell / convert for crypto, stocks and other investments. Recorded as a movement between your cash account and the holding,
 // marked as a trade (not ordinary spending), with fees saved as a financial loss and gains or losses worked out by average cost.
 import { accLabel, isEarnAcct, get, commit, uid, stamp, nowStamp, rateFor, homeFx, fmt, HOME, balances, findOrAddCategory, softDelete, exactAmt } from './core.js';
-import { seg } from './components.js';
+import { seg, button } from './components.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
 import { inInvest, pushHistory, exchangeOf, addAsset } from './invest.js';
@@ -32,14 +32,14 @@ export function openTrade(pre = {}) {
   const holdFor = (p) => hold.filter((a) => (exchangeOf(a) || '') === p);
   const grp = (l, p, sel) => { const on = l.filter((a) => p && exchangeOf(a) === p), off = l.filter((a) => !(p && exchangeOf(a) === p)); return (on.length ? `<optgroup label="On ${esc(p)}">${opt(on, sel)}</optgroup>` : '') + (off.length ? `<optgroup label="${on.length ? 'Other platforms and accounts' : 'Accounts'}">${opt(off, sel)}</optgroup>` : ''); };
   const s = sheet(`<form id="tr" novalidate>
-    <div class="seg two3" role="group" aria-label="Kind">${[['buy', 'Buy'], ['sell', 'Sell'], ['convert', 'Convert']].map(([v, l]) => `<button type="button" data-side="${v}" class="${(pre.side || 'buy') === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <div class="seg two3" role="group" aria-label="Kind">${[['buy', 'Buy'], ['sell', 'Sell'], ['convert', 'Convert']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${(pre.side || 'buy') === v ? 'on' : ''}`, attr: { 'data-side': v } })}`).join('')}</div>
     <label class="field"><span>Platform</span><select name="plat">${platOpt(plat0)}</select></label>
     <label class="field"><span id="l-asset">Holding</span><select name="asset">${opt(holdFor(plat0), pre.asset)}</select></label>
     <p class="pairline" id="pair" aria-live="polite"></p>
     <div id="f-conv" hidden><label class="field"><span>Convert Into</span><select name="asset2">${opt(hold, (hold.find((a) => a.id !== (pre.asset || hold[0].id)) || hold[0]).id)}</select></label></div>
     <div id="slot-a"><div id="f-cash"><label class="field"><span id="l-cash">Paid From</span><select name="cash"></select></label></div></div>
-    <div class="two"><label class="field hasall"><span id="l-qty">Quantity</span><input name="qty" inputmode="decimal" placeholder="e.g. 0.01"><button type="button" class="allbtn" data-all="qty" hidden>All</button></label><label class="field" id="f-price"><span id="l-price">Price</span><input name="price" inputmode="decimal"></label></div>
-    <label class="field hasall" id="f-total"><span id="l-total">Total paid</span><input name="total" inputmode="decimal"><button type="button" class="allbtn" data-all="total" hidden>All</button></label>
+    <div class="two"><label class="field hasall"><span id="l-qty">Quantity</span><input name="qty" inputmode="decimal" placeholder="e.g. 0.01">${button({ label: 'All', kind: 'plain', cls: 'allbtn', attr: { 'data-all': 'qty', 'hidden': true } })}</label><label class="field" id="f-price"><span id="l-price">Price</span><input name="price" inputmode="decimal"></label></div>
+    <label class="field hasall" id="f-total"><span id="l-total">Total paid</span><input name="total" inputmode="decimal">${button({ label: 'All', kind: 'plain', cls: 'allbtn', attr: { 'data-all': 'total', 'hidden': true } })}</label>
     <div id="f-conv2" class="two" hidden><label class="field"><span id="l-qty2">Quantity</span><input name="qty2" inputmode="decimal"></label><label class="field"><span id="l-worth">Value in ${HOME} (Optional)</span><input name="worth" inputmode="decimal"></label></div>
     <div class="feehead"><span class="feelab">Trading Fee</span>${seg({ options: [{ label: '0 Fee', value: 'none' }, { label: 'Fixed Amount', value: 'fixed' }, { label: '% of the Trade', value: 'pct' }], value: 'none', data: 'fm', aria: 'Trading fee' })}</div>
     <select name="feeMode" hidden aria-hidden="true"><option value="none">0 Fee</option><option value="fixed">Fixed Amount</option><option value="pct">% of the Trade</option></select>
@@ -48,9 +48,9 @@ export function openTrade(pre = {}) {
       <label class="field" id="f-feeacct" hidden><span>Pay the Fee With</span><select name="feeAcct"></select><small class="hint" id="feeacct-hint"></small></label></div>
     <select name="feeIn" hidden aria-hidden="true"></select>
     <div id="slot-b"></div>
-    <div class="field"><span>When</span><button type="button" class="whenbtn" id="tr-when"></button></div>
+    <div class="field"><span>When</span>${button({ label: ``, kind: 'plain', cls: 'whenbtn', id: 'tr-when' })}</div>
     <div id="tr-sum" class="hint" aria-live="polite"></div>
-    <div class="btnrow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">${old ? 'Save Changes' : 'Record'}</button></div></form>`, { title: old ? 'Edit Trade' : 'Buy, Sell or Convert', wide: true });
+    <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-x': true } })}${button({ html: `${old ? 'Save Changes' : 'Record'}`, kind: 'primary', submit: true })}</div></form>`, { title: old ? 'Edit Trade' : 'Buy, Sell or Convert', wide: true });
   const f = s.el.querySelector('#tr'); let side = pre.side || 'buy', last = '', feeOther = false, feeAcctPlat = null;
   const acct = (id) => db.accounts.find((a) => a.id === id);
   const fillCash = (keep) => { const p = f.plat.value, pool = [...cash.filter((x) => !inInvest(x)), ...cash.filter((x) => inInvest(x))], q = ((db.settings.tickers || {})[(acct(f.asset.value) || {}).cur] || {}).quote;
@@ -166,7 +166,7 @@ function tradeDetail(t) {
   const db = get(), x = t.trade, A = db.accounts.find((a) => a.id === x.asset) || { name: '?', cur: '' }, fee = db.txs.find((q) => !q.deleted && q.tradeOf === t.id);
   const s = sheet(`<p><b>${esc(t.name)}</b></p><ul class="calfacts"><li><span>Date</span><b>${esc(String(t.date).slice(0, 16))}</b></li><li><span>Worth when recorded</span><b>${money(x.valueHome)}</b></li>${fee ? `<li><span>Fee (financial loss)</span><b>${money(fee.amount, fee.cur)}</b></li>` : ''}</ul>
     <p class="hint">A trade is not counted as spending or income. Realized gains and losses are worked out on the Investments tab.</p>
-    <div class="btnrow"><button type="button" class="btn danger ghost" data-del>Delete</button><button type="button" class="btn ghost" data-edit>Edit</button><button type="button" class="btn" data-x>Close</button></div>`, { title: 'Trade' });
+    <div class="btnrow"><button type="button" class="btn danger ghost" data-del>Delete</button>${button({ label: 'Edit', kind: 'ghost', attr: { 'data-edit': true } })}${button({ label: 'Close', kind: 'primary', attr: { 'data-x': true } })}</div>`, { title: 'Trade' });
   s.el.querySelector('[data-edit]').onclick = () => { s.close(); openTrade({ edit: t.id }); };
   s.el.querySelector('[data-x]').onclick = () => s.close();
   s.el.querySelector('[data-del]').onclick = () => { commit((d) => { for (const q of d.txs) if (q.id === t.id || q.tradeOf === t.id) softDelete(q); }); s.close(); toast('Trade moved to the recycle bin.'); };

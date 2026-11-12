@@ -1,6 +1,6 @@
 // Debts tab: every loan and card you owe on, its interest, terms and due date, and which one to pay first and how much.
 // Plain arithmetic on your own figures (no advice engine). Typed figures (monthly money for debts, a debt's rate or minimum) can always be changed or removed.
-import { button } from './components.js';
+import { button, textField } from './components.js';
 import { get, commit, stamp, balances, homeFx, fmt, HOME, nowStamp, thisMonth, shiftMonth, catMap } from './core.js';
 import { classOf } from './budgetsetup.js';
 import { ACT, sheet, esc, toast, confirmDialog, ic } from './ui.js';
@@ -125,7 +125,7 @@ export function debts(db) {
     ${income != null ? `<div class="dsrow"><span>Income you usually get</span><b>${money(income)}</b></div><div class="dsrow"><span>Your usual spending</span><b>${money(spend)}</b></div><div class="dsrow"><span>Left after your usual spending</span><b>${money(b.safe)}</b></div><div class="dsrow"><span>Kept as a safety cushion</span><b>${money(Math.min(b.buffer, b.safe))}</b></div>` : ''}
     <div class="dsrow"><span>Due this month (minimums)</span><b>${money(plan ? plan.needTotal : minTotal)}</b></div>
     <div class="dsrow"><span>Suggested for debts this month</span><b>${funds != null ? money(funds) : 'not known yet'}${funds != null && income ? ` <small class="muted">(${pct(funds / income)} of income)</small>` : ''}</b></div>
-    ${notes}<div class="btnrow tight"><button type="button" class="btn sm ghost" data-act="debt-budget">${b.own != null ? 'Change my figure' : 'Type my own figure'}</button>${b.own != null ? '' + button({ label: 'Remove my figure', kind: 'ghost', size: 'sm', act: 'debt-budget-clear' }) + '' : ''}</div></div>`;
+    ${notes}<div class="btnrow tight">${button({ html: `${b.own != null ? 'Change my figure' : 'Type my own figure'}`, kind: 'ghost', size: 'sm', act: 'debt-budget' })}${b.own != null ? '' + button({ label: 'Remove my figure', kind: 'ghost', size: 'sm', act: 'debt-budget-clear' }) + '' : ''}</div></div>`;
   // ---- shortfall and ways to find the money
   let short = '';
   if (plan && plan.shortTotal > 0.5) {
@@ -167,13 +167,13 @@ export function debts(db) {
   }
   const cmp = (p) => (p.never ? 'not paid off at this rate' : `debt-free ${whenText(p.months)} (${monthsText(p.months)}), ${money(p.interest)} interest`);
   const planBox = sim ? `<h4 class="subh">If You Keep This Up Every Month</h4><ul class="calfacts"><li><span>${md === 'avalanche' ? 'Extra to highest interest' : 'Extra to smallest debt'}</span><b>${cmp(sim)}</b></li><li><span>${md === 'avalanche' ? 'Extra to smallest debt' : 'Extra to highest interest'}</span><b>${cmp(other)}</b></li><li><span>Minimums only</span><b>${cmp(minOnly)}</b></li></ul>` : '';
-  const seg = `<div class="seg two debtmode" role="group" aria-label="Where extra money goes"><button type="button" data-act="debt-mode" data-m="avalanche" class="${md === 'avalanche' ? 'on' : ''}">Extra to highest interest</button><button type="button" data-act="debt-mode" data-m="snowball" class="${md === 'snowball' ? 'on' : ''}">Extra to smallest debt</button></div>`;
+  const seg = `<div class="seg two debtmode" role="group" aria-label="Where extra money goes">${button({ label: 'Extra to highest interest', kind: 'plain', cls: `${md === 'avalanche' ? 'on' : ''}`, act: 'debt-mode', attr: { 'data-m': 'avalanche' } })}${button({ label: 'Extra to smallest debt', kind: 'plain', cls: `${md === 'snowball' ? 'on' : ''}`, act: 'debt-mode', attr: { 'data-m': 'snowball' } })}</div>`;
   const rateText = (d) => (!d.rateKnown ? '<b class="cr">Not set</b>' : d.addon ? `<b>${d.rate}% add-on</b>` : `<b>${(+d.rate).toFixed(2).replace(/\.?0+$/, '')}% a year</b> <small class="muted">(${(((Math.pow(1 + d.rate / 100, 1 / 12) - 1)) * 100).toFixed(2).replace(/\.?0+$/, '')}% a month)</small>`);
   const dueText = (d) => (d.due ? `<b class="${d.overdue ? 'cr' : ''}">${d.overdue ? 'Overdue since ' + niceDate(d.due) : niceDate(d.due) + (d.days != null ? (d.days === 0 ? ' (today)' : ` (${d.days} day${d.days === 1 ? '' : 's'})`) : '')}</b>` : '<span class="muted">not set</span>');
   const hist = (d) => (d.payN ? `<li><span>Your payments</span><b>${d.payN} in the last 6 months${d.usual > 0 ? `, usually ${money(d.usual)}` : ''}</b></li>` : '<li><span>Your payments</span><span class="muted">none recorded in the last 6 months</span></li>');
   const rows = orderDebts(list, md).map((d) => `<div class="debtrow ${d.overdue ? 'od' : ''}"><div class="dr-head"><div><b>${esc(d.name)}</b><small class="muted">${esc(d.kind)}${d.cur !== HOME ? ` · ${fmt(d.owedCur, d.cur)}` : ''}</small></div><b class="dr-owed">${money(d.owed)}</b></div>
     <ul class="calfacts"><li><span>Interest</span>${rateText(d)}</li><li><span>Term</span><b>${d.left ? `${d.left} payment${d.left > 1 ? 's' : ''} left` : (d.months ? `${d.months} months` : 'No fixed end')}</b></li><li><span>Next payment due</span>${dueText(d)}</li>${d.type === 'card' && d.dueAmount != null && d.dueAmount > 0 ? `<li><span>Statement amount due</span><b>${money(d.dueAmount)}</b></li>` : ''}<li><span>Minimum payment</span><b>${money(d.min)}</b>${d.minEst ? ' <small class="muted">(estimate: 5%)</small>' : ''}</li>${hist(d)}</ul>
-    <div class="btnrow tight"><button type="button" class="btn sm" data-act="debt-pay" data-id="${d.id}">Pay this debt</button><button type="button" class="btn sm ghost" data-act="debt-edit" data-id="${d.id}">${d.rateKnown && d.src !== 'yours' && !d.minTyped ? 'Check or change figures' : 'Change figures'}</button></div></div>`).join('');
+    <div class="btnrow tight">${button({ label: 'Pay this debt', kind: 'primary', size: 'sm', act: 'debt-pay', attr: { 'data-id': d.id } })}${button({ html: `${d.rateKnown && d.src !== 'yours' && !d.minTyped ? 'Check or change figures' : 'Change figures'}`, kind: 'ghost', size: 'sm', act: 'debt-edit', attr: { 'data-id': d.id } })}</div></div>`).join('');
   const warn = `${unknownRate.length ? `<p class="lpwarn">${ic('spark')} No interest rate is set for ${unknownRate.map((d) => esc(d.name)).join(', ')}. The plan counts it as 0% until you set it, so the order of extra money may be wrong.</p>` : ''}${list.some((d) => d.minEst) ? '<p class="hint">Some minimums are estimates (5% of what you owe). Set the real ones from your statements so the due amounts are right.</p>' : ''}${addons.length ? `<p class="hint">${addons.map((d) => esc(d.name)).join(', ')} uses add-on interest: a fixed charge on the original amount. Paying it off early may save little or nothing, so ask the lender what an early payoff costs.</p>` : ''}`;
   const limits = `<ul class="calfacts limits">
     <li><span>Credit cards (BSP)</span><b>Interest on an unpaid balance: at most 3% a month (36% a year). Cash advance fee: at most ₱200 each. The BSP kept these limits in August 2023 and said it would review them.</b></li>
@@ -194,7 +194,7 @@ ACT['debt-budget'] = () => {
   const db = get(), cur = db.settings.debtBudget || '', b = budgetInfo(db);
   const s = sheet(`<form novalidate><p class="hint">The most you want to put toward all your debts together each month, in ${HOME}. ${b.room != null ? `Your entries leave about ${money(b.room)} after your usual spending. Sukli will not plan more than that unless you choose “Use my figure anyway”.` : ''}</p>
     <label class="field"><span>Each month (${HOME})</span><input name="v" inputmode="decimal" value="${cur}" placeholder="e.g. 15000" autofocus></label>
-    <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">Save</button></div></form>`, { title: 'Money for Debts' });
+    <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>`, { title: 'Money for Debts' });
   s.el.querySelector('[data-no]').onclick = () => s.close();
   s.el.querySelector('form').onsubmit = (e) => { e.preventDefault(); const n = num(e.target.v.value); s.dispose(); commit((d) => { if (n > 0) d.settings.debtBudget = n; else delete d.settings.debtBudget; }); toast(n > 0 ? 'Saved.' : 'Removed. Sukli will use your entries.'); };
 };
@@ -205,13 +205,13 @@ ACT['debt-edit'] = (el) => {
   const db = get(), a = db.accounts.find((x) => x.id === el.dataset.id); if (!a) return;
   const d = debtList(db).find((x) => x.id === a.id) || {}, dm = a.dm || {}, hasDm = dm.rate > 0 || dm.min > 0 || dm.flex != null || dm.early > 0;
   const s = sheet(`<form novalidate><p class="hint">These figures are only used for the plan on this tab. They do not add anything to the account.</p>
-    <div class="two"><label class="field"><span>Interest % a year</span><input name="rate" inputmode="decimal" value="${dm.rate || (d.rateKnown && !d.addon && d.src !== 'yours' ? +(+d.rate).toFixed(2) : '')}" placeholder="e.g. 36" autofocus></label>
+    <div class="two">${textField({ label: 'Interest % a year', name: 'rate', inputmode: 'decimal', value: dm.rate || (d.rateKnown && !d.addon && d.src !== 'yours' ? +(+d.rate).toFixed(2) : ''), placeholder: 'e.g. 36', attr: { 'autofocus': true } })}
     <label class="field"><span>Minimum payment (${esc(a.cur)})</span><input name="min" inputmode="decimal" value="${dm.min || (d.min && !d.minEst ? +(d.min / (homeFx(db, a.cur) || 1)).toFixed(2) : '')}" placeholder="from your statement"></label></div>
     <p class="hint">3% a month is about 42.6% a year (36% if you do not count compounding). Either is fine for a rough plan.</p>
-    <label class="field"><span>Payment due on day of month</span><input name="due" inputmode="numeric" value="${a.dueDay || ''}" placeholder="1–31"></label>
+    ${textField({ label: 'Payment due on day of month', name: 'due', inputmode: 'numeric', value: a.dueDay || '', placeholder: '1–31' })}
     <label class="field"><span>Deadline</span><select name="flex"><option value="" ${dm.flex == null ? 'selected' : ''}>Automatic (no due date means no deadline)</option><option value="fixed" ${dm.flex === false ? 'selected' : ''}>Fixed: has a deadline</option><option value="flex" ${dm.flex === true ? 'selected' : ''}>No deadline (friend or family)</option></select></label>
-    <label class="field"><span>Fee for paying early, % of the amount (optional)</span><input name="early" inputmode="decimal" value="${dm.early || ''}" placeholder="0 if none or not sure"></label>
-    <div class="btnrow">${hasDm ? '<button type="button" class="btn ghost" data-rm>Remove my figures</button>' : '<button type="button" class="btn ghost" data-no>Cancel</button>'}<button class="btn">Save</button></div></form>`, { title: a.name });
+    ${textField({ label: 'Fee for paying early, % of the amount (optional)', name: 'early', inputmode: 'decimal', value: dm.early || '', placeholder: '0 if none or not sure' })}
+    <div class="btnrow">${hasDm ? button({ label: 'Remove my figures', kind: 'ghost', attr: { 'data-rm': true } }) : button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>`, { title: a.name });
   const no = s.el.querySelector('[data-no]'); if (no) no.onclick = () => s.close();
   const rm = s.el.querySelector('[data-rm]'); if (rm) rm.onclick = () => { s.dispose(); commit((q) => { const x = q.accounts.find((z) => z.id === a.id); if (x) { delete x.dm; stamp(x); } }); toast('Removed.'); };
   s.el.querySelector('form').onsubmit = (e) => {

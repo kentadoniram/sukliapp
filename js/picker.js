@@ -2,6 +2,7 @@
 // More than five options: a search box on top. "Add new" (when the form can add) sits right under the search box, options below,
 // grouped when the options come in groups. It enhances an ordinary <select>, so the form code keeps reading select.value.
 import { sheet, esc } from './ui.js';
+import { button } from './components.js';
 
 export const SEARCH_AFTER = 5;
 const readOptions = (sel) => {
@@ -15,7 +16,7 @@ const readOptions = (sel) => {
 export function pickerList(options, { value = '', title = 'Choose', onAdd = null, addLabel = 'Add new', onPick }) {
   const many = options.length > SEARCH_AFTER;
   const s = sheet(`${many ? '<input type="search" class="search pk-q" data-noclear="1" placeholder="Search" autocomplete="off" aria-label="Search">' : ''}
-    ${onAdd ? `<button type="button" class="btn sm ghost wide pk-add">+ ${esc(addLabel)}</button>` : ''}
+    ${onAdd ? `${button({ label: `+ ${addLabel}`, kind: 'ghost', size: 'sm', cls: 'wide pk-add' })}` : ''}
     <div class="pk-list"></div>`, { title, cls: many ? 'pickfix' : '' });
   const draw = () => {
     const q = many ? s.el.querySelector('.pk-q').value.trim().toLowerCase() : '';

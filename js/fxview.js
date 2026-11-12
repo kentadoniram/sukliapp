@@ -59,14 +59,14 @@ export function openConverter({ from: from0, to: to0, amount = 0, rate = 0, titl
     <p class="status" id="cv-msg" role="status"></p>
     <div class="fxpanel fxp-live" id="cv-p-live" hidden><ul class="fxbig" id="cv-sum" aria-live="polite"></ul></div>
     <div class="fxpanel fxp-amount" id="cv-p-amount"><div class="fxpair"><label class="field"><span id="cv-la"></span><input id="cv-a" inputmode="decimal" autocomplete="off" value="${nf(a)}"></label>
-      <button type="button" class="fxrev" id="cv-rev" aria-label="Swap the two amounts. The currencies stay where they are." title="Swap the two amounts">⇄</button>
+      ${button({ label: '⇄', kind: 'plain', cls: 'fxrev', id: 'cv-rev', aria: 'Swap the two amounts. The currencies stay where they are.', title: 'Swap the two amounts' })}
       <label class="field"><span id="cv-lb"></span><input id="cv-b" inputmode="decimal" autocomplete="off" value="${nf(b)}"></label></div>
       <ul class="fxbig" id="cv-sum2" aria-live="polite"></ul></div>
     <div class="fxpanel fxp-rate" id="cv-p-rate" hidden><div class="fxdir"><span class="fxdirlab" id="cv-dir"></span>${button({ label: '⇄ Swap Direction', kind: 'ghost', size: 'sm', id: 'cv-dirswap', aria: 'Swap the rate direction' })}</div>
       <label class="field"><span id="cv-rlab">Exchange Rate</span><input id="cv-r" inputmode="decimal" autocomplete="off" value="${nf(r)}"></label>
       <ul class="fxbig fxinv" id="cv-inv" aria-live="polite"></ul></div>
     <p class="hint" id="cv-bill" hidden></p>
-    <div class="btnrow"><button type="button" class="btn ghost" data-close>Close</button>${onReset ? '' + button({ label: 'Back to live', kind: 'ghost', id: 'cv-reset' }) + '' : ''}${onApply ? `<button type="button" class="btn" id="cv-apply">${esc(applyLabel)}</button>` : ''}</div></div>`, { title });
+    <div class="btnrow">${button({ label: 'Close', kind: 'ghost', attr: { 'data-close': true } })}${onReset ? '' + button({ label: 'Back to live', kind: 'ghost', id: 'cv-reset' }) + '' : ''}${onApply ? `${button({ label: applyLabel, kind: 'primary', id: 'cv-apply' })}` : ''}</div></div>`, { title });
   const q = (id) => s.el.querySelector('#' + id), A = q('cv-a'), B = q('cv-b'), R = q('cv-r');
   let rdir = 'fwd';   // fwd: PHP per 1 USDT (to/from); rev: USDT per 1 PHP (from/to)
   const setR = () => { R.value = nf(rdir === 'fwd' ? r : r > 0 ? 1 / r : 0); };

@@ -34,12 +34,12 @@ ACT.menu = () => {
   const item = (h, label, icon, badge) => `<li><a href="#/${h}" class="${here === h || (h === 'home' && !location.hash) ? 'on' : ''}">${ic(icon)}<span>${label}</span>${badge ? `<em class="pill">${badge}</em>` : ''}</a></li>`;
   const wrap = document.createElement('div');
   wrap.className = 'drawer-scrim';
-  wrap.innerHTML = `<nav class="drawer" aria-label="Menu"><div class="drawer-head"><b>Sukli</b><button type="button" class="iconbtn" data-x aria-label="Close menu">${ic('x')}</button></div>
+  wrap.innerHTML = `<nav class="drawer" aria-label="Menu"><div class="drawer-head"><b>Sukli</b>${button({ html: `${ic('x')}`, kind: 'plain', cls: 'iconbtn', aria: 'Close menu', attr: { 'data-x': true } })}</div>
     ${(() => { const tb = tabIds(get()), inBar = (h) => tb.includes(h), main = [['home', 'Home', 'home'], ['ledger', 'Entries', 'list'], ['calendar', 'Calendar', 'calendar'], ['accounts', 'Accounts', 'wallet'], ['budget', 'Budget', 'pie'], ['invest', 'Investments', 'spark'], ['debts', 'Debts', 'calc'], ['owed', 'Owed to You', 'wallet'], ['reimburse', 'Reimbursement', 'wallet'], ['savings', 'Savings', 'goal'], ['cashflow', 'Cash Flow', 'flow'], ['outlook', 'Outlook', 'spark'], ['analytics', 'Analytics', 'chart'], ['spend', 'Spending by Group', 'pie'], ['trips', 'Trips and Events', 'calendar']].filter(([h]) => !simple || !['invest', 'cashflow', 'outlook', 'analytics', 'spend', 'trips'].includes(h)), inB = main.filter(([h]) => inBar(h)), rest = main.filter(([h]) => !inBar(h)), open = barOpen();
-      return `${inB.length ? `<button type="button" class="dhead" data-dtoggle data-key="sukli-menu-bar" aria-expanded="${open}"><span>Bottom Bar Tabs</span>${ic('down', 'chev')}</button><ul class="dsub" ${open ? '' : 'hidden'}>${inB.map(([h, l, i]) => item(h, l, i)).join('')}</ul>` : ''}<ul>${rest.map(([h, l, i]) => item(h, l, i)).join('')}${item('review', 'Review', 'check', n)}</ul>`; })()}
-    <button type="button" class="dhead" data-dtoggle aria-expanded="${catOpen()}"><span>Categories</span>${ic('down', 'chev')}</button>
+      return `${inB.length ? `${button({ html: `<span>Bottom Bar Tabs</span>${ic('down', 'chev')}`, kind: 'plain', cls: 'dhead', attr: { 'data-dtoggle': true, 'data-key': 'sukli-menu-bar', 'aria-expanded': open } })}<ul class="dsub" ${open ? '' : 'hidden'}>${inB.map(([h, l, i]) => item(h, l, i)).join('')}</ul>` : ''}<ul>${rest.map(([h, l, i]) => item(h, l, i)).join('')}${item('review', 'Review', 'check', n)}</ul>`; })()}
+    ${button({ html: `<span>Categories</span>${ic('down', 'chev')}`, kind: 'plain', cls: 'dhead', attr: { 'data-dtoggle': true, 'aria-expanded': catOpen() } })}
     <ul class="dsub" ${catOpen() ? '' : 'hidden'}>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
-    <button type="button" class="dhead" data-dtoggle data-key="sukli-menu-scan" aria-expanded="${scanOpen()}"><span>Scanner</span>${ic('down', 'chev')}</button>
+    ${button({ html: `<span>Scanner</span>${ic('down', 'chev')}`, kind: 'plain', cls: 'dhead', attr: { 'data-dtoggle': true, 'data-key': 'sukli-menu-scan', 'aria-expanded': scanOpen() } })}
     <ul class="dsub" ${scanOpen() ? '' : 'hidden'}><li><a href="#" data-act="scan">${ic('camera')}<span>Scan a Receipt</span></a></li><li><a href="#" data-act="wallet-scan">${ic('camera')}<span>Read a Pasmo Screenshot</span></a></li></ul>
     ${simple ? '' : `<ul><li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan Planner</span></a></li></ul>`}
     ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle Bin and Undo History', 'trash')}${simple ? '' : item('styleguide', 'Style Guide', 'gear')}${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
@@ -148,8 +148,8 @@ export function cashflow(db) {
     ${coll('c-net', 'Net Income by Month', `${netChart(tr, ym)}<p class="legend"><i class="k inc"></i>Kept <i class="k neg"></i>Overspent · tap a month</p>`)}
     ${coll('c-in', 'Biggest Cash Inflows', groupRows(db, ym, 'income', 5))}
     ${coll('c-out', 'Biggest Cash Outflows', groupRows(db, ym, 'expense', 5))}
-    ${coll('c-acc', 'By Account', accRows.length ? `<div class="rows plain">${accRows.map((r) => `<button class="row acctflow" data-act="acct-flow" data-id="${r.id}"><span class="rmain"><strong>${esc(r.name)}</strong><small><span class="in">+${money(r.i)}</span> · <span class="neg">−${money(r.o)}</span></small></span>
-      <span class="ramt"><b class="${r.i - r.o < 0 ? 'neg' : 'in'}">${money(r.i - r.o)}</b></span></button>`).join('')}</div><p class="hint">Entries in each account, valued in ${BASE}. Tap one to see them.</p>` : '<p class="empty">No entries this month.</p>')}`;
+    ${coll('c-acc', 'By Account', accRows.length ? `<div class="rows plain">${accRows.map((r) => `${button({ html: `<span class="rmain"><strong>${esc(r.name)}</strong><small><span class="in">+${money(r.i)}</span> · <span class="neg">−${money(r.o)}</span></small></span>
+      <span class="ramt"><b class="${r.i - r.o < 0 ? 'neg' : 'in'}">${money(r.i - r.o)}</b></span>`, kind: 'plain', cls: 'row acctflow', act: 'acct-flow', attr: { 'data-id': r.id } })}`).join('')}</div><p class="hint">Entries in each account, valued in ${BASE}. Tap one to see them.</p>` : '<p class="empty">No entries this month.</p>')}`;
 }
 ACT['acct-flow'] = (el) => { ui.acct = el.dataset.id; ui.filter = 'all'; ui.q = ''; ui.limit = 120; location.hash = '#/ledger'; render(); };
 
@@ -185,7 +185,7 @@ export function calendar(db) {
     <section><h2>This Month by Day</h2>
       <ul class="calfacts">
         <li><span>Average per day${isNow ? ' so far' : ''}</span><b>${upto ? R(per) : '—'}</b></li>
-        <li><span>Busiest day</span><b>${busy ? `<button type="button" class="linkbtn" data-act="day" data-d="${ym}-${String(busy.d).padStart(2, '0')}">${dayLabel(`${ym}-${String(busy.d).padStart(2, '0')}`)}</button> · ${R(busy.out)}` : '—'}</b></li>
+        <li><span>Busiest day</span><b>${busy ? `${button({ html: `${dayLabel(`${ym}-${String(busy.d).padStart(2, '0')}`)}`, kind: 'link', act: 'day', attr: { 'data-d': `${ym}-${String(busy.d).padStart(2, '0')}` } })} · ${R(busy.out)}` : '—'}</b></li>
         <li><span>Days you spent nothing</span><b>${upto ? `${quiet} of ${upto}` : '—'}</b></li>
         <li><span>Entries this month</span><b>${entries}</b></li></ul>
       <h3 class="subh">Spending by Week</h3>
@@ -203,7 +203,7 @@ function openDay(date) {
   const s = sheet(`<div class="facts three"><div><span>Cash outflow</span><b class="cr">${money(x.out)}</b></div><div><span>Cash inflow</span><b class="cg">${money(x.inc)}</b></div><div><span>Transfers</span><b class="cb">${money(x.tr)}</b></div></div>
     <div class="gdhead"><span class="muted">Net ${money(x.inc - x.out)} · ${list.length} ${list.length === 1 ? 'entry' : 'entries'}</span></div>
     <div class="rows">${list.map((t) => row(t, accts, cats)).join('') || '<p class="empty">Nothing recorded on this day.</p>'}</div>
-    <div class="btnrow"><button class="btn" data-add>+ Add an entry on this day</button></div>`, { title: dayLabel(date), wide: true });
+    <div class="btnrow">${button({ label: '+ Add an entry on this day', kind: 'primary', attr: { 'data-add': true } })}</div>`, { title: dayLabel(date), wide: true });
   s.el.addEventListener('click', (e) => { if (e.target.closest('[data-act=edit]')) s.close(); });
   s.el.querySelector('[data-add]').onclick = () => { s.close(); openEntry({ preset: { date: date === nowStamp().slice(0, 10) ? nowStamp() : `${date} 12:00:00` } }); };
 }
@@ -300,8 +300,8 @@ function budgetInner(db) {
       inner = `${b ? `<div class="bprog"><div class="track"><div class="fill ${r >= 1 ? 'over' : r >= 0.8 ? 'warn' : ''}" style="width:${Math.min(100, r * 100)}%"></div></div>
           <small>${money(x.v)} of ${money(b)} · ${Math.round(r * 100)}% used · ${r >= 1 ? money(x.v - b) + ' over' : money(b - x.v) + ' left'}</small></div>` : '<p class="hint">No budget for this group yet.</p>'}
         <ul class="catlist">${subs.map(([id, v]) => `<li><span>${esc((cats.get(id) || { name: 'No category' }).name)} <small class="pct">${x.v ? Math.round(v / x.v * 100) : 0}%</small></span><b>${money(v)}</b></li>`).join('')}</ul>
-        <div class="btnrow left"><button class="btn ghost sm" data-act="grp" data-g="${esc(x.key)}" data-k="expense">See entries</button>
-          <button class="btn ghost sm" data-act="budget" data-g="${esc(x.key)}">${b ? 'Change budget' : 'Set a monthly budget'}</button>${b ? `<button class="btn ghost sm" data-act="budget-clear" data-g="${esc(x.key)}">Remove</button>` : ''}</div>`;
+        <div class="btnrow left">${button({ label: 'See entries', kind: 'ghost', size: 'sm', act: 'grp', attr: { 'data-g': x.key, 'data-k': 'expense' } })}
+          ${button({ html: `${b ? 'Change budget' : 'Set a monthly budget'}`, kind: 'ghost', size: 'sm', act: 'budget', attr: { 'data-g': x.key } })}${b ? `${button({ label: 'Remove', kind: 'ghost', size: 'sm', act: 'budget-clear', attr: { 'data-g': x.key } })}` : ''}</div>`;
     } else {
       inner = `<p class="hint">${pct}% of everything spent this month.</p>`;
     }
@@ -313,10 +313,10 @@ function budgetInner(db) {
        <p class="hint">${Math.round(spentIn / budgeted * 100)}% of the total budget used${p.live && p.dim - p.day > 0 && left > 0 ? `, about ${R(left / (p.dim - p.day))} a day for the ${p.dim - p.day} days left` : ''}.</p>`
     : '<p class="hint">No budgets yet. Open a group below and press “Set a monthly budget”.</p>';
   return `${monthNav()}<!--scope-->
-    ${warns.length ? `<section class="bwarn">${warns.map((w) => `<button class="warnrow ${w.tone}" data-act="slice" data-k="${esc(w.g)}">${ic('check')}<span>${esc(w.text)}</span></button>`).join('')}</section>` : ''}
+    ${warns.length ? `<section class="bwarn">${warns.map((w) => `${button({ html: `${ic('check')}<span>${esc(w.text)}</span>`, kind: 'plain', cls: `warnrow ${w.tone}`, act: 'slice', attr: { 'data-k': w.g } })}`).join('')}</section>` : ''}
     ${coll('b-sum', 'Budget Summary', sumBlock, '' + button({ label: 'Budget setup', kind: 'ghost', size: 'sm', act: 'budget-setup' }) + '')}
     ${coll('b-class', 'Needs, Wants and Luxury', classCard(db, ym) || '<p class="hint">Nothing spent in this month yet.</p>')}
-    <div id="bpie"><section class="seg-wrap"><div class="seg two" role="group" aria-label="Split by">${[['group', 'By group'], ['category', 'By category']].map(([v, l]) => `<button type="button" data-act="pieby" data-v="${v}" class="${by === v ? 'on' : ''}" aria-pressed="${by === v}">${l}</button>`).join('')}</div>
+    <div id="bpie"><section class="seg-wrap"><div class="seg two" role="group" aria-label="Split by">${[['group', 'By group'], ['category', 'By category']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${by === v ? 'on' : ''}`, act: 'pieby', pressed: by === v, attr: { 'data-v': v } })}`).join('')}</div>
       ${donut}${total ? '<p class="hint center">Tap a slice or a row for the detail.</p>' : ''}</section>
     <section>${slices.map(rowFor).join('')}</section></div>`;
 }
@@ -338,14 +338,14 @@ export function categories(db) {
   }
   const label = kind === 'income' ? 'income' : 'expense';
   return `${hdr(kind === 'income' ? 'Income categories' : 'Expense categories')}
-    <div class="seg two" role="group">${[['expense', 'Expense'], ['income', 'Income']].map(([v, l]) => `<button type="button" data-act="catkind" data-v="${v}" class="${kind === v ? 'on' : ''}" aria-pressed="${kind === v}">${l}</button>`).join('')}</div>
-    <button class="btn wide" data-act="cat-new">+ New ${label} category</button>
+    <div class="seg two" role="group">${[['expense', 'Expense'], ['income', 'Income']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${kind === v ? 'on' : ''}`, act: 'catkind', pressed: kind === v, attr: { 'data-v': v } })}`).join('')}</div>
+    ${button({ html: `+ New ${label} category`, kind: 'primary', cls: 'wide', act: 'cat-new' })}
     ${button({ label: 'Add Suggested Groups and Categories', kind: 'ghost', cls: 'wide', act: 'cat-suggest' })}
     ${[...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([g, cs]) => coll(`cg:${kind}:${g}`,
       `<i class="badge sm ghd" style="background:${groupColor(g)}">${groupLetter(g)}</i> <b class="ghn">${esc(g)}</b> <small class="muted">${cs.length}</small>`,
-      `<div class="chips cattiles">${cs.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<button type="button" class="chip cattile" data-act="cat-edit" data-id="${c.id}"><i style="background:${groupColor(g)}">${catIcon(c)}</i><span>${esc(c.name)}${c.keywords ? '<small title="has keywords"> ✎</small>' : ''}</span><small>${used.get(c.id) || 0}</small></button>`).join('')}
-        <button type="button" class="chip more cattile" data-act="cat-new" data-g="${esc(g)}"><i class="ghosti">+</i><span>Add</span></button></div>
-        <div class="btnrow left"><button class="linkbtn sm" data-act="grp-icon" data-g="${esc(g)}">Group picture</button><button class="linkbtn sm" data-act="cat-ren" data-g="${esc(g)}">Rename group</button><button class="linkbtn sm neg" data-act="cat-delgroup" data-g="${esc(g)}">Delete group</button></div>`)).join('') || '<p class="empty">No categories yet.</p>'}
+      `<div class="chips cattiles">${cs.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `${button({ html: `<i style="background:${groupColor(g)}">${catIcon(c)}</i><span>${esc(c.name)}${c.keywords ? '<small title="has keywords"> ✎</small>' : ''}</span><small>${used.get(c.id) || 0}</small>`, kind: 'chip', cls: 'cattile', act: 'cat-edit', attr: { 'data-id': c.id } })}`).join('')}
+        ${button({ html: `<i class="ghosti">+</i><span>Add</span>`, kind: 'chip', cls: 'more cattile', act: 'cat-new', attr: { 'data-g': g } })}</div>
+        <div class="btnrow left">${button({ label: 'Group picture', kind: 'link', size: 'sm', act: 'grp-icon', attr: { 'data-g': g } })}${button({ label: 'Rename group', kind: 'link', size: 'sm', act: 'cat-ren', attr: { 'data-g': g } })}${button({ label: 'Delete group', kind: 'link', size: 'sm', cls: 'neg', act: 'cat-delgroup', attr: { 'data-g': g } })}</div>`)).join('') || '<p class="empty">No categories yet.</p>'}
     <p class="hint">The small number is how many entries use a category. Tap one to rename it, move it to another group, edit its keywords or delete it. Keywords make the app guess it as you type.</p>`;
 }
 ACT.catkind = (el) => { location.hash = `#/categories?k=${el.dataset.v}`; };
@@ -417,10 +417,9 @@ export function outlook(db) {
   const sofar = totals(db, ym).by;
   const rows = groups.slice(0, 10).map(([g, v]) => {
     const now = sofar.get(g) || 0, pct = f.total ? Math.round(v / f.total * 100) : 0;
-    return `<button class="gbar click" data-act="grp" data-g="${esc(g)}" data-k="expense" data-m="${ym}" data-tip="${esc(`${g}: about ${R(v)} next month; ${R(now)} so far this month`)}">
-      <i class="badge sm" style="background:${groupColor(g)}">${groupLetter(g)}</i><div class="gmain"><div class="gtop"><span>${esc(g)}</span><b>${R(v)}</b></div>
+    return `${button({ html: `<i class="badge sm" style="background:${groupColor(g)}">${groupLetter(g)}</i><div class="gmain"><div class="gtop"><span>${esc(g)}</span><b>${R(v)}</b></div>
       <div class="track"><div class="fill" style="width:${v / gmax * 100}%;background:${groupColor(g)}"></div><div class="mark now" style="left:${Math.min(100, now / gmax * 100)}%"></div></div>
-      <small class="muted">${pct}% of forecast · ${R(now)} so far this month</small></div></button>`;
+      <small class="muted">${pct}% of forecast · ${R(now)} so far this month</small></div>`, kind: 'plain', cls: 'gbar click', act: 'grp', attr: { 'data-g': g, 'data-k': 'expense', 'data-m': ym, 'data-tip': `${g}: about ${R(v)} next month; ${R(now)} so far this month` } })}`;
   }).join('');
   return `${hdr('Outlook')}
     ${reminderBanner(db)}
