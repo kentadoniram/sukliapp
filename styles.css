@@ -1544,3 +1544,6 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .chip { display: inline-flex; align-items: center; justify-content: center; text-align: center; line-height: 1.15; min-height: 38px; padding: 0 16px; gap: 6px; font-weight: 600; font-family: inherit; box-sizing: border-box; }
 .chip.cat { justify-content: flex-start; text-align: left; }
 .chip small { line-height: 1; }
+
+/* Earn account page: Edit, Subscription Settings, APR Changes and On/Off wrap onto the next line instead of overlapping */
+.btnrow.earnacts{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;overflow:visible}.btnrow.earnacts>*{flex:0 0 auto;min-width:0;white-space:nowrap}.btnrow.earnacts .switch{margin-left:2px}

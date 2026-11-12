@@ -22,15 +22,16 @@ with sync_playwright() as p:
     ok('only the switched-on section is shown', pg.locator('.dashcard .dashbody').count()==1)
     pg.click('.dashcard .segi:has-text("Fees and Losses")'); pg.wait_for_timeout(400)
     print('DBG',pg.locator('.dashcard .dashbody').count(),'Trading fees' in pg.inner_text('.dashcard'),pg.locator('.dashcard .dashbody .coll').count())
-    ok('switching Fees and Losses on adds it below (both shown, each collapsible)', pg.locator('.dashcard .dashbody').count()==2 and 'Trading fees' in pg.inner_text('.dashcard') and pg.locator('.dashcard .dashbody .coll').count()>=2)
+    ok('choosing Fees and Losses REPLACES the first section (only one shown, still collapsible)', pg.locator('.dashcard .dashbody').count()==1 and pg.locator('.dashcard .segi.on').count()==1 and 'Fees and Losses' in pg.inner_text('.dashcard .segi.on') and 'Trading fees' in pg.inner_text('.dashcard') and pg.locator('.dashcard .dashbody .coll').count()>=1)
     pg.reload(); pg.wait_for_selector('.dashcard'); pg.wait_for_timeout(400)
-    ok('choice remembered', pg.locator('.dashcard .segi.on').count()==2 and 'Fees and Losses' in pg.inner_text('.dashcard .segi.on >> nth=1'))
-    pg.click('.dashcard .segi:has-text("Fees and Losses")'); pg.wait_for_timeout(300); pg.click('.dashcard .segi.on'); pg.wait_for_timeout(300)
-    ok('all off shows a hint instead of an empty card', 'Turn a section on' in pg.inner_text('.dashcard'))
+    ok('choice remembered', pg.locator('.dashcard .segi.on').count()==1 and 'Fees and Losses' in pg.inner_text('.dashcard .segi.on'))
+    pg.click('.dashcard .segi.on'); pg.wait_for_timeout(300)
+    ok('tapping the selected segment again keeps it selected (never empty)', pg.locator('.dashcard .segi.on').count()==1 and pg.locator('.dashcard .dashbody').count()==1)
     # 2. Earn account: one row of actions
     pg.evaluate("(async()=>{const u=await import('/js/ui.js');u.ACT.acct({dataset:{id:'er'}})})()"); pg.wait_for_selector('[data-ad=edit]'); pg.wait_for_timeout(300)
-    ys=pg.evaluate("['[data-ad=edit]','[data-act=earn-open]:not([data-focus])','[data-act=earn-open][data-focus=apr]','[data-act=earn-toggle]'].map(s=>{const e=document.querySelector(s);const r=(e.closest('label')||e).getBoundingClientRect();return Math.round(r.top+r.height/2)})")
-    ok('Edit, Subscription Settings, APR Changes and the switch share one row %s'%ys, max(ys)-min(ys)<=6)
+    bx=pg.evaluate("['[data-ad=edit]','[data-act=earn-open]:not([data-focus])','[data-act=earn-open][data-focus=apr]','[data-act=earn-toggle]'].map(s=>{const e=document.querySelector(s);const r=(e.closest('label')||e).getBoundingClientRect();return [r.left,r.top,r.right,r.bottom]})")
+    hit=[(i,j) for i in range(4) for j in range(i+1,4) if bx[i][0]<bx[j][2]-1 and bx[j][0]<bx[i][2]-1 and bx[i][1]<bx[j][3]-1 and bx[j][1]<bx[i][3]-1]
+    ok('Edit, Subscription Settings, APR Changes and On/Off do not overlap %s'%hit, not hit and max(b[2] for b in bx)<=390)
     # 3. mid-hour APR change
     pg.click('[data-act=earn-open][data-focus=apr]'); pg.wait_for_selector('#aprhist'); pg.wait_for_timeout(400)
     pg.click('[data-ew=aprAdd]'); pg.wait_for_selector('#ah-when')

@@ -73,7 +73,7 @@ const panel = (id, title, body) => { PANELS.push({ id, title, body }); return ''
 // which dashboard sections are shown: a list of ids, kept on this device (first time: only Performance)
 const dsec = () => { try { const v = JSON.parse(localStorage.getItem('sukli-dpanels') || 'null'); return Array.isArray(v) ? v : null; } catch { return null; } };
 const dshown = (list) => { const v = dsec(); return v ? v.filter((id) => list.some((x) => x.id === id)) : [(list.find((x) => x.id === 'i-perf') || list[0]).id]; };
-ACT['inv-dsw'] = (el) => { const id = el.dataset.v, cur = dshown(PANELS_LAST), next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]; try { localStorage.setItem('sukli-dpanels', JSON.stringify(next)); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
+ACT['inv-dsw'] = (el) => { const id = el.dataset.v, cur = dshown(PANELS_LAST), next = [id]; /* one section at a time */ try { localStorage.setItem('sukli-dpanels', JSON.stringify(next)); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
 function dashTabs() {
   const list = Object.keys(DASH).map((id) => PANELS.find((x) => x.id === id)).filter(Boolean); PANELS = [];
   if (!list.length) return '';
@@ -84,7 +84,7 @@ function dashTabs() {
 }
 const wtabs = () => { try { return JSON.parse(localStorage.getItem('sukli-wtab') || '{}'); } catch { return {}; } };
 const wsw = () => { try { return JSON.parse(localStorage.getItem('sukli-wsw') || '{}'); } catch { return {}; } };
-ACT['inv-wsw'] = (el) => { const ex = el.dataset.ex, w = el.dataset.w, all = wsw(), cur = (window.__wsOn && window.__wsOn[ex]) || all[ex] || [], next = cur.includes(w) ? cur.filter((x) => x !== w) : [...cur, w]; if (!next.length) return;   // at least one stays on
+ACT['inv-wsw'] = (el) => { const ex = el.dataset.ex, w = el.dataset.w, all = wsw(), cur = (window.__wsOn && window.__wsOn[ex]) || all[ex] || [], next = [w];   // one account type at a time
   try { localStorage.setItem('sukli-wsw', JSON.stringify({ ...all, [ex]: next })); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
 ACT['inv-group'] = (el) => { try { localStorage.setItem('sukli-invgroup', el.dataset.v); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
 const COINS = ['USDT', 'USDC', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'TON', 'ADA'];
@@ -238,10 +238,10 @@ export function investments(db) {
   const walletBlocks = (list, t) => { const srt = (l) => l.slice().sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0));
     const ws = new Map(); for (const a of list) { const w = a.exchange ? walletOf(a) : ''; if (!ws.has(w)) ws.set(w, []); ws.get(w).push(a); }
     if (mode !== 'platform' || (ws.size === 1 && (ws.has('Spot') || ws.has('')))) return `<div class="rows plain">${srt(list).map((a) => holding(a, t)).join('')}</div>`;
-    // a switch for each account type (Spot, Margin, Futures, Earn…): any number can be on, and each one that is on shows its own assets below
+    // one segment for each account type (Spot, Margin, Futures, Earn…): only one is selected at a time, and it shows its own assets below
     const order = [...ws.entries()].sort((x, y) => (WALLETS.indexOf(x[0]) + 1 || 99) - (WALLETS.indexOf(y[0]) + 1 || 99) || x[0].localeCompare(y[0])), ex = exchangeOf(list[0]) || '';
     const saved = Array.isArray(wsw()[ex]) ? wsw()[ex].filter((w) => ws.has(w)) : [], old = wtabs()[ex];
-    const on = saved.length ? saved : [old && ws.has(old) ? old : ws.has('Spot') ? 'Spot' : order[0][0]]; PICKED[ex] = on; (window.__wsOn = window.__wsOn || {})[ex] = on;
+    const on = saved.length ? [saved[0]] : [old && ws.has(old) ? old : ws.has('Spot') ? 'Spot' : order[0][0]]; PICKED[ex] = on; (window.__wsOn = window.__wsOn || {})[ex] = on;
     const block = ([w]) => { if (!on.includes(w)) return ''; const l = ws.get(w), nm = w || 'Other';
       return `<div class="wblock" data-w="${esc(nm)}"><p class="hint wtsum"><b>${esc(nm)}</b> ${money(exSum(l))}${earnedTxt(l)}${w === 'Earn' ? ' · Earn only collects interest. Coins move in and out with Internal Transfer.' : ''}</p>
         ${w === 'Earn' ? `<div class="btnrow left oneline earntop">${button({ label: '+ Transfer In/Out', kind: 'secondary', size: 'sm', act: 'inv-internal', data: 'ex', v: ex, aria: `Transfer in or out of Earn on ${ex}` })}</div>` : ''}
@@ -253,10 +253,9 @@ export function investments(db) {
       <span class="ramt"><b>${ok ? money(v) : '<small class="muted">no price</small>'}</b></span></button>`; };
   const exHtml = [...byEx.entries()].sort((x, y) => mode === 'risk' ? (((RISK_GROUPS.indexOf(x[0]) + 1) || 99) - ((RISK_GROUPS.indexOf(y[0]) + 1) || 99)) || x[0].localeCompare(y[0]) : exSum(y[1]) - exSum(x[1])).map(([ex, list]) => {
     const t = exSum(list); return `<div class="ivplat" style="--pc:${platColor(ex)}">` + coll('ix-' + ex, `<span class="exname" ${ex === 'Wallets and other' ? '' : `data-act="plat-open" data-ex="${esc(ex)}" role="button" title="Settings for the whole exchange"`}>${esc(ex)}</span> <span class="gsum2"><b>${money(t)}</b>${altOf(db, t) ? ` <small class="muted">≈ ${altOf(db, t)}</small>` : ''}</span>`,
-      `${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="platbar">${button({ label: 'Platform Settings · Rename Platform', kind: 'link', act: 'plat-open', data: 'ex', v: ex, aria: `Settings and rename for the platform ${ex}` })}</div>` : ''}${list.length ? walletBlocks(list, t) : `<p class="hint">${cryptoAll.some((a) => (exchangeOf(a) || 'Wallets and other') === ex) ? 'Nothing with a balance here. Empty assets are hidden.' : 'No assets here yet.'}</p>`}
-       ${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="btnrow left oneline">${(() => { const B = (label, act, aria, o = {}) => button({ label, kind: o.kind || 'ghost', size: 'sm', act, data: 'ex', v: ex, aria, cls: o.cls || '' }), on = PICKED[ex] || [], earnOnly = on.length === 1 && on[0] === 'Earn';
-        return earnOnly ? B('Transfer In/Out', 'inv-internal', `Transfer in or out of Earn on ${ex}`, { kind: 'primary' })
-          : B('Record', 'inv-add', `Record activity on ${ex}`, { kind: 'primary', cls: 'iv-rec' }) + B('+ Asset', 'inv-coin', `Add an asset to ${ex}`, { cls: 'iv-add' }) + B('Internal', 'inv-internal', `Internal transfer between wallets on ${ex}`); })()}</div>` : ''}`, '') + '</div>'; }).join('');
+      `${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="platbar">${button({ label: 'Platform Settings', kind: 'link', act: 'plat-open', data: 'ex', v: ex, aria: `Settings for the platform ${ex}` })}</div>` : ''}${list.length ? walletBlocks(list, t) : `<p class="hint">${cryptoAll.some((a) => (exchangeOf(a) || 'Wallets and other') === ex) ? 'Nothing with a balance here. Empty assets are hidden.' : 'No assets here yet.'}</p>`}
+       ${mode === 'platform' && ex !== 'Wallets and other' && !((PICKED[ex] || []).length === 1 && PICKED[ex][0] === 'Earn') ? `<div class="btnrow left oneline">${(() => { const B = (label, act, aria, o = {}) => button({ label, kind: o.kind || 'ghost', size: 'sm', act, data: 'ex', v: ex, aria, cls: o.cls || '' }), on = PICKED[ex] || [], earnOnly = on.length === 1 && on[0] === 'Earn';
+        return earnOnly ? '' : B('Record', 'inv-add', `Record activity on ${ex}`, { kind: 'primary', cls: 'iv-rec' }) + B('Internal', 'inv-internal', `Internal transfer between wallets on ${ex}`); })()}</div>` : ''}`, '') + '</div>'; }).join('');
   // one header card for all the crypto platforms, so the other investments (bonds, government savings, funds) are not buried below a long list of exchanges
   if (crypto.length && ui.collapsed['i-crypto'] === undefined) ui.collapsed['i-crypto'] = byEx.size >= 3;
   const cryptoCard = crypto.length ? `<div class="ivgroup">${coll('i-crypto', `Crypto <small class="muted gsum">${money(exSum(crypto))} · ${byEx.size} ${byEx.size === 1 ? 'place' : 'places'}</small>`, exHtml)}</div>` : exHtml;
@@ -318,7 +317,8 @@ export function addAsset(pre = {}) {
     <label class="field"><span>Asset type</span><select name="type">${typeOpts}</select></label>
     <label class="field"><span>Platform or broker</span><input name="ex" value="${esc(pre.platform || '')}" placeholder="Pick one below or type your own" required autocomplete="off"></label>
     ${platformChips()}
-    <label class="field"><span>Trading Account Inside the Platform</span><select name="wallet">${[...new Set([...WALLETS, ...Object.values(get().settings.acctTypes || {}).flat(), ...get().accounts.map((x) => x.wallet).filter(Boolean)])].map((w) => `<option ${(pre.wallet || 'Spot') === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select><small class="muted" id="wal-h"></small></label>
+    <label class="field" id="walf" hidden><span>Trading Account Inside the Platform</span><select name="wallet">${[...new Set([...WALLETS, ...Object.values(get().settings.acctTypes || {}).flat(), ...get().accounts.map((x) => x.wallet).filter(Boolean)])].map((w) => `<option ${(pre.wallet || 'Spot') === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select><small class="muted" id="wal-h"></small></label>
+    <p class="hint" id="allacc">The asset is added to every trading account of this platform (Spot, Earn, Margin and the others), each with its own balance. The amount you hold now goes into Spot.</p>
     <div id="tkchips"></div>
     <div class="two"><label class="field"><span>Ticker ${tipBtn('ticker')}</span><input name="coin" placeholder="BNB, BGB, NVDA, 7203, 005930" required autocomplete="off" style="text-transform:uppercase"></label>
       <label class="field"><span>Name (Optional) ${tipBtn('assetname')}</span><input name="name" placeholder="NVIDIA, Toyota, Samsung…" autocomplete="off"></label></div>
@@ -357,15 +357,17 @@ export function addAsset(pre = {}) {
     if (!exn || sym.length < 2) { toast('Enter the platform and a ticker.'); return; }
     const nr = nearPlatform(exn); if (nr && !(await confirmDialog(`Did you mean ${nr}? You typed ${exn}.`, `Yes, ${nr}`, false, `No, keep ${exn}`))) { /* keep what was typed */ } else if (nr) exn = nr;
     const wal = f.wallet.value || 'Spot';
-    if (get().accounts.some((a) => !a.deleted && a.cur === sym && (a.exchange || '').toLowerCase() === exn.toLowerCase() && (a.wallet || 'Spot').toLowerCase() === wal.toLowerCase())) { toast(`${exn} already has a ${sym} balance in ${wal}. Choose another wallet, or use that one.`); return; }
-    const nid = uid();
+    const have0 = get().accounts.find((a) => !a.deleted && a.cur === sym && (a.exchange || '').toLowerCase() === exn.toLowerCase() && (a.wallet || 'Spot').toLowerCase() === wal.toLowerCase());
+    const nid = have0 ? have0.id : uid();
     commit((d) => {
       d.settings.tickers = d.settings.tickers || {}; const old = d.settings.tickers[sym] || {};
       d.settings.tickers[sym] = { ...old, ticker: raw, name: f.name.value.trim() || old.name || '', assetType: type, market: market || old.market || '', quote: price > 0 || !old.quote ? quote : old.quote, ...(f.cg.value.trim() || KNOWN_CG[sym] ? { cgId: f.cg.value.trim().toLowerCase() || KNOWN_CG[sym] } : {}), ...(price > 0 ? { price, priceDate: new Date().toISOString().slice(0, 10) } : {}) };
       if (price > 0) pushHistory(d.settings.tickers[sym], price, quote, 'manual');
       if (!CRYPTO.includes(sym)) { d.settings.curDec = d.settings.curDec || {}; if (!d.settings.curDec[sym]) { d.settings.curDec[sym] = dec; CUR[sym].dec = dec; } }
-      d.accounts.push(stamp({ id: nid, name: `${exn}${wal === 'Spot' ? '' : ' ' + wal} ${raw}`, wallet: wal, cur: sym, type: type === 'crypto' ? 'crypto' : 'invest', assetType: type, market, exchange: exn, open: amt, include: false, archived: false, invtab: true })); });
-    s.close(); toast(`${raw} added to ${exn}${wal === 'Spot' ? '' : ' (' + wal + ')'}.`); if (pre.onDone) pre.onDone(nid); if (navigator.onLine) import('./rates.js').then((m) => m.fetchRates({ quiet: true })).catch(() => {}); };
+      if (!have0) d.accounts.push(stamp({ id: nid, name: `${exn}${wal === 'Spot' ? '' : ' ' + wal} ${raw}`, wallet: wal, cur: sym, type: type === 'crypto' ? 'crypto' : 'invest', assetType: type, market, exchange: exn, open: amt, include: false, archived: false, invtab: true }));
+      if (type === 'crypto') { d.settings.platAssets = d.settings.platAssets || {}; const k = Object.keys(d.settings.platAssets).find((x) => x.toLowerCase() === exn.toLowerCase()) || exn; d.settings.platAssets[k] = [...new Set([...(d.settings.platAssets[k] || []), sym])]; } });
+    if (type === 'crypto') ensureUsdt();   // also makes the empty lines of this asset in every other trading account
+    s.close(); toast(type === 'crypto' ? `${raw} added to every trading account of ${exn}.` : `${raw} added to ${exn}.`); if (pre.onDone) pre.onDone(nid); if (navigator.onLine) import('./rates.js').then((m) => m.fetchRates({ quiet: true })).catch(() => {}); };
 }
 // rename a platform on every account that uses it (also in the account names that start with it); naming it like another platform merges the two
 export async function renamePlatform(old) {

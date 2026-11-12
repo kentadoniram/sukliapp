@@ -18,9 +18,9 @@ with sync_playwright() as p:
     ok('only the selected wallet (Spot) lists assets', box.locator('.hold').count()==1 and 'Spot' in box.locator('.segi.on').inner_text())
     box.locator('.segi:has-text("Earn")').click(); pg.wait_for_timeout(500)
     box=pg.locator('.ivplat:has(.segi:has-text("Earn"))').first
-    ok('Earn switched on (Spot stays on): both blocks list their own assets, and the Earn block has the passive note', box.locator('.wblock[data-w=Spot] .hold').count()==1 and box.locator('.wblock[data-w=Earn] .hold').count()==1 and 'Earn only collects interest' in box.locator('.wblock[data-w=Earn]').text_content())
+    ok('Earn selected (replaces Spot): only the Earn block shows, with its own asset and the passive note', box.locator('.wblock').count()==1 and box.locator('.wblock[data-w=Earn] .hold').count()==1 and 'Earn only collects interest' in box.locator('.wblock[data-w=Earn]').text_content())
     pg.reload(); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(500); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
-    ok('switch choice remembered (Spot and Earn both still on)', set(pg.locator('.ivplat:has(.segi:has-text("Earn")) .segi.on').all_inner_texts())=={'Spot','Earn'})
+    ok('choice remembered (only Earn is selected)', pg.locator('.ivplat:has(.segi:has-text("Earn")) .segi.on').all_inner_texts()==['Earn'])
     # form refuses entries on Earn
     R=pg.evaluate("""(async()=>{const m=await import('/js/entry.js');m.openEntry({preset:{kind:'expense',acct:'ze'}});return 1})()""")
     pg.wait_for_selector('#f-amount'); pg.evaluate("document.querySelector('#f-amount').focus()")

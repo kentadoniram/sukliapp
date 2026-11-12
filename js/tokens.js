@@ -49,9 +49,16 @@ function usdtGaps(db) {
     if (db.accounts.some((x) => x.cur === 'USDT' && (x.exchange || '').toLowerCase() === ex.toLowerCase() && walletOf(x).toLowerCase() === wal.toLowerCase())) continue;
     made.push({ ex, wal });
   }
+  // coins added to the platform itself (Platform Settings > + Asset) must exist in every trading account of it, Earn included
+  const pa = db.settings.platAssets || {};
+  for (const [ex, coins] of Object.entries(pa)) for (const wal of accountTypesOf(db, ex)) for (const cur of coins) {
+    if (db.accounts.some((x) => x.cur === cur && (x.exchange || '').toLowerCase() === ex.toLowerCase() && walletOf(x).toLowerCase() === wal.toLowerCase())) continue;
+    if (cur === 'USDT' && made.some((m) => m.ex.toLowerCase() === ex.toLowerCase() && m.wal === wal && !m.cur)) continue;
+    made.push({ ex, wal, cur });
+  }
   return made;
 }
-const usdtAcct = ({ ex, wal }) => stamp({ id: uid(), name: `${ex}${wal === 'Spot' ? '' : ' ' + wal} USDT`, wallet: wal, cur: 'USDT', type: 'crypto', assetType: 'crypto', exchange: ex, open: 0, include: false, archived: false, invtab: true });
+const usdtAcct = ({ ex, wal, cur = 'USDT' }) => stamp({ id: uid(), name: `${ex}${wal === 'Spot' ? '' : ' ' + wal} ${cur}`, wallet: wal, cur, type: 'crypto', assetType: 'crypto', exchange: ex, open: 0, include: false, archived: false, invtab: true });
 // adds them straight into a db (used by the importer before it saves)
 export function addMissingUsdt(db) { const m = usdtGaps(db); for (const g of m) db.accounts.push(usdtAcct(g)); return m.length; }
 export function ensureUsdt() {
