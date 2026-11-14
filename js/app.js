@@ -68,7 +68,7 @@ function tabs(route) {
   const t = ids.map((id) => [id, TAB_DEFS[id][0], TAB_DEFS[id][1]]); t.splice(half, 0, null);
   const n = reviewCount(get());
   return t.map((x) => x === null
-    ? `${button({ html: `${ic('plus')}`, kind: 'plain', cls: `fab${route === 'invest' ? ' inv' : ''}`, act: 'add', aria: 'Add an entry' })}${button({ html: `${ic('camera')}<span>Scan</span>`, kind: 'plain', cls: 'scanbtn', act: 'scan-menu', aria: 'Scan a receipt or a Pasmo screenshot' })}`
+    ? `${button({ html: `${ic('plus')}`, kind: 'plain', cls: `fab${route === 'invest' ? ' inv' : ''}`, act: 'add', aria: 'Add an entry' })}`
     : `<a href="#/${x[0]}" class="${route === x[0] ? 'on' : ''}" ${route === x[0] ? 'aria-current="page"' : ''}>${ic(x[2])}<span>${x[1]}</span>${x[0] === 'home' && n ? `<em class="dot" aria-label="${n} to check"></em>` : ''}</a>`).join('');
 }
 
