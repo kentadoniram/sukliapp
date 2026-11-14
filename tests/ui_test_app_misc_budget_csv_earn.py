@@ -226,7 +226,7 @@ def part5(p,b,ctx,pg,errs):
     # three earlier rides on the same pair (opposite direction) at 483
     pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{const cat=d.categories.find(x=>!x.deleted).id;for(let i=0;i<3;i++)d.txs.push(c.stamp({id:'f'+i,kind:'expense',amount:483,cur:'JPY',fx:1,date:'2026-10-1'+i+' 08:00:00',name:'Train: Kawasaki - Kita-Senju',from:'Kawasaki',to:'Kita-Senju',cat,acct:'pm1'}))})})()""")
     pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer')
-    pg.evaluate("document.querySelector('.drawer [data-act=wallet-scan]').click()"); pg.wait_for_timeout(600); pg.wait_for_selector('#ws-file',state='attached',timeout=5000); pg.set_input_files('#ws-file','/tmp/blank.png'); pg.wait_for_selector('.wslist',timeout=15000)
+    pg.evaluate("document.querySelector('.drawer [data-act=scan-menu]').click()"); pg.wait_for_selector('.scanpick'); pg.evaluate("document.querySelector('.scanpick [data-v=w]').click()"); pg.wait_for_timeout(600); pg.wait_for_selector('#ws-file',state='attached',timeout=5000); pg.set_input_files('#ws-file','/tmp/blank.png'); pg.wait_for_selector('.wslist',timeout=15000)
     t=pg.inner_text('.sheet')
     ok('note shows the usual fare with confidence', 'Usually' in t and '483' in t and 'always the same' in t and 'Worth a check' in t)
     ok('only the differing pair is flagged', pg.locator('.wsfare').count()==1)

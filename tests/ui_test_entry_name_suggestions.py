@@ -45,7 +45,7 @@ with sync_playwright() as p:
     # 7 burger drawer
     pg.goto('http://localhost:8123/index.html#/home'); pg.wait_for_selector('.strip')
     ok('no gear in header, burger present', pg.locator('header [aria-label=Settings]').count()==0 and pg.locator('header [data-act=menu]').count()==1)
-    pg.click('header [data-act=menu]'); pg.wait_for_selector('.drawer'); pg.click('.drawer [data-key=sukli-menu-bar]'); pg.wait_for_timeout(200)
+    pg.click('header [data-act=menu]'); pg.wait_for_selector('.drawer'); pg.wait_for_timeout(200)
     items=pg.locator('.drawer a').all_inner_texts(); print('  menu:',[i.strip().replace('\n',' ') for i in items])
     for w in ['Home','Entries','Calendar','Budget','Cash Flow','Analytics','Accounts','Expense categories','Income categories','Settings']:
         ok('menu has '+w, any(w in i for i in items))

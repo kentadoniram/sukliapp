@@ -36,12 +36,21 @@ ACT.menu = () => {
   wrap.className = 'drawer-scrim';
   wrap.innerHTML = `<nav class="drawer" aria-label="Menu"><div class="drawer-head"><b>Sukli</b>${button({ html: `${ic('x')}`, kind: 'plain', cls: 'iconbtn', aria: 'Close menu', attr: { 'data-x': true } })}</div>
     <div class="dscan"><a href="#" class="dscanbtn" data-act="scan-menu">Scan</a></div>
-    ${(() => { const tb = tabIds(get()), inBar = (h) => tb.includes(h), main = [['home', 'Home', 'home'], ['ledger', 'Entries', 'list'], ['calendar', 'Calendar', 'calendar'], ['accounts', 'Accounts', 'wallet'], ['budget', 'Budget', 'pie'], ['invest', 'Investments', 'spark'], ['debts', 'Debts', 'calc'], ['owed', 'Owed to You', 'wallet'], ['reimburse', 'Reimbursement', 'wallet'], ['savings', 'Savings', 'goal'], ['cashflow', 'Cash Flow', 'flow'], ['outlook', 'Outlook', 'spark'], ['analytics', 'Analytics', 'chart'], ['spend', 'Spending by Group', 'pie'], ['trips', 'Trips and Events', 'calendar']].filter(([h]) => !simple || !['invest', 'cashflow', 'outlook', 'analytics', 'spend', 'trips'].includes(h)), inB = main.filter(([h]) => inBar(h)), rest = main.filter(([h]) => !inBar(h)), open = barOpen();
-      return `${inB.length ? `${button({ html: `<span>Bottom Bar Tabs</span>${ic('down', 'chev')}`, kind: 'plain', cls: 'dhead', attr: { 'data-dtoggle': true, 'data-key': 'sukli-menu-bar', 'aria-expanded': open } })}<ul class="dsub" ${open ? '' : 'hidden'}>${inB.map(([h, l, i]) => item(h, l, i)).join('')}</ul>` : ''}<ul>${rest.map(([h, l, i]) => item(h, l, i)).join('')}${item('review', 'Review', 'check', n)}</ul>`; })()}
+    ${(() => {
+      const adv = (...ids) => ids.filter((h) => !simple || !['invest', 'cashflow', 'outlook', 'analytics', 'spend', 'trips'].includes(h));
+      const nav = (ids) => ids.map(([h, l, i, b]) => item(h, l, i, b)).join('');
+      const act = (a2, l, i) => `<li><a href="#" data-act="${a2}">${ic(i)}<span>${l}</span></a></li>`;
+      const groups = [
+        nav([['home', 'Home', 'home'], ['ledger', 'Entries', 'list'], ['calendar', 'Calendar', 'calendar'], ['review', 'Review', 'check', n]]),
+        nav([['accounts', 'Accounts', 'wallet'], ['budget', 'Budget', 'pie'], ['savings', 'Savings', 'goal'], ...(simple ? [] : [['cashflow', 'Cash Flow', 'flow'], ['spend', 'Spending by Group', 'pie']])]),
+        nav([...(simple ? [] : [['invest', 'Investments', 'spark']]), ['debts', 'Debts', 'calc'], ['owed', 'Owed to You', 'wallet'], ['reimburse', 'Reimbursement', 'wallet']]) + (simple ? '' : act('loan-plan', 'Loan Planner', 'calc') + act('loan-wizard', 'Loan Setup', 'calc')) + item('rates', 'Compare Rates', 'calc'),
+        ...(simple ? [] : [nav([['outlook', 'Outlook', 'spark'], ['analytics', 'Analytics', 'chart'], ['trips', 'Trips and Events', 'calendar']])]),
+      ];
+      return groups.map((g) => `<ul class="dgrp">${g}</ul>`).join('');
+    })()}
     ${button({ html: `<span>Categories</span>${ic('down', 'chev')}`, kind: 'plain', cls: 'dhead', attr: { 'data-dtoggle': true, 'aria-expanded': catOpen() } })}
     <ul class="dsub" ${catOpen() ? '' : 'hidden'}>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
-    ${simple ? '' : `<ul><li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan Planner</span></a></li><li><a href="#" data-act="loan-wizard">${ic('calc')}<span>Loan Setup</span></a></li></ul>`}
-    ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle Bin and Undo History', 'trash')}${item('rates', 'Compare Rates', 'calc')}${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
+    ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle Bin and Undo History', 'trash')}${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
   document.body.appendChild(wrap);
   document.body.classList.add('noscroll');
   const onKey = (e) => { if (e.key === 'Escape') close(); };

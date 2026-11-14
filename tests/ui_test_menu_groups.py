@@ -1,0 +1,20 @@
+# v15.37: hamburger menu grouped by function with divider lines; narrower centred Scan button
+from playwright.sync_api import sync_playwright
+def ok(n,c): print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':390,'height':850})
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('.welcome')
+    pg.click('[data-act=wz-old]'); pg.click('[data-act=start-empty]'); pg.wait_for_selector('#acct-form'); pg.fill('[name=name]','Wallet'); pg.click('#acct-form .btn'); pg.wait_for_timeout(800)
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='advanced'})})()"); pg.wait_for_timeout(300)
+    pg.click('[data-act=menu]'); pg.wait_for_timeout(300)
+    n=pg.locator('.drawer ul.dgrp').count(); ok('4 groups %d'%n, n==4)
+    tops=pg.evaluate("[...document.querySelectorAll('.drawer ul.dgrp')].slice(1).map(u=>getComputedStyle(u).borderTopWidth)")
+    ok('divider lines between groups %s'%tops, all(t=='1px' for t in tops))
+    t=pg.locator('.drawer').inner_text()
+    ok('all entries present', all(w in t for w in ['Home','Entries','Calendar','Review','Accounts','Budget','Savings','Cash Flow','Investments','Debts','Owed to You','Reimbursement','Loan Planner','Loan Setup','Compare Rates','Outlook','Analytics','Trips and Events','Settings']))
+    w=pg.evaluate("[document.querySelector('.dscanbtn').getBoundingClientRect().width, document.querySelector('.drawer').getBoundingClientRect().width]")
+    ok('Scan button narrower than the menu %s'%w, w[0] < w[1]*0.7)
+    r=pg.evaluate("(()=>{const b=document.querySelector('.dscanbtn').getBoundingClientRect(),s=document.createRange();s.selectNodeContents(document.querySelector('.dscanbtn'));const t=s.getBoundingClientRect(),d=document.querySelector('.drawer').getBoundingClientRect();return [Math.abs((b.left+b.width/2)-(t.left+t.width/2)),Math.abs((b.top+b.height/2)-(t.top+t.height/2)),Math.abs((b.left+b.width/2)-(d.left+d.width/2))]})()")
+    ok('Scan text centred, button centred in menu %s'%r, r[0]<1.5 and r[1]<2.5 and r[2]<2)
+    pg.screenshot(path='/tmp/menu.png')
+    b.close()
