@@ -540,11 +540,10 @@ function predictCard(db) {
   const list = allPreds(db).sort((a, b) => (a.by < b.by ? -1 : 1)), held = db.accounts.some((a) => !a.deleted && inInvest(a) && isAsset(a));
   if (!held) return '';
   const actual = (sym) => { const a = db.accounts.find((x) => !x.deleted && x.cur === sym); return a ? priceNow(db, a) : null; };
-  return panel('i-pred', 'My Predictions <Small Class="muted Gsum">your Estimates</small>', `${list.length ? list.map((p) => { const act = actual(p.sym), gap = act && act.quote === p.quote ? (p.price - act.v) / act.v * 100 : null, a = db.accounts.find((x) => !x.deleted && x.cur === p.sym);
+  return panel('i-pred', 'My Predictions <small class="muted gsum">your estimates</small>', `${list.length ? list.map((p) => { const act = actual(p.sym), gap = act && act.quote === p.quote ? (p.price - act.v) / act.v * 100 : null, a = db.accounts.find((x) => !x.deleted && x.cur === p.sym);
       return `<div class="pred"><div class="predtop"><b>${esc(p.t.ticker || p.sym)}</b>${button({ label: 'Remove', kind: 'link', act: 'inv-pdel', data: 'sym', v: p.sym, attr: { 'data-id': p.id } })}</div>
         <div><span class="estbadge">Your estimate</span> ${fmt(p.price, p.quote)} by ${esc(p.by)}${p.note ? ` <small class="muted">· ${esc(p.note)}</small>` : ''}</div>
-        <div>${act ? `<span class="actbadge">Actual</span> ${fmt(act.v, act.quote)} <small class="muted">· ${a ? esc(priceStamp(db, a)) : ''}</small>${gap != null ? ` · <b class="${gap >= 0 ? 'cg' : 'cr'}">${gap >= 0 ? '+' : '−'}${Math.abs(gap).toFixed(1)}% to reach it</b>` : ''}` : '<span class="actbadge">Actual</span> <small class="muted">no price yet</small>'}</div></div>`; }).join('') : '<p class="hint">Write down where you think an asset will be, and by when. Your estimate is always shown apart from the real price.</p>'}`,
-    '' + button({ label: '+ Add', kind: 'ghost', size: 'sm', act: 'inv-predict' }) + '');
+        <div>${act ? `<span class="actbadge">Actual</span> ${fmt(act.v, act.quote)} <small class="muted">· ${a ? esc(priceStamp(db, a)) : ''}</small>${gap != null ? ` · <b class="${gap >= 0 ? 'cg' : 'cr'}">${gap >= 0 ? '+' : '−'}${Math.abs(gap).toFixed(1)}% to reach it</b>` : ''}` : '<span class="actbadge">Actual</span> <small class="muted">no price yet</small>'}</div></div>`; }).join('') : '<p class="hint">Write down where you think an asset will be, and by when. Your estimate is always shown apart from the real price.</p>'}` + `<div class="btnrow">${button({ label: '+ Add', kind: 'ghost', size: 'sm', act: 'inv-predict' })}</div>`);
 }
 function openPredict(pre = {}) {
   const db = get(), hold = db.accounts.filter((a) => !a.deleted && inInvest(a) && isAsset(a)), seen = new Set(), uniq = hold.filter((a) => (seen.has(a.cur) ? false : seen.add(a.cur)));
