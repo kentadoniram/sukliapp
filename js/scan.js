@@ -297,3 +297,13 @@ ACT['sc-use'] = () => {
   const api = cur; api.close();
   setTimeout(() => openEntry({ preset }), 60);
 };
+
+// One "Scan" button in the menu opens this choice (v15.37)
+ACT['scan-menu'] = () => setTimeout(() => sheet(`<div class="scanpick">
+  ${button({ label: 'Scan Receipt', kind: 'primary', act: 'scan-go', v: 'r', cls: 'wide' })}
+  ${button({ label: 'Read PASMO', kind: 'primary', act: 'scan-go', v: 'w', cls: 'wide' })}</div>`, { title: 'Scan' }), 90);
+ACT['scan-go'] = (el) => {
+  const v = el && el.dataset ? el.dataset.v : 'r';
+  document.querySelectorAll('.scrim').forEach((x) => x.remove());
+  (v === 'w' ? ACT['wallet-scan'] : ACT.scan)();
+};
