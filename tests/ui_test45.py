@@ -1,5 +1,6 @@
 # v12ag: tabs stay at the bottom around Settings fields (iPhone); promo lock terms on the account page and form
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 UA='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
@@ -11,7 +12,8 @@ with sync_playwright() as p:
     pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(600)
     bottom=lambda: pg.evaluate("(()=>{const r=document.querySelector('.tabs').getBoundingClientRect();return [Math.round(r.bottom),innerHeight,getComputedStyle(document.querySelector('.tabs')).display]})()")
     t0=bottom(); ok(f'tabs sit on the bottom edge to start: {t0}', t0[0]==t0[1] and t0[2]!='none')
-    inp=pg.locator('#view input[type=text], #view input:not([type]), #view input[inputmode]').first
+    from pkhelp import open_all; open_all(pg)
+    inp=pg.locator('#view input[type=text], #view input:not([type]), #view input[inputmode]').locator('visible=true').first
     inp.tap(); pg.wait_for_timeout(300)
     ok('tabs are hidden while a field on the page has the keyboard', pg.evaluate("document.documentElement.classList.contains('typing')") and bottom()[2]=='none')
     pg.evaluate("document.activeElement.blur()"); pg.wait_for_timeout(600)

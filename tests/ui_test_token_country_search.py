@@ -1,4 +1,5 @@
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 from pkhelp import choose
 CSV='/home/claude/Transactions.csv'
 errs=[]; res=[]
@@ -27,7 +28,8 @@ with sync_playwright() as p:
     pg.select_option('[data-aview=group]','exchange'); pg.wait_for_timeout(300)
     ok('accounts page keeps investments in their own block', pg.locator('.invblock').count()==1)
     pg.goto('http://localhost:8123/index.html#/invest'); pg.wait_for_timeout(600)
-    ok('exchange group shown (Investments tab)', 'Bybit' in pg.inner_text('main, #app'))
+    pkhelp.open_all(pg)
+    ok('exchange group shown (Investments tab)', 'bybit' in pg.inner_text('main, #app').lower())
     # custom account type (receivable) from Settings
     pg.goto('http://localhost:8123/index.html#/settings'); pg.wait_for_selector('#atype-new')
     pg.fill('#atype-new','Prepaid pot'); pg.click('[data-act=atype-add]'); pg.wait_for_timeout(400)

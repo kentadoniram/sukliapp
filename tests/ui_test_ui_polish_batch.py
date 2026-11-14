@@ -1,5 +1,6 @@
 # v12ab batches B, C, D: margins, accounts sort, Home, date picker, inputs, keypad, feedback, interest help
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 with sync_playwright() as p:

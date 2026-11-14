@@ -76,3 +76,10 @@ ok('Keikyi (mark misread) repaired', t2('Keikyi Kawasaki') === 'Keikyū Kawasaki
 ok('Yakou repaired', t2('Yakou') === 'Yakō');
 ok('unknown station kept, marks dropped', t2('Zzūzz Foo') === 'Zzuzz Foo');
 console.log('fails', fails); process.exit(fails ? 1 : 0);
+
+// v15.34: the balance "¥5,468" must never be read as 5 (a "." or ", " or space as the thousands mark)
+{ const { parseWalletText } = await import('../js/walletparse.js');
+  for (const b of ['¥5,468', '¥5.468', '¥5, 468', '¥5 468', '\\5,468']) {
+    const r = parseWalletText(`Balance\n${b}\nLatest Transactions\nKawasaki Station ¥257\nPurchase\n2 hours ago`);
+    if (r.balance !== 5468) { console.log('FAIL balance', b, r.balance); process.exitCode = 1; } else console.log('PASS balance', b);
+  } }

@@ -1,5 +1,6 @@
 # v15.3: rate window modes, left-aligned currency list, round + button
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 with sync_playwright() as p:
@@ -16,11 +17,11 @@ with sync_playwright() as p:
     la=pg.inner_text('#cv-la'); lb=pg.inner_text('#cv-lb')
     pg.fill('#cv-r','50') if False else None
     pg.fill('#cv-a','2'); pg.dispatch_event('#cv-a','input'); pg.fill('#cv-b','100'); pg.dispatch_event('#cv-b','input')
-    ok('Set Amount: editing the pair, the rate follows (50), rate box not editable', abs(float(pg.input_value('#cv-r'))-50)<1e-9 and pg.evaluate("(document.querySelector('#cv-r').offsetParent===null)"))
+    ok('Set Amount: editing the pair, the rate follows (50), rate box not editable', abs(float(pg.input_value('#cv-r'))-50)<1e-9 and not pg.evaluate("i=>{const e=document.querySelector(i);return !!e&&e.offsetParent!==null}",'#cv-r'))
     pg.evaluate("document.querySelector('#cv-rev').click()"); pg.wait_for_timeout(150)
     ok('swap: only the values trade, currencies stay, rate follows (1/50)', pg.inner_text('#cv-la')==la and pg.inner_text('#cv-lb')==lb and abs(float(pg.input_value('#cv-a'))-100)<1e-6 and abs(float(pg.input_value('#cv-b'))-2)<1e-6 and abs(float(pg.input_value('#cv-r'))-0.02)<1e-9)
     pg.evaluate("document.querySelector('#cv-setrate').click()"); pg.fill('#cv-r','55'); pg.dispatch_event('#cv-r','input')
-    ok('Set Rate: amounts not editable, they follow the rate', pg.evaluate("(document.querySelector('#cv-a').offsetParent===null)&&(document.querySelector('#cv-b').offsetParent===null)") and abs(float(pg.input_value('#cv-a'))-100)<1e-6 and abs(float(pg.input_value('#cv-b'))-5500)<1e-6)
+    ok('Set Rate Instead: amounts hidden, they follow the rate', (not pg.evaluate("i=>{const e=document.querySelector(i);return !!e&&e.offsetParent!==null}",'#cv-a')) and abs(float(pg.input_value('#cv-a'))-100)<1e-6 and abs(float(pg.input_value('#cv-b'))-5500)<1e-6)
     pg.evaluate("document.querySelector('#cv-rev').click()"); pg.wait_for_timeout(150)
     ok('swap in rate mode: values trade, rate stays 55', abs(float(pg.input_value('#cv-a'))-5500)<1e-6 and abs(float(pg.input_value('#cv-r'))-55)<1e-9 and abs(float(pg.input_value('#cv-b'))-302500)<1e-3)
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)

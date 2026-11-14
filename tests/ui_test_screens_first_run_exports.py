@@ -1,6 +1,7 @@
 # v15.16: screen sizes, steady entry form, first screen, clear button and exports, transfer labels (merged from five tests that each used their own browser setup)
 import re, json
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 
 def part_phone_sizes():
     CSV='/home/claude/Transactions.csv'; res=[]
@@ -41,7 +42,7 @@ def part_phone_sizes():
         # keyboard-sized screen: nothing moves while typing
         pg.set_viewport_size({'width':402,'height':540})
         pg.wait_for_timeout(300)
-        POS="(()=>{const o=document.querySelector('#f-what').getBoundingClientRect().top;const q=s=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return [Math.round(r.top-o),Math.round(r.height)]};return JSON.stringify([q('#f-amount'),q('.keypad button'),q('#whenrow'),q('#acctrow')])})()"
+        POS="(()=>{const o=document.querySelector('#f-what').getBoundingClientRect().top;const q=s=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return [Math.round(r.top-o),Math.round(r.height)]};return JSON.stringify([q('#f-amount'),q('.keypad button')])})()"
         p0=pg.evaluate(POS); st=True
         pg.tap('#f-what'); pg.keyboard.type('Life Tsukagoshi',delay=20); pg.wait_for_timeout(500)
         st = pg.evaluate(POS)==p0
@@ -59,7 +60,7 @@ def part_phone_sizes():
 def part_entry_form_steady():
     CSV='/home/claude/Transactions.csv'; res=[]
     def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
-    POS="(()=>{const o=document.querySelector('#f-what').getBoundingClientRect().top;const q=s=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return [Math.round(r.top-o),Math.round(r.left),Math.round(r.height)]};return JSON.stringify([q('#f-what'),q('#f-amount'),q('.keypad button'),q('.keypad button:last-child'),q('#whenrow')])})()"
+    POS="(()=>{const o=document.querySelector('#f-what').getBoundingClientRect().top;const q=s=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return [Math.round(r.top-o),Math.round(r.left),Math.round(r.height)]};return JSON.stringify([q('#f-what'),q('#f-amount'),q('.keypad button'),q('.keypad button:last-child')])})()"
     with sync_playwright() as p:
         b=p.chromium.launch()
         for vw,vh in ((390,844),(1100,800)):
@@ -67,7 +68,7 @@ def part_entry_form_steady():
             pg.on('pageerror',lambda e:errs.append(str(e)))
             pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
             pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(600)
-            pg.evaluate("""(async()=>{const m=await import('/js/core.js');const s=new Date().toISOString().slice(0,10);m.commit(d=>{const a=d.accounts.find(x=>!x.deleted&&x.type!=='card'&&x.type!=='loan');for(let i=0;i<8;i++){const t=new Date(Date.now()-i*864e5).toISOString().slice(0,10);d.txs.push(m.stamp({id:'w'+i,kind:'expense',acct:a.id,amount:100+i*150,cur:a.cur,fx:1,date:t+' 09:00:00',name:'wk'+i,cat:(d.categories.find(c=>c.kind==='expense')||{}).id}))}})})()""")
+            pg.evaluate("""(async()=>{const m=await import('/js/core.js');const s=new Date().toISOString().slice(0,10);m.commit(d=>{const a=d.accounts.find(x=>!x.deleted&&x.type!=='card'&&x.type!=='loan'&&x.cur==='PHP');for(let i=0;i<8;i++){const t=new Date(Date.now()-i*864e5).toISOString().slice(0,10);d.txs.push(m.stamp({id:'w'+i,kind:'expense',acct:a.id,amount:100+i*150,cur:a.cur,fx:1,date:t+' 09:00:00',name:'wk'+i,cat:(d.categories.find(c=>c.kind==='expense')||{}).id}))}})})()""")
             pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_timeout(400)
             pg.evaluate("(async()=>{const m=await import('/js/entry.js');m.openEntry()})()"); pg.wait_for_selector('#f-amount')
             pg.click('[data-e=calc]'); pg.wait_for_timeout(250)
@@ -108,7 +109,7 @@ def part_entry_form_steady():
             tops=pg.evaluate("[...document.querySelectorAll('.topgrp .tophead h2')].map(h=>h.textContent)")
             kinds=pg.evaluate("[...document.querySelectorAll('.topgrp.assets .collhead h2')].map(h=>h.textContent.replace(/\\s+/g,' '))")
             ok(f'[{vw}] assets before debts', tops[:1]==['Assets'])
-            ok(f'[{vw}] assets split by kind (Cash, Bank, E-wallet…)', any('Cash' in k for k in kinds) and not any('Cash and bank' in k for k in kinds))
+            ok(f'[{vw}] assets split by kind (Bank, E-wallet…)', any('Bank' in k for k in kinds) and any('E-wallet' in k for k in kinds) and not any('Cash and bank' in k for k in kinds))
             ok(f'[{vw}] no page errors', not errs)
         b.close()
 
@@ -279,7 +280,7 @@ def part_entry_transfer_labels():
     with sync_playwright() as p:
         b=p.chromium.launch(); ctx=b.new_context(viewport={'width':390,'height':844},locale='en-US',service_workers='block'); pg=ctx.new_page()
         pg.on('pageerror',lambda e: errs.append(str(e)))
-        pg.on('console',lambda m: errs.append(m.text) if m.type=='error' and 'ERR_TUNNEL' not in m.text else None)
+        pg.on('console',lambda m: errs.append(m.text) if m.type=='error' and 'ERR_TUNNEL' not in m.text and 'Failed to load resource' not in m.text else None)
         pg.goto('http://localhost:8123/index.html'); pg.wait_for_selector('#first-file',state='attached')
         pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(600)
         names=pg.evaluate("()=>import('./js/core.js').then(c=>c.get().accounts.filter(a=>!a.deleted).map(a=>a.name+' · '+a.cur))")

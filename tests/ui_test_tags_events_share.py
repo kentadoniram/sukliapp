@@ -1,6 +1,7 @@
 # v12al: tags and events, share backup, buzz test button
 import re
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 URL='http://localhost:8123/'
@@ -37,7 +38,7 @@ with sync_playwright() as p:
     csv=pg.evaluate("(async()=>{const m=await import('/js/importer.js');return m.exportCSV(window.sukli.get())})()")
     ok('CSV export carries the tag in Labels', 'Okinawa trip' in csv)
     # settings: share backup + test buzz
-    pg.goto(URL+'#/settings'); pg.wait_for_selector('[data-act=export-share]'); pg.evaluate("document.querySelectorAll('details').forEach(d=>d.open=true)")
+    pg.goto(URL+'#/settings'); pg.wait_for_selector('[data-act=export-share]',state='attached'); pg.evaluate('document.querySelectorAll("details").forEach(d=>d.open=true)'); pg.wait_for_timeout(150); pg.evaluate("document.querySelectorAll('details').forEach(d=>d.open=true)")
     with pg.expect_download() as dl: pg.evaluate("document.querySelector('[data-act=export-share]').click()")
     ok(f'share backup falls back to a dated download: {dl.value.suggested_filename}', re.fullmatch(r'sukli-backup-\d{4}-\d{2}-\d{2}-\d{4}\.json',dl.value.suggested_filename))
     ok('Test the buzz button exists', pg.locator('[data-act=fb-test]').count()==1)

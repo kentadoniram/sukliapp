@@ -1,5 +1,6 @@
 # v13.7: folded Look and Feel sections, minor Simple-mode hiding (nothing deleted, Advanced shows everything)
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 J=lambda pg,js: pg.evaluate("(async()=>{const c=await import('/js/core.js');"+js+"})()")
@@ -15,7 +16,7 @@ with sync_playwright() as p:
     pg.click('details.ssub >> nth=0 >> summary'); pg.wait_for_timeout(300); ok('tapping a heading opens it', pg.eval_on_selector('details.ssub','d=>d.open'))
     ok('open state remembered on this device', 'Tabs' in (pg.evaluate("localStorage.getItem('sukli-ssub')") or '') or len(pg.evaluate("JSON.parse(localStorage.getItem('sukli-ssub')||'[]')"))==1)
     # Advanced (default): everything visible
-    pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer'); t=pg.inner_text('.drawer'); ok('Advanced menu has Investments, Analytics, Cash Flow', all(x in t for x in ['Investments','Analytics','Cash Flow','Outlook','Loan Planner'])); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer'); t=pg.inner_text('.drawer'); ok('Advanced menu has Analytics, Cash Flow, Outlook, Loan Planner (Investments is a bottom tab)', all(x in t for x in ['Analytics','Cash Flow','Outlook','Loan Planner'])); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # Simple
     J(pg,"c.commit(d=>{d.settings.mode='simple'})"); pg.wait_for_timeout(500)
     pg.click('[data-act=menu]'); pg.wait_for_selector('.drawer'); t=pg.inner_text('.drawer'); ok('Simple menu hides Investments, Analytics, Cash Flow, Outlook, Loan planner', not any(x in t for x in ['Investments','Analytics','Cash Flow','Outlook','Loan Planner']))
