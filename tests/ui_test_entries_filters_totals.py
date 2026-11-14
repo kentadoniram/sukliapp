@@ -1,5 +1,6 @@
 # v12ab batch A: entries filters, totals, collapse, transfer names and amounts
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 with sync_playwright() as p:
@@ -11,13 +12,18 @@ with sync_playwright() as p:
         pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(600)
         # transfer rename + differing amounts
         pg.evaluate("""(async()=>{const m=await import('/js/core.js');m.commit(d=>{d.accounts.push(m.stamp({id:'sm',name:'SMBC',cur:'JPY',type:'bank',open:100000,include:true,archived:false}),m.stamp({id:'yc',name:'Japanese Currency 2',cur:'JPY',type:'cash',open:0,include:true,archived:false}));
-          d.txs.push(m.stamp({id:'tt1',kind:'transfer',date:'2026-09-20 10:00:00',name:'SMBC to Japanese Currency 2',amount:30000,cur:'JPY',fx:1,acct:'sm',toAcct:'yc',toAmount:29356,toFx:1,autoRoute:true}))});
+          d.txs.push(m.stamp({id:'tt1',kind:'transfer',date:'2026-09-30 23:00:00',name:'SMBC to Japanese Currency 2',amount:30000,cur:'JPY',fx:1,acct:'sm',toAcct:'yc',toAmount:29356,toFx:1}))});
           m.commit(d=>{d.accounts.find(a=>a.id==='yc').name='Yen Cash'})})()""")
         nm=pg.evaluate("(async()=>{const m=await import('/js/core.js');return m.get().txs.find(t=>t.id==='tt1').name})()")
         ok(f'[{vw}] transfer name follows the renamed account', nm=='SMBC to Yen Cash')
         pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_timeout(500)
         pg.evaluate("(async()=>{const m=await import('/js/screens.js');m.ui.month='2026-09';window.dispatchEvent(new Event('sukli-render'))})()"); pg.wait_for_timeout(500)
-        ok(f'[{vw}] row shows what arrived', pg.locator('.arrived').count()>=1 and '29,356' in pg.inner_text('.arrived'))
+        for _ in range(30):
+            if pg.locator('.row:has-text("Yen Cash")').count(): break
+            m=pg.locator('#view >> text=/Show more/')
+            if not m.count(): break
+            m.first.click(); pg.wait_for_timeout(250)
+        ok(f'[{vw}] row shows what arrived', any('29,356' in x for x in pg.locator('.row:has-text("Yen Cash") .arrived').all_inner_texts()))
         pg.select_option('#lf-cat', index=1); pg.wait_for_timeout(300)
         ok(f'[{vw}] category filter shows a summary', pg.locator('#lsum').count()==1)
         pg.evaluate("(async()=>{const m=await import('/js/screens.js');m.ui.from='2026-09-08';m.ui.to='2026-09-08';window.dispatchEvent(new Event('sukli-render'))})()"); pg.wait_for_timeout(500)

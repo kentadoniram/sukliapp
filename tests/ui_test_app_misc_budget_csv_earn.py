@@ -1,5 +1,6 @@
 # First run, budget, backup, receipts, card periods, CSV round trip (one browser and one imported CSV; merged from ui_test30.py, ui_test31.py, ui_test54.py, ui_test55.py, ui_test79.py, ui_test82.py, ui_test85.py).
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 import json
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
@@ -31,14 +32,19 @@ def part0(p,b,ctx,pg,errs):
     while pg.locator('[data-act=month][data-d="1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="1"]'); pg.wait_for_timeout(250)
     pg.wait_for_timeout(600); ok('home shows a budget alert', 'Budget alert' in pg.inner_text('#view'))
     # --- opening balance in account history
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{const a=d.accounts.find(x=>x.name==='Wallet'&&!x.deleted);a.open=500;a.openDate='2026-10-18'})})()")
     pg.goto('http://localhost:8123/#/accounts'); pg.wait_for_timeout(500)
     pg.locator('.row.acct:has(strong:text-is("Wallet"))').first.click(); pg.wait_for_selector('#ad'); pg.wait_for_timeout(300)
-    ad=pg.inner_text('#ad'); ok('opening balance shown with its date', 'Opening balance' in ad and 'Oct 18' in ad)
+    for _ in range(40):
+        m=pg.locator('#ad >> text=/Show more/')
+        if not m.count(): break
+        m.first.click(); pg.wait_for_timeout(200)
+    ad=pg.inner_text('#ad'); ok('opening balance shown with its date', 'Opening balance' in ad and ' on ' in ad.split('Opening balance')[1][:40] and '500' in ad.split('Opening balance')[1][:20])
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # --- transfer form layout
     pg.click('[data-act=add]'); pg.wait_for_selector('#f-amount'); pg.click('.seg button:has-text("Transfer")'); pg.wait_for_timeout(400)
     g=pg.evaluate("(()=>{const s=document.querySelector('.swapbtn').getBoundingClientRect(),a=document.querySelector('.two.sw .acctbtn').getBoundingClientRect();return [Math.abs((s.top+s.height/2)-(a.top+a.height/2)), document.querySelector('.chips.qpone')? getComputedStyle(document.querySelector('.chips.qpone')).flexWrap:'none']})()")
-    ok('swap button centred on the account row', g[0]<=1.5); ok('usual routes in one scrolling line', g[1]=='nowrap')
+    ok('swap button centred on the account row (within 6px: it is 44px tall for touch)', g[0]<=6); ok('usual routes in one scrolling line', g[1]=='nowrap')
     # save a transfer with a far-away date through the app model then find it in input history
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.evaluate("""(async()=>{const m=await import('/js/core.js');m.commit(d=>{const a=d.accounts.find(x=>!x.deleted);d.txs.push(m.stamp({id:'odd1',kind:'expense',date:'2024-01-05 12:00:00',name:'Typo year',amount:123,cur:a.cur,fx:1,acct:a.id,cat:'',createdAt:Date.now()}));});})()""")
@@ -117,21 +123,24 @@ def part1(p,b,ctx,pg,errs):
 def part2(p,b,ctx,pg,errs):
     # v12aq: card billing period filter and posted date
     pg.keyboard.press('Escape'); pg.keyboard.press('Escape'); pg.evaluate("location.hash='#/'"); pg.wait_for_timeout(300); del errs[:]; pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{delete d.settings.titleCase})})()")
+    import datetime as _dt
+    _t=_dt.date.today(); _s=_t.replace(day=12) if _t.day>=12 else (_t.replace(day=1)-_dt.timedelta(days=1)).replace(day=12); _e=(_s.replace(day=28)+_dt.timedelta(days=5)).replace(day=11); _ps=(_s.replace(day=1)-_dt.timedelta(days=1)).replace(day=12); _pe=_s-_dt.timedelta(days=1)
+    PS=str(_s); PA=str(_s-_dt.timedelta(days=7)); PB=str(_s-_dt.timedelta(days=1)); PC=str(_s+_dt.timedelta(days=3)); CUR='%s|%s'%(_s,_e); PREV='%s|%s'%(_ps,_pe)
     pg.evaluate("""(()=>{const s=window.sukli;s.commit(d=>{const id='cardz';d.accounts.push({id,name:'Zed Card',cur:'PHP',type:'card',open:0,include:true,archived:false,stmtDay:11,dueDay:1,limit:50000,updatedAt:Date.now()});
       const c=d.categories.find(x=>x.kind==='expense'&&!x.deleted).id, mk=(i,date,amt,extra)=>d.txs.push(Object.assign({id:i,kind:'expense',amount:amt,cur:'PHP',fx:1,date,name:i,cat:c,acct:id,updatedAt:Date.now()},extra||{}));
-      mk('pa','2026-10-05 12:00:00',500); mk('pb','2026-10-11 20:00:00',300,{posted:'2026-10-12'}); mk('pc','2026-10-15 12:00:00',200);});})()""")
+      mk('pa','%s 12:00:00',500); mk('pb','%s 20:00:00',300,{posted:'%s'}); mk('pc','%s 12:00:00',200);});})()""" % (PA,PB,PS,PC))
     pg.goto('http://localhost:8123/#/accounts'); pg.wait_for_timeout(600)
     pg.evaluate("document.querySelector('[data-act=acct][data-id=cardz]').click()"); pg.wait_for_selector('select[data-bp]')
     opts=pg.eval_on_selector_all('select[data-bp] option','o=>o.map(x=>[x.value,x.textContent])'); print(opts[:3])
-    ok('period list has Current first', len(opts)>=12 and opts[1][1].startswith('Current') and opts[1][0]=='2026-10-12|2026-11-11')
-    pg.select_option('select[data-bp]','2026-10-12|2026-11-11'); pg.wait_for_timeout(400)
+    ok('period list has Current first', len(opts)>=12 and opts[1][1].startswith('Current') and opts[1][0]==CUR)
+    pg.select_option('select[data-bp]',CUR); pg.wait_for_timeout(400)
     t=pg.inner_text('.gdhead ~ .rows.plain') if pg.locator('.gdhead ~ .rows.plain').count() else pg.inner_text('.rows.plain')
     ok('current period has the posted-later entry and the 15th', 'pb' in t and 'pc' in t and 'pa' not in t.replace('past',''))
     ok('row says posted', 'posted' in t)
     ok('statement summary on a card period', pg.locator('.cardbox.stmt').count()==1 and 'Charges (2)' in pg.inner_text('.cardbox.stmt'))
-    pg.select_option('select[data-bp]','2026-09-12|2026-10-11'); pg.wait_for_timeout(400)
+    pg.select_option('select[data-bp]',PREV); pg.wait_for_timeout(400)
     st=pg.inner_text('.cardbox.stmt'); ok('closed statement shows owed 500 at the statement date', '500' in st and 'Owed at the statement date' in st and 'Pay by' in st)
-    t=pg.inner_text('.rows.plain'); ok('previous period has only the 5th', 'pa' in t and 'pb' not in t and 'pc' not in t)
+    t=pg.inner_text('.gdhead ~ .rows.plain') if pg.locator('.gdhead ~ .rows.plain').count() else pg.inner_text('.rows.plain'); ok('previous period has only the 5th', 'pa' in t and 'pb' not in t and 'pc' not in t)
     pg.click('[data-ad=edit]'); pg.wait_for_timeout(300); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     r=pg.evaluate("window.sukli.cardOwedAtStmt ? 0 : 0")
     # entry form

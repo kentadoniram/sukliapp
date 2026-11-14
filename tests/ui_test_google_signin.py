@@ -1,4 +1,5 @@
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 import json
 errs=[]; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
@@ -18,7 +19,7 @@ with sync_playwright() as p:
     ctx.route('https://proj.supabase.co/rest/v1/records**', recs)
     pg.goto(BASE); pg.wait_for_selector('#first-file',state='attached')
     pg.click('[data-act=wz-old]'); pg.click('[data-act=start-empty]'); pg.wait_for_selector('#acct-form'); pg.fill('[name=name]','Wallet'); pg.click('#acct-form .btn'); pg.wait_for_timeout(300)
-    pg.goto(BASE+'#/settings'); pg.wait_for_selector('#c-url')
+    pg.goto(BASE+'#/settings'); pg.wait_for_selector('#c-url',state='attached'); pg.evaluate('document.querySelectorAll("details").forEach(d=>d.open=true)'); pg.wait_for_timeout(150)
     pg.fill('#c-url','https://proj.supabase.co'); pg.dispatch_event('#c-url','change'); pg.fill('#c-key','anonkey'); pg.dispatch_event('#c-key','change')
     ok('google button shown when signed out', pg.locator('[data-act=cloud-google]').count()==1)
     pg.click('[data-act=cloud-google]'); pg.wait_for_selector('.toast.show',timeout=10000); pg.wait_for_timeout(500)
@@ -27,7 +28,7 @@ with sync_playwright() as p:
     ok('tokens removed from address bar', 'access_token' not in pg.evaluate('location.href'))
     s=pg.evaluate("JSON.parse(localStorage.getItem('sukli-auth'))"); ok('session stored', s['refresh_token']=='RT123' and s['user']['email']=='me@gmail.com')
     ok('first sync pushed data', seen['post']>=1)
-    pg.goto(BASE+'#/settings'); pg.wait_for_timeout(300); ok('settings shows signed in', 'me@gmail.com' in pg.inner_text('#view'))
+    pg.goto(BASE+'#/settings'); pg.wait_for_timeout(300); pg.evaluate('document.querySelectorAll("details").forEach(d=>d.open=true)'); pg.wait_for_timeout(200); ok('settings shows signed in', 'me@gmail.com' in pg.inner_text('#view'))
     # error return
     ctx2=b.new_context(service_workers='block'); ctx2.add_init_script("localStorage.setItem('sukli.legacy','1')"); pg2=ctx2.new_page()
     pg2.goto(BASE); pg2.wait_for_selector('#first-file',state='attached')

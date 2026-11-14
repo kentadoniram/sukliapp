@@ -1,5 +1,6 @@
 # v13.19 to v13.35 features, one browser and one imported CSV for all of them (merged from ui_test75, 78, 81, 84, 86, 90).
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 import json
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
@@ -140,8 +141,8 @@ def part3(p,b,ctx,pg,errs):
     op=pg.evaluate("(async()=>{const c=await import('/js/core.js');const a=c.get().accounts.find(x=>x.name==='Owe Card');return a&&a.open})()"); ok('owed 45000 kept as a negative balance (%s)'%op, op==-45000)
     # 3-6 add asset
     pg.evaluate("(async()=>{const m=await import('/js/invest.js');m.addAsset({platform:'Zed',wallet:'Spot'})})()"); pg.wait_for_selector('#ic')
-    t=pg.inner_text('#ic'); ok('trading account wording and explanation', 'Trading Account Inside the Platform' in t and 'buy and sell coins directly' in pg.inner_text('#wal-h').lower())
-    pg.select_option('#ic select[name=wallet]','Futures'); pg.wait_for_timeout(100); ok('Futures says it is tracked like Spot', 'like Spot' in pg.inner_text('#wal-h'))
+    t=pg.inner_text('#ic'); ok('trading account wording and explanation', 'every trading account' in t and 'buy and sell coins directly' in pg.inner_text('#wal-h').lower())
+    pg.select_option('#ic select[name=wallet]','Futures'); pg.wait_for_timeout(100); ok('Futures explains leverage and risk', 'leverage' in pg.inner_text('#wal-h'))
     ok('tooltips on Ticker, Name, Price Currency, Live Price ID', pg.locator('#ic .tipbtn').count()>=4)
     pg.fill('#ic [name=coin]','usdc'); pg.wait_for_timeout(200); ok('USDC suggests usd-coin', pg.input_value('#ic [name=cg]')=='usd-coin' and 'usd-coin' in pg.inner_text('#cg-h'))
     pg.fill('#ic [name=coin]','btc'); pg.wait_for_timeout(200); ok('changing the ticker changes the suggestion', pg.input_value('#ic [name=cg]')=='bitcoin')
@@ -153,7 +154,7 @@ def part3(p,b,ctx,pg,errs):
     pg.evaluate("document.querySelector('#tkchips [data-tk=USDT]').click()"); pg.wait_for_timeout(200)
     ok('shared coin note, cg id filled', 'already set up' in pg.inner_text('#tk-note') and pg.input_value('#ic [name=cg]')=='tether')
     pg.evaluate("document.querySelector('#ic').requestSubmit()"); pg.wait_for_timeout(900)
-    n=pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.get().accounts.filter(a=>!a.deleted&&a.exchange==='Zed'&&a.cur==='USDT').map(a=>a.wallet)})()"); ok('one USDT balance per trading account %s'%n, sorted(n)==['Earn','Spot'])
+    n=pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.get().accounts.filter(a=>!a.deleted&&a.exchange==='Zed'&&a.cur==='USDT').map(a=>a.wallet)})()"); ok('one USDT balance in every trading account of the platform (v15.27) %s'%n, sorted(n)==sorted(['Spot','Margin','Futures','Options','Earn','Funding','ETF','TradFi']))
     # 7-8 trade labels
     pg.evaluate("(async()=>{const m=await import('/js/trades.js');m.openTrade({side:'buy'})})()"); pg.wait_for_selector('#tr'); pg.wait_for_timeout(300)
     t=pg.inner_text('#tr'); ok('quantity and price show the coin and currency', 'Quantity (' in t and 'Price (' in t and 'Units' not in t and 'per unit' not in t)

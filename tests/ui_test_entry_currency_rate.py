@@ -1,4 +1,5 @@
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 import json, re
 S='/tmp/claude-0/-home-claude/e0191d68-b6bd-5145-8d10-9c3cd7e19bda/scratchpad/'
 CSV='/mnt/user-data/uploads/Transactions.csv'

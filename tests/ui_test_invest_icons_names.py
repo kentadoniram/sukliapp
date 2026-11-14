@@ -1,5 +1,6 @@
 # v15.10: investment asset icons (manual pictures kept, renamed imports, unknown coins) and "Platform (Wallet) Asset" names
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 with sync_playwright() as p:
@@ -31,7 +32,7 @@ with sync_playwright() as p:
     # picker
     pg.evaluate("(async()=>{const m=await import('/js/acctpicker.js');window.__pick=null;m.openAccountPicker({title:'Move to'},id=>window.__pick=id)})()"); pg.wait_for_selector('#aclist .row')
     names=pg.evaluate("[...document.querySelectorAll('#aclist .row strong')].map(x=>x.innerText.trim())")
-    ok('picker lists Bitget (Spot) USDT and Binance (Margin) USDT but not Earn', all(n in names for n in ['Bitget (Spot) USDT','Binance (Margin) USDT']) and 'Bitget (Earn) USDT' not in names)
+    ok('picker lists Bitget (Spot) USDT and Binance (Margin) USDT, and no Earn line (Earn is passive since v15.19)', all(n in names for n in ['Bitget (Spot) USDT','Binance (Margin) USDT']) and not any('(Earn)' in n for n in names))
     pg.screenshot(path='/tmp/inv_picker.png')
     ok('no errors %s'%errs, not errs)
 print('fails',res.count(False))

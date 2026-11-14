@@ -1,5 +1,6 @@
 # v15.14: trade fee paid in another asset, interest destination (Earn/Spot), tax per item, collapsible currency filters
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 with sync_playwright() as p:
@@ -33,15 +34,15 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelectorAll('.scrim').forEach(e=>e.remove())")
     # ---- 2. interest destination ----
     pg.evaluate("(async()=>{const m=await import('/js/accpage.js');m.openAccount('e1')})()"); pg.wait_for_selector('#acct-form'); pg.wait_for_timeout(300)
-    pg.fill('[name=apy]','5'); pg.wait_for_timeout(150)
+    pg.evaluate("(()=>{const e=document.querySelector('[name=apy]');e.value='5';e.dispatchEvent(new Event('input',{bubbles:true}))})()"); pg.wait_for_timeout(150)
     ok('destination selector is shown for a platform account', pg.locator('[name=interestTo]').count()==1 and pg.is_visible('#f-intto'))
     pg.select_option('[name=interestTo]','spot')
     pg.click('#acct-form button:text-is("Save")'); pg.wait_for_timeout(800)
     ok('saved as Spot', pg.evaluate("window.sukli.get().accounts.find(a=>a.id==='e1').interestTo")=='spot')
     r=pg.evaluate("""(async()=>{const c=await import('/js/core.js'),f=await import('/js/finance.js');const iso=n=>{const d=new Date();d.setDate(d.getDate()-n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
       c.commit(d=>{const a=d.accounts.find(x=>x.id==='e1');a.interestFrom=iso(4);a.taxPct=0;a.compound='daily';f.postInterest(d,iso(1));});
-      const d=c.get(),l=d.txs.filter(t=>!t.deleted&&String(t.id).startsWith('int-e1-'));return {n:l.length,accts:[...new Set(l.map(t=>t.acct))],earnBal:c.balances(d).get('e1')}})()""")
-    ok('interest entries go to Spot (u1), not the Earn account %s'%r, r['n']>=3 and r['accts']==['u1'] and r['earnBal']==200)
+      const d=c.get(),l=d.txs.filter(t=>!t.deleted&&String(t.id).startsWith('int-e1-'));const ac=[...new Set(l.map(t=>t.acct))];return {n:l.length,accts:ac,wallets:ac.map(i=>d.accounts.find(x=>x.id===i).wallet),earnBal:c.balances(d).get('e1')}})()""")
+    ok('interest entries go to a Spot account, not the Earn account %s'%r, r['n']>=3 and len(r['accts'])==1 and r['accts'][0]!='e1' and r['wallets']==['Spot'] and r['earnBal']==200)
     pg.evaluate("document.querySelectorAll('.scrim').forEach(e=>e.remove())")
     pg.evaluate("(async()=>{const m=await import('/js/accpage.js');m.openAccountDetail('e1')})()"); pg.wait_for_timeout(700)
     ok('account page says it goes to Spot and counts what was earned', 'Spot account' in pg.inner_text('#ad') and 'Earned so far' in pg.inner_text('#ad'))

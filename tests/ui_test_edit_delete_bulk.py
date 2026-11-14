@@ -1,5 +1,6 @@
 import json, re, base64
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 S='/tmp/claude-0/-home-claude/e0191d68-b6bd-5145-8d10-9c3cd7e19bda/scratchpad/'
 CSV='/mnt/user-data/uploads/Transactions.csv'
 errs=[]; DRIVE={}   # id -> {name, body}; shared by both "phones"

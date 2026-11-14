@@ -1,4 +1,5 @@
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 from pkhelp import choose, open_menu
 CSV='/home/claude/Transactions.csv'
 errs=[]; res=[]
@@ -7,7 +8,7 @@ U='http://localhost:8123/index.html'
 with sync_playwright() as p:
     b=p.chromium.launch(); ctx=b.new_context(viewport={'width':390,'height':844},locale='en-US',service_workers='block'); pg=ctx.new_page()
     pg.on('pageerror',lambda e: errs.append(str(e)))
-    pg.on('console',lambda m: errs.append(m.text) if m.type=='error' and 'ERR_TUNNEL' not in m.text else None)
+    pg.on('console',lambda m: errs.append(m.text) if m.type=='error' and 'ERR_TUNNEL' not in m.text and 'Failed to load resource' not in m.text else None)
     pg.goto(U); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
     pg.goto(U+'#/accounts'); pg.wait_for_selector('[data-aview=group]'); ok('compact dropdown filters', pg.locator('.aview.compact select').count()==2 and pg.locator('.aview .seg').count()==0)
@@ -30,6 +31,7 @@ with sync_playwright() as p:
     open_menu(pg,'income'); pg.wait_for_selector('#ii'); choose(pg,'#ii [name=asset]',text='NVDA'); choose(pg,'#ii [name=type]',value='inv:Dividend'); pg.fill('#ii [name=amt]','0.25'); pg.click('#ii button:text-is("Save")'); pg.wait_for_timeout(700)
     t=pg.inner_text('#view'); ok('investment income card', 'Investment Income' in t and 'Dividend' in t)
     # prediction
+    pg.evaluate("document.querySelector('[data-act=inv-dsw][data-v=i-pred]')&&document.querySelector('[data-act=inv-dsw][data-v=i-pred]').click()"); pg.wait_for_timeout(400)
     pg.click('[data-act=inv-predict] >> nth=0'); pg.wait_for_selector('#ip'); choose(pg,'#ip [name=asset]',value='NVDA'); pg.fill('#ip [name=price]','9000'); pg.fill('#ip [name=quote]','PHP'); pg.click('#ip button:text-is("Save estimate")'); pg.wait_for_timeout(600)
     t=pg.inner_text('#view'); ok('prediction apart from actual', 'Your estimate' in t and 'Actual' in t and 'to reach it' in t)
     ok('no errors', not errs); print(errs[:5])

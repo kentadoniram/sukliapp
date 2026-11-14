@@ -1,5 +1,6 @@
 # v13.49: exchange-rate window (one row, Reverse, Manual Set), a shared bill keeps and edits its own rate, old entries keep the rate they were made with
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 with sync_playwright() as p:
@@ -15,13 +16,13 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelector('[data-e=fxopen]').click()"); pg.wait_for_selector('#cv-a'); pg.wait_for_timeout(300)
     Y=lambda s: pg.evaluate("(s)=>Math.round(document.querySelector(s).getBoundingClientRect().top)",s)
     ok('both currencies on one row', abs(Y('#cv-a')-Y('#cv-b'))<3 and pg.locator('#cv-rev').count()==1)
-    ok('Set Amount is the default: the rate box is not editable, the amounts are', pg.evaluate("(document.querySelector('#cv-r').offsetParent===null)&&!(document.querySelector('#cv-a').offsetParent===null)") and pg.locator('#cv-latest').inner_text().lower().startswith('get live') and pg.locator('#cv-manual').inner_text()=='Set Amount' and pg.locator('#cv-setrate').inner_text()=='Set Rate')
+    ok('Set Amount is the default: the rate box is not editable, the amounts are', (not pg.evaluate("i=>{const e=document.querySelector(i);return !!e&&e.offsetParent!==null}",'#cv-r') and pg.evaluate("i=>{const e=document.querySelector(i);return !!e&&e.offsetParent!==null}",'#cv-a')) and pg.locator('#cv-latest').inner_text().lower().startswith('get live') and pg.locator('#cv-manual').inner_text()=='Set Amount' and pg.locator('#cv-setrate').inner_text()=='Set Rate')
     la=pg.inner_text('#cv-la'); lb=pg.inner_text('#cv-lb'); pg.fill('#cv-a','7'); pg.dispatch_event('#cv-a','input'); pg.fill('#cv-b','700'); pg.dispatch_event('#cv-b','input')
     ok('typing both amounts gives the rate (100)', abs(float(pg.input_value('#cv-r'))-100)<1e-6)
     pg.evaluate("document.querySelector('#cv-rev').click()"); pg.wait_for_timeout(200)
     ok('swap trades only the values, the currencies stay, the rate follows', pg.inner_text('#cv-la')==la and pg.inner_text('#cv-lb')==lb and abs(float(pg.input_value('#cv-a'))-700)<1e-6 and abs(float(pg.input_value('#cv-b'))-7)<1e-6 and abs(float(pg.input_value('#cv-r'))-0.01)<1e-9)
     pg.evaluate("document.querySelector('#cv-setrate').click()"); pg.wait_for_timeout(200)
-    ok('Set Rate: the rate is editable, the amounts are not', not pg.evaluate("(document.querySelector('#cv-r').offsetParent===null)") and pg.evaluate("(document.querySelector('#cv-a').offsetParent===null)&&(document.querySelector('#cv-b').offsetParent===null)"))
+    ok('Set Rate Instead: the rate is editable, the amounts are not', pg.evaluate("i=>{const e=document.querySelector(i);return !!e&&e.offsetParent!==null}",'#cv-r') and not pg.evaluate("i=>{const e=document.querySelector(i);return !!e&&e.offsetParent!==null}",'#cv-a'))
     pg.evaluate("document.querySelector('#cv-manual').click()"); pg.wait_for_timeout(100)
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # a foreign shared bill: 10.16 USD paid, 630 PHP actual
@@ -38,7 +39,7 @@ with sync_playwright() as p:
     tx=pg.inner_text('.sheet'); ok('summary: You is your part (not the whole bill) and each line shows its home value %s'%tx.replace('\n',' | ')[150:420], '$3.38' in tx.replace(' ','') and '₱210.21' in tx and '₱630.00' in tx and '$10.16' in tx)
     # edit the rate of the bill
     pg.evaluate("document.querySelector('[data-ev=edit]').click()"); pg.wait_for_selector('[data-sb=fxopen]'); pg.wait_for_timeout(300)
-    pg.evaluate("document.querySelector('[data-sb=fxopen]').click()"); pg.wait_for_selector('#cv-r',state='attached'); pg.evaluate("document.querySelector('#cv-setrate').click()")
+    pg.evaluate("document.querySelector('[data-sb=fxopen]').click()"); pg.wait_for_selector('#cv-setrate',state='attached'); pg.evaluate("document.querySelector('#cv-setrate').click()")
     pg.fill('#cv-r','60'); pg.dispatch_event('#cv-r','input'); pg.evaluate("document.querySelector('#cv-apply').click()"); pg.wait_for_timeout(400)
     pg.evaluate("document.querySelector('[data-sb=save]').click()"); pg.wait_for_timeout(600)
     m=J("return c.get().txs.filter(t=>!t.deleted&&t.splitId).map(t=>[t.kind,+t.hfx.toFixed(4),t.toAmount||null,t.amount])")

@@ -1,5 +1,6 @@
 # v15.8: the three rate options share one theme (dark too); Settings holds no typed rates; saved entries keep their own rate
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 with sync_playwright() as p:
@@ -40,7 +41,7 @@ with sync_playwright() as p:
       const after=[t.fx,t.hfx,c.homePer(c.get(),c.get().txs.find(x=>x.id===t.id))];
       return {before,mid,after,cur:t.cur}})()""")
     ok('a typed Settings rate never changes a saved entry %s'%r, r['before'][:2]==r['mid'][:2]==r['after'][:2] and abs(r['before'][2]-r['mid'][2])<1e-9 and abs(r['before'][2]-r['after'][2])<1e-9)
-    pg.goto('http://localhost:8123/#/settings'); pg.wait_for_selector('.ratebox'); pg.wait_for_timeout(300)
+    pg.goto('http://localhost:8123/#/settings'); pg.wait_for_selector('.ratebox',state='attached'); pg.evaluate('document.querySelectorAll("details").forEach(d=>d.open=true)'); pg.wait_for_timeout(150); pg.wait_for_timeout(300)
     ok('Settings: today\'s rates are read-only, no typed-rate editor, no old list when none', pg.locator('[data-act=rate-open]').count()==0 and pg.locator('.oldrates').count()==0 and pg.locator('.ratebox button.fxlink').count()==0)
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.rates=d.settings.rates||{};d.settings.rates.USD=61})})()"); pg.goto('http://localhost:8123/#/settings'); pg.wait_for_selector('.oldrates',timeout=5000)
     ok('an old typed rate is listed with Remove', pg.locator('.oldrate [data-act=rate-live]').count()==1)

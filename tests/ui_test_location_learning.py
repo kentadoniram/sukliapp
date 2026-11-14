@@ -1,5 +1,6 @@
 # v13.30: optional location: phone location saved with an entry, home and work learned, far from home as a trip clue
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 with sync_playwright() as p:
@@ -9,7 +10,7 @@ with sync_playwright() as p:
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900)
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.titleCase=false})})()")
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='advanced'})})()")
-    pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(900)
+    pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(900); pg.evaluate('document.querySelectorAll(\"details\").forEach(d=>d.open=true)'); pg.wait_for_timeout(150)
     ok('Location section is in Settings and off by default', 'Location (Optional)' in pg.inner_text('#view') and pg.locator('[data-act=loc-toggle]').inner_text()=='Turn on')
     pg.evaluate("document.querySelector('[data-act=loc-toggle]').click()"); pg.wait_for_timeout(1200)
     on=pg.evaluate("(async()=>{const c=await import('/js/core.js');return !!c.get().settings.locOn})()"); ok('turned on', on)
@@ -30,7 +31,7 @@ with sync_playwright() as p:
     ok('work learned from weekday daytime %s'%r[1], r[1] and abs(r[1]['la']-35.68)<0.02)
     ok('far place is far (%s km)'%r[2], r[2] and r[2]>60)
     # setting Home by hand wins
-    pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(900); pg.evaluate("document.querySelector('[data-act=loc-sethome]').click()"); pg.wait_for_timeout(1500)
+    pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(900); pg.evaluate('document.querySelectorAll(\"details\").forEach(d=>d.open=true)'); pg.wait_for_timeout(150); pg.evaluate("document.querySelector('[data-act=loc-sethome]').click()"); pg.wait_for_timeout(1500)
     h=pg.evaluate("(async()=>{const c=await import('/js/core.js');const L=await import('/js/loc.js');return [c.get().settings.homeLoc,L.placesOf(c.get()).home]})()")
     ok('Home set by hand wins %s'%h, h[0] and h[1]['src']=='set')
     # the trip engine: far alone does not flag, far plus new places does; a nearby mall never does
@@ -47,7 +48,7 @@ with sync_playwright() as p:
     ok('far day with new places says far from home %s'%t, t[0] and 'far from home' in t[0])
     ok('nearby mall day is not far, not a trip %s'%t, t[2] is not None and 'far from home' not in t[2] and t[3]==False)
     # forget removes places
-    pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(900)
+    pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(900); pg.evaluate('document.querySelectorAll(\"details\").forEach(d=>d.open=true)'); pg.wait_for_timeout(150)
     ok('no errors %s'%errs, not errs)
     b.close()
 print('fails',res.count(False))

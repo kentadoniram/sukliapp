@@ -1,5 +1,6 @@
 # Recent features, one browser and one imported CSV for all of them (merged from ui_test87 to ui_test97 so the suite stays short).
 from playwright.sync_api import sync_playwright
+import pkhelp; pkhelp.patch()
 import json
 CSV='/home/claude/Transactions.csv'; res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
@@ -88,7 +89,7 @@ def part2(p,b,ctx,pg,errs):
     tid=r[3]; before=r[0]
     pg.evaluate("(async(id)=>{const u=await import('/js/ui.js');u.ACT.edit({dataset:{id}})})('%s')"%tid); pg.wait_for_selector('[data-edit]'); pg.click('[data-edit]'); pg.wait_for_selector('#tr'); pg.wait_for_timeout(500)
     ok('edit form opens filled %s'%pg.input_value('#tr [name=qty]'), pg.input_value('#tr [name=qty]')=='0.01' and pg.input_value('#tr [name=total]')=='50000' and pg.input_value('#tr [name=fee]')=='100')
-    pg.fill('#tr [name=qty]','0.02'); pg.fill('#tr [name=total]','100000'); pg.click('#tr [data-fm=fixed]'); pg.fill('#tr [name=fee]','200'); pg.wait_for_timeout(200)
+    pg.fill('#tr [name=qty]','0.02'); pg.wait_for_timeout(150); pg.fill('#tr [name=total]','100000'); pg.wait_for_timeout(150); pg.click('#tr [data-fm=fixed]'); pg.wait_for_timeout(150); pg.fill('#tr [name=fee]','200'); pg.wait_for_timeout(300)
     pg.evaluate("document.querySelector('#tr').requestSubmit()"); pg.wait_for_timeout(500)
     try:
         pg.wait_for_selector('text=Record anyway',timeout=1500); pg.click('text=Record anyway')
@@ -140,9 +141,10 @@ def part4(p,b,ctx,pg,errs):
       d.txs.push(c.stamp({id:'i1',kind:'income',date:c.nowStamp(),acct:'s93',amount:0.2,cur:'SOL',fx:1,name:'a'}));d.txs.push(c.stamp({id:'i2',kind:'income',date:c.nowStamp(),acct:'s93',amount:1.123456789,cur:'SOL',fx:1,name:'b'}));d.txs.push(c.stamp({id:'i3',kind:'income',date:c.nowStamp(),acct:'s93',amount:0.000000001,cur:'SOL',fx:1,name:'c'}))})})()""")
     r=pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.balances(c.get()).get('s93')})()"); ok('float sum is exact %s'%r, r==1.42345679)
     # All in the entry form, then save
+    pg.keyboard.press('Escape'); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.evaluate("(async()=>{const m=await import('/js/entry.js');m.openEntry({preset:{kind:'transfer',acct:'s93',toAcct:'e93'}})})()"); pg.wait_for_selector('#f-amount'); pg.wait_for_timeout(300)
     pg.click('[data-e=allamt]'); pg.wait_for_timeout(200); v=pg.input_value('#f-amount'); ok('All fills 9 decimals %s'%v, v.replace(',','')=='1.42345679')
-    pg.click('#btns [data-e=save]'); pg.wait_for_timeout(700)
+    pg.evaluate("document.querySelector('#btns [data-e=save]').click()"); pg.wait_for_timeout(700)
     r=pg.evaluate("(async()=>{const c=await import('/js/core.js');const b=c.balances(c.get());return [b.get('s93'),b.get('e93')]})()"); ok('source empty, destination exact %s'%r, r==[0,1.42345679])
     # a 9-decimal amount typed by hand is kept whole
     pg.evaluate("(async()=>{const m=await import('/js/entry.js');m.openEntry({preset:{kind:'transfer',acct:'e93',toAcct:'s93'}})})()"); pg.wait_for_selector('#f-amount'); pg.wait_for_timeout(300)
@@ -196,8 +198,8 @@ def part6(p,b,ctx,pg,errs):
     # account page: no Move to Spot, switch beside Subscription Settings
     pg.evaluate("(async()=>{const m=await import('/js/accpage.js');m.openAccountDetail('w2')})()"); pg.wait_for_timeout(900); t=pg.inner_text('body')
     ok('no Move to Spot', 'Move to Spot' not in t)
-    ok('switch beside Subscription Settings', pg.locator('.subbtn .switch input[data-act=earn-toggle]').count()==1)
-    pg.evaluate("document.querySelector('.subbtn .switch input').click()"); pg.wait_for_timeout(500)
+    ok('switch beside Subscription Settings', pg.locator('.btnrow .switch input[data-act=earn-toggle]').count()==1)
+    pg.evaluate("document.querySelector('.btnrow .switch input[data-act=earn-toggle]').click()"); pg.wait_for_timeout(500)
     on=pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.get().accounts.find(x=>x.id==='w2').earn.on})()"); ok('switch turns tracking on %s'%on, on is True)
     # earn window: timezone and yearly rate same size
     pg.evaluate("(async()=>{const m=await import('/js/earnui.js');m.openEarn('w2')})()"); pg.wait_for_selector('#ew')
@@ -250,7 +252,7 @@ def part7(p,b,ctx,pg,errs):
 def part8(p,b,ctx,pg,errs):
     # v13.43: Interest Earned daily entry in Spot (grows hourly), hourly breakdown, account types per exchange, Earned in realized
     pg.keyboard.press('Escape'); pg.keyboard.press('Escape'); pg.evaluate("location.hash='#/'"); pg.wait_for_timeout(300); del errs[:]; pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{delete d.settings.titleCase})})()")
-    pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='advanced';d.settings.titleCase=false;d.settings.platformTz={Ex:0};
+    pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='advanced';d.settings.titleCase=false;d.settings.platformTz={Ex:(h=>h>12?h-24:h)((12-new Date().getUTCHours()+24)%24)};
       const mk=(id,w,o)=>d.accounts.push(c.stamp({id,name:'Ex '+w+' USDT',wallet:w,cur:'USDT',type:'crypto',assetType:'crypto',exchange:'Ex',open:o,include:false,archived:false,invtab:true}));mk('sp','Spot',0);mk('er','Earn',1000);
       d.accounts.find(a=>a.id==='er').earn={on:true,apy:8.76,lastHour:Date.now()-5*3600e3,lastSlot:Date.now(),trackFrom:Date.now()-30*3600e3,startLagH:0,firstLagH:1}})})()""")
     # a subscription 30 hours ago so there is principal; run the engine
@@ -276,6 +278,7 @@ def part8(p,b,ctx,pg,errs):
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # earned in the realized card
     pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(900)
+    pg.evaluate("document.querySelector('[data-act=inv-dsw][data-v=i-gain]')&&document.querySelector('[data-act=inv-dsw][data-v=i-gain]').click()"); pg.wait_for_timeout(500)
     pg.evaluate("document.querySelectorAll('details').forEach(d=>d.open=true)"); pg.wait_for_timeout(300); t=pg.inner_text('body')
     ok('Unrealized Profit, Realized Profit, Earned shown', 'Unrealized Profit' in t and 'Realized Profit' in t and 'Earned' in t)
     ok('no errors %s'%errs, not errs)
