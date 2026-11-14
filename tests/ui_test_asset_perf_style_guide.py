@@ -1,0 +1,32 @@
+# v15.37: Style Guide link in Settings; per-asset performance (this platform only) in asset details, in the reporting currency; Scan button centred
+from playwright.sync_api import sync_playwright
+def ok(n,c): print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':390,'height':850})
+    errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('.welcome')
+    pg.click('[data-act=wz-old]'); pg.click('[data-act=start-empty]'); pg.wait_for_selector('#acct-form'); pg.fill('[name=name]','Wallet'); pg.click('#acct-form .btn'); pg.wait_for_timeout(800)
+    J=lambda js: pg.evaluate("(async()=>{const c=await import('/js/core.js');"+js+"})()")
+    # menu: no Style Guide, Scan centred
+    pg.click('[data-act=menu]'); pg.wait_for_timeout(300)
+    ok('menu has no Style Guide', 'Style Guide' not in pg.inner_text('.drawer'))
+    r=pg.evaluate("(()=>{const b=document.querySelector('.dscanbtn').getBoundingClientRect(),s=document.createRange();s.selectNodeContents(document.querySelector('.dscanbtn'));const t=s.getBoundingClientRect();return [Math.abs((b.left+b.width/2)-(t.left+t.width/2)),Math.abs((b.top+b.height/2)-(t.top+t.height/2))]})()")
+    ok('Scan text centred %s'%r, r[0]<1.5 and r[1]<2.5)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(800)
+    pg.evaluate("document.querySelectorAll('details').forEach(d=>d.open=true)"); pg.wait_for_timeout(200)
+    ok('Settings has the Style Guide button', pg.locator('[data-act=open-styleguide]').count()==1)
+    pg.evaluate("document.querySelector('[data-act=open-styleguide]').click()"); pg.wait_for_timeout(600)
+    ok('Style Guide page opens', pg.locator('.sgsec').count()>0)
+    # investments: invCur USDT, a BTC bought on Bitget Spot and another on Binance
+    pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(500)
+    J("c.commit(d=>{d.settings.invCur='USDT';d.settings.tickers={BTC:{ticker:'BTC',name:'',assetType:'crypto',quote:c.HOME,price:3000000,live:false},USDT:{ticker:'USDT',name:'',assetType:'crypto',quote:c.HOME,price:150,live:false}};const base={include:true,archived:false,open:0.5,type:'crypto',cur:'BTC'};d.accounts.push(c.stamp({...base,id:'b1',name:'BTC',exchange:'Bitget',wallet:'Spot'}),c.stamp({...base,id:'b2',name:'BTC',exchange:'Binance',wallet:'Spot'}),c.stamp({...base,id:'u1',name:'USDT',cur:'USDT',open:100,exchange:'Bitget',wallet:'Spot'}))})")
+    out=pg.evaluate("(async()=>{const c=await import('/js/core.js');const i=await import('/js/invest.js');const d=c.get();return [i.assetPerfHtml(d,d.accounts.find(x=>x.id==='b1')).length, i.assetPerfHtml(d,d.accounts.find(x=>x.id==='u1')).length]})()")
+    ok('asset detail block exists %s'%out, out[0]>100)
+    h=pg.evaluate("(async()=>{const c=await import('/js/core.js');const i=await import('/js/invest.js');const d=c.get();return i.assetPerfHtml(d,d.accounts.find(x=>x.id==='b1'))})()")
+    ok('names the platform only', 'Bitget' in h and 'Binance' not in h)
+    ok('no hardcoded home currency in prices', 'PHP' not in h and 'JPY' not in h)
+    pg.evaluate("(async()=>{const a=await import('/js/accpage.js');a.openAccountDetail('b1')})()"); pg.wait_for_selector('.assetperf'); t=pg.inner_text('.assetperf')
+    ok('detail sheet shows platform performance in USDT', 'Performance on Bitget' in t and 'Holding now' in t and ('₮' in t or 'USDT' in t) and '₱' not in t and 'PHP' not in t)
+    ok('no page errors %s'%errs, not errs)
+    b.close()

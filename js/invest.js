@@ -452,7 +452,8 @@ function performanceCard(db, bal, book, items) {
 }
 // Per-token performance: one line per coin or stock across every platform; tap for the full breakdown
 const tokName = (db, cur) => ((db.settings.tickers || {})[cur] || {}).ticker || cur;
-const px = (v) => `${HOME} ${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: v < 1 ? 6 : 2 })}`;
+// a price per unit in the Investments reporting currency (Settings: invCur), never a fixed one
+const px = (v) => { const x = v * invK; return `${invC} ${x.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: Math.abs(x) < 1 ? 6 : 2 })}`; };
 const sgn = (v) => `${v >= 0 ? '+' : '−'}${money(Math.abs(v))}`, tcl = (v) => (v >= 0 ? 'cg' : 'cr');
 function tokenCard(db, book, items) {
   const rows = tokenPerformance(db, book, items.filter(isAsset), HOME).filter((r) => !(r.cashLike && !r.earned && !r.income && !r.realized));
@@ -461,10 +462,9 @@ function tokenCard(db, book, items) {
   return panel('i-tok', `Per-Token Performance <small class="muted gsum">${sgn(tot)}</small>`, `<div class="rows plain tokrows">${rows.map((r) => `${button({ html: `<span class="rmain"><strong>${esc(tokName(db, r.cur))}</strong><small>${r.value > 0 ? `Value now ${money(r.value)}` : 'Sold out'}</small>${r.platforms.length ? `<small class="tokpl">On ${esc(r.platforms.join(', '))}</small>` : ''}${r.avgCost != null ? `<small class="tokavg">Avg cost ${px(r.avgCost)} · Breakeven ${px(r.breakeven)}</small>` : ''}</span><span class="ramt ${tcl(r.gain)}"><b>${sgn(r.gain)}</b><small>${r.pct == null ? 'cost not known' : `${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%`}</small></span>`, kind: 'plain', cls: 'row tokrow', act: 'tok-open', attr: { 'data-cur': r.cur } })}`).join('')}</div>
     <p class="hint">Return = profit on paper + profit from selling + what it earned (Earn interest and other income). Fees are shown inside the detail. Only units bought through Buy / sell, or a cost you typed, have a known cost.</p>`, '');
 }
-ACT['tok-open'] = (el) => {
-  const db = get(), book = tradeBook(db.txs), r = tokenPerformance(db, book, live(db.accounts).filter(inInvest).filter(isAsset), HOME).find((x) => x.cur === el.dataset.cur); if (!r) return;
+const tokList = (r) => {
   const line = (k, v, c = '') => `<li><span>${k}</span><b class="${c}">${v}</b></li>`;
-  sheet(`<ul class="calfacts">${line('Holding now', `${money(r.value)}${r.qty > 0 ? ` · ${r.qty.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${esc(r.cur)}` : ''}`)}
+  return `<ul class="calfacts">${line('Holding now', `${money(r.value)}${r.qty > 0 ? ` · ${r.qty.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${esc(r.cur)}` : ''}`)}
     ${line('Cost of what you still hold', r.cost > 0 ? money(r.cost) : 'not known')}
     ${line('Average cost per unit', r.avgCost != null ? px(r.avgCost) : 'not known')}
     ${line('Breakeven price per unit', r.breakeven != null ? px(r.breakeven) : 'not known')}
@@ -475,9 +475,24 @@ ACT['tok-open'] = (el) => {
     ${line('Total return', `${sgn(r.gain)}${r.pct == null ? '' : ` (${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%)`}`, tcl(r.gain))}
     ${line('Trading fees paid', money(r.fees))}
     ${line('Buys and sells', String(r.trades))}
-    ${r.first ? line('First trade', esc(r.first.slice(0, 10))) : ''}</ul>
-    <p class="hint">Average cost = what you paid for the units you hold, divided by those units. Breakeven = the price at which your total return is zero: it also counts profit you already took by selling and what the token earned. Percent = total return divided by what was put in (cost of what you hold plus the cost of what you sold). Fees are not taken off twice: the fee on a sale is already inside the profit from selling.</p>`, { title: `${tokName(db, r.cur)} Performance` });
+    ${r.first ? line('First trade', esc(r.first.slice(0, 10))) : ''}</ul>`;
 };
+const TOK_HINT = 'Average cost = what you paid for the units you hold, divided by those units. Breakeven = the price at which your total return is zero: it also counts profit you already took by selling and what the token earned. Percent = total return divided by what was put in (cost of what you hold plus the cost of what you sold). Fees are not taken off twice: the fee on a sale is already inside the profit from selling. All amounts use the currency chosen in Investment Settings.';
+ACT['tok-open'] = (el) => {
+  const db = get(); setInvCur(db); const book = tradeBook(db.txs), r = tokenPerformance(db, book, live(db.accounts).filter(inInvest).filter(isAsset), HOME).find((x) => x.cur === el.dataset.cur); if (!r) return;
+  sheet(`<p class="hint">Overall: every platform and wallet that holds ${esc(tokName(db, r.cur))}${r.platforms.length ? ` (${esc(r.platforms.join(', '))})` : ''}.</p>${tokList(r)}<p class="hint">${TOK_HINT}</p>`, { title: `${tokName(db, r.cur)} Performance` });
+};
+// The same figures for ONE account only (for example Bitget > Spot > USDT), shown inside that asset's details. Nothing from other platforms is mixed in.
+export function assetPerfHtml(db, a) {
+  if (!a || !inInvest(a) || !isAsset(a) || a.cur === HOME) return '';
+  setInvCur(db);
+  const r = tokenPerformance(db, tradeBook(db.txs), [a], HOME)[0]; if (!r) return '';
+  const where = a.exchange ? `${a.exchange}${walletOf(a) ? ' ' + walletOf(a) : ''}` : a.name;
+  return `<section class="assetperf"><h3>${esc(tokName(db, a.cur))} Performance on ${esc(where)}</h3>${tokList(r)}
+    <p class="hint">Only this account: ${esc(where)}. ${TOK_HINT}</p>
+    <div class="btnrow tight">${button({ label: `Overall ${tokName(db, a.cur)} performance (all platforms)`, kind: 'link', act: 'tok-open', data: 'cur', v: a.cur })}</div></section>`;
+}
+
 ACT['inv-cost'] = async (el) => {
   const a = get().accounts.find((x) => x.id === el.dataset.id); if (!a) return;
   const v = await promptDialog(`In total, how much did you pay for ${a.cur}? (in ${HOME})`, a.costHome ? String(a.costHome) : '', { type: 'number', hint: a.costHome ? 'Leave it empty to remove your figure.' : '' });

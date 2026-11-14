@@ -4,7 +4,7 @@ import { button, textField } from './components.js';
 import { pickAll } from './picker.js';
 import { isEarnAcct, EARN_BLOCK, openDateOf, openDates, WALLETS, WALLET_INFO, walletOf } from './core.js';
 import { tipBtn, calcHtml, bindCalc, COMP_LABEL, rateAt, hasRate } from './interest.js';
-import { exchangeOf, canonPlatform, nearPlatform, platformNames } from './invest.js';
+import { exchangeOf, canonPlatform, nearPlatform, platformNames, assetPerfHtml } from './invest.js';
 import { softDelete, subscribe } from './core.js';
 import { acctPic, isImg } from './pictures.js';
 import {
@@ -326,6 +326,7 @@ export function openAccountDetail(id) {
         <path d="${area}" fill="var(--tint)"/><path d="${path}" fill="none" stroke="var(--line)" stroke-width="2.4" stroke-linejoin="round"/></svg>
       <p class="hint tap">Touch and drag along the line to read the balance on each day.</p>
       <div class="facts"><div><span>In this month</span><b class="in">${money(inM, a.cur)}</b></div><div><span>Out this month</span><b>${money(outM, a.cur)}</b></div><div><span>Entries</span><b>${hist.length}</b></div></div>
+      ${assetPerfHtml(db, a)}
       ${card ? `<div class="cardbox"><h3>Credit Card</h3>
         <div class="facts"><div><span>Owed</span><b>${money(card.owed, a.cur)}</b></div><div><span>Limit</span><b>${card.limit ? money(card.limit, a.cur) : '—'}</b></div><div><span>Available</span><b>${card.avail != null ? money(Math.max(0, card.avail), a.cur) : '—'}</b></div></div>
         ${card.limit ? `<span class="util big ${card.used >= 80 ? 'hot' : card.used >= 50 ? 'mid' : ''}" role="img" aria-label="${card.used}% used"><i style="width:${card.used}%"></i></span><p class="hint">${card.used}% of the limit is used. Staying under about 30% is easier on your credit.</p>` : '<p class="hint">Add the credit limit in Edit to see how much is used.</p>'}

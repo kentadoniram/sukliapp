@@ -839,6 +839,7 @@ export function settings(db) {
       ${(() => { const old = Object.keys(s.rates || {}).filter((c) => s.rates[c] > 0); return old.length ? `<div class="oldrates"><h3>Rates Typed Here Before</h3><p class="hint">An older version let you type a rate here. These still replace the live rate for new entries and today’s balances. Removing one does not change any saved entry.</p>${old.map((c) => `<div class="oldrate"><span>1 ${esc(c)} = ${rateTxt(homeFx(db, c))} ${esc(HOME)}</span>${button({ label: 'Remove', kind: 'ghost', size: 'sm', act: 'rate-live', attr: { 'data-c': c } })}</div>`).join('')}</div>` : ''; })()}
     </section>
     <section><h2>Glossary</h2><p class="hint">What the words mean: accounts, cards (statement, billing period, posted date), interest, investments, and common words on Japanese receipts with kanji, romaji and English.</p><div class="btnrow left">${button({ label: 'Open the glossary', kind: 'ghost', act: 'glossary' })}</div></section>
+    <section><h2>Style Guide</h2><p class="hint">Every button, field and card the app is made of, on one page. Mostly useful for checking how a change looks.</p><div class="btnrow left">${button({ label: 'Open the Style Guide', kind: 'ghost', act: 'open-styleguide' })}</div></section>
     <section><h2>Put It on Your Phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
     <section><h2>Erase</h2><button class="btn danger ghost" data-act="erase">Erase everything on this device</button>
       <p class="hint">Backups in your Google Drive are not touched.</p></section>`);
@@ -1031,6 +1032,7 @@ function mapSheet(key, q = '') {
   const inp = document.getElementById('nmq');
   if (inp) inp.addEventListener('change', () => mapSheet(start, inp.value.trim()));
 }
+ACT['open-styleguide'] = () => { location.hash = '#/styleguide'; };
 ACT['nm-map'] = () => mapSheet();
 ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
 
@@ -1041,7 +1043,7 @@ const SET_GROUPS = [
   ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Pictures', 'Account Types', 'Name Matching']],
   ['data', 'Backup and Data', 'Undo, reminders, backups, export', ['Undo', 'Backup Reminder', 'Your Data', 'Google Backup (Optional)']],
   ['adv', 'Advanced', 'Most people never need these', ['Exchange Rates', 'Live exchange rates', 'Coins and Tokens: Decimals', 'Cloud Sync', 'Erase']],
-  ['help', 'Help', 'Glossary, install on your phone', ['Glossary', 'Put It on Your Phone']],
+  ['help', 'Help', 'Glossary, install on your phone', ['Glossary', 'Style Guide', 'Put It on Your Phone']],
 ];
 const SET_OPEN = new Set(['look']);
 const SUB_OPEN = new Set((() => { try { return JSON.parse(localStorage.getItem('sukli-ssub') || '[]'); } catch { return []; } })());
