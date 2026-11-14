@@ -150,7 +150,7 @@ export function accounts(db) {
     return `<section class="topgrp ${top === 'Assets' ? 'assets' : 'liabs'}"><div class="tophead"><h2>${top}</h2><b>${money(Math.abs(tot))}</b></div><p class="hint">${top === 'Assets' ? 'What you own: cash, bank, investments, property.' : 'What you owe: credit cards, loans, money owed.'}</p>${gs.map(secOf).join('')}</section>`; }).join('') : groups.map((g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.total)}</small>`,
     `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, exBtn(g))).join('');
   const segs = (name, opts, cur) => `<div class="seg sm" role="group" aria-label="${name}">${opts.map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${cur === v ? 'on' : ''}`, act: 'aview', pressed: cur === v, attr: { 'data-k': name, 'data-v': v } })}`).join('')}</div>`;
-  return `${hdr('Accounts', `${button({ label: 'Loan planner', kind: 'ghost', size: 'sm', act: 'loan-plan' })} ${button({ label: 'Bills', kind: 'ghost', size: 'sm', act: 'bills-open' })} ${button({ label: 'Add account', kind: 'primary', size: 'sm', act: 'acct-new' })}`)}
+  return `${hdr('Accounts', `${button({ label: 'Loan planner', kind: 'ghost', size: 'sm', act: 'loan-plan' })} ${button({ label: 'Loan setup', kind: 'ghost', size: 'sm', act: 'loan-wizard' })} ${button({ label: 'Bills', kind: 'ghost', size: 'sm', act: 'bills-open' })} ${button({ label: 'Add account', kind: 'primary', size: 'sm', act: 'acct-new' })}`)}
     ${reminderBanner(db)}
     <section class="nwcard">${button({ html: `<span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b>
       <small>Assets ${money(nw.assets)} · Debts ${money(nw.debts)}</small>

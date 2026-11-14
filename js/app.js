@@ -22,6 +22,7 @@ import { initGestures } from './gestures.js';
 import { welcomeHtml } from './welcome.js';
 import { bin, autoPurge } from './bin.js';
 import { styleguide } from './styleguide.js';
+import { rateCompare, bindRateCompare } from './ratecompare.js';
 import { analytics } from './analytics.js';
 import { investments } from './invest.js';
 import { debts } from './debts.js';
@@ -34,10 +35,11 @@ import './walletscan.js';
 import './scan.js';
 import './compare.js';
 import './loans.js';
+import './loanwizard.js';
 import './trades.js';
 import { commitQuiet } from './core.js';
 
-const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook, bin, analytics, invest: investments, debts, owed, reimburse, savings, spend, trips, styleguide };
+const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook, bin, analytics, invest: investments, debts, owed, reimburse, savings, spend, trips, styleguide, rates: () => { setTimeout(() => bindRateCompare(document), 30); return rateCompare(); } };
 let lastRoute = null, pending = false;
 // remember where you were on each screen so Back returns there instead of the top
 const seen = new Map(), stack = []; let curKey = '', backTo = null;

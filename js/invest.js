@@ -1,5 +1,6 @@
 // Investments tab: crypto grouped by exchange (every coin is its own balance with its own market value), plus investments and
 // other financial products such as MP2. First rough version: valuation and structure; buy/sell comes next.
+import { inMarketTab, marketBar } from './market.js';
 import { isCoin, coinIcon, flagOf, assetIcon } from './curpicker.js';
 import { enhanceSelect, pickAll, pickerList } from './picker.js';
 import { tipBtn } from './interest.js';
@@ -211,7 +212,7 @@ ACT['inv-pie'] = () => {
 export function investments(db) {
   PANELS = []; PICKED = {};
   setInvCur(db);
-  const bal = balances(db), items = live(db.accounts).filter(inInvest), book = tradeBook(db.txs);
+  const bal = balances(db), items = live(db.accounts).filter(inInvest).filter((a) => inMarketTab(db, a)), book = tradeBook(db.txs);
   const cryptoAll = items.filter(isAsset), other = items.filter((a) => !isAsset(a)), mode = gmode(), tickers = db.settings.tickers || {};
   // assets with nothing in them are hidden (they come back as soon as they hold something, or with the "Show empty" link)
   const keepEmpty = (a) => a.cur === 'USDT' && a.exchange && TRADING_WALLETS.includes(walletOf(a));   // USDT is always listed in a trading wallet
@@ -265,6 +266,7 @@ export function investments(db) {
   setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
   return `<div class="invpage">${hdr('Investments', `${button({ label: 'Record activity', kind: 'primary', size: 'sm', act: 'inv-add', cls: 'iv-rec' })} ${button({ label: 'Add asset', kind: 'ghost', size: 'sm', act: 'inv-new', cls: 'iv-add' })} ${button({ label: 'Buying Check', kind: 'ghost', size: 'sm', act: 'buy-check' })}${pendingReview(db).length ? ` ${button({ label: `Review trades (${pendingReview(db).length})`, kind: 'ghost', size: 'sm', act: 'trade-review' })}` : ''} ${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`)}
     <section class="nwcard one"><div class="nwmain nwsplit"><div class="nwl"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${byEx.size} ${mode === 'type' ? 'type' : mode === 'risk' ? 'group' : 'place'}${byEx.size === 1 ? '' : 's'} · ${other.length} other</small></div>${button({ html: `<span id="ivmini" class="ivmini"></span>`, kind: 'plain', cls: 'ivgraph', act: 'inv-graph', aria: 'Open the graph of your market value over time' })}<small class="updated">${updatedLine(db)}</small></div></section>
+    ${marketBar(db)}
     ${(() => { const odd = items.map((x) => x.cur).filter((c, i, l) => l.indexOf(c) === i && tickers[c] && oddPrices(tickers[c].history || []).size); return odd.length ? `<p class="hint warnline">A saved price looks wrong for ${odd.map((c) => `${button({ label: tickers[c].ticker || c, kind: 'link', act: 'inv-ticker', data: 'sym', v: c })}`).join(', ')}. Open it and delete the price marked “looks off”; the value and the graph then use the price before it.</p>` : ''; })()}
     ${unpriced.length ? `<p class="hint">No price yet for ${unpriced.map((a) => esc(a.cur)).join(', ')}, so ${unpriced.length === 1 ? 'it is' : 'they are'} left out of the total. Prices load when you are online, or set one in Settings, Exchange rates.</p>` : ''}
     ${items.length ? `<div class="grprow">${crypto.length ? `<div class="seg sm small" role="group" aria-label="Group by">${[['platform', 'By platform'], ['type', 'By asset type'], ['risk', 'By group']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${mode === v ? 'on' : ''}`, act: 'inv-group', pressed: mode === v, attr: { 'data-v': v } })}`).join('')}</div>` : ''}${button({ html: `${ic('pie')}`, kind: 'plain', cls: 'piebtn', act: 'inv-pie', aria: 'Pie chart of where your money is', title: 'Pie chart' })}</div>${crypto.length && mode === 'risk' ? '<p class="hint">Groups: stablecoins (steady value), major coins, high-volatility coins, stocks, funds. Open a ticker below to move it to another group or make your own.</p>' : ''}` : ''}
