@@ -452,12 +452,13 @@ function performanceCard(db, bal, book, items) {
 }
 // Per-token performance: one line per coin or stock across every platform; tap for the full breakdown
 const tokName = (db, cur) => ((db.settings.tickers || {})[cur] || {}).ticker || cur;
+const px = (v) => `${HOME} ${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: v < 1 ? 6 : 2 })}`;
 const sgn = (v) => `${v >= 0 ? '+' : '−'}${money(Math.abs(v))}`, tcl = (v) => (v >= 0 ? 'cg' : 'cr');
 function tokenCard(db, book, items) {
   const rows = tokenPerformance(db, book, items.filter(isAsset), HOME).filter((r) => !(r.cashLike && !r.earned && !r.income && !r.realized));
   if (!rows.length) return '';
   const tot = rows.reduce((q, r) => q + r.gain, 0);
-  return panel('i-tok', `Per-Token Performance <small class="muted gsum">${sgn(tot)}</small>`, `<div class="rows plain tokrows">${rows.map((r) => `${button({ html: `<span class="rmain"><strong>${esc(tokName(db, r.cur))}</strong><small>${r.value > 0 ? `Value now ${money(r.value)}` : 'Sold out'}</small>${r.platforms.length ? `<small class="tokpl">On ${esc(r.platforms.join(', '))}</small>` : ''}</span><span class="ramt ${tcl(r.gain)}"><b>${sgn(r.gain)}</b><small>${r.pct == null ? 'cost not known' : `${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%`}</small></span>`, kind: 'plain', cls: 'row tokrow', act: 'tok-open', attr: { 'data-cur': r.cur } })}`).join('')}</div>
+  return panel('i-tok', `Per-Token Performance <small class="muted gsum">${sgn(tot)}</small>`, `<div class="rows plain tokrows">${rows.map((r) => `${button({ html: `<span class="rmain"><strong>${esc(tokName(db, r.cur))}</strong><small>${r.value > 0 ? `Value now ${money(r.value)}` : 'Sold out'}</small>${r.platforms.length ? `<small class="tokpl">On ${esc(r.platforms.join(', '))}</small>` : ''}${r.avgCost != null ? `<small class="tokavg">Avg cost ${px(r.avgCost)} · Breakeven ${px(r.breakeven)}</small>` : ''}</span><span class="ramt ${tcl(r.gain)}"><b>${sgn(r.gain)}</b><small>${r.pct == null ? 'cost not known' : `${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%`}</small></span>`, kind: 'plain', cls: 'row tokrow', act: 'tok-open', attr: { 'data-cur': r.cur } })}`).join('')}</div>
     <p class="hint">Return = profit on paper + profit from selling + what it earned (Earn interest and other income). Fees are shown inside the detail. Only units bought through Buy / sell, or a cost you typed, have a known cost.</p>`, '');
 }
 ACT['tok-open'] = (el) => {
@@ -465,6 +466,8 @@ ACT['tok-open'] = (el) => {
   const line = (k, v, c = '') => `<li><span>${k}</span><b class="${c}">${v}</b></li>`;
   sheet(`<ul class="calfacts">${line('Holding now', `${money(r.value)}${r.qty > 0 ? ` · ${r.qty.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${esc(r.cur)}` : ''}`)}
     ${line('Cost of what you still hold', r.cost > 0 ? money(r.cost) : 'not known')}
+    ${line('Average cost per unit', r.avgCost != null ? px(r.avgCost) : 'not known')}
+    ${line('Breakeven price per unit', r.breakeven != null ? px(r.breakeven) : 'not known')}
     ${line('Profit on paper (unrealized)', r.cost > 0 ? sgn(r.unreal) : 'not known', r.cost > 0 ? tcl(r.unreal) : '')}
     ${line('Profit from selling (realized)', sgn(r.realized), tcl(r.realized))}
     ${line('Earned (Earn interest)', sgn(r.earned), tcl(r.earned))}
@@ -473,7 +476,7 @@ ACT['tok-open'] = (el) => {
     ${line('Trading fees paid', money(r.fees))}
     ${line('Buys and sells', String(r.trades))}
     ${r.first ? line('First trade', esc(r.first.slice(0, 10))) : ''}</ul>
-    <p class="hint">Percent = total return divided by what was put in (cost of what you hold plus the cost of what you sold). Fees are not taken off twice: the fee on a sale is already inside the profit from selling.</p>`, { title: `${tokName(db, r.cur)} Performance` });
+    <p class="hint">Average cost = what you paid for the units you hold, divided by those units. Breakeven = the price at which your total return is zero: it also counts profit you already took by selling and what the token earned. Percent = total return divided by what was put in (cost of what you hold plus the cost of what you sold). Fees are not taken off twice: the fee on a sale is already inside the profit from selling.</p>`, { title: `${tokName(db, r.cur)} Performance` });
 };
 ACT['inv-cost'] = async (el) => {
   const a = get().accounts.find((x) => x.id === el.dataset.id); if (!a) return;

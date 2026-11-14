@@ -29,6 +29,9 @@ export function tokenPerformance(db, book, accts, home) {
   }
   return [...by.values()].filter((r) => r.value > 0 || r.realized || r.earned || r.income || r.fees || r.trades).map((r) => {
     const gain = r.unreal + r.realized + r.earned + r.income, invested = r.cost + r.soldCost;
-    return { ...r, platforms: [...r.platforms].sort(), gain, invested, pct: invested > 0 ? gain / invested * 100 : null, cashLike: STABLE.has(r.cur) || r.cur === home };
+    const avgCost = r.costQty > 0 && r.cost > 0 ? r.cost / r.costQty : null;
+    /* breakeven: the price per unit at which what you hold, plus what you already took out by selling and earning, equals what you put in */
+    const breakeven = avgCost == null ? null : Math.max(0, (r.cost - r.realized - r.earned - r.income) / r.costQty);
+    return { ...r, avgCost, breakeven, platforms: [...r.platforms].sort(), gain, invested, pct: invested > 0 ? gain / invested * 100 : null, cashLike: STABLE.has(r.cur) || r.cur === home };
   }).sort((a, b) => b.value - a.value);
 }

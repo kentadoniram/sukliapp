@@ -297,3 +297,12 @@ ACT['sc-use'] = () => {
   const api = cur; api.close();
   setTimeout(() => openEntry({ preset }), 60);
 };
+
+ACT['scan-menu'] = () => sheet(`<div class="scanpick">
+  ${button({ html: `${ic('camera')} Scan a Receipt`, kind: 'primary', act: 'scan-go', v: 'r', cls: 'wide' })}
+  ${button({ html: `${ic('camera')} Read a Pasmo / Suica Screenshot`, kind: 'secondary', act: 'scan-go', v: 'w', cls: 'wide' })}</div>`, { title: 'Scanner' });
+ACT['scan-go'] = (el) => {
+  const v = el && el.dataset ? el.dataset.v : 'r';
+  document.querySelectorAll('.scrim').forEach((x) => x.remove());
+  (v === 'w' ? ACT['wallet-scan'] : ACT.scan)();
+};
