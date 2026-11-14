@@ -11,7 +11,16 @@ with sync_playwright() as p:
     tops=pg.evaluate("[...document.querySelectorAll('.drawer ul.dgrp')].slice(1).map(u=>getComputedStyle(u).borderTopWidth)")
     ok('divider lines between groups %s'%tops, all(t=='1px' for t in tops))
     t=pg.locator('.drawer').inner_text()
-    ok('all entries present', all(w in t for w in ['Home','Entries','Calendar','Review','Accounts','Budget','Savings','Cash Flow','Investments','Debts','Owed to You','Reimbursement','Loan Planner','Loan Setup','Compare Rates','Outlook','Analytics','Trips and Events','Settings']))
+    ok('all entries present', all(w in t for w in ['Review','Budget','Savings','Cash Flow','Investments','Debts','Owed to You','Reimbursement','Loan Planner','Loan Setup','Compare Rates','Outlook','Analytics','Trips and Events','Settings']))
+    bar=pg.evaluate("import('/js/screens.js').then(m=>m.tabIds(JSON.parse(localStorage.getItem('x')||'null')||undefined))") if False else None
+    first=pg.evaluate("[...document.querySelectorAll('.drawer ul.dgrp a')].map(a=>a.textContent.trim())")
+    inbar=pg.evaluate("[...document.querySelectorAll('nav.tabs a, nav.tabs button')].map(a=>a.textContent.trim())")
+    dup=[x for x in ['Home','Entries','Calendar','Accounts'] if x in inbar and x in first]
+    ok('menu leaves out the tabs already in the bottom bar %s'%dup, not dup)
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.menuDupes=true})})()"); pg.keyboard.press('Escape'); pg.wait_for_timeout(300); pg.click('[data-act=menu]'); pg.wait_for_timeout(300)
+    first2=pg.evaluate("[...document.querySelectorAll('.drawer ul.dgrp a')].map(a=>a.textContent.trim())")
+    ok('setting brings them back', all(x in first2 for x in ['Home','Entries','Accounts']))
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.menuDupes=false})})()"); pg.keyboard.press('Escape'); pg.wait_for_timeout(300); pg.click('[data-act=menu]'); pg.wait_for_timeout(300)
     w=pg.evaluate("[document.querySelector('.dscanbtn').getBoundingClientRect().width, document.querySelector('.drawer').getBoundingClientRect().width]")
     iw=pg.evaluate("document.querySelector('.drawer ul.dgrp a').getBoundingClientRect().width")
     ok('Scan button as wide as the other menu items %s %s'%(w,iw), abs(w[0]-iw)<2)

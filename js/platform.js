@@ -25,13 +25,16 @@ export function openPlatform(ex) {
       <label class="field"><span>Timezone of ${esc(ex)}</span><select data-p="tz">${Array.from({ length: 27 }, (_, i) => i - 12).map((z) => `<option value="${z}" ${z === off ? 'selected' : ''}>${tzName(z)}</option>`).join('')}</select></label>
       <p class="hint">Used for every Earn product here: subscription times and hourly earnings follow this clock.</p>
       ${earn.length ? `<h3>Earn Products</h3><ul class="calfacts">${earn.map((a) => `<li><span>${esc(a.cur)} <small class="muted">${a.earn && a.earn.on ? 'On' : 'Off'}</small></span>${button({ label: 'Subscription Settings', kind: 'ghost', size: 'sm', act: 'plat-do', attr: { 'data-do': 'earn-open', 'data-id': a.id } })}</li>`).join('')}</ul>` : ''}
+      ${accts.length ? `<h3>Hide Accounts</h3><p class="hint">A hidden account stays in Sukli with its entries and balance. It is only left out of the Investments tab. Tick the ones to hide, even if they hold something.</p>
+      <div class="hidelist">${accts.slice().sort((a, b) => (walletOf(a) + a.cur).localeCompare(walletOf(b) + b.cur)).map((a) => `<label class="check"><input type="checkbox" data-p="hide" data-id="${a.id}" ${a.invHidden ? 'checked' : ''}> <span>${esc(a.cur)} <small class="muted">${esc(walletOf(a))}${(bal.get(a.id) || 0) ? ' · ' + esc(fmt(bal.get(a.id) || 0, a.cur)) : ''}</small></span></label>`).join('')}</div>` : ''}
       <h3>Platform</h3>
       <p class="hint">Rename Platform changes the name of the whole exchange. It does not rename your individual accounts (Spot, Margin, Earn…).</p>
       <div class="btnrow left">${button({ label: 'Rename Platform', kind: 'ghost', size: 'sm', act: 'plat-do', attr: { 'data-do': 'inv-rename', 'data-ex': ex } })}${accts.length ? '' : `<button type="button" class="btn sm ghost danger" data-act="plat-do" data-do="inv-platdel" data-ex="${esc(ex)}">Remove Platform</button>`}</div>
       <div class="btnrow">${button({ label: 'Done', kind: 'primary', cls: 'primary', attr: { 'data-p': 'done' } })}</div>`;
   };
   draw();
-  root.addEventListener('change', (e) => { if (e.target.dataset.p !== 'tz') return; commit((d) => { (d.settings.platformTz = d.settings.platformTz || {})[ex] = +e.target.value; }); toast(`Timezone of ${ex} saved.`); draw(); });
+  root.addEventListener('change', (e) => { if (e.target.dataset.p === 'hide') { const id = e.target.dataset.id, on = e.target.checked; commit((d) => { const a = d.accounts.find((x) => x.id === id); if (a) { if (on) a.invHidden = true; else delete a.invHidden; stamp(a); } }); toast(on ? 'Hidden from Investments.' : 'Shown in Investments again.'); return; }
+    if (e.target.dataset.p !== 'tz') return; commit((d) => { (d.settings.platformTz = d.settings.platformTz || {})[ex] = +e.target.value; }); toast(`Timezone of ${ex} saved.`); draw(); });
   root.addEventListener('click', async (e) => {
     if (e.target.closest('[data-p=done]')) { s.close(); return; }
     if (e.target.closest('[data-p=addtype]')) { const v = await promptDialog('New account type', '', { okLabel: 'Add', hint: `A product name on ${ex}, for example Copy Trading, Launchpool or Margin (Isolated).` }); if (v && addAccountType(ex, v)) { toast(`${v.trim()} added to ${ex}.`); draw(); } return; }
@@ -40,3 +43,18 @@ export function openPlatform(ex) {
 ACT['plat-open'] = (el) => openPlatform(el.dataset.ex);
 // a button inside the sheet runs the same action as the one on the card, then the sheet gets out of the way
 ACT['plat-do'] = (el) => { const fn = ACT[el.dataset.do]; if (!fn) return; const sh = el.closest('.sheet'); if (sh && sh.querySelector('.platset')) { const x = sh.querySelector('[data-p=done]'); x && x.click(); } fn(el); };
+
+// the way back for accounts hidden from Investments (a platform whose accounts are all hidden has no card, so this list lives on the page itself)
+export function hiddenInvLink(db) {
+  const n = db.accounts.filter((a) => !a.deleted && !a.archived && inInvest(a) && a.invHidden).length;
+  return n ? `<p class="hint hiddenlink">${n} account${n === 1 ? ' is' : 's are'} hidden from this tab. ${button({ label: 'Show or Hide Accounts', kind: 'link', act: 'inv-hidden' })}</p>` : '';
+}
+ACT['inv-hidden'] = () => {
+  const s = sheet('<div id="hl"></div>', { title: 'Hidden Accounts' }), root = s.el.querySelector('#hl');
+  const draw = () => { const db = get(), bal = balances(db), l = db.accounts.filter((a) => !a.deleted && !a.archived && inInvest(a) && a.invHidden);
+    root.innerHTML = `${l.length ? `<p class="hint">Untick an account to show it in Investments again. Nothing is deleted.</p><div class="hidelist">${l.map((a) => `<label class="check"><input type="checkbox" data-id="${a.id}" checked> <span>${esc(exchangeOf(a))} · ${esc(a.cur)} <small class="muted">${esc(walletOf(a))}${(bal.get(a.id) || 0) ? ' · ' + esc(fmt(bal.get(a.id) || 0, a.cur)) : ''}</small></span></label>`).join('')}</div>` : '<p class="empty">No hidden accounts.</p>'}
+      <div class="btnrow">${button({ label: 'Done', kind: 'primary', attr: { 'data-done': true } })}</div>`; };
+  draw();
+  root.addEventListener('change', (e) => { const id = e.target.dataset.id; if (!id) return; commit((d) => { const a = d.accounts.find((x) => x.id === id); if (a) { if (e.target.checked) a.invHidden = true; else delete a.invHidden; stamp(a); } }); toast('Saved.'); });
+  root.addEventListener('click', (e) => { if (e.target.closest('[data-done]')) s.close(); });
+};

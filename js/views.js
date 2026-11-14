@@ -39,11 +39,13 @@ ACT.menu = () => {
     <div class="dscan"><a href="#" class="dscanbtn" data-act="scan-menu">Scan</a></div>
     ${(() => {
       const adv = (...ids) => ids.filter((h) => !simple || !['invest', 'cashflow', 'outlook', 'analytics', 'spend', 'trips'].includes(h));
+      // Home, Entries, Calendar and Accounts are in the bottom bar already: left out here unless Settings > Tabs says otherwise
+      const bar = tabIds(get()), inMenu = ([h]) => !['home', 'ledger', 'calendar', 'accounts'].includes(h) || !bar.includes(h) || !!(get().settings || {}).menuDupes;
       const nav = (ids) => ids.map(([h, l, i, b]) => item(h, l, i, b)).join('');
       const act = (a2, l, i) => `<li><a href="#" data-act="${a2}">${ic(i)}<span>${l}</span></a></li>`;
       const groups = [
-        nav([['home', 'Home', 'home'], ['ledger', 'Entries', 'list'], ['calendar', 'Calendar', 'calendar'], ['review', 'Review', 'check', n]]),
-        nav([['accounts', 'Accounts', 'wallet'], ['budget', 'Budget', 'pie'], ['savings', 'Savings', 'goal'], ...(simple ? [] : [['cashflow', 'Cash Flow', 'flow'], ['spend', 'Spending by Group', 'pie']])]),
+        nav([['home', 'Home', 'home'], ['ledger', 'Entries', 'list'], ['calendar', 'Calendar', 'calendar'], ['review', 'Review', 'check', n]].filter(inMenu)),
+        nav([['accounts', 'Accounts', 'wallet']].filter(inMenu).concat([ ['budget', 'Budget', 'pie'], ['savings', 'Savings', 'goal'], ...(simple ? [] : [['cashflow', 'Cash Flow', 'flow'], ['spend', 'Spending by Group', 'pie']])])),
         nav([...(simple ? [] : [['invest', 'Investments', 'spark']]), ['debts', 'Debts', 'calc'], ['owed', 'Owed to You', 'wallet'], ['reimburse', 'Reimbursement', 'wallet']]) + (simple ? '' : act('loan-plan', 'Loan Planner', 'calc') + act('loan-wizard', 'Loan Setup', 'calc')) + item('rates', 'Compare Rates', 'calc'),
         ...(simple ? [] : [nav([['outlook', 'Outlook', 'spark'], ['analytics', 'Analytics', 'chart'], ['trips', 'Trips and Events', 'calendar']])]),
       ];

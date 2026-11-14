@@ -23,6 +23,8 @@ export function entryFacts(db, t) {
   if (t.place) add('Place', t.place); else if (t.loc) add('Place', `about ${(+t.loc.la).toFixed(2)}, ${(+t.loc.lo).toFixed(2)}`);
   if (t.labels) add('Tags', String(t.labels).split(',').map((x) => '#' + x.trim()).filter((x) => x.length > 1).join(' '));
   if (t.paidFor) add('Shared bill', `whole bill ${fmt(t.paidFor.total, t.cur)}${t.paidFor.who ? ' · paid for ' + t.paidFor.who : ''}`);
+  if (t.reimb) add('Reimbursable', t.reimb.st === 'paid' ? `Paid back${t.reimb.co ? ' by ' + t.reimb.co : ''}${t.reimb.on ? ' on ' + String(t.reimb.on).slice(0, 10) : ''}` : `Yes, waiting${t.reimb.co ? ' for ' + t.reimb.co : ''}`);
+  if (t.reimbBack) add('Reimbursement', 'money paid back for an expense');
   if (t.cashback) add('Cashback', 'yes (its own income entry)');
   if (t.flag === 'review') add('Needs a check', 'yes');
   add('Notes', t.notes);

@@ -176,7 +176,7 @@ export function row(t, accts, cats, sel, trail) {
   return `<button class="row ${sel ? 'selrow' : ''} ${on ? 'picked' : ''}" data-act="${sel ? 'sel-toggle' : 'edit'}" data-id="${t.id}" ${sel ? `role="checkbox" aria-checked="${!!on}"` : ''}>
     ${sel ? `<i class="selbox ${on ? 'on' : ''}">${on ? ic('check') : ''}</i>` : ''}
     <i class="badge" style="background:${tr ? 'var(--xfer)' : groupColor(group)}">${tr || !c ? groupLetter(group) : catIcon(c)}</i>
-    <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}</strong><small>${sub2}</small><small class="eff">${effectLine(t, accts)}</small>${balLines(t, accts, trail)}</span>
+    <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}${t.reimb ? `<em class="pill reimbpill ${t.reimb.st === 'paid' ? 'paid' : ''}">${t.reimb.st === 'paid' ? 'Reimbursed' : 'Reimbursable'}</em>` : ''}</strong><small>${sub2}</small><small class="eff">${effectLine(t, accts)}</small>${balLines(t, accts, trail)}</span>
     <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}${arr}</span></button>`;
 }
 // a tapped entry opens to read only; Edit and Delete are separate buttons inside it
@@ -1090,6 +1090,7 @@ function arrangeSection(db) {
     <h3>Bottom Tabs (${tb.length}/${MAX_TABS})</h3>
     ${tb.map((id, i) => `<div class="arow"><span>${ic(TAB_DEFS[id][1])} ${TAB_DEFS[id][0]}</span>${mv('tab', id, i, tb.length)}<button type="button" class="btn sm ghost" data-act="arr-tab-off" data-id="${id}" ${tb.length <= 2 ? 'disabled' : ''}>Remove</button></div>`).join('')}
     ${more.length ? `<p class="hint">Add to the bar${tb.length >= MAX_TABS ? ' (remove one first)' : ''}:</p><div class="btnrow left">${more.map((id) => `<button type="button" class="btn sm ghost" data-act="arr-tab-on" data-id="${id}" ${tb.length >= MAX_TABS ? 'disabled' : ''}>+ ${TAB_DEFS[id][0]}</button>`).join('')}</div>` : ''}
+    <label class="check menudup"><input type="checkbox" data-act="menu-dup" ${((db.settings || {}).menuDupes) ? 'checked' : ''}> Also show Home, Entries, Calendar and Accounts in the burger menu <small class="muted">(they are already in the bottom bar, so they are left out by default)</small></label>
     <h3>Home Cards, Top to Bottom</h3>
     ${lay.order.map((id, i) => { const nm = (HOME_SECTIONS.find((x) => x[0] === id) || [])[1], off = lay.hidden.includes(id);
       return `<div class="arow ${off ? 'off' : ''}"><label class="check"><input type="checkbox" data-act="arr-show" data-id="${id}" ${off ? '' : 'checked'}> ${esc(nm)}${SIMPLE_HIDDEN.includes(id) ? ' <small class="muted">(not shown in Simple mode)</small>' : ''}</label>${mv('home', id, i, lay.order.length)}</div>`; }).join('')}
@@ -1107,6 +1108,7 @@ function arrMove(el, dir) {
 ACT['arr-tab-off'] = (el) => commit((d) => { d.settings.tabs = tabIds(d).filter((x) => x !== el.dataset.id); });
 ACT['arr-tab-on'] = (el) => commit((d) => { const t = tabIds(d); if (t.length < MAX_TABS) d.settings.tabs = [...t, el.dataset.id]; });
 ACT['arr-show'] = (el) => commit((d) => { const L = homeLayout(d), id = el.dataset.id; d.settings.homeLayout = { order: L.order, hidden: el.checked ? L.hidden.filter((x) => x !== id) : [...L.hidden, id] }; });
+ACT['menu-dup'] = (el) => commit((d) => { d.settings.menuDupes = !!el.checked; });
 ACT['arr-reset'] = () => commit((d) => { delete d.settings.tabs; delete d.settings.homeLayout; });
 
 // ---------------- Spending against the income you expect this month ----------------

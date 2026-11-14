@@ -112,7 +112,15 @@ function acctOptions(sel, skip, cur) {
     `<optgroup label="${esc(g)}">${v.list.sort((a, b) => (lastUsed.get(b.id) || '').localeCompare(lastUsed.get(a.id) || '') || a.name.localeCompare(b.name)).map(opt).join('')}</optgroup>`).join('');
 }
 const norm0 = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9぀-ヿ一-鿿]/g, '');
-function catOptions(sel, kind) {
+// Categories that go with `ctx`: ones used together in earlier split receipts, then the others in the same group.
+function relatedCats(db, ctx, kind) {
+  const co = new Map(), cs = new Map((db.categories || []).filter((c) => !c.deleted && (c.kind === kind || c.kind === 'both')).map((c) => [c.id, c]));
+  for (const t of db.txs || []) { if (t.deleted || !t.items || t.items.length < 2) continue; const set = new Set([t.cat, ...t.items.map((i) => i.cat)].filter(Boolean)); if (!set.has(ctx)) continue; for (const c of set) if (c !== ctx) co.set(c, (co.get(c) || 0) + 1); }
+  const base = cs.get(ctx), sib = base ? [...cs.values()].filter((c) => c.group === base.group && c.id !== ctx) : [];
+  for (const c of sib) co.set(c.id, (co.get(c.id) || 0) + 0.5);
+  return [...co.entries()].filter(([id]) => cs.has(id)).sort((a, b) => b[1] - a[1] || cs.get(a[0]).name.localeCompare(cs.get(b[0]).name)).slice(0, 6).map(([id]) => cs.get(id));
+}
+function catOptions(sel, kind, ctx = '') {
   const db = get();
   const groups = new Map();
   for (const c of db.categories) {
@@ -120,7 +128,9 @@ function catOptions(sel, kind) {
     if (!groups.has(c.group)) groups.set(c.group, []);
     groups.get(c.group).push(c);
   }
-  return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([g, cs]) =>
+  const rel = ctx ? relatedCats(db, ctx, kind) : [];
+  const top = rel.length ? `<optgroup label="Goes with ${esc(((db.categories || []).find((c) => c.id === ctx) || {}).name || 'the last item')}">${rel.map((c) => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>` : '';
+  return top + [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([g, cs]) =>
     `<optgroup label="${esc(g)}">${cs.sort((a, b) => a.name.localeCompare(b.name)).map((c) =>
       `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`).join('');
 }
@@ -474,6 +484,10 @@ export function openEntry(opts = {}) {
   const kOf = () => 10 ** (CUR[(acctOf(f.acct) || {}).cur] || { dec: 2 }).dec;
   const wdOf = () => { if (!f.wd || !f.wd.on) return 0; const b = itemBase(), v = num(f.wd.v) || 0, k = kOf(); return Math.round(Math.min(Math.max(f.wd.mode === 'pct' ? (b * v) / 100 : v, 0), b) * k) / k; };   // a discount on the whole bill, taken off the items before the whole-bill tax
   const wRatio = () => { const b = itemBase(); return b > 0 ? wdOf() / b : 0; };
+  // the category a row's suggestions follow: the nearest earlier item that has one, else the entry's own category
+  // in yen the reduced 8% (food) comes first: most receipts are food
+  const taxFirst8 = () => (((($f('f-cur') || {}).value) || (acctOf(f.acct) || {}).cur || '') === 'JPY');
+  const ctxCat = (i) => { for (let j = i - 1; j >= 0; j--) if (f.items[j] && f.items[j].cat) return f.items[j].cat; return f.cat || ''; };
   const ownTax = (i) => { if (!i.tx || !i.tx.on) return 0; const k = kOf(); return Math.round(Math.max(lineOf(i) * (1 - wRatio()) * (num(i.tx.v) || 0) / 100, 0) * k) / k; };   // this line's own tax (for example 8% on food)
   const ownTaxSum = () => f.items.reduce((s2, i) => s2 + ownTax(i), 0);
   const plainBase = () => f.items.reduce((s2, i) => s2 + (i.tx && i.tx.on ? 0 : lineOf(i)), 0) * (1 - wRatio());   // lines without their own tax: the whole-bill rate applies to these
@@ -490,11 +504,11 @@ export function openEntry(opts = {}) {
       <div class="chips itemsugg" id="itemsugg" aria-label="Items you often add"></div><datalist id="itemnames">${knownItemNames(get()).map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
       <div id="itemlist">${f.items.map((it, i) => `<div class="item" data-i="${i}">
         <input class="in-n" list="itemnames" autocomplete="off" placeholder="Item" value="${esc(it.n)}" aria-label="Item name">
-        <select class="in-c" aria-label="Item category"><option value="">Same as above</option>${catOptions(it.cat, 'expense')}</select>
+        <select class="in-c" aria-label="Item category"><option value="">Same as above</option>${catOptions(it.cat, 'expense', ctxCat(i))}</select>
         <div class="inamt"><input class="in-a" inputmode="decimal" placeholder="${esc(itemPh())}" value="${esc(it.amt)}" aria-label="Price of one, you can type a sum like 120+45">${button({ label: '=', kind: 'plain', cls: 'calcin', e: 'item-calc', aria: 'Calculator: type a sum such as 120+45*2, then tap = ', title: 'Calculator', attr: { 'data-v': i } })}</div>
-        <div class="qty" role="group" aria-label="Quantity"><button type="button" data-e="item-q" data-v="${i}:-1" aria-label="One less">−</button><b>${it.q > 0 ? it.q : 1}</b><button type="button" data-e="item-q" data-v="${i}:1" aria-label="One more">+</button></div>
+        <div class="qty" role="group" aria-label="Quantity"><button type="button" data-e="item-q" data-v="${i}:-1" aria-label="One less">−</button><input class="in-q" inputmode="numeric" autocomplete="off" value="${it.q > 0 ? it.q : 1}" aria-label="Quantity, you can type it"><button type="button" data-e="item-q" data-v="${i}:1" aria-label="One more">+</button></div>
         ${it.disc && it.disc.on ? `<div class="idisc">${seg({ options: [{ label: 'Amount', value: 'amt' }, { label: '%', value: 'pct' }], value: it.disc.mode === 'pct' ? 'pct' : 'amt', e: 'disc-mode', aria: 'Discount type', pack: (m) => `${i}:${m}` })}<input class="in-d" inputmode="decimal" autocomplete="off" placeholder="${it.disc.mode === 'pct' ? 'e.g. 20' : 'e.g. 50'}" value="${esc(it.disc.v)}" aria-label="Discount ${it.disc.mode === 'pct' ? 'percent' : 'amount'}"></div>` : ''}
-        ${it.tx && it.tx.on ? `<div class="itax">${seg({ options: [{ label: '10%', value: '10', title: 'Standard consumption tax' }, { label: '8%', value: '8', title: 'Reduced rate: food and non-alcoholic drinks' }], value: ['10', '8'].includes(String(it.tx.v)) ? String(it.tx.v) : null, e: 'item-tax-set', aria: 'Tax rate', pack: (m) => `${i}:${m}` })}<input class="in-t" inputmode="decimal" autocomplete="off" placeholder="Other %" value="${esc(it.tx.v)}" aria-label="Tax rate percent for this item"></div>` : ''}
+        ${it.tx && it.tx.on ? `<div class="itax">${seg({ options: [...(taxFirst8() ? [{ label: '8%', value: '8', title: 'Reduced rate: food and non-alcoholic drinks' }, { label: '10%', value: '10', title: 'Standard consumption tax' }] : [{ label: '10%', value: '10', title: 'Standard consumption tax' }, { label: '8%', value: '8', title: 'Reduced rate: food and non-alcoholic drinks' }])], value: ['10', '8'].includes(String(it.tx.v)) ? String(it.tx.v) : null, e: 'item-tax-set', aria: 'Tax rate', pack: (m) => `${i}:${m}` })}<input class="in-t" inputmode="decimal" autocomplete="off" placeholder="Other %" value="${esc(it.tx.v)}" aria-label="Tax rate percent for this item"></div>` : ''}
         <div class="itail"><small class="muted iline">${itemLine(it)}</small>${toggle({ label: 'Discount', on: !!(it.disc && it.disc.on), e: 'item-disc', v: i })}${toggle({ label: 'Tax', on: !!(it.tx && it.tx.on), e: 'item-tax', v: i })}${button({ label: 'Remove item', kind: 'link', cls: 'rm', e: 'item-del', v: i, aria: 'Remove this item' })}</div></div>`).join('')}</div>
       <div class="itemfoot">${button({ label: '+ Add item', kind: 'link', e: 'item-add' })}<span id="itemleft"></span></div>
       <div class="taxbox" id="wdbox"><div class="taxhead"><span class="feelab">Discount on the Whole Bill</span>${toggle({ label: 'Discount', on: f.wd.on, e: 'wd-toggle' })}</div>
@@ -504,7 +518,7 @@ export function openEntry(opts = {}) {
       <div class="taxbox"><div class="taxhead"><span class="feelab">Tax on the Whole Bill</span>${toggle({ label: 'Tax', on: f.tax.on, e: 'tax-toggle' })}</div>
         ${f.tax.on ? `<div class="taxdet">${seg({ options: [{ label: 'Rate %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: f.tax.mode === 'pct' ? 'pct' : 'amt', e: 'tax-mode', aria: 'Tax type' })}
           <input id="f-taxv" inputmode="decimal" autocomplete="off" placeholder="${f.tax.mode === 'pct' ? 'e.g. 10' : 'e.g. 150'}" value="${esc(f.tax.v)}" aria-label="Tax ${f.tax.mode === 'pct' ? 'rate percent' : 'amount'}">
-          ${f.tax.mode === 'pct' ? '<div class="chips taxchips">' + button({ label: '10%', kind: 'chip', e: 'tax-set', v: '10' }) + '' + button({ label: '8% (reduced)', kind: 'chip', e: 'tax-set', v: '8' }) + '</div>' : ''}
+          ${f.tax.mode === 'pct' ? '<div class="chips taxchips">' + (taxFirst8() ? button({ label: '8% (reduced)', kind: 'chip', e: 'tax-set', v: '8' }) + button({ label: '10%', kind: 'chip', e: 'tax-set', v: '10' }) : button({ label: '10%', kind: 'chip', e: 'tax-set', v: '10' }) + button({ label: '8% (reduced)', kind: 'chip', e: 'tax-set', v: '8' })) + '</div>' : ''}
           <small class="muted" id="taxcalc">${taxText()}${ownTaxSum() ? ' (items with their own tax are left out)' : ''}</small></div>` : ''}</div>` });
     el.querySelectorAll('select.in-c').forEach((sel) => enhanceSelect(sel, { title: 'Category', addLabel: 'Add a new category', onAdd: () => openCategoryForm({ kind: 'expense', onDone: (c) => { sel.add(new Option(c.name, c.id)); sel.value = c.id; sel.dispatchEvent(new Event('change', { bubbles: true })); } }) }));
     updateItemLeft(); fillItemSugg();
@@ -891,6 +905,7 @@ export function openEntry(opts = {}) {
           if (g) c = g.cat; else { const p = predict(modelFor('expense'), it.n, num(it.amt) || 0, {}); if (p.cats[0] && it.n.trim().length > 2 && p.conf > 0.35) c = p.cats[0].id; }
           if (c !== it.cat) { it.cat = c; f._autoCat = true; sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); f._autoCat = false; }
         }
+      } else if (e.target.classList.contains('in-q')) { const q = parseInt(String(e.target.value).replace(/\D/g, ''), 10); if (q > 0) { it.q = Math.min(99, q); updateItemLeft(); const tc = $f('taxcalc'); if (tc) tc.textContent = taxText(); }
       } else if (e.target.classList.contains('in-a')) { it.amt = e.target.value; updateItemLeft(); { const tc = $f('taxcalc'); if (tc) tc.textContent = taxText(); } const ln = row.querySelector('.iline'); if (ln && isExpr(it.amt) && num(it.amt) > 0) ln.textContent = '= ' + tidy(num(it.amt)) + (it.q > 1 ? `  ·  ${it.q} × = ${lineOf(it)}` : ''); else if (ln) ln.textContent = it.q > 1 ? `${it.q} × ${it.amt || 0} = ${lineOf(it)}` : ''; }
     }
   });
@@ -925,7 +940,8 @@ export function openEntry(opts = {}) {
       else await choose(cur);
     }
     else if (id === 'f-feecat') { f.feeCat = e.target.value; f.feeTouched = true; f.feeSuggested = false; renderFee(); }
-    else if (e.target.classList.contains('in-c')) { const it = f.items[+e.target.closest('.item').dataset.i]; it.cat = e.target.value; if (!f._autoCat) it.catTouched = true; }
+    else if (e.target.classList.contains('in-q')) { const it = f.items[+e.target.closest('.item').dataset.i]; if (it) { it.q = Math.max(1, Math.min(99, parseInt(String(e.target.value).replace(/\D/g, ''), 10) || 1)); renderItems(); } }
+    else if (e.target.classList.contains('in-c')) { const it = f.items[+e.target.closest('.item').dataset.i]; it.cat = e.target.value; if (!f._autoCat) it.catTouched = true; if (f.items.some((x, j) => j > +e.target.closest('.item').dataset.i)) renderItems(); }
     else if (e.target.classList.contains('oth-who')) { const i = +e.target.closest('.othrow').dataset.i; if (e.target.value === '__new') othNew(i); else { f.others.rows[i].who = e.target.value; renderCounts(); } }
     else if (e.target.id === 'f-goal') { f.goalId = e.target.value; }
     else if (e.target.classList.contains('oth-me')) { f.others.me = !e.target.checked; othSum(); }

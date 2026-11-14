@@ -1599,3 +1599,17 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 
 .drawer .dscan .dscanbtn{width:100%;max-width:none;min-width:0;box-sizing:border-box}
 .drawer .dscan .dscanbtn:hover{filter:brightness(1.08)}
+
+.items .item .qty{grid-template-columns:32px 1fr 32px;gap:2px;padding:0 3px}
+.items .item .qty button{width:32px;height:32px;max-height:32px;font-size:1rem}
+.items .item .qty .in-q{width:100%;min-width:0;height:36px;box-sizing:border-box;padding:0;border:0;background:transparent;text-align:center;font-weight:700;font-size:16px;color:var(--ink)}
+/* the date and time picker: Cancel and Set stay in view while the clock is open */
+#dp .btnrow{position:sticky;bottom:0;z-index:3;margin:8px -2px 0;padding:10px 2px calc(10px + env(safe-area-inset-bottom,0px));background:var(--sheet);border-top:1px solid var(--rule)}
+/* plain list rows in Settings (merchants, pictures, yearly events...): name and detail on the left, never pushed right or cut to "Entr..." */
+.rows.plain > .row{display:flex;align-items:center;gap:12px;text-align:left;justify-content:flex-start}
+.rows.plain > .row .rmain{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;align-items:flex-start;text-align:left}
+.rows.plain > .row .rmain strong,.rows.plain > .row .rmain small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.rows.plain > .row{padding-top:6px;padding-bottom:6px;min-height:0}
+.rows.plain > .row .rmain{gap:0;line-height:1.25}.rows.plain > .row .rmain small{margin:0;line-height:1.25}
+
+.pill.reimbpill{background:var(--line);margin-left:6px}.pill.reimbpill.paid{background:var(--ink2)}
