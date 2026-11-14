@@ -4,6 +4,7 @@ import { button } from './components.js';
 import { get } from './core.js';
 import { sheet, toast, esc } from './ui.js';
 import { here, placesOf } from './loc.js';
+import { searchPlaces } from './geo.js';
 
 let loading = null;
 function loadLeaflet() {
@@ -28,7 +29,9 @@ export async function pickOnMap(pt) {
   let L; try { L = await loadLeaflet(); } catch { toast('The map could not load. Check your internet, or type the place instead.'); return null; }
   return new Promise((resolve) => {
     let chosen = pt && isFinite(pt.la) ? { la: pt.la, lo: pt.lo } : null, done = false;
-    const s = sheet(`<p class="hint">Tap the map to put the pin on a place, or drag the pin. Saved as about 1 km, like your other places.</p>
+    const s = sheet(`<div class="mpsearch"><input type="search" id="mp-q" class="mpq" placeholder="Search a place, station or address" aria-label="Search a place" autocomplete="off">${button({ label: 'Search', kind: 'ghost', attr: { 'data-mp': 'find' } })}</div>
+      <div id="mp-res" class="mpres" role="listbox" aria-label="Search results"></div>
+      <p class="hint">Search above, or tap the map to put the pin on a place, or drag the pin. Saved as about 1 km, like your other places.</p>
       <div id="mp-map" class="mpmap" role="application" aria-label="Map"></div>
       <p class="hint" id="mp-txt"></p>
       <div class="btnrow">${button({ label: 'Where I Am', kind: 'ghost', attr: { 'data-mp': 'me' } })}${button({ label: 'Use This Place', kind: 'primary', disabled: true, attr: { 'data-mp': 'use' } })}</div>`,
@@ -43,9 +46,19 @@ export async function pickOnMap(pt) {
     if (chosen) put(chosen.la, chosen.lo, false); else show();
     map.on('click', (e) => put(e.latlng.lat, e.latlng.lng, false));
     setTimeout(() => map.invalidateSize(), 120);
+    const res = s.el.querySelector('#mp-res'), qi = s.el.querySelector('#mp-q');
+    const runSearch = async () => {
+      res.innerHTML = '<p class="hint">Searching…</p>';
+      const r = await searchPlaces(qi.value);
+      if (r.err) { res.innerHTML = `<p class="hint">${r.err === 'none' ? 'No place found. Try another spelling, or tap the map.' : r.err === 'empty' ? 'Type a place first.' : r.err === 'busy' ? 'Too many searches. Wait a moment.' : 'Could not search. Check your internet, or tap the map.'}</p>`; return; }
+      res.innerHTML = r.list.map((x) => button({ label: x.text, kind: 'plain', cls: 'row mpitem', attr: { 'data-mp': 'pick', 'data-la': x.la, 'data-lo': x.lo } })).join('');
+    };
+    qi.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
     window.__mapPick = { map, put, get: () => chosen };       // lets the tests tap the map without real tiles
     s.el.addEventListener('click', async (e) => {
       const b = e.target.closest('[data-mp]'); if (!b) return;
+      if (b.dataset.mp === 'pick') { const la = +b.dataset.la, lo = +b.dataset.lo; put(la, lo, true); map.setView([la, lo], 16); res.innerHTML = ''; return; }
+      if (b.dataset.mp === 'find') { await runSearch(); return; }
       if (b.dataset.mp === 'me') { txt.textContent = 'Finding where you are…'; const p = await here(8000); if (p) put(p.la, p.lo, true); else { txt.textContent = 'Could not find you. Tap the map instead.'; } }
       if (b.dataset.mp === 'use' && chosen) { done = true; resolve({ la: r2(chosen.la), lo: r2(chosen.lo) }); s.close(); }
     });

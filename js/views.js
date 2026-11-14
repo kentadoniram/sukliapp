@@ -13,6 +13,7 @@ import { openEntry, openCategoryForm } from './entry.js';
 import { forecastNext, behaviorNotes, detectRecurring } from './finance.js';
 import { reminderBanner } from './accpage.js';
 import { alertPct, budgetAlerts, budgetStatus, classCard } from './budgetsetup.js';
+import { needsCard } from './dailyneeds.js';
 import { ACT, sheet, ic, esc, confirmDialog, promptDialog, pushOverlay, toast } from './ui.js';
 
 const sum = (a) => a.reduce((x, y) => x + y, 0);
@@ -323,6 +324,7 @@ function budgetInner(db) {
   return `${monthNav()}<!--scope-->
     ${warns.length ? `<section class="bwarn">${warns.map((w) => `${button({ html: `${ic('check')}<span>${esc(w.text)}</span>`, kind: 'plain', cls: `warnrow ${w.tone}`, act: 'slice', attr: { 'data-k': w.g } })}`).join('')}</section>` : ''}
     ${coll('b-sum', 'Budget Summary', sumBlock, '' + button({ label: 'Budget setup', kind: 'ghost', size: 'sm', act: 'budget-setup' }) + '')}
+    ${needsCard(db, ym) ? coll('b-needs', 'Daily Needs Outlook', needsCard(db, ym)) : ''}
     ${coll('b-class', 'Needs, Wants and Luxury', classCard(db, ym) || '<p class="hint">Nothing spent in this month yet.</p>')}
     <div id="bpie"><section class="seg-wrap"><div class="seg two" role="group" aria-label="Split by">${[['group', 'By group'], ['category', 'By category']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${by === v ? 'on' : ''}`, act: 'pieby', pressed: by === v, attr: { 'data-v': v } })}`).join('')}</div>
       ${donut}${total ? '<p class="hint center">Tap a slice or a row for the detail.</p>' : ''}</section>

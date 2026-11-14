@@ -2,9 +2,10 @@
 //   saved so far, what you actually put in lately, what you usually have left after spending (income minus expenses), your other goals,
 //   and the target amount and date. The needed-per-month figure is only a reference. A missed month is not a warning when your real progress is
 //   still enough, and keeping to a plan is not "on track" when the money actually saved will not reach the target.
-import { balances, homeFx, nowStamp, shiftMonth } from './core.js';
+import { balances, homeFx, nowStamp, shiftMonth, factorFor } from './core.js';
 import { totals } from './insights.js';
 import { goalStats } from './savings.js';
+import { goalTxs } from './goaltx.js';
 
 const MONTH = 30.4375, live = (l) => (l || []).filter((x) => !x.deleted);
 const dayNum = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return Math.round(new Date(y, m - 1, d).getTime() / 864e5); };
@@ -22,9 +23,10 @@ export function recentSaved(db, g, today, days) {
   const from = isoOf(dayNum(today) - days);
   if (g.acct) {
     const a = live(db.accounts).find((x) => x.id === g.acct); if (!a) return 0;
-    const fx = homeFx(db, a.cur) || 1; return ((balances(db).get(a.id) || 0) - (balances(db, from + ' 00:00:00').get(a.id) || 0)) * fx;
+    const fx = homeFx(db, a.cur) || 1, gr = goalStats(db, g).rate || 1; return ((balances(db).get(a.id) || 0) - (balances(db, from + ' 00:00:00').get(a.id) || 0)) * fx / gr;
   }
-  return (g.log || []).filter((r) => String(r.date).slice(0, 10) >= from).reduce((s, r) => s + (r.amt || 0), 0);
+  const gr = goalStats(db, g).rate || 1;
+  return (g.log || []).filter((r) => String(r.date).slice(0, 10) >= from).reduce((s, r) => s + (r.amt || 0), 0) + goalTxs(db, g.id).filter((t) => String(t.date).slice(0, 10) >= from).reduce((s, t) => s + (t.amount || 0) * factorFor(db, t), 0) / gr;
 }
 // level: ontrack | early | behind (can catch up) | risk (not realistic with your usual leftover) | late (target date passed) | reached | none
 export function goalOutlook(db, g, today = nowStamp().slice(0, 10)) {
@@ -35,8 +37,8 @@ export function goalOutlook(db, g, today = nowStamp().slice(0, 10)) {
   if (days < 0) { out.level = 'late'; out.lines.push(`The target date has passed and ${R(s.left).toLocaleString()} is still to save.`); return out; }
   const monthsLeft = Math.max(days / MONTH, 1 / MONTH), needed = s.left / monthsLeft, win = Math.min(90, Math.max(since, 0)), enough = win >= 14;
   const actual = enough ? recentSaved(db, g, today, win) / (win / MONTH) : null;
-  const lo = usualLeftover(db, today), others = live(db.goals).filter((x) => x.id !== g.id && !x.reachedAck && x.due && dayNum(x.due) >= dayNum(today)).reduce((sum, x) => { const st = goalStats(db, x, today); return st.reached ? sum : sum + st.left / Math.max(1, (dayNum(x.due) - dayNum(today)) / MONTH); }, 0);
-  const room = lo.perMonth == null ? null : Math.max(0, lo.perMonth - others);
+  const lo = usualLeftover(db, today), others = live(db.goals).filter((x) => x.id !== g.id && !x.reachedAck && x.due && dayNum(x.due) >= dayNum(today)).reduce((sum, x) => { const st = goalStats(db, x, today); return st.reached ? sum : sum + st.left * st.rate / Math.max(1, (dayNum(x.due) - dayNum(today)) / MONTH); }, 0);
+  const room = lo.perMonth == null ? null : Math.max(0, lo.perMonth - others) / (s.rate || 1);
   Object.assign(out, { needed, actual, leftover: room, months: monthsLeft });
   const projected = s.saved + (actual != null ? Math.max(0, actual) * monthsLeft : 0);
   if (enough && projected >= s.target * 0.98) { out.level = 'ontrack'; out.lines.push(`At the pace you really saved lately (${R(actual).toLocaleString()} a month) you reach it by the target date.`); return out; }

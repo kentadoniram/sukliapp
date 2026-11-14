@@ -3,6 +3,7 @@
 import { get, commit, uid, stamp, softDelete, monthParts, catMap, fmt, HOME, thisMonth, shiftMonth } from './core.js';
 import { ACT, sheet, esc, toast } from './ui.js';
 import { button, textField } from './components.js';
+import { needsAlert } from './dailyneeds.js';
 
 export const CLASSES = { need: 'Need', want: 'Want', luxury: 'Luxury' };
 const NEED = /grocer|food at home|household|utilit|rent|mortgage|electric|water|gas bill|internet|phone|mobile|transport|commute|fare|train|bus|fuel|health|medic|doctor|pharmac|insur|tax|education|school|tuition|loan|debt|child|bills?\b|fees?\b|supplies/i;
@@ -36,7 +37,7 @@ export function budgetAlerts(db, ym = thisMonth()) {
       ? (over ? `${x.label} is ${p}% of its budget. It is a need, so this is not overspending on wants; consider raising the budget to ${money(Math.ceil(x.spent / 100) * 100)}.` : `${x.label} (need) is at ${p}% of its budget, ${money(left)} left.`)
       : (over ? `${x.label} (${CLASSES[x.cls].toLowerCase()}) is over budget by ${money(-left)} (${p}% used).` : `${x.label} (${CLASSES[x.cls].toLowerCase()}) is at ${p}%: ${money(left)} left of ${money(x.budget)}.`);
     return { ...x, over, tone: x.cls === 'need' ? 'info' : over ? 'over' : 'warn', text };
-  });
+  }).concat(ym === thisMonth() ? [needsAlert(db)].filter(Boolean) : []);
 }
 export function budgetBanner(db) {
   const a = budgetAlerts(db).filter((x) => x.kind === 'cat' || x.kind === 'group').slice(0, 2); if (!a.length) return '';

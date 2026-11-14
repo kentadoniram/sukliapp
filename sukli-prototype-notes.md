@@ -71,7 +71,6 @@ Plain HTML/CSS/ES modules, no build step; later wrap for Android (TWA or Capacit
 14. Beginner help (Simple mode): extend "?" to the other pages, sample-data tour.
 15. Optional budget-alert notifications; debt due-date reminders; "Pay debt" filter chip.
 16. Later: Android wrap; `.fydb`.
-17. Older Maya/BDO Gold Visa/PASMO importers; paste route.
 18. Optional daily snapshot of the Investments total; pie on Home.
 19. Screens for spending without OCR (maths done in 13.18 and 13.19; Advanced only): category quick entry (shop, categories with counts, total), spending-by-category page with "about" amounts and ranges, then item list and item prices page, "costs the same as" link, Sukli CSV fields; plan in `claude/sukli-plan-item-prices.md`.
 

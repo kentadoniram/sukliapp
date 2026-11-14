@@ -28,6 +28,9 @@ import { locSection } from './loc.js';
 import { splitGroups, splitExtra, openSplit, deleteWithMates, withMates } from './splitbill.js';
 import { openEntryView } from './entryview.js';
 import { latestTripCard, usualCard, awayCheck } from './trips.js';
+import { unusualCard } from './unusual.js';
+import { yearlyCard, yearlySection } from './yearly.js';
+import { quickCard } from './quick.js';
 import { openBulkEdit } from './bulkedit.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
 import { applyHide, look, setLook, ACCENTS, SIZES, setLookMode } from './appearance.js';
@@ -35,7 +38,7 @@ export { setLookMode };
 import { lossCard } from './loans.js';
 import { reimbCard } from './reimburse.js';
 import { typeNames, accounts, openAccount, reminderBanner, openInterestDetail } from './accpage.js';
-import { goalBanner } from './savings.js';
+import { goalBanner, savingsCard } from './savings.js';
 import { outlookCard } from './views.js';
 import { openCurrencyPicker } from './curpicker.js';
 import { backupSection } from './backup.js';
@@ -222,12 +225,12 @@ function weekBars(db) {
 }
 // the cards on Home, in the order you chose in Settings. [id, name, heavy: drawn a moment later so the numbers above appear at once]
 export const HOME_SECTIONS = [
-  ['spendable', 'Spendable now', false], ['alerts', 'Reminders and items to check', false], ['reimb', 'Waiting for reimbursement', false], ['insights', 'Worth knowing', true], ['pace', 'Pace', false], ['projpie', 'Spending vs expected income', false],
+  ['spendable', 'Spendable now', false], ['alerts', 'Reminders and items to check', false], ['reimb', 'Waiting for reimbursement', false], ['savings', 'Savings', false], ['yearly', 'Coming up every year', false], ['quick', 'Quick question', false], ['insights', 'Worth knowing', true], ['unusual', 'Unusual spending', true], ['pace', 'Pace', false], ['projpie', 'Spending vs expected income', false],
   ['rolling', 'Daily average, rolling 7 days', false], ['usual', 'Your usual spending', false], ['outlook', 'Next month outlook', true], ['went', 'Where it went', false], ['came', 'Where it came from', false],
   ['loss', 'Money lost to fees and interest', false], ['six', 'Last 6 months', false], ['trip', 'Latest trip or event', true], ['latest', 'Latest entries', false],
 ];
 // cards that analyse your spending (trends, pace, forecasts, fee losses): Simple mode keeps them off Home; Advanced shows them unless you turn them off
-export const SIMPLE_HIDDEN = ['insights', 'pace', 'projpie', 'rolling', 'usual', 'outlook', 'loss', 'six', 'trip'];
+export const SIMPLE_HIDDEN = ['insights', 'unusual', 'pace', 'projpie', 'rolling', 'usual', 'outlook', 'loss', 'six', 'trip'];
 export function homeLayout(db) {
   const L = (db.settings && db.settings.homeLayout) || {}, ids = HOME_SECTIONS.map((x) => x[0]);
   const order = [...(L.order || []).filter((x) => ids.includes(x)), ...ids.filter((x) => !(L.order || []).includes(x))];
@@ -244,12 +247,16 @@ function homeSection(id, c) {
   const { db } = c;
   switch (id) {
     case 'reimb': return reimbCard(db);
+    case 'savings': return savingsCard(db);
+    case 'yearly': return yearlyCard(db);
+    case 'quick': return quickCard(db);
     case 'spendable': { const sp = spendable(db), chips = [...sp.by.entries()].filter(([, v]) => Math.abs(v) >= 0.005).map(([cur, v]) => { const e = eq(v, cur, rateFor(db, cur)); return `<span>${money(v, cur)}${e ? `<small> ${e}</small>` : ''}</span>`; }).join('');
       return `<section class="spendable"><div><span>Spendable now</span><b>${money(sp.total)}</b></div><div class="curs">${chips || '<span class="muted">No balances yet</span>'}</div>
       ${sp.missing.length ? `<p class="hint">Not counted: ${sp.missing.join(', ')} (set a rate in Settings).</p>` : ''}${(() => { if (appMode() === 'simple') return ''; const sf = safeToSpend(db); return sf.committed > 0.5 ? `${button({ html: `<span>Safe to spend<small> after ${money(sf.committed)} already owed</small></span><b>${money(sf.safe)}</b>`, kind: 'plain', cls: 'safeto', act: 'safe-info' })}` : ''; })()}</section>`; }
     case 'alerts': { const n = reviewCount(db); return `${reminderBanner(db)}${goalBanner(db)}${budgetBanner(db)}${n ? `<a class="banner" href="#/review"><strong>${n} ${n === 1 ? 'entry needs' : 'entries need'} a quick check</strong><span>Confirm the guessed categories</span>${ic('right')}</a>` : ''}`; }
     case 'insights': { const ins = insights(db, ui.month); return ins.length ? coll('h-ins', 'Worth Knowing', `<ul class="ins">${ins.map((x) => `<li class="${x.tone}">${x.id ? `${button({ label: x.text, kind: 'plain', cls: 'insb', act: 'edit', attr: { 'data-id': x.id } })}` : esc(x.text)}</li>`).join('')}</ul>`) : ''; }
     case 'usual': return usualCard(db);
+    case 'unusual': return unusualCard(db);
     case 'trip': return latestTripCard(db);
     case 'loss': return lossCard(db, ui.month, coll, (n) => money(n));
     case 'pace': return paceCard(db);
@@ -839,6 +846,7 @@ export function settings(db) {
       ${(() => { const old = Object.keys(s.rates || {}).filter((c) => s.rates[c] > 0); return old.length ? `<div class="oldrates"><h3>Rates Typed Here Before</h3><p class="hint">An older version let you type a rate here. These still replace the live rate for new entries and today’s balances. Removing one does not change any saved entry.</p>${old.map((c) => `<div class="oldrate"><span>1 ${esc(c)} = ${rateTxt(homeFx(db, c))} ${esc(HOME)}</span>${button({ label: 'Remove', kind: 'ghost', size: 'sm', act: 'rate-live', attr: { 'data-c': c } })}</div>`).join('')}</div>` : ''; })()}
     </section>
     <section><h2>Glossary</h2><p class="hint">What the words mean: accounts, cards (statement, billing period, posted date), interest, investments, and common words on Japanese receipts with kanji, romaji and English.</p><div class="btnrow left">${button({ label: 'Open the glossary', kind: 'ghost', act: 'glossary' })}</div></section>
+    ${yearlySection(db)}
     <section><h2>Style Guide</h2><p class="hint">Every button, field and card the app is made of, on one page. Mostly useful for checking how a change looks.</p><div class="btnrow left">${button({ label: 'Open the Style Guide', kind: 'ghost', act: 'open-styleguide' })}</div></section>
     <section><h2>Put It on Your Phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
     <section><h2>Erase</h2><button class="btn danger ghost" data-act="erase">Erase everything on this device</button>
@@ -1040,7 +1048,7 @@ ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
 const SET_GROUPS = [
   ['look', 'Look and Feel', 'Simple or Advanced, tabs, Home cards, colours, text size', ['Mode', 'Tabs and Home Cards', 'Appearance', 'Display']],
   ['money', 'Money and Alerts', 'Home currency, spending warnings', ['Currency', 'Spending Safety', 'Left Out of Cash Outflow']],
-  ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Pictures', 'Account Types', 'Name Matching']],
+  ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Pictures', 'Account Types', 'Name Matching', 'Yearly Events']],
   ['data', 'Backup and Data', 'Undo, reminders, backups, export', ['Undo', 'Backup Reminder', 'Your Data', 'Google Backup (Optional)']],
   ['adv', 'Advanced', 'Most people never need these', ['Exchange Rates', 'Live exchange rates', 'Coins and Tokens: Decimals', 'Cloud Sync', 'Erase']],
   ['help', 'Help', 'Glossary, install on your phone', ['Glossary', 'Style Guide', 'Put It on Your Phone']],

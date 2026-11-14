@@ -6,6 +6,7 @@ import { isLiability } from './finance.js';
 import { debtList } from './debts.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { button, seg, textField } from './components.js';
+import { needsOutlook } from './dailyneeds.js';
 
 const isOwedType = (a) => a.type === 'owed';
 // Bills and Installments the person lists by hand: { id, name, amount (home currency), due 'YYYY-MM-DD', every 'once' | 'month', left (payments still to make, installments) }.
@@ -37,7 +38,8 @@ export function safeToSpend(db) {
   }
   for (const b of (db.settings || {}).bills || []) { const ds = billDues(b, today); if (ds.length) items.push({ name: b.name, kind: ds.length > 1 ? `${b.left > 0 ? 'Installment' : 'Bill'}, ${ds.length} payments due within 30 days` : `${b.left > 0 ? `Installment (${b.left} left)` : 'Bill'} due ${ds[0].due}${ds[0].overdue ? ' (overdue)' : ''}`, amount: ds.reduce((q, x) => q + x.amount, 0) }); }
   const committed = items.reduce((s, x) => s + x.amount, 0);
-  return { money, committed, items, safe: money - committed };
+  let reserve = 0, daysLeft = 0; try { const o = needsOutlook(db); if (o) { reserve = o.reserve; daysLeft = o.daysLeft; } } catch { /* no estimate */ }
+  return { money, committed, items, safe: money - committed, reserve, daysLeft, afterNeeds: money - committed - reserve };
 }
 let cur = null; const closeCur = () => { if (cur) { cur.close(); cur = null; } };
 ACT['safe-info'] = () => {
@@ -46,7 +48,8 @@ ACT['safe-info'] = () => {
   cur = sheet(`<p class="hint">Your bank balance does not show what you already owe. This is what is really yours to spend.</p>
     <ul class="calfacts"><li><span>Cash, bank and e-wallet</span><b>${m(s.money)}</b></li>
     ${s.items.map((x) => `<li><span>${esc(x.name)}<small> ${esc(x.kind)}</small></span><b>-${m(x.amount)}</b></li>`).join('')}
-    <li><span><b>Safe to spend</b></span><b>${m(s.safe)}</b></li></ul>
+    <li><span><b>Safe to spend</b></span><b>${m(s.safe)}</b></li>
+    ${s.reserve > 0 ? `<li><span>Usual daily needs to month end<small> ${s.daysLeft} day${s.daysLeft === 1 ? '' : 's'}</small></span><b>-${m(s.reserve)}</b></li><li><span><b>Left after daily needs</b></span><b>${m(s.afterNeeds)}</b></li>` : ''}</ul>
     <div class="field"><span>Credit cards count</span>${seg({ options: [{ label: 'Everything owed', value: 'all', title: 'Safest: all card purchases are already spoken for' }, { label: 'Only what is due in 30 days', value: 'due' }], value: (get().settings.safeCards === 'due') ? 'due' : 'all', act: 'safe-cards', aria: 'How credit cards are counted', pack: (v) => v })}</div>
     <p class="hint">A card purchase is still an expense on the day you buy. With Everything owed it lowers this figure at once, even though the bank balance has not moved until you pay the card.</p>
     <div class="btnrow">${button({ label: 'Bills and Installments', kind: 'ghost', act: 'bills-open' })}</div>`, { title: 'Safe to Spend' });
