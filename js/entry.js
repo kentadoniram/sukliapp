@@ -188,6 +188,7 @@ export function openEntry(opts = {}) {
     <div class="field" id="reimbrow"></div>
     <div id="itemsrow"></div>
     <div class="adv-only" id="countsrow"></div>
+    <div id="othrow"></div>
     <div class="field" id="tagsrow"></div>
     <div class="field" id="locrow"></div>
     <div class="field" id="branchrow"></div>
@@ -201,7 +202,7 @@ export function openEntry(opts = {}) {
   const focusKeep = (el) => { if (el && document.activeElement !== el) el.focus(); };
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
-    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'reimbrow', 'itemsrow', 'countsrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'cbrow', 'safety', 'err', 'btns'],
+    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'reimbrow', 'itemsrow', 'countsrow', 'othrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'cbrow', 'safety', 'err', 'btns'],
     transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'safety', 'err', 'btns'],
   };
   function arrange() {
@@ -555,7 +556,7 @@ export function openEntry(opts = {}) {
     el.innerHTML = P.total > 0 ? `${f.others.me ? `You (spending): <b>${m(P.mine)}</b> · ` : 'You paid it all and are not part of it · '}${P.list.map((x) => `${esc(nm(x.who))}: <b>${m(x.amt)}</b>`).join(' · ') || 'choose who you paid for'}${P.err ? `<br><span class="oth-err">${esc(P.err)}</span>` : ''}` : 'Type the total first.';
   }
   function othersHtml() {
-    if (f.kind !== 'expense' || existing) return '';
+    if (f.kind !== 'expense' || (existing && (existing.splitId || existing.paidFor || existing.lent))) return '';
     if (!f.others || !f.others.on) return `${button({ html: `${ic('split')} Paid for others? (they pay you back later)`, kind: 'link', cls: 'split', e: 'oth-on' })}`;
     const o = f.others, ppl = owedPeople(), mode = o.mode, ph = mode === 'pct' ? '%' : 'Amount';
     return `<div class="field items othbox" id="othbox"><div class="othhead"><b>Paid for Others</b>${button({ label: 'Cancel', kind: 'ghost', size: 'sm', e: 'oth-off' })}</div><small class="hint">Their parts are not your spending. Each waits under Owed to You until that person pays you back.</small>
@@ -575,18 +576,19 @@ export function openEntry(opts = {}) {
     if (!ex) commit((d) => { d.accounts.push(stamp({ id, name: n, cur: HOME, type: 'owed', open: 0, include: true, archived: false })); });
     f.others.rows[i].who = id; othOnce(i); renderCounts();
   }
+  function fillOth() { const o = $f('othrow'); if (o) o.innerHTML = othersHtml(); }
   function renderCounts() {
     const el = $f('countsrow');
-    if (f.kind !== 'expense') { el.innerHTML = ''; return; }
+    if (f.kind !== 'expense') { el.innerHTML = ''; fillOth(); return; }
     const ph = partsHint();      // below the keypad on purpose: a row appearing above it would move the keys while typing
-    if (!f.showCounts) { el.innerHTML = ph + `${button({ html: `${ic('split')} Count by group (drinks, snacks...)`, kind: 'link', cls: 'split', e: 'counts-on' })}` + othersHtml(); othSum(); return; }
+    if (!f.showCounts) { el.innerHTML = ph + `${button({ html: `${ic('split')} Count by group (drinks, snacks...)`, kind: 'link', cls: 'split', e: 'counts-on' })}` ; fillOth(); othSum(); return; }
     const db3 = get(), gs = Object.keys(groupsOf(db3));
     el.innerHTML = ph + box({ title: 'Count by Group', hint: 'No names or prices, just how many.', cancel: { e: 'counts-off' }, cls: 'items countbox', body: `
       <div id="countlist">${f.counts.map((c, i) => `<div class="cnt" data-i="${i}">
         <select class="cnt-g" aria-label="Group"><option value="">Choose group</option>${gs.map((g) => `<option value="${esc(g)}" ${c.g === g ? 'selected' : ''}>${esc(g)}${unitOf(db3, g) === 'kg' ? ' (kg)' : ''}</option>`).join('')}</select>
         <input class="cnt-n" inputmode="decimal" placeholder="${c.g && unitOf(db3, c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'}" value="${esc(c.n)}" aria-label="How many">
         ${button({ label: 'Remove', kind: 'link', cls: 'rm', e: 'count-del', v: i, aria: 'Remove this group' })}</div>`).join('')}</div>
-      <div class="itemfoot">${button({ label: '+ Add group', kind: 'link', e: 'count-add' })}</div>` }) + othersHtml(); othSum();
+      <div class="itemfoot">${button({ label: '+ Add group', kind: 'link', e: 'count-add' })}</div>` }); fillOth(); othSum();
     el.querySelectorAll('select.cnt-g').forEach((sel) => enhanceSelect(sel, { title: 'Group', addLabel: 'Add a new group', onAdd: async () => {
       const nm = await promptDialog('New group', '', { okLabel: 'Next', hint: 'Group by price level, for example "drinks" and "ready meals" apart.' }); if (!nm || !nm.trim()) return;
       const kg = await confirmDialog('Is it counted by weight (kg)?', 'Yes, by weight', false, 'No, by pieces');
@@ -1169,7 +1171,7 @@ export function openEntry(opts = {}) {
     if (f.kind === 'expense' && tripCat() && f.from.trim() && f.to.trim()) { rec.from = f.from.trim(); rec.to = f.to.trim(); } else if (existing && (existing.from || existing.to)) { rec.from = ''; rec.to = ''; }
     // paid for others: your part is the expense, each person's part moves to "money owed to you"
     let oth = null;
-    if (!existing && f.kind === 'expense' && f.others && f.others.on) {
+    if (f.kind === 'expense' && f.others && f.others.on) {
       const P = othParts(); if (P.err) return fail(P.err);
       if (!P.list.length) return fail('Choose who you paid for, or tap "Not paid for others".');
       const list = []; for (const x of P.list) { const pp = acctOf(x.who); if (!pp || !isOwed(pp)) return fail('Choose who you paid for, or tap "Not paid for others".'); if (!(x.amt > 0)) return fail(`Type ${pp.name}'s part of the bill.`); list.push({ pp, theirs: x.amt, lid: uid() }); }
@@ -1190,15 +1192,18 @@ export function openEntry(opts = {}) {
         if (f.feeCat.startsWith('__new:')) rec.feeCat = findOrAddCategory(d, 'Fees', f.feeCat.slice(6), 'expense').id;
         else rec.feeCat = f.feeCat;
       } else rec.feeCat = '';
+      const addLents = (d) => {
+        const hx = (c) => homeFx(d, c) || 1, hA = a.cur === HOME ? 1 : fx / (homeRate(d, rec.date) || 1), toAmt = (pp0, v) => (pp0.cur === a.cur ? v : +(v * hA / hx(pp0.cur)).toFixed(2));   // the bill's own (possibly hand-set) rate, not today's
+        for (const x of oth.list) { const lent = stamp({ id: x.lid, kind: 'transfer', amount: x.theirs, cur: a.cur, fx, hfx: hfxV > 0 ? hfxV : undefined, date: rec.date, name: `Paid for ${x.pp.name}${label ? ': ' + label : ''}`, autoName: false, cat: '', acct: a.id, toAcct: x.pp.id, toAmount: toAmt(x.pp, x.theirs), fee: 0, feeBy: '', notes: '', labels: '', items: [], counts: [], flag: null, lent: true, splitId: oth.gid, ...(rec.merchant ? { merchant: rec.merchant } : {}), ...(rec.branch ? { branch: rec.branch } : {}), createdAt: Date.now() }); d.txs.push(lent); if (!savedAs) savedAs = lent; }
+      };
       if (existing) { const t = d.txs.find((x) => x.id === existing.id);
         // keep what it was before this change, so the Input history can put it back (the last 5 versions)
         const before = {}; for (const k of ['kind', 'date', 'name', 'amount', 'cur', 'fx', 'acct', 'toAcct', 'toAmount', 'cat', 'notes', 'fee', 'feeCat', 'feeBy']) if (t[k] !== undefined) before[k] = t[k];
         t.rev = [{ at: Date.now(), ...before }, ...(t.rev || [])].slice(0, 5);
-        Object.assign(t, rec); if (!rec.reimb) delete t.reimb; for (const k of FLOW_FLAGS) if (!rec[k]) delete t[k]; if (!rec.merchant) delete t.merchant; if (!rec.branch) delete t.branch; if (!rec.cashback) delete t.cashback; if (!t.loc) delete t.loc; if (!t.place) delete t.place; stamp(t); savedAs = t; }
+        Object.assign(t, rec); if (!rec.reimb) delete t.reimb; for (const k of FLOW_FLAGS) if (!rec[k]) delete t[k]; if (!rec.merchant) delete t.merchant; if (!rec.branch) delete t.branch; if (!rec.cashback) delete t.cashback; if (!t.loc) delete t.loc; if (!t.place) delete t.place; stamp(t); savedAs = t; if (oth) { addLents(d); if (!(oth.mine > 0)) { softDelete(t); savedAs = null; } } }
       else if (oth) {
-        const hx = (c) => homeFx(d, c) || 1, hA = a.cur === HOME ? 1 : fx / (homeRate(d, rec.date) || 1), toAmt = (pp0, v) => (pp0.cur === a.cur ? v : +(v * hA / hx(pp0.cur)).toFixed(2));   // the bill's own (possibly hand-set) rate, not today's
         if (oth.mine > 0) { savedAs = stamp({ id: oth.eid, ...rec, createdAt: Date.now() }); d.txs.push(savedAs); }
-        for (const x of oth.list) { const lent = stamp({ id: x.lid, kind: 'transfer', amount: x.theirs, cur: a.cur, fx, hfx: hfxV > 0 ? hfxV : undefined, date: rec.date, name: `Paid for ${x.pp.name}${label ? ': ' + label : ''}`, autoName: false, cat: '', acct: a.id, toAcct: x.pp.id, toAmount: toAmt(x.pp, x.theirs), fee: 0, feeBy: '', notes: '', labels: '', items: [], counts: [], flag: null, lent: true, splitId: oth.gid, ...(rec.merchant ? { merchant: rec.merchant } : {}), ...(rec.branch ? { branch: rec.branch } : {}), createdAt: Date.now() }); d.txs.push(lent); if (!savedAs) savedAs = lent; }
+        addLents(d);
       }
       else { savedAs = stamp({ id: uid(), ...rec, createdAt: Date.now() }); d.txs.push(savedAs);
         if (extraAmt > 0) d.txs.push(stamp({ id: uid(), kind: 'income', date: rec.date, name: `${f.extraKind} from ${a.name}`, amount: extraAmt, cur: a.cur, fx, cat: findOrAddCategory(d, 'Income', f.extraKind, 'income').id, acct: f.toAcct, toAcct: '', toAmount: null, fee: 0, notes: '', labels: '', items: [], flag: null, createdAt: Date.now() })); }

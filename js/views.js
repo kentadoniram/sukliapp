@@ -41,7 +41,7 @@ ACT.menu = () => {
     ${button({ html: `<span>Categories</span>${ic('down', 'chev')}`, kind: 'plain', cls: 'dhead', attr: { 'data-dtoggle': true, 'aria-expanded': catOpen() } })}
     <ul class="dsub" ${catOpen() ? '' : 'hidden'}>${item('categories?k=expense', 'Expense categories', 'tag')}${item('categories?k=income', 'Income categories', 'tag')}</ul>
     ${simple ? '' : `<ul><li><a href="#" data-act="loan-plan">${ic('calc')}<span>Loan Planner</span></a></li><li><a href="#" data-act="loan-wizard">${ic('calc')}<span>Loan Setup</span></a></li></ul>`}
-    ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle Bin and Undo History', 'trash')}${item('rates', 'Compare Rates', 'calc')}${simple ? '' : item('styleguide', 'Style Guide', 'gear')}${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
+    ${undoMenuHtml()}<ul class="last">${item('bin', 'Recycle Bin and Undo History', 'trash')}${item('rates', 'Compare Rates', 'calc')}${item('settings', 'Settings', 'gear')}${simple ? `<li><a href="#" data-act="set-mode" data-v="advanced">${ic('gear')}<span>Show all options (Advanced)</span></a></li>` : ''}</ul></nav>`;
   document.body.appendChild(wrap);
   document.body.classList.add('noscroll');
   const onKey = (e) => { if (e.key === 'Escape') close(); };

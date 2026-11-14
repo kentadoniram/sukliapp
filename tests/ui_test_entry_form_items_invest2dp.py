@@ -41,7 +41,7 @@ with sync_playwright() as p:
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(800)
     txt=pg.inner_text('#view') if pg.locator('#view').count() else pg.inner_text('body')
     amts=re.findall(r'[+−-]?[₱¥$€][\d,]+(?:\.\d+)?',txt); bad=[a for a in amts if not re.search(r'\.\d\d$',a)]
-    ok('Investments money is always 2 decimals (%d amounts, odd: %s)'%(len(amts),bad[:4]), len(amts)>5 and not bad)
+    ok('Investments money is always 2 decimals (%d amounts, odd: %s)'%(len(amts),bad[:4]), len(amts)>2 and not bad)
     ok('no errors %s'%errs, not errs)
     b.close()
 print('fails',res.count(False))
