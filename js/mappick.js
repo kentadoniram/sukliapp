@@ -51,7 +51,7 @@ export async function pickOnMap(pt) {
       res.innerHTML = '<p class="hint">Searching…</p>';
       const r = await searchPlaces(qi.value);
       if (r.err) { res.innerHTML = `<p class="hint">${r.err === 'none' ? 'No place found. Try another spelling, or tap the map.' : r.err === 'empty' ? 'Type a place first.' : r.err === 'busy' ? 'Too many searches. Wait a moment.' : 'Could not search. Check your internet, or tap the map.'}</p>`; return; }
-      res.innerHTML = r.list.map((x) => button({ label: x.text, kind: 'plain', cls: 'row mpitem', attr: { 'data-mp': 'pick', 'data-la': x.la, 'data-lo': x.lo } })).join('');
+      res.innerHTML = r.list.map((x) => button({ html: `<span class="mpn">${esc(x.name || x.text)}</span>${x.area ? `<small class="mpa">${esc(x.area)}</small>` : ''}`, kind: 'plain', cls: 'mpitem', attr: { 'data-mp': 'pick', 'data-la': x.la, 'data-lo': x.lo } })).join('');
     };
     qi.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
     window.__mapPick = { map, put, get: () => chosen };       // lets the tests tap the map without real tiles

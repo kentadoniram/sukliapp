@@ -58,7 +58,7 @@ export async function searchPlaces(q, fetcher = (typeof fetch !== 'undefined' ? 
     const r = await fetcher(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=en&q=${encodeURIComponent(q)}`, { signal: ctl.signal, headers: { Accept: 'application/json' } });
     clearTimeout(t); if (!r.ok) return { err: r.status === 429 ? 'busy' : 'offline' };
     const j = await r.json();
-    const list = (Array.isArray(j) ? j : []).map((x) => ({ text: String(x.display_name || '').split(',').slice(0, 4).join(',').trim(), la: +x.lat, lo: +x.lon })).filter((x) => isFinite(x.la) && isFinite(x.lo));
+    const list = (Array.isArray(j) ? j : []).map((x) => { const p = String(x.display_name || '').split(',').map((q) => q.trim()).filter(Boolean); return { text: p.slice(0, 4).join(', '), name: p[0] || '', area: p.slice(1, 4).join(', '), la: +x.lat, lo: +x.lon }; }).filter((x) => isFinite(x.la) && isFinite(x.lo));
     return list.length ? { list } : { err: 'none' };
   } catch { return { err: 'offline' }; }
 }

@@ -58,11 +58,9 @@ Plain HTML/CSS/ES modules, no build step; later wrap for Android (TWA or Capacit
 1. Check on a real iPhone 16 Pro (user could not test the last ~16 releases): real switches on keypad/Save/+, buzz message, mode choice and the fast curtain, the two looks, Simple mode (menu, entry, Settings, Home cards), folded Look and Feel, Undo and Undo history after closing the app, entry rows, Debt/Lent flows, Owed to you tab, grouped menu, Crypto header card, Loan planner alignment, "?" help (Simple only), Merchants in Settings, Debts, Investments, scan screen, Sukli CSV, bulk edit, Pasmo label kept, trades rebuilt after re-importing the Bluecoins CSV (check the 64 trades and realized total).
 2. More Simple mode, one step at a time: entry basics, Debts simple view, account form details, bulk edit, CSV tools, sync, loan setup, Analytics-style pages; "Turn on Advanced mode?" prompt; decide Investments and Lent in Simple.
 3. Owed to you follow-ups: optional interest, due-date reminders, "Lent" filter chip, owed total on Home.
-4. Android receipt scan low-memory check.
 5. No-setup sync; Supabase sign-up check; Google Drive OAuth client ID.
-6. Scanner stage 2.
 7. PaddleOCR comparison.
-8. v13 next: borrowing-to-pay-loans flag; loan setup wizard; typed vs learned income cross-check; separate Investments window; comparison page; buying check.
+8. v13: all built (borrowing report, income cross-check, buying check in 15.24; loan wizard, market tabs, comparison page in 15.35).
 9. Optional: confirm or off switch for trade rebuild on the import screen.
 10. Group local-bank currency accounts.
 11. Per-token performance.

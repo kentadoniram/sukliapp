@@ -286,6 +286,7 @@ def part_entry_transfer_labels():
         names=pg.evaluate("()=>import('./js/core.js').then(c=>c.get().accounts.filter(a=>!a.deleted).map(a=>a.name+' · '+a.cur))")
         # transfer with a blank label
         pg.evaluate("()=>window.sukli.openEntry({})"); pg.wait_for_selector('#entry'); pg.click('[data-e="kind"][data-v="transfer"]')
+        names=pg.evaluate("[...document.querySelectorAll('#f-acct option')].map(o=>o.textContent.trim())")   # only accounts the form really offers (a loan cannot be a source)
         pg.select_option('#f-acct',label=names[0]); pg.select_option('#f-to',label=names[1]); pg.wait_for_timeout(100)
         ph=pg.get_attribute('#f-what','placeholder'); ok('placeholder shows the two accounts', names[0].split(' · ')[0] in ph and names[1].split(' · ')[0] in ph)
         pg.fill('#f-amount','100'); pg.click('[data-e="save"]'); pg.wait_for_timeout(400)
