@@ -11,14 +11,19 @@ with sync_playwright() as p:
       A('b1','Binance BTC','BTC','Binance','Spot',1);A('b2','Binance USDT','USDT','Binance','Spot',500);A('b3','Binance BTC Earn','BTC','Binance','Earn',2);
       A('y1','Bybit BTC','BTC','Bybit','Spot',0.5);A('y2','Bybit USDT','USDT','Bybit','Spot',300);A('y3','Bybit ETH','ETH','Bybit','Spot',4)})""")
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(1200)
-    # overview
-    pg.evaluate("document.querySelector('[data-act=inv-group][data-v=all]').click()"); pg.wait_for_timeout(600)
-    t=pg.inner_text('#view'); ok('Overview tab exists', 'Overview' in t)
-    ok('BTC consolidated once', t.count('3.5 BTC')==1)
-    pg.evaluate("[...document.querySelectorAll('.ovrow')].find(r=>r.innerText.includes('BTC')).querySelector('button,summary,[data-act]').click()"); pg.wait_for_timeout(300)
-    t=pg.inner_text('#view'); ok('BTC platform parts visible', 'Binance' in t and 'Bybit' in t and 'Earn' in t)
+    # per-platform Overview tab (not in the group bar)
+    t=pg.inner_text('#view')
+    ok('no Overview in group bar', pg.locator('[data-act=inv-group]').filter(has_text='Overview').count()==0)
+    pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
+    ok('Binance has an Overview tab', pg.locator('.wsw [data-w=__overview]').count()>=1)
+    pg.evaluate("document.querySelector('.wsw [data-w=__overview][data-ex=Binance]').click()"); pg.wait_for_timeout(500)
+    pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
+    t=pg.inner_text('#view'); ok('Binance BTC consolidated (1+2 = 3 BTC)', '3 BTC' in t)
+    pg.evaluate("[...document.querySelectorAll('.ovrow')].find(r=>r.innerText.includes('BTC')).querySelector('button').click()"); pg.wait_for_timeout(300)
+    t=pg.inner_text('#view'); ok('wallets of BTC visible', 'Spot' in t and 'Earn' in t)
+    ok('Bybit BTC not mixed into Binance (no 3.5)', '3.5 BTC' not in t)
     # trade picker
-    pg.evaluate("document.querySelector('[data-act=inv-group][data-v=platform]').click()"); pg.wait_for_timeout(500)
+    pg.evaluate("0"); pg.wait_for_timeout(500)
     pg.evaluate("(async()=>{(await import('/js/trades.js')).openTrade({platform:'Binance'})})()"); pg.wait_for_selector('#tr'); pg.wait_for_timeout(400)
     ok('Paid from defaults USDT', 'USDT' in pg.evaluate("document.querySelector('#tr select[name=cash]').selectedOptions[0].textContent") or pg.evaluate("document.querySelector('#tr select[name=cash]').selectedOptions[0].textContent.includes('USDT')"))
     pg.evaluate("document.querySelector('#tr select[name=asset]').nextElementSibling.click()"); pg.wait_for_selector('.pk-gh'); 
