@@ -13,8 +13,10 @@ const readOptions = (sel) => {
   }
   return out.filter((o) => o.value !== '__new');
 };
-export function pickerList(options, { value = '', title = 'Choose', onAdd = null, addLabel = 'Add new', onPick }) {
+export function pickerList(options, { value = '', title = 'Choose', onAdd = null, addLabel = 'Add new', collapse = false, onPick }) {
   const many = options.length > SEARCH_AFTER;
+  // collapse: each group is a heading you can open or close; only the group holding the current choice starts open
+  const cur = options.find((o) => o.value === value), open = new Set(collapse && cur ? [cur.group] : (collapse ? [(options.find((o) => o.group) || {}).group] : []));
   const s = sheet(`${many ? '<input type="search" class="search pk-q" data-noclear="1" placeholder="Search" autocomplete="off" aria-label="Search">' : ''}
     ${onAdd ? `${button({ label: `+ ${addLabel}`, kind: 'ghost', size: 'sm', cls: 'wide pk-add' })}` : ''}
     <div class="pk-list"></div>`, { title, cls: many ? 'pickfix' : '' });
@@ -22,21 +24,21 @@ export function pickerList(options, { value = '', title = 'Choose', onAdd = null
     const q = many ? s.el.querySelector('.pk-q').value.trim().toLowerCase() : '';
     const hit = options.filter((o) => !q || (o.label + ' ' + o.group).toLowerCase().includes(q));
     const groups = new Map(); for (const o of hit) { if (!groups.has(o.group)) groups.set(o.group, []); groups.get(o.group).push(o); }
-    s.el.querySelector('.pk-list').innerHTML = hit.length ? [...groups.entries()].map(([g, l]) => `${g ? `<h3>${esc(g)}</h3>` : ''}<div class="rows plain">${l.map((o) => `<button type="button" class="row pk-opt ${o.value === value ? 'on' : ''}" data-v="${esc(o.value)}" ${o.off ? 'disabled' : ''} aria-pressed="${o.value === value}"><span class="rmain"><strong>${esc(o.label)}</strong></span>${o.value === value ? '<span class="ramt">✓</span>' : ''}</button>`).join('')}</div>`).join('') : '<p class="empty">Nothing matches. Try another word' + (onAdd ? ', or add it with the button above' : '') + '.</p>';
+    s.el.querySelector('.pk-list').innerHTML = hit.length ? [...groups.entries()].map(([g, l]) => { const fold = collapse && g && !q && !open.has(g); return `${g ? (collapse ? `${button({ html: `<span>${esc(g)} <small class="muted">${l.length}</small></span><span aria-hidden="true">${fold ? '▸' : '▾'}</span>`, kind: 'plain', cls: 'pk-gh', attr: { 'data-g': g, 'aria-expanded': String(!fold) } })}` : `<h3>${esc(g)}</h3>`) : ''}<div class="rows plain" ${fold ? 'hidden' : ''}>${l.map((o) => `<button type="button" class="row pk-opt ${o.value === value ? 'on' : ''}" data-v="${esc(o.value)}" ${o.off ? 'disabled' : ''} aria-pressed="${o.value === value}"><span class="rmain"><strong>${esc(o.label)}</strong></span>${o.value === value ? '<span class="ramt">✓</span>' : ''}</button>`).join('')}</div>`; }).join('') : '<p class="empty">Nothing matches. Try another word' + (onAdd ? ', or add it with the button above' : '') + '.</p>';
   };
   if (many) s.el.querySelector('.pk-q').addEventListener('input', draw);
-  s.el.addEventListener('click', (e) => { const b = e.target.closest('.pk-opt'); if (b) { s.close(); onPick(b.dataset.v); } });
+  s.el.addEventListener('click', (e) => { const h = e.target.closest('.pk-gh'); if (h) { const g = h.dataset.g; if (open.has(g)) open.delete(g); else open.add(g); draw(); return; } const b = e.target.closest('.pk-opt'); if (b) { s.close(); onPick(b.dataset.v); } });
   if (onAdd) s.el.querySelector('.pk-add').onclick = () => { s.close(); onAdd(); };
   draw(); return s;
 }
-export function enhanceSelect(sel, { title, onAdd, addLabel } = {}) {
+export function enhanceSelect(sel, { title, onAdd, addLabel, collapse = false } = {}) {
   if (!sel || sel.dataset.picked) return sel && sel._pk;
   sel.dataset.picked = '1';
   const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'pkbtn';
   sel.style.display = 'none'; sel.after(btn);
   const lab = sel.closest('label'), cap = lab && lab.querySelector('span');
   const paint = () => { const o = sel.selectedOptions[0]; btn.innerHTML = `<span class="pkval">${esc(o ? o.textContent : 'Choose…')}</span><span class="pkcar" aria-hidden="true">▾</span>`; btn.disabled = sel.disabled; };
-  const open = (e) => { if (e) e.preventDefault(); pickerList(readOptions(sel), { value: sel.value, title: title || (cap ? cap.textContent : 'Choose'), onAdd, addLabel, onPick: (v) => { sel.value = v; paint(); sel.dispatchEvent(new Event('change', { bubbles: true })); } }); };
+  const open = (e) => { if (e) e.preventDefault(); pickerList(readOptions(sel), { value: sel.value, title: title || (cap ? cap.textContent : 'Choose'), onAdd, addLabel, collapse, onPick: (v) => { sel.value = v; paint(); sel.dispatchEvent(new Event('change', { bubbles: true })); } }); };
   btn.onclick = open;
   if (lab) lab.addEventListener('click', (e) => { if (e.target === lab || e.target === cap) open(e); });   // tapping the caption opens the list too
   new MutationObserver(paint).observe(sel, { childList: true, subtree: true });

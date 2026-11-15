@@ -1,0 +1,33 @@
+from playwright.sync_api import sync_playwright
+def ok(n,c): print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':402,'height':874})
+    errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('.welcome')
+    pg.click('[data-act=wz-old]'); pg.click('[data-act=start-empty]'); pg.wait_for_selector('#acct-form'); pg.fill('[name=name]','Wallet'); pg.click('#acct-form .btn'); pg.wait_for_timeout(800)
+    J=lambda js: pg.evaluate("(async()=>{const c=await import('/js/core.js');"+js+"})()")
+    J("""c.commit(d=>{d.settings.mode='advanced';
+      const A=(id,name,cur,ex,w,amt)=>{d.accounts.push(c.stamp({id,name,type:'crypto',cur,exchange:ex,wallet:w,include:true,invtab:true}));d.txs.push(c.stamp({id:'t'+id,kind:'income',date:c.nowStamp(),acct:id,cur,fx:1,amount:amt,name:'dep',cat:'',items:[],toAcct:'',toAmount:null,fee:0,notes:'',labels:'',flag:null,createdAt:Date.now()}))};
+      A('b1','Binance BTC','BTC','Binance','Spot',1);A('b2','Binance USDT','USDT','Binance','Spot',500);A('b3','Binance BTC Earn','BTC','Binance','Earn',2);
+      A('y1','Bybit BTC','BTC','Bybit','Spot',0.5);A('y2','Bybit USDT','USDT','Bybit','Spot',300);A('y3','Bybit ETH','ETH','Bybit','Spot',4)})""")
+    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(1200)
+    # overview
+    pg.evaluate("document.querySelector('[data-act=inv-group][data-v=all]').click()"); pg.wait_for_timeout(600)
+    t=pg.inner_text('#view'); ok('Overview tab exists', 'Overview' in t)
+    ok('BTC consolidated once', t.count('3.5 BTC')==1)
+    pg.evaluate("[...document.querySelectorAll('.ovrow')].find(r=>r.innerText.includes('BTC')).querySelector('button,summary,[data-act]').click()"); pg.wait_for_timeout(300)
+    t=pg.inner_text('#view'); ok('BTC platform parts visible', 'Binance' in t and 'Bybit' in t and 'Earn' in t)
+    # trade picker
+    pg.evaluate("document.querySelector('[data-act=inv-group][data-v=platform]').click()"); pg.wait_for_timeout(500)
+    pg.evaluate("(async()=>{(await import('/js/trades.js')).openTrade({platform:'Binance'})})()"); pg.wait_for_selector('#tr'); pg.wait_for_timeout(400)
+    ok('Paid from defaults USDT', 'USDT' in pg.evaluate("document.querySelector('#tr select[name=cash]').selectedOptions[0].textContent") or pg.evaluate("document.querySelector('#tr select[name=cash]').selectedOptions[0].textContent.includes('USDT')"))
+    pg.evaluate("document.querySelector('#tr select[name=asset]').nextElementSibling.click()"); pg.wait_for_selector('.pk-gh'); 
+    heads=pg.evaluate("[...document.querySelectorAll('.pk-gh')].map(h=>h.dataset.g+':'+h.getAttribute('aria-expanded'))"); print(heads)
+    ok('platform groups, current open, other collapsed', any(h.startswith('Binance:true') for h in heads) and any(h.startswith('Bybit:false') for h in heads))
+    ok('+ Entry at top', pg.evaluate("document.querySelector('.pk-add').textContent.includes('Entry')"))
+    pg.evaluate("[...document.querySelectorAll('.pk-gh')].find(h=>h.dataset.g==='Bybit').click()"); pg.wait_for_timeout(200)
+    pg.evaluate("[...document.querySelectorAll('.pk-opt')].find(o=>o.innerText.includes('ETH')).click()"); pg.wait_for_timeout(500)
+    ok('platform switched to Bybit', pg.evaluate("document.querySelector('#tr select[name=plat]').value")=='Bybit')
+    ok('paid from USDT on Bybit', pg.evaluate("document.querySelector('#tr select[name=cash]').selectedOptions[0].textContent.includes('Bybit')&&document.querySelector('#tr select[name=cash]').selectedOptions[0].textContent.includes('USDT')"))
+    ok('no errors %s'%errs, not errs)
+    b.close()

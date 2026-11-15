@@ -1,6 +1,6 @@
 // Buy / sell / convert for crypto, stocks and other investments. Recorded as a movement between your cash account and the holding,
 // marked as a trade (not ordinary spending), with fees saved as a financial loss and gains or losses worked out by average cost.
-import { accLabel, isEarnAcct, get, commit, uid, stamp, nowStamp, rateFor, homeFx, fmt, HOME, balances, findOrAddCategory, softDelete, exactAmt } from './core.js';
+import { accLabel, isEarnAcct, get, commit, uid, stamp, nowStamp, rateFor, homeFx, walletOf, fmt, HOME, balances, findOrAddCategory, softDelete, exactAmt } from './core.js';
 import { seg, button } from './components.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
@@ -54,20 +54,24 @@ export function openTrade(pre = {}) {
   const f = s.el.querySelector('#tr'); let side = pre.side || 'buy', last = '', feeOther = false, feeAcctPlat = null;
   const acct = (id) => db.accounts.find((a) => a.id === id);
   const fillCash = (keep) => { const p = f.plat.value, pool = [...cash.filter((x) => !inInvest(x)), ...cash.filter((x) => inInvest(x))], q = ((db.settings.tickers || {})[(acct(f.asset.value) || {}).cur] || {}).quote;
-    const pref = keep && pool.some((x) => x.id === keep) ? keep : (pool.find((x) => p && exchangeOf(x) === p && x.cur === q) || pool.find((x) => p && exchangeOf(x) === p && inInvest(x) && /USD|JPY|PHP|EUR|KRW/.test(x.cur)) || lastCash || pool[0] || {}).id;
+    const pref = keep && pool.some((x) => x.id === keep) ? keep : (pool.find((x) => p && exchangeOf(x) === p && x.cur === 'USDT' && walletOf(x) === 'Spot') || pool.find((x) => p && exchangeOf(x) === p && x.cur === 'USDT') || pool.find((x) => p && exchangeOf(x) === p && x.cur === q) || pool.find((x) => p && exchangeOf(x) === p && inInvest(x) && /USD|JPY|PHP|EUR|KRW/.test(x.cur)) || lastCash || pool[0] || {}).id;
     f.cash.innerHTML = grp(pool, p, pref); if (pref) f.cash.value = pref; };
   const fillFeeAcct = () => { const p = f.plat.value, keep = f.feeAcct.value, pool = [...cash.filter((x) => inInvest(x) && exchangeOf(x) === p), ...cash.filter((x) => !(inInvest(x) && exchangeOf(x) === p))]; f.feeAcct.innerHTML = grp(pool, p, keep || (pool[0] || {}).id); if (keep && pool.some((x) => x.id === keep)) f.feeAcct.value = keep; feeAcctPlat = p; };
   const moreCoins = () => { const p = f.plat.value; if (!p) return ''; const have = new Set(holdFor(p).map((x) => x.cur)); return `<optgroup label="More Coins (Top 50)">${TOP_TOKENS.filter((t) => !have.has(t.c)).map((t) => `<option value="tok:${t.c}">${t.c} · ${esc(t.n)}</option>`).join('')}</optgroup>`; };
-  const fillAsset = (sel) => { const list = holdFor(f.plat.value); f.asset.innerHTML = (list.length ? opt(list, sel) : '') + moreCoins(); if (sel && list.some((x) => x.id === sel)) f.asset.value = sel;
+  // the asset list shows every platform as its own group (the one you are on is open, the others fold); picking an asset from another platform switches the platform
+  const fillAsset = (sel) => { const cp = f.plat.value, ps = [cp, ...plats.filter((x) => x !== cp), ...(plats.includes('') ? [] : [''])].filter((x, i, l) => l.indexOf(x) === i);
+    const grpOf = (p) => { const l = holdFor(p); return l.length ? `<optgroup label="${esc(p || 'No platform / other')}">${opt(l, sel)}</optgroup>` : ''; };
+    f.asset.innerHTML = ps.map(grpOf).join('') + moreCoins(); const all = hold.some((x) => x.id === sel); if (sel && all) f.asset.value = sel; else if (holdFor(cp)[0]) f.asset.value = holdFor(cp)[0].id;
     const other = hold.filter((x) => x.id !== f.asset.value); f.asset2.innerHTML = grp(other.length ? other : hold, f.plat.value, other[0] && other[0].id); };
-  fillAsset(pre.asset); fillCash(lastCash && lastCash.id);
+  fillAsset(pre.asset); fillCash(pre.cashAcct || '');
   enhanceSelect(f.plat, { title: 'Platform', onAdd: () => { s.close(); addAsset({ onDone: (id) => openTrade({ ...pre, asset: id, side: pre.side }) }); }, addLabel: 'Add a new platform (adds its first asset)' });
-  enhanceSelect(f.asset, { title: 'Asset', onAdd: () => { const p = f.plat.value; s.close(); addAsset({ platform: p, onDone: (id) => openTrade({ ...pre, asset: id, side: pre.side }) }); }, addLabel: 'Add a new asset' });
+  enhanceSelect(f.asset, { title: 'Asset', collapse: true, onAdd: () => { const p = f.plat.value; s.close(); addAsset({ platform: p, onDone: (id) => openTrade({ ...pre, asset: id, side: pre.side }) }); }, addLabel: 'Entry: add a new asset' });
   enhanceSelect(f.cash, { title: 'Account', onAdd: () => { s.close(); import('./accpage.js').then((m) => m.openAccount(null, { exchange: f.plat.value })); }, addLabel: 'Add a new account' });
   enhanceSelect(f.asset2, { title: 'Convert Into' });
   f.plat.addEventListener('change', () => { fillAsset(); fillCash(); sync(''); });
   f.asset.addEventListener('change', () => {
     if (String(f.asset.value).startsWith('tok:')) { const c = f.asset.value.slice(4), p = f.plat.value; const a = ensureAsset(p, c, 'Spot'); s.close(); openTrade({ ...pre, asset: a && a.id, side }); return; }   // the coin's (empty) balance is made here the first time
+    { const a = acct(f.asset.value); if (a && (exchangeOf(a) || '') !== f.plat.value) { f.plat.value = exchangeOf(a) || ''; fillAsset(a.id); fillCash(); sync(''); return; } }
     fillCash(f.cash.value); });
   // the price fills itself from your last price or the live price (until you type your own); it never replaces what you typed
   let priceTouched = false;

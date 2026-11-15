@@ -11,7 +11,7 @@ with sync_playwright() as p:
     pg.on('console',lambda m: errs.append(m.text) if m.type=='error' and 'ERR_TUNNEL' not in m.text and 'Failed to load resource' not in m.text else None)
     pg.goto(U); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
-    pg.goto(U+'#/invest'); pg.wait_for_selector('.nwcard')
+    pg.goto(U+'#/invest'); pg.wait_for_selector('.nwcard'); 
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic')
     pg.fill('#ic [name=ex]','Binance'); pg.fill('#ic [name=coin]','zzz'); pg.fill('#ic [name=amt]','0'); pg.click('#ic .btn:not(.ghost)'); pg.wait_for_timeout(600)
     def trade(side, qty, total, fee='', asset_text='ZZZ'):
