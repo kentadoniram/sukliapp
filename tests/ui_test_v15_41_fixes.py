@@ -15,7 +15,7 @@ with sync_playwright() as p:
     sw=pg.evaluate("fetch('/sw.js').then(r=>r.text())"); ok('sw cache name matches version', ("sukli-v15.%s'"%v.split('.')[1]) in sw)
     # Spot tab contained
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(1200); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); pg.wait_for_timeout(300)
-    r=pg.evaluate("""[...document.querySelectorAll('.hold')].map(h=>{const rc=h.getBoundingClientRect(),a=h.querySelector('.ramt').getBoundingClientRect(),m=h.querySelector('.rmain small');const pr=h.closest('.wblock').getBoundingClientRect();return {inside:a.right<=pr.right+1&&rc.right<=pr.right+1,clip:m.scrollWidth>m.clientWidth+1,wrap:getComputedStyle(m).whiteSpace}})""")
+    r=pg.evaluate("""[...document.querySelectorAll('.hold')].map(h=>{const rc=h.getBoundingClientRect(),a=h.querySelector('.hr2').getBoundingClientRect(),m=h.querySelector('.hl2');const pr=h.closest('.wblock').getBoundingClientRect();return {inside:a.right<=pr.right+1&&rc.right<=pr.right+1,clip:m.scrollWidth>m.clientWidth+1,wrap:getComputedStyle(m).whiteSpace}})""")
     print(r); ok('amounts stay inside the card', all(x['inside'] for x in r)); ok('detail lines are not clipped', all(not x['clip'] for x in r))
     ok('page does not scroll sideways', pg.evaluate("document.documentElement.scrollWidth<=innerWidth+1"))
     pg.evaluate("document.querySelector('.wsw [data-w=__overview]').click()"); pg.wait_for_timeout(500); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")

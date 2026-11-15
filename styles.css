@@ -1656,3 +1656,14 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .seg button.kcol{font-weight:700}
 .seg button.kcol.k-expense,.seg button.kcol.k-income,.seg button.kcol.k-transfer{color:var(--kc)}
 .seg button.kcol.on.k-expense,.seg button.kcol.on.k-income,.seg button.kcol.on.k-transfer{background:var(--kc);border-color:var(--kc);color:var(--k-ink)}
+/* v15.42: a holding is a 2 x 2 grid: [name | quantity] over [profit or loss | value (home value)] */
+.rows.plain > .row.hold.hold2, .row.hold.hold2{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,auto);grid-template-areas:"ic l1 r1" "ic l2 r2";column-gap:10px;row-gap:3px;align-items:baseline;text-align:left}
+.hold2 > .badge{grid-area:ic;align-self:center}
+.hold2 .hl1{grid-area:l1;min-width:0}.hold2 .hr1{grid-area:r1;min-width:0}.hold2 .hl2{grid-area:l2;min-width:0}.hold2 .hr2{grid-area:r2;min-width:0}
+.hold2 .hl1 strong{font-weight:700;overflow-wrap:anywhere}
+.hold2 .hr1,.hold2 .hr2{text-align:right;overflow-wrap:anywhere}
+.hold2 .hr1{font-weight:600}
+.hold2 .hl2,.hold2 .hr2 small,.hold2 .hr2 b{font-size:calc(13px * var(--fs, 1))}
+.hold2 .hr2 b{font-weight:700}
+.hold2 .hhome{color:var(--ink2);font-weight:400}
+.hold2 .cg{color:var(--in);font-weight:600}.hold2 .cr{color:var(--bad);font-weight:600}

@@ -25,7 +25,7 @@ with sync_playwright() as p:
     if pg.locator('[data-yes]').count(): pg.click('[data-yes]'); pg.wait_for_timeout(500)
     pg.wait_for_timeout(500)
     pg.goto(U+'#/invest'); pg.wait_for_timeout(500); t=pg.inner_text('#view')
-    ok('row shows amount (1 held + 2 bought), paid and value', '3 NVDA' in t.replace('\n',' ') and 'paid 14,000' in t)
+    ok('row shows amount (1 held + 2 bought) and a profit or loss line (v15.42 layout: paid moved to the asset page)', '3 NVDA' in t.replace('\n',' ') and ('No cost' in t or '%' in t))
     pg.click('[data-act=inv-group][data-v=type]'); pg.wait_for_timeout(500); t=pg.inner_text('#view'); ok('group by asset type', 'stocks' in t.lower() and 'cryptocurrency' in t.lower())
     ok('tickers and prices card', 'Tickers and Prices' in t)
     ok('no errors', not errs); print(errs[:5])
