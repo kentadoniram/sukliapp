@@ -11,7 +11,7 @@ with sync_playwright() as p:
     tops=pg.evaluate("[...document.querySelectorAll('.drawer ul.dgrp')].slice(1).map(u=>getComputedStyle(u).borderTopWidth)")
     ok('divider lines between groups %s'%tops, all(t=='1px' for t in tops))
     t=pg.locator('.drawer').inner_text()
-    ok('all entries present', all(w in t for w in ['Review','Budget','Savings','Cash Flow','Investments','Debts','Owed to You','Reimbursement','Loan Planner','Loan Setup','Compare Rates','Outlook','Analytics','Trips and Events','Settings']))
+    ok('all entries present', all(w in t for w in ['Review','Budget','Savings','Cash Flow','Investments','Debts','Owed to You','Reimbursement','Loan Planner','Loan Setup','Outlook','Analytics','Trips and Events','Settings']))
     bar=pg.evaluate("import('/js/screens.js').then(m=>m.tabIds(JSON.parse(localStorage.getItem('x')||'null')||undefined))") if False else None
     first=pg.evaluate("[...document.querySelectorAll('.drawer ul.dgrp a')].map(a=>a.textContent.trim())")
     inbar=pg.evaluate("[...document.querySelectorAll('nav.tabs a, nav.tabs button')].map(a=>a.textContent.trim())")

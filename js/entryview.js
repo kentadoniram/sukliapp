@@ -7,6 +7,16 @@ import { button } from './components.js';
 const KIND = { expense: 'Spending', income: 'Income', transfer: 'Transfer' };
 const pretty = (d) => { const s = String(d || ''), dt = new Date(s.slice(0, 10) + 'T12:00:00'); return isNaN(dt) ? s : dt.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) + (s.length > 10 ? ' · ' + s.slice(11, 16) : ''); };
 
+
+// everything about a reimbursable expense, readable without opening Edit
+function reimbRows(db, t) { const r = t.reimb, paid = r.st === 'paid', rows = [], add = (k, v) => { if (v !== undefined && v !== null && String(v) !== '') rows.push([k, v]); };
+  add('Status', paid ? 'Paid back' : 'Waiting for the money');
+  add('Who pays you back', r.co || 'Not set');
+  add('Amount to get back', fmt(t.amount, t.cur));
+  if (paid) { const got = r.got != null ? r.got : t.amount; add('Received', fmt(got, t.cur)); if (r.on) add('Received on', pretty(r.on)); if (got + 0.005 < t.amount) add('Not paid back', `${fmt(t.amount - got, t.cur)} (counts as your spending)`); }
+  else add('Counts as spending?', 'Not yet. It is left out until it is paid back.');
+  if (paid && r.rid) { const inc = db.txs.find((x) => x.id === r.rid && !x.deleted); if (inc) add('Money came in as', `${inc.name || 'Income'} · ${fmt(inc.amount, inc.cur)}`); }
+  return { paid, rows }; }
 export function entryFacts(db, t) {
   const A = new Map(db.accounts.map((a) => [a.id, a])), cat = (db.categories || []).find((c) => c.id === t.cat), a = A.get(t.acct), b = A.get(t.toAcct);
   const rows = [];
@@ -23,12 +33,12 @@ export function entryFacts(db, t) {
   if (t.place) add('Place', t.place); else if (t.loc) add('Place', `about ${(+t.loc.la).toFixed(2)}, ${(+t.loc.lo).toFixed(2)}`);
   if (t.labels) add('Tags', String(t.labels).split(',').map((x) => '#' + x.trim()).filter((x) => x.length > 1).join(' '));
   if (t.paidFor) add('Shared bill', `whole bill ${fmt(t.paidFor.total, t.cur)}${t.paidFor.who ? ' · paid for ' + t.paidFor.who : ''}`);
-  if (t.reimb) add('Reimbursable', t.reimb.st === 'paid' ? `Paid back${t.reimb.co ? ' by ' + t.reimb.co : ''}${t.reimb.on ? ' on ' + String(t.reimb.on).slice(0, 10) : ''}` : `Yes, waiting${t.reimb.co ? ' for ' + t.reimb.co : ''}`);
+  // a flagged expense shows its reimbursement details in their own box (see reimbBox), not as one line here
   if (t.reimbBack) add('Reimbursement', 'money paid back for an expense');
   if (t.cashback) add('Cashback', 'yes (its own income entry)');
   if (t.flag === 'review') add('Needs a check', 'yes');
   add('Notes', t.notes);
-  return { rows, items: (t.items || []).filter((i) => i.n || i.amt), counts: t.counts || [] };
+  return { rows, reimb: t.reimb ? reimbRows(db, t) : null, items: (t.items || []).filter((i) => i.n || i.amt), counts: t.counts || [] };
 }
 
 // one line of the shared-bill summary: the amount in the bill's currency and, below it, the same amount in HOME at the rate saved with the bill
@@ -38,6 +48,7 @@ export function openEntryView(id) {
   const g = splitOf(db, id), hp = homePer(db, t), f = entryFacts(db, t), mineAmt = g ? Math.max(0, Math.round((g.total - g.people.reduce((q, x) => q + x.amt, 0)) * 100) / 100) : 0, big = `${t.kind === 'income' ? '+' : t.kind === 'expense' ? '−' : ''}${fmt(t.amount, t.cur)}`;
   const s = sheet(`<div class="evw"><div class="evtop"><h3>${esc(t.name || 'Untitled')}</h3><b class="ramt ${t.kind}">${esc(big)}</b></div>
     <ul class="calfacts">${f.rows.map(([k, v]) => `<li><span>${esc(k)}</span><b>${esc(v)}</b></li>`).join('')}</ul>
+    ${f.reimb ? `<div class="reimbbox"><h4>Reimbursable <em class="pill reimbpill ${f.reimb.paid ? 'paid' : ''}">${f.reimb.paid ? 'Reimbursed' : 'Waiting'}</em></h4><ul class="calfacts">${f.reimb.rows.map(([k, v]) => `<li><span>${esc(k)}</span><b>${esc(v)}</b></li>`).join('')}</ul><p class="hint">Mark it as paid back from Reimbursement in the menu.</p></div>` : ''}
     ${f.items.length ? `<h4>Items</h4><ul class="calfacts">${f.items.map((i) => `<li><span>${esc(i.n || 'Item')}${i.q > 1 ? ` × ${i.q}` : ''}</span><b>${esc(fmt(i.amt, t.cur))}</b></li>`).join('')}</ul>` : ''}
     ${g ? `<h4>Part of a Shared Bill</h4><ul class="calfacts">${billLine('Whole bill', g.total, g, hp)}${g.mine || mineAmt > 0.004 ? billLine('You', mineAmt, g, hp) : ''}${g.people.map((p) => billLine(p.who, p.amt, g, hp)).join('')}</ul>
       <p class="hint">This entry is one share of a single bill. Editing or deleting it changes the whole bill, all ${g.people.length + (g.mine ? 1 : 0)} entries together.</p>` : '<p class="hint">Read only. Tap Edit to change this entry.</p>'}

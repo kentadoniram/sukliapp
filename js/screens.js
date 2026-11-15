@@ -1053,7 +1053,7 @@ ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
 // Settings, grouped by what they are for. Advanced items sit in their own folded group.
 const SET_GROUPS = [
   ['look', 'Look and Feel', 'Simple or Advanced, tabs, Home cards, colours, text size', ['Mode', 'Tabs and Home Cards', 'Add Button', 'Investments', 'Appearance', 'Display']],
-  ['money', 'Money and Alerts', 'Home currency, spending warnings', ['Currency', 'Spending Safety', 'Left Out of Cash Outflow']],
+  ['money', 'Money and Alerts', 'Home currency, spending warnings', ['Currency', 'Spending Safety', 'Left Out of Cash Outflow', 'Compare Rates']],
   ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Pictures', 'Account Types', 'Name Matching', 'Yearly Events']],
   ['data', 'Backup and Data', 'Undo, reminders, backups, export', ['Undo', 'Backup Reminder', 'Your Data', 'Google Backup (Optional)']],
   ['adv', 'Advanced', 'Most people never need these', ['Exchange Rates', 'Live exchange rates', 'Coins and Tokens: Decimals', 'Cloud Sync', 'Erase']],
@@ -1097,10 +1097,15 @@ function addBtnSection(db) { const c = addCfg(db), opt = (id, v, l, cur) => `<la
     <label class="check"><input type="checkbox" data-act="add-banner" ${c.banner ? 'checked' : ''}> Show a coloured bar at the top: Expense (red), Income (green) or Transfer (purple)</label>
     <label class="check"><input type="checkbox" data-act="add-savelabel" ${c.confirmSave ? 'checked' : ''}> Name the type on the Save button (Save expense, Save income...)</label>
   </section>
+  <section id="ratecmp"><h2>Compare Rates</h2>
+    <p class="hint">Savings and earning options side by side (government savings, time deposits, crypto earn), each with its source and the date it was read.</p>
+    <div class="btnrow left">${button({ label: 'Open Compare Rates', kind: 'ghost', act: 'open-rates' })}</div>
+  </section>
   <section id="invset"><h2>Investments</h2>
     <p class="hint">Which tab each platform opens on when you come to Investments. Platforms with only one wallet have no tabs.</p>
     ${[['overview', 'Overview (all wallets of the platform added together)'], ['spot', 'Spot'], ['last', 'The tab I used last']].map(([v, l]) => opt('inv-open', v, l, (db.settings || {}).invOpen || 'overview')).join('')}
   </section>`; }
+ACT['open-rates'] = () => { location.hash = '#/rates'; };
 ACT['add-start'] = (el) => commit((d) => { d.settings.addStart = el.value; });
 ACT['add-fab'] = (el) => commit((d) => { d.settings.addFab = el.value; });
 ACT['add-banner'] = (el) => commit((d) => { d.settings.addBanner = !!el.checked; });

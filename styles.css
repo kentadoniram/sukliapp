@@ -1630,3 +1630,12 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .typebar b{font-size:15px;letter-spacing:.2px;text-transform:uppercase}.typebar span{font-size:12px;opacity:.92}
 .sheet[data-ty=expense]{border-top:4px solid var(--k-expense)}.sheet[data-ty=income]{border-top:4px solid var(--k-income)}.sheet[data-ty=transfer]{border-top:4px solid var(--k-transfer)}
 .askkind{display:grid;gap:8px}.askk{display:flex!important;flex-direction:column;align-items:flex-start;text-align:left;padding:12px 14px;border-left:6px solid var(--kc)!important}.askk small{color:var(--ink2)}
+
+/* v15.40: "When was it?" Cancel / Set use the same floating round buttons as Save in the entry window */
+#dp .btnrow{position:sticky;bottom:0;z-index:5;margin:6px 0 0;background:transparent;border-top:0;box-shadow:none;pointer-events:none;justify-content:flex-end;gap:8px;padding:6px 0 calc(8px + env(safe-area-inset-bottom,0px))}
+#dp .btnrow .btn{pointer-events:auto;border-radius:999px;width:auto;flex:0 0 auto;min-height:42px;padding:0 20px;box-shadow:0 4px 14px rgba(0,0,0,.28)}
+#dp .btnrow .btn.ghost{background:var(--sheet)}
+.reimbbox{margin:12px 0;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--tint)}
+.reimbbox h4{margin:0 0 6px;display:flex;align-items:center;gap:8px}
+.reimbbox .calfacts{margin:0}
+.reimbbox .pill{margin:0}

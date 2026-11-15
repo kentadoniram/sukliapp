@@ -46,7 +46,7 @@ ACT.menu = () => {
       const groups = [
         nav([['home', 'Home', 'home'], ['ledger', 'Entries', 'list'], ['calendar', 'Calendar', 'calendar'], ['review', 'Review', 'check', n]].filter(inMenu)),
         nav([['accounts', 'Accounts', 'wallet']].filter(inMenu).concat([ ['budget', 'Budget', 'pie'], ['savings', 'Savings', 'goal'], ...(simple ? [] : [['cashflow', 'Cash Flow', 'flow'], ['spend', 'Spending by Group', 'pie']])])),
-        nav([...(simple ? [] : [['invest', 'Investments', 'spark']]), ['debts', 'Debts', 'calc'], ['owed', 'Owed to You', 'wallet'], ['reimburse', 'Reimbursement', 'wallet']]) + (simple ? '' : act('loan-plan', 'Loan Planner', 'calc') + act('loan-wizard', 'Loan Setup', 'calc')) + item('rates', 'Compare Rates', 'calc'),
+        nav([...(simple ? [] : [['invest', 'Investments', 'spark']]), ['debts', 'Debts', 'calc'], ['owed', 'Owed to You', 'wallet'], ['reimburse', 'Reimbursement', 'wallet']]) + (simple ? '' : act('loan-plan', 'Loan Planner', 'calc') + act('loan-wizard', 'Loan Setup', 'calc')),
         ...(simple ? [] : [nav([['outlook', 'Outlook', 'spark'], ['analytics', 'Analytics', 'chart'], ['trips', 'Trips and Events', 'calendar']])]),
       ];
       return groups.map((g) => `<ul class="dgrp">${g}</ul>`).join('');
