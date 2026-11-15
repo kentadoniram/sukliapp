@@ -85,6 +85,8 @@ function dashTabs() {
     ${list.filter((x) => shown.includes(x.id)).map((x) => `<div class="dashbody" data-sec="${x.id}">${coll('d-' + x.id, x.title, x.body)}</div>`).join('') || '<p class="hint">Choose a section to see it.</p>'}`;
   return `<div class="dashcard">${coll('d-card', 'Investment Performance', inner)}</div>`;   // the whole card opens and closes
 }
+// an account type (Spot, Margin, Futures, Options, Earn...) can be switched off per platform in Edit Platform; its accounts then stay out of the Investments tab
+export const typeHidden = (db, a) => { const ex = exchangeOf(a); if (!ex) return false; const m = ((db.settings || {}).invHiddenTypes || {})[ex]; return !!m && m.includes(walletOf(a)); };
 const OV = '__overview';
 let freshVisit = true;   // true until the Investments page has drawn once after you arrive
 window.addEventListener('hashchange', () => { if (!/^#\/invest/.test(location.hash)) freshVisit = true; });
@@ -216,7 +218,7 @@ ACT['inv-pie'] = () => {
 export function investments(db) {
   PANELS = []; PICKED = {};
   setInvCur(db);
-  const bal = balances(db), items = live(db.accounts).filter(inInvest).filter((a) => !a.invHidden).filter((a) => inMarketTab(db, a)), book = tradeBook(db.txs);
+  const bal = balances(db), items = live(db.accounts).filter(inInvest).filter((a) => !a.invHidden && !typeHidden(db, a)).filter((a) => inMarketTab(db, a)), book = tradeBook(db.txs);
   const cryptoAll = items.filter(isAsset), other = items.filter((a) => !isAsset(a)), mode = gmode(), tickers = db.settings.tickers || {};
   // assets with nothing in them are hidden (they come back as soon as they hold something, or with the "Show empty" link)
   const keepEmpty = (a) => a.cur === 'USDT' && a.exchange && TRADING_WALLETS.includes(walletOf(a));   // USDT is always listed in a trading wallet

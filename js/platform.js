@@ -3,7 +3,7 @@
 import { button } from './components.js';
 import { get, commit, stamp, walletOf, fmt, HOME, balances, homeFx } from './core.js';
 import { ACT, sheet, esc, toast } from './ui.js';
-import { exchangeOf, inInvest } from './invest.js';
+import { exchangeOf, inInvest, typeHidden } from './invest.js';
 import { tzOf, tzName } from './earn.js';
 import { accountTypesOf, addAccountType, removeAccountType } from './tokens.js';
 import { promptDialog } from './ui.js';
@@ -18,7 +18,10 @@ export function openPlatform(ex) {
     root.innerHTML = `
       <p class="hint"><b>${esc(ex)}</b> › Accounts (${esc(wallets.join(', ') || 'none yet')}) › Assets · ${accts.length} asset balance${accts.length === 1 ? '' : 's'} · about <b>${esc(fmt(total, HOME))}</b>. Every coin of the top 50 can be used in any account here without adding it first.</p>
       <h3>Account Types</h3>
-      <div class="chips">${accountTypesOf(db, ex).map((w) => { const mine = ((db.settings.acctTypes || {})[Object.keys(db.settings.acctTypes || {}).find((x) => x.toLowerCase() === ex.toLowerCase())] || []).includes(w) && !wallets.includes(w); return `<span class="chip ${wallets.includes(w) ? 'on' : ''}">${esc(w)}${mine ? ` ${button({ label: '✕', kind: 'link', aria: `Remove ${w}`, attr: { 'data-p': 'deltype', 'data-v': w } })}` : ''}</span>`; }).join('')}${button({ label: '+ Add Account Type', kind: 'chip', attr: { 'data-p': 'addtype' } })}</div>
+      <p class="hint">Tick the account types to show in the Investments tab. An unticked type is hidden there, with its entries and balances kept, and you can tick it again at any time.</p>
+      <div class="hidelist">${accountTypesOf(db, ex).map((w) => { const n = accts.filter((a) => walletOf(a) === w).length, off = hiddenTypes(db, ex).includes(w), mine = ((db.settings.acctTypes || {})[Object.keys(db.settings.acctTypes || {}).find((x) => x.toLowerCase() === ex.toLowerCase())] || []).includes(w) && !n;
+        return `<div class="typerow"><label class="check"><input type="checkbox" data-p="showtype" data-v="${esc(w)}" ${off ? '' : 'checked'}> <span>${esc(w)} <small class="muted">${n ? `${n} account${n === 1 ? '' : 's'}` : 'none yet'}</small></span></label>${mine ? button({ label: '✕', kind: 'link', aria: `Remove ${w}`, attr: { 'data-p': 'deltype', 'data-v': w } }) : ''}</div>`; }).join('')}</div>
+      <div class="chips">${button({ label: '+ Add Account Type', kind: 'chip', attr: { 'data-p': 'addtype' } })}</div>
       <p class="hint">Exchanges add new products from time to time. Add the name here (for example Copy Trading) and it appears in From, To and when adding assets for ${esc(ex)}.</p>
       <h3>Actions</h3>
       <div class="btnrow left">${button({ label: 'Record', kind: 'primary', size: 'sm', act: 'plat-do', attr: { 'data-do': 'inv-add', 'data-ex': ex } })}${button({ label: '+ Asset', kind: 'ghost', size: 'sm', act: 'plat-do', attr: { 'data-do': 'inv-coin', 'data-ex': ex } })}${button({ label: 'Internal Transfer', kind: 'ghost', size: 'sm', act: 'plat-do', attr: { 'data-do': 'inv-internal', 'data-ex': ex } })}</div>
@@ -34,6 +37,7 @@ export function openPlatform(ex) {
   };
   draw();
   root.addEventListener('change', (e) => { if (e.target.dataset.p === 'hide') { const id = e.target.dataset.id, on = e.target.checked; commit((d) => { const a = d.accounts.find((x) => x.id === id); if (a) { if (on) a.invHidden = true; else delete a.invHidden; stamp(a); } }); toast(on ? 'Hidden from Investments.' : 'Shown in Investments again.'); return; }
+    if (e.target.dataset.p === 'showtype') { const w = e.target.dataset.v, on = e.target.checked; commit((d) => { const m = (d.settings.invHiddenTypes = d.settings.invHiddenTypes || {}), l = new Set(m[ex] || []); if (on) l.delete(w); else l.add(w); if (l.size) m[ex] = [...l]; else delete m[ex]; }); toast(on ? `${w} is shown in Investments.` : `${w} is hidden from Investments.`); draw(); return; }
     if (e.target.dataset.p !== 'tz') return; commit((d) => { (d.settings.platformTz = d.settings.platformTz || {})[ex] = +e.target.value; }); toast(`Timezone of ${ex} saved.`); draw(); });
   root.addEventListener('click', async (e) => {
     if (e.target.closest('[data-p=done]')) { s.close(); return; }
@@ -45,16 +49,18 @@ ACT['plat-open'] = (el) => openPlatform(el.dataset.ex);
 ACT['plat-do'] = (el) => { const fn = ACT[el.dataset.do]; if (!fn) return; const sh = el.closest('.sheet'); if (sh && sh.querySelector('.platset')) { const x = sh.querySelector('[data-p=done]'); x && x.click(); } fn(el); };
 
 // the way back for accounts hidden from Investments (a platform whose accounts are all hidden has no card, so this list lives on the page itself)
+const hiddenTypes = (db, ex) => ((db.settings || {}).invHiddenTypes || {})[ex] || [];
 export function hiddenInvLink(db) {
-  const n = db.accounts.filter((a) => !a.deleted && !a.archived && inInvest(a) && a.invHidden).length;
-  return n ? `<p class="hint hiddenlink">${n} account${n === 1 ? ' is' : 's are'} hidden from this tab. ${button({ label: 'Show or Hide Accounts', kind: 'link', act: 'inv-hidden' })}</p>` : '';
+  const n = db.accounts.filter((a) => !a.deleted && !a.archived && inInvest(a) && (a.invHidden || typeHidden(db, a))).length;
+  return n ? `<p class="hint hiddenlink">${n} account${n === 1 ? ' is' : 's are'} hidden from this tab. ${button({ label: 'Show Hidden Accounts', kind: 'link', act: 'inv-hidden' })}</p>` : '';
 }
 ACT['inv-hidden'] = () => {
   const s = sheet('<div id="hl"></div>', { title: 'Hidden Accounts' }), root = s.el.querySelector('#hl');
   const draw = () => { const db = get(), bal = balances(db), l = db.accounts.filter((a) => !a.deleted && !a.archived && inInvest(a) && a.invHidden);
-    root.innerHTML = `${l.length ? `<p class="hint">Untick an account to show it in Investments again. Nothing is deleted.</p><div class="hidelist">${l.map((a) => `<label class="check"><input type="checkbox" data-id="${a.id}" checked> <span>${esc(exchangeOf(a))} · ${esc(a.cur)} <small class="muted">${esc(walletOf(a))}${(bal.get(a.id) || 0) ? ' · ' + esc(fmt(bal.get(a.id) || 0, a.cur)) : ''}</small></span></label>`).join('')}</div>` : '<p class="empty">No hidden accounts.</p>'}
+    const ht = Object.entries((db.settings.invHiddenTypes) || {}).flatMap(([ex, ws]) => ws.map((w) => [ex, w]));
+    root.innerHTML = `${ht.length ? `<h3>Hidden Account Types</h3><p class="hint">Tick a type to show it in Investments again.</p><div class="hidelist">${ht.map(([ex, w]) => `<label class="check"><input type="checkbox" data-hx="${esc(ex)}" data-w="${esc(w)}"> <span>${esc(ex)} · ${esc(w)}</span></label>`).join('')}</div>` : ''}${l.length ? `<h3>Hidden Accounts</h3><p class="hint">Untick an account to show it in Investments again. Nothing is deleted.</p><div class="hidelist">${l.map((a) => `<label class="check"><input type="checkbox" data-id="${a.id}" checked> <span>${esc(exchangeOf(a))} · ${esc(a.cur)} <small class="muted">${esc(walletOf(a))}${(bal.get(a.id) || 0) ? ' · ' + esc(fmt(bal.get(a.id) || 0, a.cur)) : ''}</small></span></label>`).join('')}</div>` : (ht.length ? '' : '<p class="empty">No hidden accounts.</p>')}
       <div class="btnrow">${button({ label: 'Done', kind: 'primary', attr: { 'data-done': true } })}</div>`; };
   draw();
-  root.addEventListener('change', (e) => { const id = e.target.dataset.id; if (!id) return; commit((d) => { const a = d.accounts.find((x) => x.id === id); if (a) { if (e.target.checked) a.invHidden = true; else delete a.invHidden; stamp(a); } }); toast('Saved.'); });
+  root.addEventListener('change', (e) => { if (e.target.dataset.hx) { const ex = e.target.dataset.hx, w = e.target.dataset.w; commit((d) => { const m = d.settings.invHiddenTypes || {}; m[ex] = (m[ex] || []).filter((x) => x !== w); if (!m[ex].length) delete m[ex]; }); toast(`${w} is shown in Investments.`); draw(); return; } const id = e.target.dataset.id; if (!id) return; commit((d) => { const a = d.accounts.find((x) => x.id === id); if (a) { if (e.target.checked) a.invHidden = true; else delete a.invHidden; stamp(a); } }); toast('Saved.'); });
   root.addEventListener('click', (e) => { if (e.target.closest('[data-done]')) s.close(); });
 };
