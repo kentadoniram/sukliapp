@@ -13,9 +13,12 @@ with sync_playwright() as p:
     pg.click('[data-act=inv-new]'); pg.wait_for_selector('.sheet [data-k=plat]'); pg.click('.sheet [data-k=plat]')
     pg.wait_for_selector('input[name=v]'); pg.fill('input[name=v]','Zeta Securities'); pg.keyboard.press('Enter'); pg.wait_for_timeout(500)
     ok('platform saved on its own', 'Zeta Securities' in pg.evaluate("window.sukli.get().settings.platforms||[]"))
-    ok('empty platform shows in Investments with Add-asset button', pg.locator('[data-act=inv-coin][data-ex="Zeta Securities"]').count()==1 and pg.locator('[data-act=inv-platdel][data-ex="Zeta Securities"]').count()==1)
+    ok('empty platform shows in Investments with Add-asset button', pg.locator('[data-act=plat-open][data-ex="Zeta Securities"]').count()>=1)
+    pg.click('[data-act=plat-open][data-ex="Zeta Securities"]'); pg.wait_for_selector('.sheet [data-do=inv-coin]')
+    ok('platform page has + Asset and Remove Platform', pg.locator('.sheet [data-do=inv-platdel]').count()==1)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # add an asset from inside that platform; platform is prefilled; + New platform chip exists
-    pg.click('[data-act=inv-coin][data-ex="Zeta Securities"]'); pg.wait_for_selector('#ic')
+    pg.click('[data-act=plat-open][data-ex="Zeta Securities"]'); pg.wait_for_selector('.sheet [data-do=inv-coin]'); pg.click('.sheet [data-do=inv-coin]'); pg.wait_for_selector('#ic')
     ok('platform prefilled', pg.input_value('#ic [name=ex]')=='Zeta Securities')
     ok('+ New platform chip in Add asset', pg.locator('#ic [data-newplat]').count()==1)
     pg.click('#ic [data-newplat]'); pg.wait_for_selector('input[name=v]'); pg.fill('input[name=v]','Tiger Brokers'); pg.keyboard.press('Enter'); pg.wait_for_timeout(500)
@@ -31,13 +34,13 @@ with sync_playwright() as p:
     ok('new currency selected', pg.evaluate("document.querySelector('#ic select[name=quote]').value")=='THB')
     pg.click('#ic [data-x]'); pg.wait_for_timeout(300)
     # 3. Did you mean has a real No
-    pg.click('[data-act=inv-coin][data-ex="Zeta Securities"]'); pg.wait_for_selector('#ic'); pg.fill('#ic [name=ex]','Binace'); pg.fill('#ic [name=coin]','LINKX')
+    pg.click('[data-act=plat-open][data-ex="Zeta Securities"]'); pg.wait_for_selector('.sheet [data-do=inv-coin]'); pg.click('.sheet [data-do=inv-coin]'); pg.wait_for_selector('#ic'); pg.fill('#ic [name=ex]','Binace'); pg.fill('#ic [name=coin]','LINKX')
     pg.click('#ic .btn:not(.ghost)'); pg.wait_for_selector('.confirm-text')
     ok('question has Yes and No buttons: '+pg.inner_text('[data-no]')+' / '+pg.inner_text('[data-yes]'), pg.inner_text('[data-no]')=='No, keep Binace' and pg.inner_text('[data-yes]')=='Yes, Binance')
     pg.click('[data-no]'); pg.wait_for_timeout(500)
     ok('No keeps what was typed', pg.evaluate("window.sukli.get().accounts.some(a=>!a.deleted&&a.exchange==='Binace'&&a.cur==='LINKX')"))
     # remove an empty platform
-    pg.goto(URL+'#/invest'); pg.wait_for_selector('[data-act=inv-platdel]'); pg.click('[data-act=inv-platdel][data-ex="Zeta Securities"]'); pg.wait_for_selector('.confirm-text'); pg.click('[data-yes]'); pg.wait_for_timeout(400)
+    pg.goto(URL+'#/invest'); pg.wait_for_selector('[data-act=plat-open][data-ex="Zeta Securities"]'); pg.click('[data-act=plat-open][data-ex="Zeta Securities"]'); pg.wait_for_selector('.sheet [data-do=inv-platdel]'); pg.click('.sheet [data-do=inv-platdel]'); pg.wait_for_selector('.confirm-text'); pg.click('[data-yes]'); pg.wait_for_timeout(400)
     ok('empty platform removed', 'Zeta Securities' not in pg.evaluate("window.sukli.get().settings.platforms||[]"))
     # 4. own currency for the tab
     h=pg.inner_text('.nwcard'); ok(f'default currency label: {h[:90]!r}', 'Market value in' in h)

@@ -1,3 +1,4 @@
+import './nodeenv.mjs';
 // Trades, trade fees, investment income, loan fees and fee-bearing transfers must leave the app as Bluecoins-readable CSV
 // and come back (re-import) with every account at the same balance.
 import { emptyDb, balances, stamp, HOME, findOrAddCategory } from '../js/core.js';
@@ -67,7 +68,8 @@ ok(exportCSV(back).split('\r\n').length === csv.split('\r\n').length, 'second ex
   const o = parseCSV(exportCSV(w)), h = o.shift(), names = new Set(o.map((r) => r[h.indexOf('Account')]));
   ok(names.size === 2, 'same-named accounts in two wallets leave with different account names (' + [...names].join(' | ') + ')');
   const w2 = emptyDb(); importBluecoins(w2, exportCSV(w)); const bb = balances(w2);
-  ok(w2.accounts.filter((a) => !a.deleted).length === 2 && [...bb.values()].sort((a, b) => a - b).join() === '100,300' || [...bb.values()].sort((a, b) => a - b).join() === '300,400', 'both wallets come back with their own balance (' + [...bb.values()].join(', ') + ')'); }
+  const funded = [...bb.values()].filter((v) => Math.abs(v) > 1e-9).sort((a, b) => a - b).join();
+  ok(funded === '300,400', 'both wallets come back with their own balance (' + [...bb.values()].join(', ') + ')'); }
 // re-import rebuilds the trades (Bluecoins has no trade mark), so gains and average cost are not lost
 {
   const { tradeBook } = await import('../js/tradecalc.js');

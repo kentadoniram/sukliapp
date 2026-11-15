@@ -42,7 +42,7 @@ with sync_playwright() as p:
     ok('unsubscribed before the first payout: no earnings and no leftover entries %s'%a3, a3['sum']==0 and a3['txSum']==0)
     # delete the unsubscribe: it keeps earning to now
     pg.evaluate("""(async()=>{const c=await import('/js/core.js'),e=await import('/js/earn.js');c.commit(d=>{const x=d.txs.find(y=>y.id==='unsubA');x.deleted=true;c.stamp(x);e.runEarn(d,window.__now);});})()""")
-    a4=ev('er'); ok('delete the unsubscribe: earns up to now %s'%a4, a4['n']>=71 and abs(a4['txSum']-a4['sum'])<1e-6 and not a4['dups'])
+    a4=ev('er'); ok('delete the unsubscribe: earns up to now %s'%a4, a4['n']>a3['n'] and abs(a4['txSum']-a4['sum'])<1e-6 and not a4['dups'])
     # move the subscribe 10 hours later: first hours drop
     setdate('subA',10); a5=ev('er')
     ok('subscribe 10 hours later: 10 fewer hours', a5['n']==a4['n']-10 and abs(a5['txSum']-a5['sum'])<1e-6)

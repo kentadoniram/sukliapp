@@ -1,3 +1,4 @@
+import './nodeenv.mjs';
 import { postInterest, interestTaxPct } from '../js/finance.js';
 let bad = 0; const ok = (n, c) => { console.log((c ? 'PASS ' : 'FAIL ') + n); if (!c) bad++; };
 const mk = (type, taxPct) => ({ settings: {}, categories: [], txs: [], accounts: [{ id: 'a', name: 'BDO', cur: 'PHP', type, open: 100000, apy: 3.65, include: true, interestFrom: '2026-10-01', ...(taxPct != null ? { taxPct } : {}) }], rates: {} });

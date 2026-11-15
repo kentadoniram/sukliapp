@@ -1,3 +1,4 @@
+import './nodeenv.mjs';
 // Field-by-field: every row of the original Bluecoins CSV must come back from our export (compared as a multiset of rows).
 import fs from 'node:fs';
 import { emptyDb } from '../js/core.js';

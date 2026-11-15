@@ -1,3 +1,4 @@
+import './nodeenv.mjs';
 // Category spending estimate: simulated receipts with known true prices; checks accuracy, robustness, honesty and exact totals.
 import { estimateSpending, DEFAULT_CATS } from '../js/catsolve.js';
 let bad = 0; const ok = (c, m) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) bad++; };

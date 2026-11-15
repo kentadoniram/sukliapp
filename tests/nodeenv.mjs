@@ -1,0 +1,5 @@
+// Lets the pure-logic node tests import modules that pull in ui.js (which registers browser events when it loads).
+const noop = () => {};
+const el = () => ({ style: {}, dataset: {}, classList: { add: noop, remove: noop, toggle: noop, contains: () => false }, setAttribute: noop, appendChild: noop, append: noop, remove: noop, addEventListener: noop, removeEventListener: noop, querySelector: () => null, querySelectorAll: () => [], insertAdjacentHTML: noop });
+if (typeof globalThis.document === 'undefined') globalThis.document = { addEventListener: noop, removeEventListener: noop, querySelector: () => null, querySelectorAll: () => [], getElementById: () => null, createElement: () => el(), body: { appendChild: noop, classList: { add: noop, remove: noop } }, documentElement: { style: {}, dataset: {} } };
+if (typeof globalThis.window === 'undefined') globalThis.window = { addEventListener: noop, removeEventListener: noop, matchMedia: () => ({ matches: false, addEventListener: noop }), dispatchEvent: noop };

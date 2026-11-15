@@ -1,3 +1,4 @@
+import './nodeenv.mjs';
 import { parseWalletText, parseWhen } from '../js/walletparse.js';
 let fails = 0; const ok = (n, c) => { console.log((c ? 'PASS ' : 'FAIL ') + n); if (!c) fails++; };
 const OCR = `23:28 am ua > &

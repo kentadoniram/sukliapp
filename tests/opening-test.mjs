@@ -1,3 +1,4 @@
+import './nodeenv.mjs';
 // An imported Starting Balance keeps its date: shown in history, counted in balances only from that day.
 import fs from 'node:fs';
 import { emptyDb, balances, openDateOf } from '../js/core.js';

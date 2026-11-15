@@ -396,7 +396,7 @@ export function platformOf(a) {
 // "Platform (Where) Asset", for example Bitget (Spot) USDT. Accounts outside an exchange keep their own name.
 export function assetName(a) {
   if (!a) return '';
-  const tk = ((get().settings.tickers || {})[a.cur] || {}).ticker;
+  const tk = (((((get() || {}).settings) || {}).tickers || {})[a.cur] || {}).ticker;
   let n = String(a.name || '');
   for (const w of [platformOf(a), a.wallet, 'Spot']) if (w) n = n.replace(new RegExp('\\b' + String(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'ig'), ' ');
   n = n.replace(/[·()\-–—]+/g, ' ').replace(/\s+/g, ' ').trim();

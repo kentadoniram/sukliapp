@@ -1,3 +1,4 @@
+import './nodeenv.mjs';
 // Standalone: opening date later than the first transaction is moved back to that first transaction.
 import { emptyDb, balances, openDateOf, openDates } from '../js/core.js';
 import { accountHistory } from '../js/finance.js';

@@ -1,3 +1,4 @@
+import './nodeenv.mjs';
 // Importing a new Bluecoins CSV must never change an existing account's type, and similar new names must be flagged.
 import { emptyDb } from '../js/core.js';
 import { importBluecoins, previewImport } from '../js/importer.js';

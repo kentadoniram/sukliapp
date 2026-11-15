@@ -1,3 +1,4 @@
+import './nodeenv.mjs';
 import * as I from '../js/interest.js';
 import { emptyDb, stamp, HOME } from '../js/core.js';
 import { postInterest, postDebtInterest, lockInfo } from '../js/finance.js';

@@ -1,3 +1,4 @@
+import './nodeenv.mjs';
 // "Balance after" in Entries: the running balance of each account after each entry matches the account's history and the final balance.
 import fs from 'node:fs';
 import { emptyDb, balances, HOME, stamp } from '../js/core.js';

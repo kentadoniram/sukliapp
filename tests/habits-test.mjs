@@ -1,4 +1,5 @@
 // Habit learning: daily life vs trips/events/moves, trip extra over the daily baseline. Synthetic life plus (optional) the real CSV.
+import './nodeenv.mjs';
 import { analyzeHabits, habitRows } from '../js/habits.js';
 let bad = 0; const ok = (c, m) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) bad++; };
 const rng = (seed) => () => { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
