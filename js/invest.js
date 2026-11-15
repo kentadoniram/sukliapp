@@ -86,6 +86,8 @@ function dashTabs() {
   return `<div class="dashcard">${coll('d-card', 'Investment Performance', inner)}</div>`;   // the whole card opens and closes
 }
 const OV = '__overview';
+let freshVisit = true;   // true until the Investments page has drawn once after you arrive
+window.addEventListener('hashchange', () => { if (!/^#\/invest/.test(location.hash)) freshVisit = true; });
 const wtabs = () => { try { return JSON.parse(localStorage.getItem('sukli-wtab') || '{}'); } catch { return {}; } };
 const wsw = () => { try { return JSON.parse(localStorage.getItem('sukli-wsw') || '{}'); } catch { return {}; } };
 ACT['inv-wsw'] = (el) => { const ex = el.dataset.ex, w = el.dataset.w, all = wsw(), cur = (window.__wsOn && window.__wsOn[ex]) || all[ex] || [], next = [w];   // one account type at a time
@@ -250,8 +252,9 @@ export function investments(db) {
     if (mode !== 'platform' || (ws.size === 1 && (ws.has('Spot') || ws.has('')))) return `<div class="rows plain">${srt(list).map((a) => holding(a, t)).join('')}</div>`;
     // one segment for each account type (Spot, Margin, Futures, Earn…): only one is selected at a time, and it shows its own assets below
     const order = [...ws.entries()].sort((x, y) => (WALLETS.indexOf(x[0]) + 1 || 99) - (WALLETS.indexOf(y[0]) + 1 || 99) || x[0].localeCompare(y[0])), ex = exchangeOf(list[0]) || '';
-    const saved = Array.isArray(wsw()[ex]) ? wsw()[ex].filter((w) => ws.has(w) || w === OV) : [], old = wtabs()[ex];
-    const on = saved.length ? [saved[0]] : [old && ws.has(old) ? old : ws.has('Spot') ? 'Spot' : order[0][0]]; PICKED[ex] = on; (window.__wsOn = window.__wsOn || {})[ex] = on;
+    const opening = ((db.settings || {}).invOpen || 'overview'), fresh = freshVisit && opening !== 'last';   // each visit starts on the tab chosen in Settings; after that your taps stick
+    const saved = !fresh && Array.isArray(wsw()[ex]) ? wsw()[ex].filter((w) => ws.has(w) || w === OV) : [], old = fresh ? '' : wtabs()[ex];
+    const on = saved.length ? [saved[0]] : [opening === 'overview' ? OV : old && ws.has(old) ? old : ws.has('Spot') ? 'Spot' : order[0][0]]; PICKED[ex] = on; (window.__wsOn = window.__wsOn || {})[ex] = on;
     const block = ([w]) => { if (!on.includes(w)) return ''; if (w === OV) return platOverview(list, ex); const l = ws.get(w), nm = w || 'Other';
       return `<div class="wblock" data-w="${esc(nm)}"><p class="hint wtsum"><b>${esc(nm)}</b> ${money(exSum(l))}${earnedTxt(l)}${w === 'Earn' ? ' · Earn only collects interest. Coins move in and out with Internal Transfer.' : ''}</p>
         <div class="rows plain">${srt(l).map((a) => holding(a, t)).join('')}</div></div>`; };
@@ -270,6 +273,7 @@ export function investments(db) {
   const cryptoCard = crypto.length ? `<div class="ivgroup">${coll('i-crypto', `Crypto <small class="muted gsum">${money(exSum(crypto))} · ${byEx.size} ${byEx.size === 1 ? 'place' : 'places'}</small>`, exHtml)}</div>` : exHtml;
   const otherHtml = other.length ? coll('i-other', `Bonds, Savings, and Other Investments <small class="muted gsum">${money(exSum(other))}</small>`, `<div class="rows plain">${other.sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0)).map((a) => { const b = bal.get(a.id) || 0;
     return `${button({ html: `<i class="badge sm" style="background:var(--line)">${esc((a.name || '?').slice(0, 1))}</i><span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(a.exchange || (a.type === 'invest' ? 'Investment' : 'Other product'))} · ${f2(b, a.cur)}</small></span><span class="ramt"><b>${priced(db, a) ? money(val(db, a, b)) : '<small class="muted">no rate</small>'}</b></span>`, kind: 'plain', cls: 'row acct', act: 'acct', attr: { 'data-id': a.id } })}`; }).join('')}</div>`, '') : '';
+  freshVisit = false;
   setTimeout(() => { if (ensureUsdt()) window.dispatchEvent(new Event('sukli-render')); }, 30);
   setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
   return `<div class="invpage">${hdr('Investments', `${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`)}<div class="btnrow left invact">${button({ label: 'Record activity', kind: 'primary', size: 'sm', act: 'inv-add', cls: 'iv-rec' })} ${button({ label: 'Add asset', kind: 'ghost', size: 'sm', act: 'inv-new', cls: 'iv-add' })} ${button({ label: 'Buying Check', kind: 'ghost', size: 'sm', act: 'buy-check' })}${pendingReview(db).length ? ` ${button({ label: `Review trades (${pendingReview(db).length})`, kind: 'ghost', size: 'sm', act: 'trade-review' })}` : ''} </div>

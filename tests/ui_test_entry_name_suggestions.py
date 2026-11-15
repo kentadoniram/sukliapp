@@ -47,8 +47,9 @@ with sync_playwright() as p:
     ok('no gear in header, burger present', pg.locator('header [aria-label=Settings]').count()==0 and pg.locator('header [data-act=menu]').count()==1)
     pg.click('header [data-act=menu]'); pg.wait_for_selector('.drawer'); pg.wait_for_timeout(200)
     items=pg.locator('.drawer a').all_inner_texts(); print('  menu:',[i.strip().replace('\n',' ') for i in items])
-    for w in ['Home','Entries','Calendar','Budget','Cash Flow','Analytics','Accounts','Expense categories','Income categories','Settings']:
+    for w in ['Budget','Cash Flow','Analytics','Expense categories','Income categories','Settings']:
         ok('menu has '+w, any(w in i for i in items))
+    for w in ['Home','Entries','Accounts']: ok('menu leaves out '+w+' (it is in the bottom bar; v15.37)', not any(i.strip().replace('\n',' ')==w for i in items))
     pg.screenshot(path=S+'v4-menu.png')
     pg.click('.drawer a[href="#/calendar"]'); pg.wait_for_selector('.cal'); ok('menu navigates to calendar and closes', pg.locator('.drawer').count()==0)
     # calendar: click day -> details

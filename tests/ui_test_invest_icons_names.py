@@ -8,7 +8,7 @@ with sync_playwright() as p:
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900)
-    pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{
+    pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.invOpen='last';
       const mk=(id,name,cur,wallet,extra={})=>d.accounts.push(c.stamp({id,name,cur,type:'crypto',exchange:'Bitget',wallet,open:50,include:true,archived:false,...extra}));
       mk('t1','Bitget USDT','USDT','Spot'); mk('t2','Bitget USDT','USDT','Earn'); mk('t3','Bitget USD','USD','Spot'); mk('t4','USDGO','USDGO','Spot'); mk('t5','Bitget USD','USD','Spot',{icon:'plane'}); mk('t6','My BTC','BTC','Spot',{icon:'heart'});
       d.accounts.push(c.stamp({id:'t8',name:'Bitget USD',cur:'USD',type:'crypto',open:5,include:true,archived:false}));

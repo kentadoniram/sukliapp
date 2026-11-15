@@ -8,6 +8,7 @@ with sync_playwright() as p:
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.invOpen='last'})})()")
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard')
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic')
     pg.fill('#ic [name=ex]','binance'); pg.fill('#ic [name=coin]','ZQX'); pg.click('#ic .btn:not(.ghost)'); pg.wait_for_timeout(700)

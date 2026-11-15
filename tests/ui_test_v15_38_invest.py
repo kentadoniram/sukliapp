@@ -15,6 +15,7 @@ with sync_playwright() as p:
     t=pg.inner_text('#view')
     ok('no Overview in group bar', pg.locator('[data-act=inv-group]').filter(has_text='Overview').count()==0)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
+    ok('platform opens on Overview by default', pg.evaluate("(document.querySelector('.wsw [data-w=__overview][data-ex=Binance]')||{}).className||''").find('on')>=0 or pg.locator('.wblock[data-w=Overview]').count()>=1)
     ok('Binance has an Overview tab', pg.locator('.wsw [data-w=__overview]').count()>=1)
     pg.evaluate("document.querySelector('.wsw [data-w=__overview][data-ex=Binance]').click()"); pg.wait_for_timeout(500)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")

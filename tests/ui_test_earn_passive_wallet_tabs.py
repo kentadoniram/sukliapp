@@ -7,7 +7,7 @@ with sync_playwright() as p:
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900)
-    pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{
+    pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.invOpen='last';
       const A=(id,name,wallet,open)=>d.accounts.push(c.stamp({id,name,cur:'USDT',type:'crypto',open,include:false,archived:false,exchange:'ZzEx',wallet,invtab:true}));
       A('zs','ZzEx Spot USDT','Spot',100);A('ze','ZzEx Earn USDT','Earn',50);A('zf','ZzEx Fut USDT','Futures',30);A('zm','ZzEx Margin USDT','Margin',20);})})()""")
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(500)

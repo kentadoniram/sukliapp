@@ -1,4 +1,5 @@
 // App shell: routing, tab bar, first-run screen, service worker, auto-backup hook.
+import { addCfg, startKind, KIND_META } from './addset.js';
 import { button } from './components.js';
 import { applyTypes } from './accpage.js';
 import { setNameRules } from './merchants.js';
@@ -68,7 +69,7 @@ function tabs(route) {
   const t = ids.map((id) => [id, TAB_DEFS[id][0], TAB_DEFS[id][1]]); t.splice(half, 0, null);
   const n = reviewCount(get());
   return t.map((x) => x === null
-    ? `${button({ html: `${ic('plus')}`, kind: 'plain', cls: `fab${route === 'invest' ? ' inv' : ''}`, act: 'add', aria: 'Add an entry' })}`
+    ? `${(() => { const db = get(), c = addCfg(db), k = route === 'invest' ? null : startKind(db), m = k && KIND_META[k], lab = c.fab === 'type' && m; return button({ html: lab ? `${ic('plus')}<small>${m.label}</small>` : `${ic('plus')}`, kind: 'plain', cls: `fab${route === 'invest' ? ' inv' : ''}${lab ? ` fabk ${m.cls}` : ''}`, act: 'add', aria: lab ? `Add an entry. It opens as ${m.label}` : 'Add an entry' }); })()}`
     : `<a href="#/${x[0]}" class="${route === x[0] ? 'on' : ''}" ${route === x[0] ? 'aria-current="page"' : ''}>${ic(x[2])}<span>${x[1]}</span>${x[0] === 'home' && n ? `<em class="dot" aria-label="${n} to check"></em>` : ''}</a>`).join('');
 }
 

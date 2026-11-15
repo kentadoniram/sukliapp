@@ -1618,3 +1618,15 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .ovhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .pk-gh{display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px;padding:10px 4px;margin-top:6px;background:none;border:0;border-bottom:1px solid var(--line);font:inherit;font-weight:700;color:var(--ink);text-align:left;cursor:pointer}
 .pk-list .rows[hidden]{display:none}
+/* v15.39: type colours for the + button and the entry window */
+:root{--k-expense:#B5412F;--k-income:#16774E;--k-transfer:#7B5BD8;--k-ink:#FFFFFF}
+:root[data-theme="dark"]{--k-expense:#F2877F;--k-income:#4CC38A;--k-transfer:#A78BFA;--k-ink:#0E141A}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--k-expense:#F2877F;--k-income:#4CC38A;--k-transfer:#A78BFA;--k-ink:#0E141A}}
+.k-expense{--kc:var(--k-expense)}.k-income{--kc:var(--k-income)}.k-transfer{--kc:var(--k-transfer)}
+.tabs .fab.fabk{background:var(--kc);color:var(--k-ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:0}
+.tabs .fab.fabk .ic{width:20px;height:20px}
+.tabs .fab.fabk small{font-size:9px;font-weight:800;line-height:1;letter-spacing:.2px;margin-top:1px}
+.typebar{display:flex;flex-direction:column;gap:1px;padding:9px 12px;margin:0 0 10px;border-radius:10px;background:var(--kc);color:var(--k-ink)}
+.typebar b{font-size:15px;letter-spacing:.2px;text-transform:uppercase}.typebar span{font-size:12px;opacity:.92}
+.sheet[data-ty=expense]{border-top:4px solid var(--k-expense)}.sheet[data-ty=income]{border-top:4px solid var(--k-income)}.sheet[data-ty=transfer]{border-top:4px solid var(--k-transfer)}
+.askkind{display:grid;gap:8px}.askk{display:flex!important;flex-direction:column;align-items:flex-start;text-align:left;padding:12px 14px;border-left:6px solid var(--kc)!important}.askk small{color:var(--ink2)}

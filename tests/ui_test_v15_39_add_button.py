@@ -1,0 +1,46 @@
+from playwright.sync_api import sync_playwright
+def ok(n,c): print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':402,'height':874})
+    errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('.welcome')
+    pg.click('[data-act=wz-old]'); pg.click('[data-act=start-empty]'); pg.wait_for_selector('#acct-form'); pg.fill('[name=name]','Wallet'); pg.click('#acct-form .btn'); pg.wait_for_timeout(800)
+    def CL():
+        pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+        if pg.locator('.sheet').count(): pg.evaluate("(async()=>{document.querySelectorAll('.sheet').forEach(x=>x.remove());document.querySelectorAll('.scrim').forEach(x=>x.remove())})()")
+    J=lambda js: pg.evaluate("(async()=>{const c=await import('/js/core.js');"+js+"})()")
+    J("c.commit(d=>{d.settings.mode='advanced'})")
+    pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_timeout(800)
+    # default: opens expense with a bar
+    pg.click('.fab'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300)
+    ok('default opens Expense bar', 'adding expense' in pg.inner_text('.typebar').lower())
+    ok('save button names type', pg.locator('#btns [data-e=save]', has_text='Save expense').count()==1)
+    pg.click('[data-e=kind][data-v=income]'); pg.wait_for_timeout(300)
+    ok('bar switches to Income', 'income' in pg.inner_text('.typebar').lower() and pg.locator('#btns [data-e=save]', has_text='Save income').count()==1)
+    CL(); pg.wait_for_timeout(300)
+    # settings: start income + labelled fab
+    J("c.commit(d=>{d.settings.addStart='income';d.settings.addFab='type'})"); pg.wait_for_timeout(500)
+    ok('fab labelled Income', 'Income' in pg.inner_text('.fab'))
+    CL()
+    pg.click('.fab'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300)
+    ok('opens as Income', 'adding income' in pg.inner_text('.typebar').lower())
+    CL(); pg.wait_for_timeout(300)
+    # ask each time
+    J("c.commit(d=>{d.settings.addStart='ask'})"); pg.wait_for_timeout(400)
+    pg.click('.fab'); pg.wait_for_selector('.askk'); ok('asks first (3 choices)', pg.locator('.askk').count()==3)
+    pg.click('.askk[data-kind=transfer]'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300)
+    ok('transfer chosen opens Transfer', 'transfer' in pg.inner_text('.typebar').lower())
+    CL(); pg.wait_for_timeout(300)
+    # banner off
+    J("c.commit(d=>{d.settings.addBanner=false;d.settings.addStart='expense'})"); pg.wait_for_timeout(300)
+    pg.click('.fab'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300); ok('banner can be turned off', pg.locator('.typebar').count()==0)
+    CL(); pg.wait_for_timeout(300)
+    # settings section exists
+    pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(800)
+    pg.evaluate("document.querySelectorAll('details').forEach(d=>d.open=true)")
+    t=pg.inner_text('#view'); ok('Add Button settings present', 'Add Button' in t and 'Ask me every time' in t)
+    ok('Investments setting present', 'Each platform' in t or 'which tab each platform' in t.lower())
+    pg.click('[data-act=inv-open][value=spot]'); pg.wait_for_timeout(300)
+    ok('invOpen saved', J("return c.get().settings.invOpen")=='spot' or pg.evaluate("(async()=>(await import('/js/core.js')).get().settings.invOpen)()")=='spot')
+    ok('no errors %s'%errs, not errs)
+    b.close()

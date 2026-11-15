@@ -1,4 +1,5 @@
 // The five screens: Home, Ledger, Review, Accounts, Reports, and Settings.
+import { addCfg, startKind, KIND_META, START_CHOICES } from './addset.js';
 import { button, textField } from './components.js';
 import { catIcon } from './caticons.js';
 import { softDelete, appMode, reimbKeep } from './core.js';
@@ -185,7 +186,11 @@ ACT.edit = (el) => { const t = get().txs.find((x) => x.id === el.dataset.id); if
 ACT.add = async () => {
   // on the Investments tab the + button asks which account and what kind of entry
   if ((location.hash.replace(/^#\/?/, '').split('?')[0]) === 'invest') { (await import('./invest.js')).invEntryMenu(); return; }
-  openEntry();
+  const db = get(), k = startKind(db);
+  if (k) { openEntry(k === 'expense' ? {} : { preset: { kind: k } }); return; }
+  // "Ask me every time": pick the type first, so the wrong window is never opened by accident
+  const sh = sheet(`<p class="hint">What are you adding?</p><div class="askkind">${Object.entries(KIND_META).map(([v, m]) => button({ html: `<b>${m.label}</b><small>${m.hint}</small>`, kind: 'plain', cls: `askk ${m.cls}`, attr: { 'data-kind': v } })).join('')}</div>`, { title: 'Add an Entry' });
+  sh.el.querySelectorAll('[data-kind]').forEach((b) => { b.onclick = () => { sh.close(); const v = b.dataset.kind; openEntry(v === 'expense' ? {} : { preset: { kind: v } }); }; });
 };
 ACT.bulk = () => openBulk();
 
@@ -774,6 +779,7 @@ export function settings(db) {
       ${Object.entries(typeNames).map(([k, l]) => `<div class="field inline"><input data-atype-label="${esc(k)}" value="${esc(l)}" aria-label="Name of ${esc(l)}"><small class="muted">${n(k)} account${n(k) === 1 ? '' : 's'}${custom[k] ? (custom[k].liab ? ' · liability' : ' · asset') : ''}</small>${custom[k] ? `${button({ label: 'Delete', kind: 'ghost', size: 'sm', act: 'atype-del', attr: { 'data-k': k } })}` : ''}</div>`).join('')}
       <div class="field"><span>New account type</span><div class="atyperow"><input id="atype-new" placeholder="e.g. Savings pot" data-noclear="1" aria-label="New account type name"><select id="atype-kind" aria-label="Asset or liability"><option value="asset">Asset (I have)</option><option value="liab">Liability (I owe)</option></select>${button({ label: 'Add', kind: 'primary', size: 'sm', act: 'atype-add' })}</div></div></section>`; })()}
     ${arrangeSection(db)}
+    ${addBtnSection(db)}
     <section><h2>Appearance</h2>
       <label class="check"><input type="checkbox" data-act="commas" ${localStorage.getItem('sukli.commas') === '0' ? '' : 'checked'}> Show thousands separators when typing (119,000)</label>
       <p class="hint">These are kept on this device only.</p>
@@ -1046,7 +1052,7 @@ ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
 
 // Settings, grouped by what they are for. Advanced items sit in their own folded group.
 const SET_GROUPS = [
-  ['look', 'Look and Feel', 'Simple or Advanced, tabs, Home cards, colours, text size', ['Mode', 'Tabs and Home Cards', 'Appearance', 'Display']],
+  ['look', 'Look and Feel', 'Simple or Advanced, tabs, Home cards, colours, text size', ['Mode', 'Tabs and Home Cards', 'Add Button', 'Investments', 'Appearance', 'Display']],
   ['money', 'Money and Alerts', 'Home currency, spending warnings', ['Currency', 'Spending Safety', 'Left Out of Cash Outflow']],
   ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Pictures', 'Account Types', 'Name Matching', 'Yearly Events']],
   ['data', 'Backup and Data', 'Undo, reminders, backups, export', ['Undo', 'Backup Reminder', 'Your Data', 'Google Backup (Optional)']],
@@ -1082,6 +1088,24 @@ export function tabIds(db) {
   const t = ((db.settings && db.settings.tabs) || []).filter((x, i, a) => TAB_DEFS[x] && a.indexOf(x) === i).slice(0, MAX_TABS);
   return t.length ? t : DEFAULT_TABS;
 }
+function addBtnSection(db) { const c = addCfg(db), opt = (id, v, l, cur) => `<label class="check"><input type="radio" name="${id}" data-act="${id}" value="${v}" ${cur === v ? 'checked' : ''}> ${l}</label>`;
+  return `<section id="addbtn"><h2>Add Button</h2>
+    <p class="hint">Choose which window the + button opens, and how clearly it tells you which one you are in, so income is not entered as an expense by accident.</p>
+    <h3>The + button opens</h3>${START_CHOICES.map(([v, l]) => opt('add-start', v, l, c.start)).join('')}
+    <h3>The + button looks like</h3>${opt('add-fab', 'plain', 'A plain +', c.fab)}${opt('add-fab', 'type', 'A + with the type written under it, in that type\'s colour (Expense, Income or Transfer)', c.fab)}
+    <h3>Inside the entry window</h3>
+    <label class="check"><input type="checkbox" data-act="add-banner" ${c.banner ? 'checked' : ''}> Show a coloured bar at the top: Expense (red), Income (green) or Transfer (purple)</label>
+    <label class="check"><input type="checkbox" data-act="add-savelabel" ${c.confirmSave ? 'checked' : ''}> Name the type on the Save button (Save expense, Save income...)</label>
+  </section>
+  <section id="invset"><h2>Investments</h2>
+    <p class="hint">Which tab each platform opens on when you come to Investments. Platforms with only one wallet have no tabs.</p>
+    ${[['overview', 'Overview (all wallets of the platform added together)'], ['spot', 'Spot'], ['last', 'The tab I used last']].map(([v, l]) => opt('inv-open', v, l, (db.settings || {}).invOpen || 'overview')).join('')}
+  </section>`; }
+ACT['add-start'] = (el) => commit((d) => { d.settings.addStart = el.value; });
+ACT['add-fab'] = (el) => commit((d) => { d.settings.addFab = el.value; });
+ACT['add-banner'] = (el) => commit((d) => { d.settings.addBanner = !!el.checked; });
+ACT['add-savelabel'] = (el) => commit((d) => { d.settings.addSaveLabel = !!el.checked; });
+ACT['inv-open'] = (el) => commit((d) => { d.settings.invOpen = el.value; });
 function arrangeSection(db) {
   const tb = tabIds(db), more = Object.keys(TAB_DEFS).filter((x) => !tb.includes(x)), lay = homeLayout(db);
   const mv = (kind, id, i, n) => `<span class="mv"><button type="button" class="btn sm ghost" data-act="arr-up" data-kind="${kind}" data-id="${id}" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="btn sm ghost" data-act="arr-down" data-kind="${kind}" data-id="${id}" aria-label="Move down" ${i === n - 1 ? 'disabled' : ''}>↓</button></span>`;
