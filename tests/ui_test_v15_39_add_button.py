@@ -13,27 +13,27 @@ with sync_playwright() as p:
     pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_timeout(800)
     # default: opens expense with a bar
     pg.click('.fab'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300)
-    ok('default opens Expense bar', 'adding expense' in pg.inner_text('.typebar').lower())
+    ok('labels have different colours', pg.evaluate("getComputedStyle(document.querySelector('#seg [data-v=income]')).color")!=pg.evaluate("getComputedStyle(document.querySelector('#seg [data-v=transfer]')).color")); ok('default opens Expense', pg.evaluate("document.querySelector('#seg [data-v=expense]').classList.contains('on')"))
     ok('save button names type', pg.locator('#btns [data-e=save]', has_text='Save expense').count()==1)
     pg.click('[data-e=kind][data-v=income]'); pg.wait_for_timeout(300)
-    ok('bar switches to Income', 'income' in pg.inner_text('.typebar').lower() and pg.locator('#btns [data-e=save]', has_text='Save income').count()==1)
+    ok('bar switches to Income', pg.evaluate("document.querySelector('#seg [data-v=income]').classList.contains('on')") and pg.locator('#btns [data-e=save]', has_text='Save income').count()==1)
     CL(); pg.wait_for_timeout(300)
     # settings: start income + labelled fab
     J("c.commit(d=>{d.settings.addStart='income';d.settings.addFab='type'})"); pg.wait_for_timeout(500)
     ok('fab labelled Income', 'Income' in pg.inner_text('.fab'))
     CL()
     pg.click('.fab'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300)
-    ok('opens as Income', 'adding income' in pg.inner_text('.typebar').lower())
+    ok('opens as Income', pg.evaluate("document.querySelector('#seg [data-v=income]').classList.contains('on')"))
     CL(); pg.wait_for_timeout(300)
     # ask each time
     J("c.commit(d=>{d.settings.addStart='ask'})"); pg.wait_for_timeout(400)
     pg.click('.fab'); pg.wait_for_selector('.askk'); ok('asks first (3 choices)', pg.locator('.askk').count()==3)
     pg.click('.askk[data-kind=transfer]'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300)
-    ok('transfer chosen opens Transfer', 'transfer' in pg.inner_text('.typebar').lower())
+    ok('transfer chosen opens Transfer', pg.evaluate("document.querySelector('#seg [data-v=transfer]').classList.contains('on')"))
     CL(); pg.wait_for_timeout(300)
     # banner off
     J("c.commit(d=>{d.settings.addBanner=false;d.settings.addStart='expense'})"); pg.wait_for_timeout(300)
-    pg.click('.fab'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300); ok('banner can be turned off', pg.locator('.typebar').count()==0)
+    pg.click('.fab'); pg.wait_for_selector('#entry'); pg.wait_for_timeout(300); ok('colour can be turned off', not pg.evaluate("document.querySelector('#seg [data-v=expense]').classList.contains('kcol')"))
     CL(); pg.wait_for_timeout(300)
     # settings section exists
     pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(800)

@@ -1094,7 +1094,7 @@ function addBtnSection(db) { const c = addCfg(db), opt = (id, v, l, cur) => `<la
     <h3>The + button opens</h3>${START_CHOICES.map(([v, l]) => opt('add-start', v, l, c.start)).join('')}
     <h3>The + button looks like</h3>${opt('add-fab', 'plain', 'A plain +', c.fab)}${opt('add-fab', 'type', 'A + with the type written under it, in that type\'s colour (Expense, Income or Transfer)', c.fab)}
     <h3>Inside the entry window</h3>
-    <label class="check"><input type="checkbox" data-act="add-banner" ${c.banner ? 'checked' : ''}> Show a coloured bar at the top: Expense (red), Income (green) or Transfer (purple)</label>
+    <label class="check"><input type="checkbox" data-act="add-banner" ${c.banner ? 'checked' : ''}> Colour the Expense, Income and Transfer labels in the entry window: red, green and blue</label>
     <label class="check"><input type="checkbox" data-act="add-savelabel" ${c.confirmSave ? 'checked' : ''}> Name the type on the Save button (Save expense, Save income...)</label>
   </section>
   <section id="ratecmp"><h2>Compare Rates</h2>

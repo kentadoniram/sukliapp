@@ -257,15 +257,15 @@ export function openEntry(opts = {}) {
     s2.el.querySelector('[data-no]').onclick = () => s2.close();
     s2.el.addEventListener('click', (e) => { const b = e.target.closest('[data-x]'); if (b) { s2.close(); onPick(b.dataset.x); } });
   }
-  function renderSeg() { setTimeout(() => { if ($f('btns')) renderBtns(); }, 0);
+  function renderSeg() {
+    const cfg = addCfg(get()), kc = cfg.banner ? ' kcol' : '';   // the Expense / Income / Transfer labels carry the type colour (red / green / blue)
+    setTimeout(() => { if ($f('btns')) renderBtns(); }, 0);
     const dOn = f.flow === 'pay' || f.flow === 'borrow', lOn = f.flow === 'lend' || f.flow === 'back', on3 = (v) => (v === 'transfer' ? f.kind === 'transfer' && !f.flow : f.kind === v);
-    const b3 = [['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${on3(v) ? 'on' : ''}`, e: 'kind', pressed: on3(v), attr: { 'data-v': v } })}`).join('') + (/^#\/invest/.test(location.hash) || (existing && existing.internal) ? `${button({ label: 'Internal', kind: 'plain', cls: 'segint', e: 'internal', pressed: false, title: 'Move a coin between wallets of the same platform (Spot, Earn, Futures…)' })}` : '');   /* Internal Transfer only lives in the Investment tab */
+    const b3 = [['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${on3(v) ? 'on' : ''}${kc} k-${v}`, e: 'kind', pressed: on3(v), attr: { 'data-v': v } })}`).join('') + (/^#\/invest/.test(location.hash) || (existing && existing.internal) ? `${button({ label: 'Internal', kind: 'plain', cls: 'segint', e: 'internal', pressed: false, title: 'Move a coin between wallets of the same platform (Spot, Earn, Futures…)' })}` : '');   /* Internal Transfer only lives in the Investment tab */
     const big = (v, l, sub, on) => `${button({ html: `<b>${l}</b><small>${sub}</small>`, kind: 'plain', cls: `${on ? 'on' : ''}`, e: 'kind', pressed: on, attr: { 'data-v': v } })}`;
     const sub = (items) => `<div class="chips segsub" role="group">${items.map(([v, l]) => `${button({ html: `${l}`, kind: 'chip', cls: `${f.flow === v ? 'on' : ''}`, e: 'flow', pressed: f.flow === v, attr: { 'data-v': v } })}`).join('')}</div>`;
     const note = f.kind === 'transfer' && !f.flow ? SEGNOTE.transfer : dOn ? SEGNOTE.debt : lOn ? SEGNOTE.lent : '';
-    const cfg = addCfg(get()), ky = f.kind === 'transfer' && !f.flow ? 'transfer' : f.debt ? '' : f.kind, km = KIND_META[ky]; s.el.dataset.ty = cfg.banner && km ? ky : '';
-    const bar = cfg.banner && km ? `<div class="typebar ${km.cls}" role="status" aria-live="polite"><b>${existing ? 'Editing' : 'Adding'} ${km.label.toLowerCase()}</b><span>${km.hint}</span></div>` : '';
-    $f('seg').innerHTML = bar + `<div class="seg ${/^#\/invest/.test(location.hash) || (existing && existing.internal) ? 'four' : 'three'}">${b3}</div><div class="seg two segloan">${big('debt', 'Debt', 'Pay or borrow', dOn)}${big('lent', 'Lent', 'Lend or get paid back', lOn)}</div>${dOn ? sub([['pay', 'I paid a debt'], ['borrow', 'I borrowed money']]) : lOn ? sub([['lend', 'I lent money'], ['back', 'They paid me back']]) : ''}${note ? `<p class="segnote">${note}</p>` : ''}`;
+    $f('seg').innerHTML = `<div class="seg ${/^#\/invest/.test(location.hash) || (existing && existing.internal) ? 'four' : 'three'}">${b3}</div><div class="seg two segloan">${big('debt', 'Debt', 'Pay or borrow', dOn)}${big('lent', 'Lent', 'Lend or get paid back', lOn)}</div>${dOn ? sub([['pay', 'I paid a debt'], ['borrow', 'I borrowed money']]) : lOn ? sub([['lend', 'I lent money'], ['back', 'They paid me back']]) : ''}${note ? `<p class="segnote">${note}</p>` : ''}`;
     $f('namelabel').textContent = f.kind === 'transfer' ? (f.debt ? 'Note (optional)' : 'Label (optional, remembers the route)') : f.kind === 'income' ? 'Where from?' : 'What was it?';
     $f('f-what').placeholder = f.kind === 'transfer' ? (f.debt ? FLOWS[f.flow].ph : 'e.g. Card payment, Top up Maya') : f.kind === 'income' ? 'e.g. Salary, Bonus, Refund, . . .' : 'e.g. Grab, Matcha, Cheesecake, . . .';
   }
@@ -804,7 +804,7 @@ export function openEntry(opts = {}) {
     const paid = existing && existing.reimb && existing.reimb.st === 'paid', cos = companiesOf(get());
     el.innerHTML = `<div class="reimbbox">${button({ label: 'Reimbursable', kind: 'toggle', on: !!f.reimbOn, e: 'reimb' })}
       ${f.reimbOn ? `${textField({ label: 'Who pays you back?', id: 'f-reimbco', value: f.reimbCo, placeholder: `e.g. ${cos[0] || 'My Company'}`, attr: { 'list': 'reimbcos' } })}<datalist id="reimbcos">${cos.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
-      <small class="muted">${paid ? 'The company already paid this back.' : 'Not counted as your spending while you wait. It is kept in Reimbursement. This is not Owed to You, which is for people.'}</small>` : '<small class="muted">Work travel, meals or supplies that your company will repay.</small>'}</div>`;
+      <small class="muted">${paid ? 'The company already paid this back.' : 'Not counted as your spending while you wait. It is kept in Reimbursement. This is not Owed to You, which is for people.'}</small>` : ''}</div>`;
   }
   function renderTrip() {
     tripShown = tripCat();

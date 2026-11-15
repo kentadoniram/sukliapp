@@ -1,4 +1,4 @@
-// Settings for the + (Add) button and the entry form's type banner (v15.39)
+// Settings for the + (Add) button and the entry form's coloured type labels (v15.39)
 export const KIND_META = {
   expense: { label: 'Expense', hint: 'Money going out', cls: 'k-expense' },
   income: { label: 'Income', hint: 'Money coming in', cls: 'k-income' },

@@ -1549,7 +1549,7 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .btnrow.earnacts{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;overflow:visible}.btnrow.earnacts>*{flex:0 0 auto;min-width:0;white-space:nowrap}.btnrow.earnacts .switch{margin-left:2px}
 
 /* Reimbursable */
-.reimbbox{display:grid;gap:8px;margin:4px 0}.reimbbox .field{margin:0}.wsreimb{margin:8px 0 12px;padding:10px 12px;border:1px solid var(--rule);border-radius:14px;background:var(--sheet)}
+.reimbbox{display:grid;gap:8px;margin:0}.reimbbox .field{margin:0}.wsreimb{margin:8px 0 12px;padding:10px 12px;border:1px solid var(--rule);border-radius:14px;background:var(--sheet)}
 .rbrow{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--rule)}.rbrow:first-child{border-top:0}.rbl{display:flex;gap:10px;align-items:flex-start;min-width:0}.rbt{display:grid;min-width:0}.rbt b{overflow-wrap:anywhere}.rbamt{text-align:right}.rbrow.done{grid-template-columns:1fr auto;opacity:.8}
 
 /* Touch targets for the Android wrap and phones: at least 44px tall for anything you tap (guideline is 48dp; 44px keeps the look) */
@@ -1613,29 +1613,46 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .rows.plain > .row .rmain{gap:0;line-height:1.25}.rows.plain > .row .rmain small{margin:0;line-height:1.25}
 
 .pill.reimbpill{background:var(--line);margin-left:6px}.pill.reimbpill.paid{background:var(--ink2)}
-.ovrow{border-top:1px solid var(--line)}.ovrow:first-child{border-top:0}
+
 .ovname{display:inline-flex;flex-direction:column;text-align:left;min-width:0}
 .ovhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .pk-gh{display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px;padding:10px 4px;margin-top:6px;background:none;border:0;border-bottom:1px solid var(--line);font:inherit;font-weight:700;color:var(--ink);text-align:left;cursor:pointer}
 .pk-list .rows[hidden]{display:none}
 /* v15.39: type colours for the + button and the entry window */
-:root{--k-expense:#B5412F;--k-income:#16774E;--k-transfer:#7B5BD8;--k-ink:#FFFFFF}
-:root[data-theme="dark"]{--k-expense:#F2877F;--k-income:#4CC38A;--k-transfer:#A78BFA;--k-ink:#0E141A}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--k-expense:#F2877F;--k-income:#4CC38A;--k-transfer:#A78BFA;--k-ink:#0E141A}}
+:root{--k-expense:#B5412F;--k-income:#16774E;--k-transfer:#2F6FD0;--k-ink:#FFFFFF}
+:root[data-theme="dark"]{--k-expense:#F2877F;--k-income:#4CC38A;--k-transfer:#7AB0EE;--k-ink:#0E141A}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--k-expense:#F2877F;--k-income:#4CC38A;--k-transfer:#7AB0EE;--k-ink:#0E141A}}
 .k-expense{--kc:var(--k-expense)}.k-income{--kc:var(--k-income)}.k-transfer{--kc:var(--k-transfer)}
 .tabs .fab.fabk{background:var(--kc);color:var(--k-ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:0}
 .tabs .fab.fabk .ic{width:20px;height:20px}
 .tabs .fab.fabk small{font-size:9px;font-weight:800;line-height:1;letter-spacing:.2px;margin-top:1px}
-.typebar{display:flex;flex-direction:column;gap:1px;padding:9px 12px;margin:0 0 10px;border-radius:10px;background:var(--kc);color:var(--k-ink)}
-.typebar b{font-size:15px;letter-spacing:.2px;text-transform:uppercase}.typebar span{font-size:12px;opacity:.92}
-.sheet[data-ty=expense]{border-top:4px solid var(--k-expense)}.sheet[data-ty=income]{border-top:4px solid var(--k-income)}.sheet[data-ty=transfer]{border-top:4px solid var(--k-transfer)}
 .askkind{display:grid;gap:8px}.askk{display:flex!important;flex-direction:column;align-items:flex-start;text-align:left;padding:12px 14px;border-left:6px solid var(--kc)!important}.askk small{color:var(--ink2)}
 
 /* v15.40: "When was it?" Cancel / Set use the same floating round buttons as Save in the entry window */
 #dp .btnrow{position:sticky;bottom:0;z-index:5;margin:6px 0 0;background:transparent;border-top:0;box-shadow:none;pointer-events:none;justify-content:flex-end;gap:8px;padding:6px 0 calc(8px + env(safe-area-inset-bottom,0px))}
 #dp .btnrow .btn{pointer-events:auto;border-radius:999px;width:auto;flex:0 0 auto;min-height:42px;padding:0 20px;box-shadow:0 4px 14px rgba(0,0,0,.28)}
 #dp .btnrow .btn.ghost{background:var(--sheet)}
-.reimbbox{margin:12px 0;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--tint)}
-.reimbbox h4{margin:0 0 6px;display:flex;align-items:center;gap:8px}
-.reimbbox .calfacts{margin:0}
-.reimbbox .pill{margin:0}
+.reimbview{margin:12px 0;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--tint)}
+.reimbview h4{margin:0 0 6px;display:flex;align-items:center;gap:8px}
+.reimbview .calfacts{margin:0}
+.reimbview .pill{margin:0}
+/* v15.41: holdings inside a platform wallet tab: badge | details | amount, all kept inside the card; the detail line wraps instead of being cut */
+.rows.plain > .row.hold, .row.acct.hold{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:10px;width:100%;box-sizing:border-box;max-width:100%;overflow:hidden;text-align:left}
+.hold .rmain{min-width:0}
+.hold .rmain strong{flex-wrap:wrap;overflow-wrap:anywhere}
+.hold .rmain small{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.35}
+.hold .ramt{min-width:0;max-width:100%;text-align:right;overflow-wrap:anywhere;word-break:break-word;white-space:normal}
+.hold .ramt b{display:block}
+.row.hold .rmain small, .rows.plain > .row.hold .rmain small{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere}
+/* Overview of a platform: flat list, no cards, no divider or coloured bar */
+.invpage .ovrow .coll, .ovrow .coll{border:0!important;border-left:0!important;background:transparent;box-shadow:none;padding:4px 0;margin:0}
+.invpage .ivplat .ovrow .coll > .collrow .collhead h2, .ovrow .collhead h2{color:var(--ink);display:flex;align-items:center;gap:10px;width:100%;margin:0}
+.ovrow .ovname{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;text-align:left}
+.ovrow .ovname small{white-space:normal;overflow-wrap:anywhere}
+.ovrow .gsum2{flex:0 0 auto;text-align:right;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end}
+.ovrow .collbody .rows.plain{margin:0 0 6px 38px}
+.ovpart .ramt, .ovpart .ramt b{white-space:nowrap!important;word-break:normal!important;overflow-wrap:normal!important}
+.ovrow .collbody .rows.plain{margin-left:30px}
+.seg button.kcol{font-weight:700}
+.seg button.kcol.k-expense,.seg button.kcol.k-income,.seg button.kcol.k-transfer{color:var(--kc)}
+.seg button.kcol.on.k-expense,.seg button.kcol.on.k-income,.seg button.kcol.on.k-transfer{background:var(--kc);border-color:var(--kc);color:var(--k-ink)}
