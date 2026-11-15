@@ -53,7 +53,7 @@ import { safeToSpend } from './safe.js';
 import './inputlog.js';
 import { budgetBanner } from './budgetsetup.js';
 import { versionText } from './version.js';
-import { rollingSummary, rollingAvg, dailySpend, today as todayStr } from './rolling.js';
+import { rollingSummary, rollingAvg, dailySpend, dailyAverages, today as todayStr } from './rolling.js';
 import { buildGraph, clusters, neighbourhood, matches, explain, edgeText } from './simgraph.js';
 
 export const ui = { month: thisMonth(), tag: '', q: '', filter: 'all', acct: '', from: '', to: '', cat: '', daysOff: new Set(), limit: 120, selecting: false, sel: new Set(), by: 'group', collapsed: (() => { try { return JSON.parse(localStorage.getItem('sukli-coll') || '{}'); } catch { return {}; } })() };
@@ -222,11 +222,13 @@ function weekBars(db) {
   const full = (d, i) => (i === 6 ? 'Today' : i === 5 ? 'Yesterday' : new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }));
   // a long amount is shortened (12.3k) so neighbouring labels never touch
   const amt = (v) => (v < 10 ? money(v) : compact(v));
+  const av = dailyAverages(db, todayStr()), cell = (l, v, sub) => `<div class="wkacell"><small>${l}</small><b>${money(v)}</b>${sub ? `<small class="muted">${sub}</small>` : ''}</div>`;
+  const avgs = av.days ? `<div class="wkavg" role="group" aria-label="Average spent per day">${cell('Last 7 days', av.d7, 'per day')}${cell('Last 30 days', av.d30, 'per day')}${cell('Overall', av.all, `per day · ${av.days} ${av.days === 1 ? 'day' : 'days'}`)}</div>` : '';
   let body;
   if (!total) body = '<p class="empty">Nothing yet.</p>';
   else if (mode === 'v') body = `<div class="wkv" role="img" aria-label="Spending for each of the last 7 days">${dates.map((d, i) => `<div class="wc ${i === 6 ? 'now' : ''}" data-tip="${esc(full(d, i) + ': ' + (vals[i] ? money(vals[i]) : 'nothing spent'))}"><span class="wa ${vals[i] ? '' : 'muted'}" ${cl(i) ? `style="color:${cl(i)}"` : ''}>${vals[i] ? esc(amt(vals[i])) : ''}</span><span class="wb"><i style="height:${vals[i] > 0 ? Math.max(3, Math.round(vals[i] / top * 100)) : 0}%${cl(i) ? `;background:${cl(i)}` : ''}"></i></span><span class="wl">${esc(day(d, i))}</span></div>`).join('')}</div>`;
   else body = dates.map((d, i) => `<div class="wk ${i === 6 ? 'now' : ''}"><span class="wd">${esc(full(d, i))}</span><span class="wtrack"><i style="width:${vals[i] > 0 ? Math.max(2, Math.round(vals[i] / top * 100)) : 0}%${cl(i) ? `;background:${cl(i)}` : ''}"></i></span><b class="wv ${vals[i] ? '' : 'muted'}" ${cl(i) ? `style="color:${cl(i)}"` : ''}>${vals[i] ? esc(money(vals[i])) : '–'}</b></div>`).join('');
-  return `<section class="week" aria-label="Spending in the last 7 days"><div class="weekhead"><h3 class="subh">Spent Each Day, Last 7 Days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3></div>${body}</section>`;
+  return `<section class="week" aria-label="Spending in the last 7 days"><div class="weekhead"><h3 class="subh">Spent Each Day, Last 7 Days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3></div>${body}${avgs}</section>`;
 }
 // the cards on Home, in the order you chose in Settings. [id, name, heavy: drawn a moment later so the numbers above appear at once]
 export const HOME_SECTIONS = [

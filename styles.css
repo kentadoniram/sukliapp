@@ -1667,3 +1667,46 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .hold2 .hr2 b{font-weight:700}
 .hold2 .hhome{color:var(--ink2);font-weight:400}
 .hold2 .cg{color:var(--in);font-weight:600}.hold2 .cr{color:var(--bad);font-weight:600}
+/* v15.45: average per day under "Spent each day" */
+.wkavg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.wkacell{display:flex;flex-direction:column;gap:1px;min-width:0;text-align:left}
+.wkacell small{font-size:calc(11px * var(--fs, 1));overflow-wrap:anywhere}.wkacell b{font-size:calc(15px * var(--fs, 1));overflow-wrap:anywhere}
+/* Per-Token Performance: both columns shrink and wrap inside the card, so long amounts are never cut */
+.row.tokrow{grid-template-columns:minmax(0,1fr) minmax(0,auto)}
+.tokrow .rmain,.tokrow .ramt{min-width:0}
+.tokrow .rmain small,.tokrow .rmain strong{overflow-wrap:anywhere;white-space:normal}
+.tokrow .ramt{white-space:normal;max-width:48vw;overflow-wrap:anywhere}
+.tokrow .ramt small,.tokrow .ramt b{white-space:normal;overflow-wrap:anywhere;display:block}
+/* v15.45: quantity in "Split into items": same box as the other fields, compact, no blue outline */
+.items .item .qty{grid-template-columns:30px minmax(30px,1fr) 30px;gap:2px;min-height:44px;height:44px;padding:0 6px;border:1px solid var(--rule);border-radius:10px;background:var(--sheet);box-shadow:none;outline:0}
+.items .item .qty:focus-within{border-color:var(--ink2);outline:0;box-shadow:none}
+.items .item .qty button{width:30px;height:30px;max-height:30px;min-width:0;min-height:0;padding:0;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--line) 18%,var(--sheet));color:var(--ink);font-size:1.05rem}
+.items .item .qty button:active{background:var(--line);color:var(--sheet)}
+.items .item .qty .in-q,.items .item .qty .in-q:focus{outline:0!important;box-shadow:none!important;border:0!important;min-height:0;height:100%;background:transparent;padding:0;border-radius:0}
+/* v15.45: the asset / account picker as a folding tree */
+.pk-node{margin:0}
+.pk-node.pkd1,.pk-node.pkd2{margin-left:14px;border-left:2px solid var(--rule);padding-left:8px}
+.pk-gh{align-items:center}
+.pk-gh .pkgl{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-width:0;gap:0}
+.pk-gh .pkgl b{overflow-wrap:anywhere}
+.pk-gh .pkcap{font-size:calc(10px * var(--fs, 1));font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--ink2)}
+.pk-gh .pkmeta{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto}
+.pkh0{font-size:calc(16px * var(--fs, 1));padding:12px 4px;margin-top:8px;border-bottom:2px solid var(--line)}
+.pkh1{font-size:calc(15px * var(--fs, 1))}.pkh2{font-size:calc(14px * var(--fs, 1))}
+.pkdot{width:8px;height:8px;border-radius:50%;background:var(--in);display:inline-block}
+.pk-kids[hidden]{display:none}
+.pk-opt.pkd1,.pk-opt.pkd2,.pk-opt.pkd3{margin-left:14px}
+.pk-opt .rmain small{white-space:normal;overflow-wrap:anywhere}
+.tokrows{min-width:0;max-width:100%}
+.row.tokrow{width:100%;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden}
+.tokrow .ramt{max-width:100%}
+.tokrow .rmain small.tokavg{display:block}
+.row.tokrow{grid-template-columns:minmax(0,1fr) auto}
+.tokrow .ramt,.tokrow .ramt small,.tokrow .ramt b{overflow-wrap:break-word;word-break:normal;text-align:right}
+.tokrow .ramt{max-width:58%}
+.tokrow .rmain small{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:break-word}
+.ovrow .ovname small,.hold2 .hr1,.hold2 .hl1 strong{overflow-wrap:break-word}
+.tokrow .ramt{max-width:none;white-space:nowrap}
+.tokrow .ramt b,.tokrow .ramt small{white-space:nowrap;overflow-wrap:normal}
+.rows.plain > .row.tokrow,.rows.tokrows > .row.tokrow{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;align-items:start}
+.tokrow .rmain{min-width:0;overflow:hidden}

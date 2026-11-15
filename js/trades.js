@@ -1,6 +1,7 @@
 // Buy / sell / convert for crypto, stocks and other investments. Recorded as a movement between your cash account and the holding,
 // marked as a trade (not ordinary spending), with fees saved as a financial loss and gains or losses worked out by average cost.
-import { accLabel, isEarnAcct, get, commit, uid, stamp, nowStamp, rateFor, homeFx, walletOf, fmt, HOME, balances, findOrAddCategory, softDelete, exactAmt } from './core.js';
+import { typeNames } from './accpage.js';
+import { accLabel, assetName, isEarnAcct, get, commit, uid, stamp, nowStamp, rateFor, homeFx, walletOf, fmt, HOME, balances, findOrAddCategory, softDelete, exactAmt } from './core.js';
 import { seg, button } from './components.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
@@ -24,13 +25,23 @@ export function openTrade(pre = {}) {
   const hold = live(db.accounts).filter((a) => inInvest(a) && !isLiability(a) && !isEarnAcct(a)), cash = live(db.accounts).filter((a) => !isLiability(a) && !isEarnAcct(a));
   if (!hold.length) { toast('Add a coin or an investment first (Investments, Add).'); return; }
   const lastCash = cash.find((a) => a.id === db.settings.lastAcct && !inInvest(a)) || cash.find((a) => !inInvest(a)) || cash[0];
-  const opt = (l, sel) => l.map((a) => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(accLabel(a))} · ${esc(a.cur)}</option>`).join('');
+  const LEVELS = { Cryptocurrency: ['', 'Platform', 'Trading account'], 'Stocks and funds': ['', 'Platform'], 'Traditional accounts': ['', 'Currency', 'Category'] };
+  const SEPR = ' › ', bals = balances(db), isCoin = (a) => a.type === 'crypto';
+  // every choice sits in a path: Cryptocurrency > platform > trading account, or Traditional accounts > currency > category. The picker folds each level.
+  const pathOf = (a) => (inInvest(a) ? [isCoin(a) ? 'Cryptocurrency' : 'Stocks and funds', exchangeOf(a) || 'No platform', ...(isCoin(a) ? [walletOf(a) || 'Spot'] : [])] : ['Traditional accounts', a.cur, typeNames[a.type] || 'Other']).join(SEPR);
+  const WALLETS = ['Spot', 'Margin', 'Futures', 'Options', 'Earn'], rankW = (w) => { const i = WALLETS.indexOf(w); return i < 0 ? 99 : i; };
+  const treeOpts = (l, sel, p) => { const sorted = l.slice().sort((x, y) => { const cx = inInvest(x) ? 0 : 1, cy = inInvest(y) ? 0 : 1; if (cx !== cy) return cx - cy;
+      if (cx === 0) { const px = (exchangeOf(x) || '') === p ? 0 : 1, py = (exchangeOf(y) || '') === p ? 0 : 1; if (px !== py) return px - py; return (exchangeOf(x) || '').localeCompare(exchangeOf(y) || '') || rankW(walletOf(x)) - rankW(walletOf(y)) || x.cur.localeCompare(y.cur); }
+      return (x.cur === HOME ? 0 : 1) - (y.cur === HOME ? 0 : 1) || x.cur.localeCompare(y.cur) || (typeNames[x.type] || '').localeCompare(typeNames[y.type] || '') || (x.name || '').localeCompare(y.name || ''); });
+    const by = new Map(); for (const a of sorted) { const k = pathOf(a); if (!by.has(k)) by.set(k, []); by.get(k).push(a); }
+    return [...by.entries()].map(([k, items]) => `<optgroup label="${esc(k)}">${items.map((a) => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''} data-leaf="${esc(inInvest(a) && isCoin(a) ? a.cur : a.name || a.cur)}" data-sub="${esc(`${inInvest(a) && isCoin(a) ? `${assetName(a) !== a.cur ? assetName(a) + ' · ' : ''}` : ''}${fmt(bals.get(a.id) || 0, a.cur)}`)}">${esc(accLabel(a))} · ${esc(a.cur)}</option>`).join('')}</optgroup>`).join(''); };
+  const opt = (l, sel) => treeOpts(l, sel, '');
   // platform first: the holding and the money side are listed for that platform, other platforms stay one tap away
   const plats = [...new Set(hold.map((a) => exchangeOf(a)).filter(Boolean))].sort((x, y) => x.localeCompare(y));
   const preA = hold.find((a) => a.id === pre.asset), plat0 = pre.platform != null ? pre.platform : preA ? exchangeOf(preA) : (db.settings.lastPlat && plats.includes(db.settings.lastPlat) ? db.settings.lastPlat : plats[0] || '');
   const platOpt = (sel) => [...plats, ''].map((p) => `<option value="${esc(p)}" ${p === sel ? 'selected' : ''}>${esc(p || 'No platform / other')}</option>`).join('');
   const holdFor = (p) => hold.filter((a) => (exchangeOf(a) || '') === p);
-  const grp = (l, p, sel) => { const on = l.filter((a) => p && exchangeOf(a) === p), off = l.filter((a) => !(p && exchangeOf(a) === p)); return (on.length ? `<optgroup label="On ${esc(p)}">${opt(on, sel)}</optgroup>` : '') + (off.length ? `<optgroup label="${on.length ? 'Other platforms and accounts' : 'Accounts'}">${opt(off, sel)}</optgroup>` : ''); };
+  const grp = (l, p, sel) => treeOpts(l, sel, p);
   const s = sheet(`<form id="tr" novalidate>
     <div class="seg two3" role="group" aria-label="Kind">${[['buy', 'Buy'], ['sell', 'Sell'], ['convert', 'Convert']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${(pre.side || 'buy') === v ? 'on' : ''}`, attr: { 'data-side': v } })}`).join('')}</div>
     <label class="field"><span>Platform</span><select name="plat">${platOpt(plat0)}</select></label>
@@ -57,17 +68,16 @@ export function openTrade(pre = {}) {
     const pref = keep && pool.some((x) => x.id === keep) ? keep : (pool.find((x) => p && exchangeOf(x) === p && x.cur === 'USDT' && walletOf(x) === 'Spot') || pool.find((x) => p && exchangeOf(x) === p && x.cur === 'USDT') || pool.find((x) => p && exchangeOf(x) === p && x.cur === q) || pool.find((x) => p && exchangeOf(x) === p && inInvest(x) && /USD|JPY|PHP|EUR|KRW/.test(x.cur)) || lastCash || pool[0] || {}).id;
     f.cash.innerHTML = grp(pool, p, pref); if (pref) f.cash.value = pref; };
   const fillFeeAcct = () => { const p = f.plat.value, keep = f.feeAcct.value, pool = [...cash.filter((x) => inInvest(x) && exchangeOf(x) === p), ...cash.filter((x) => !(inInvest(x) && exchangeOf(x) === p))]; f.feeAcct.innerHTML = grp(pool, p, keep || (pool[0] || {}).id); if (keep && pool.some((x) => x.id === keep)) f.feeAcct.value = keep; feeAcctPlat = p; };
-  const moreCoins = () => { const p = f.plat.value; if (!p) return ''; const have = new Set(holdFor(p).map((x) => x.cur)); return `<optgroup label="More Coins (Top 50)">${TOP_TOKENS.filter((t) => !have.has(t.c)).map((t) => `<option value="tok:${t.c}">${t.c} · ${esc(t.n)}</option>`).join('')}</optgroup>`; };
+  const moreCoins = () => { const p = f.plat.value; if (!p) return ''; const have = new Set(holdFor(p).map((x) => x.cur)); return `<optgroup label="Cryptocurrency${SEPR}${esc(p)}${SEPR}More coins (Top 50)">${TOP_TOKENS.filter((t) => !have.has(t.c)).map((t) => `<option value="tok:${t.c}" data-leaf="${t.c}" data-sub="${esc(t.n)}">${t.c} · ${esc(t.n)}</option>`).join('')}</optgroup>`; };
   // the asset list shows every platform as its own group (the one you are on is open, the others fold); picking an asset from another platform switches the platform
-  const fillAsset = (sel) => { const cp = f.plat.value, ps = [cp, ...plats.filter((x) => x !== cp), ...(plats.includes('') ? [] : [''])].filter((x, i, l) => l.indexOf(x) === i);
-    const grpOf = (p) => { const l = holdFor(p); return l.length ? `<optgroup label="${esc(p || 'No platform / other')}">${opt(l, sel)}</optgroup>` : ''; };
-    f.asset.innerHTML = ps.map(grpOf).join('') + moreCoins(); const all = hold.some((x) => x.id === sel); if (sel && all) f.asset.value = sel; else if (holdFor(cp)[0]) f.asset.value = holdFor(cp)[0].id;
+  const fillAsset = (sel) => { const cp = f.plat.value;
+    f.asset.innerHTML = treeOpts(hold, sel, cp) + moreCoins(); const all = hold.some((x) => x.id === sel); if (sel && all) f.asset.value = sel; else if (holdFor(cp)[0]) f.asset.value = holdFor(cp)[0].id;
     const other = hold.filter((x) => x.id !== f.asset.value); f.asset2.innerHTML = grp(other.length ? other : hold, f.plat.value, other[0] && other[0].id); };
   fillAsset(pre.asset); fillCash(pre.cashAcct || '');
   enhanceSelect(f.plat, { title: 'Platform', onAdd: () => { s.close(); addAsset({ onDone: (id) => openTrade({ ...pre, asset: id, side: pre.side }) }); }, addLabel: 'Add a new platform (adds its first asset)' });
-  enhanceSelect(f.asset, { title: 'Asset', collapse: true, onAdd: () => { const p = f.plat.value; s.close(); addAsset({ platform: p, onDone: (id) => openTrade({ ...pre, asset: id, side: pre.side }) }); }, addLabel: 'Entry: add a new asset' });
-  enhanceSelect(f.cash, { title: 'Account', onAdd: () => { s.close(); import('./accpage.js').then((m) => m.openAccount(null, { exchange: f.plat.value })); }, addLabel: 'Add a new account' });
-  enhanceSelect(f.asset2, { title: 'Convert Into' });
+  enhanceSelect(f.asset, { title: 'Asset', tree: true, levels: LEVELS, onAdd: () => { const p = f.plat.value; s.close(); addAsset({ platform: p, onDone: (id) => openTrade({ ...pre, asset: id, side: pre.side }) }); }, addLabel: 'Entry: add a new asset' });
+  enhanceSelect(f.cash, { title: 'Account', tree: true, levels: LEVELS, onAdd: () => { s.close(); import('./accpage.js').then((m) => m.openAccount(null, { exchange: f.plat.value })); }, addLabel: 'Add a new account' });
+  enhanceSelect(f.asset2, { title: 'Convert Into', tree: true, levels: LEVELS });
   f.plat.addEventListener('change', () => { fillAsset(); fillCash(); sync(''); });
   f.asset.addEventListener('change', () => {
     if (String(f.asset.value).startsWith('tok:')) { const c = f.asset.value.slice(4), p = f.plat.value; const a = ensureAsset(p, c, 'Spot'); s.close(); openTrade({ ...pre, asset: a && a.id, side }); return; }   // the coin's (empty) balance is made here the first time

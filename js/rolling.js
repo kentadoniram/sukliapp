@@ -44,3 +44,12 @@ export function rollingSummary(db, endStr = today(), { days = 365, w = 7 } = {})
     enough: series.length >= 30,
   };
 }
+
+// average spent per calendar day over the last 7 days, the last 30 days, and everything recorded (first entry to today).
+// Days with nothing spent count as zero, so each average is the total divided by the number of days in the span.
+export function dailyAverages(db, endStr) {
+  const first = (db.txs || []).filter((t) => !t.deleted && t.date).map((t) => t.date.slice(0, 10)).sort()[0];
+  const span = (n) => { const { vals } = dailySpend(db, endStr, n); return vals.reduce((a, b) => a + b, 0); };
+  const days = first && first <= endStr ? Math.round((new Date(endStr + 'T12:00:00') - new Date(first + 'T12:00:00')) / 86400000) + 1 : 0;
+  return { d7: span(7) / 7, d30: span(30) / 30, all: days ? span(days) / days : 0, days };
+}
