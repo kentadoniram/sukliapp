@@ -1711,3 +1711,31 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .rows.plain > .row.tokrow,.rows.tokrows > .row.tokrow{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;align-items:start}
 .tokrow .rmain{min-width:0;overflow:hidden}
 .typerow{display:flex;align-items:center;justify-content:space-between;gap:8px}.typerow .check{flex:1 1 auto;min-width:0}
+
+/* v15.48 account type chips: Selected (filled, tick) and Not selected (dashed, muted) */
+.typechips{gap:8px;margin:6px 0 10px}.tchipw{display:inline-flex;align-items:center;gap:2px}
+.chip.tchip{min-height:34px;padding:0 12px;gap:6px;font-weight:600}
+.chip.tchip .tmark{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;font-size:calc(11px*var(--fs,1));line-height:1;background:rgba(255,255,255,.28)}
+.chip.tchip.on{background:var(--line);color:var(--line-ink);border-color:var(--line)}
+.chip.tchip.off{background:transparent;color:var(--ink2);border:1px dashed var(--rule);font-weight:500}
+.chip.tchip.off .tmark{background:var(--rule);color:var(--ink2)}
+.chip.tchip small{opacity:.8;font-weight:500}
+.tlegend{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:calc(12px*var(--fs,1));color:var(--ink2);margin:0 0 8px}
+.chip.tchip.sample{min-height:26px;padding:0 9px;cursor:default;font-size:calc(12px*var(--fs,1))}
+.tchipx{padding:0 6px}
+
+/* v15.48 platform icons (rounded squares, so they never look like a coin or a category circle) */
+.pbadge{display:inline-grid;place-items:center;flex:none;border-radius:9px;color:white;vertical-align:middle;margin-right:8px;font-style:normal;overflow:hidden}
+.pbadge.sm{width:28px;height:28px}.pbadge.xs{width:22px;height:22px;border-radius:7px}
+.pbadge svg{width:68%;height:68%;display:block}.pbadge.pimg{background:white;border:1px solid var(--rule)}.pbadge.pimg img{width:100%;height:100%;object-fit:contain;display:block}
+/* v15.48 Buy/Sell/Convert tree, laid out like the account list in a new entry: plain section headings, same account rows */
+.pk-node.pkd1,.pk-node.pkd2{margin-left:0;border-left:0;padding-left:0}
+.pk-gh{border-bottom:0;margin-top:2px}
+.pkh0{font-size:calc(15px * var(--fs, 1));padding:10px 4px 6px;margin-top:10px;border-bottom:1px solid var(--rule);letter-spacing:.2px}
+.pkh1,.pkh2{font-size:calc(14.5px * var(--fs, 1));font-weight:650;padding:8px 8px;margin-top:2px;border-radius:10px;background:var(--bg2,rgba(127,127,127,.08))}
+.pkh2{margin-left:10px;width:calc(100% - 10px);font-weight:600}
+.pk-gh .pkgl{flex-direction:row;align-items:center;gap:0}
+.pk-kids .rows.plain{margin:2px 0 4px}
+.pk-node.pkd1 > .pk-kids{margin-left:6px}.pk-node.pkd2 > .pk-kids{margin-left:16px}
+.pk-opt.pkd1,.pk-opt.pkd2,.pk-opt.pkd3{margin-left:0}
+.platicon{display:flex;align-items:center;gap:10px;margin:0 0 10px}.platicon .linkbtn{cursor:pointer}

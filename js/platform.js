@@ -7,6 +7,7 @@ import { exchangeOf, inInvest, typeHidden } from './invest.js';
 import { tzOf, tzName } from './earn.js';
 import { accountTypesOf, addAccountType, removeAccountType } from './tokens.js';
 import { promptDialog } from './ui.js';
+import { platIcon, customIcon } from './platicons.js';
 
 export function openPlatform(ex) {
   const s = sheet('<div id="pset" class="platset"></div>', { title: ex, wide: true }), root = s.el.querySelector('#pset');
@@ -16,11 +17,13 @@ export function openPlatform(ex) {
     const total = accts.reduce((t, a) => t + val(a), 0), off = tzOf(db, { exchange: ex });
     const wallets = [...new Set(accts.map(walletOf))], earn = accts.filter((a) => walletOf(a) === 'Earn');
     root.innerHTML = `
+      <div class="platicon">${platIcon(ex, 'sm')}<span class="muted">${customIcon(ex) ? 'Your own logo' : 'Sukli symbol'}</span><label class="linkbtn">Upload logo<input type="file" accept="image/*" hidden data-p="logo"></label>${customIcon(ex) ? button({ label: 'Use symbol', kind: 'link', attr: { 'data-p': 'logo-reset' } }) : ''}</div>
       <p class="hint"><b>${esc(ex)}</b> › Accounts (${esc(wallets.join(', ') || 'none yet')}) › Assets · ${accts.length} asset balance${accts.length === 1 ? '' : 's'} · about <b>${esc(fmt(total, HOME))}</b>. Every coin of the top 50 can be used in any account here without adding it first.</p>
       <h3>Account Types</h3>
-      <p class="hint">Tick the account types to show in the Investments tab. An unticked type is hidden there, with its entries and balances kept, and you can tick it again at any time.</p>
-      <div class="hidelist">${accountTypesOf(db, ex).map((w) => { const n = accts.filter((a) => walletOf(a) === w).length, off = hiddenTypes(db, ex).includes(w), mine = ((db.settings.acctTypes || {})[Object.keys(db.settings.acctTypes || {}).find((x) => x.toLowerCase() === ex.toLowerCase())] || []).includes(w) && !n;
-        return `<div class="typerow"><label class="check"><input type="checkbox" data-p="showtype" data-v="${esc(w)}" ${off ? '' : 'checked'}> <span>${esc(w)} <small class="muted">${n ? `${n} account${n === 1 ? '' : 's'}` : 'none yet'}</small></span></label>${mine ? button({ label: '✕', kind: 'link', aria: `Remove ${w}`, attr: { 'data-p': 'deltype', 'data-v': w } }) : ''}</div>`; }).join('')}</div>
+      <p class="hint">Tap a type to choose whether it shows in the Investments tab. <b>Selected</b> types are shown there. <b>Not selected</b> types are hidden, with their entries and balances kept. You can change this at any time.</p>
+      <div class="chips typechips">${accountTypesOf(db, ex).map((w) => { const n = accts.filter((a) => walletOf(a) === w).length, off = hiddenTypes(db, ex).includes(w), mine = ((db.settings.acctTypes || {})[Object.keys(db.settings.acctTypes || {}).find((x) => x.toLowerCase() === ex.toLowerCase())] || []).includes(w) && !n;
+        return `<span class="tchipw">${button({ html: `<b class="tmark" aria-hidden="true">${off ? '–' : '✓'}</b>${esc(w)}${n ? ` <small>${n}</small>` : ''}`, kind: 'chip', cls: `tchip ${off ? 'off' : 'on'}`, pressed: !off, aria: `${w}: ${off ? 'Not selected, hidden from Investments' : 'Selected, shown in Investments'}. Tap to change.`, attr: { 'data-p': 'showtype', 'data-v': w } })}${mine ? button({ label: '✕', kind: 'link', cls: 'tchipx', aria: `Remove ${w}`, attr: { 'data-p': 'deltype', 'data-v': w } }) : ''}</span>`; }).join('')}</div>
+      <p class="tlegend"><span class="tchip on sample"><b class="tmark">✓</b>Selected</span> shown in Investments &nbsp; <span class="tchip off sample"><b class="tmark">–</b>Not selected</span> hidden</p>
       <div class="chips">${button({ label: '+ Add Account Type', kind: 'chip', attr: { 'data-p': 'addtype' } })}</div>
       <p class="hint">Exchanges add new products from time to time. Add the name here (for example Copy Trading) and it appears in From, To and when adding assets for ${esc(ex)}.</p>
       <h3>Actions</h3>
@@ -36,11 +39,15 @@ export function openPlatform(ex) {
       <div class="btnrow">${button({ label: 'Done', kind: 'primary', cls: 'primary', attr: { 'data-p': 'done' } })}</div>`;
   };
   draw();
-  root.addEventListener('change', (e) => { if (e.target.dataset.p === 'hide') { const id = e.target.dataset.id, on = e.target.checked; commit((d) => { const a = d.accounts.find((x) => x.id === id); if (a) { if (on) a.invHidden = true; else delete a.invHidden; stamp(a); } }); toast(on ? 'Hidden from Investments.' : 'Shown in Investments again.'); return; }
-    if (e.target.dataset.p === 'showtype') { const w = e.target.dataset.v, on = e.target.checked; commit((d) => { const m = (d.settings.invHiddenTypes = d.settings.invHiddenTypes || {}), l = new Set(m[ex] || []); if (on) l.delete(w); else l.add(w); if (l.size) m[ex] = [...l]; else delete m[ex]; }); toast(on ? `${w} is shown in Investments.` : `${w} is hidden from Investments.`); draw(); return; }
+  root.addEventListener('change', (e) => { if (e.target.dataset.p === 'logo') { const f = e.target.files && e.target.files[0]; if (!f) return; const img = new Image(), url = URL.createObjectURL(f);
+      img.onload = () => { const c = document.createElement('canvas'), k = Math.min(1, 96 / Math.max(img.width, img.height)); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k)); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        commit((d) => { (d.settings.platformIcons = d.settings.platformIcons || {})[ex] = c.toDataURL('image/png'); }); toast(`Logo saved for ${ex}.`); draw(); document.dispatchEvent(new Event('sukli-render')); };
+      img.onerror = () => toast('That file could not be read as an image.'); img.src = url; return; } if (e.target.dataset.p === 'hide') { const id = e.target.dataset.id, on = e.target.checked; commit((d) => { const a = d.accounts.find((x) => x.id === id); if (a) { if (on) a.invHidden = true; else delete a.invHidden; stamp(a); } }); toast(on ? 'Hidden from Investments.' : 'Shown in Investments again.'); return; }
     if (e.target.dataset.p !== 'tz') return; commit((d) => { (d.settings.platformTz = d.settings.platformTz || {})[ex] = +e.target.value; }); toast(`Timezone of ${ex} saved.`); draw(); });
   root.addEventListener('click', async (e) => {
     if (e.target.closest('[data-p=done]')) { s.close(); return; }
+    if (e.target.closest('[data-p=logo-reset]')) { commit((d) => { if (d.settings.platformIcons) delete d.settings.platformIcons[ex]; }); toast('Using the Sukli symbol again.'); draw(); return; }
+    const st = e.target.closest('[data-p=showtype]'); if (st) { const w = st.dataset.v, on = st.getAttribute('aria-pressed') !== 'true'; commit((d) => { const m = (d.settings.invHiddenTypes = d.settings.invHiddenTypes || {}), l = new Set(m[ex] || []); if (on) l.delete(w); else l.add(w); if (l.size) m[ex] = [...l]; else delete m[ex]; }); toast(on ? `${w} is shown in Investments.` : `${w} is hidden from Investments.`); draw(); return; }
     if (e.target.closest('[data-p=addtype]')) { const v = await promptDialog('New account type', '', { okLabel: 'Add', hint: `A product name on ${ex}, for example Copy Trading, Launchpool or Margin (Isolated).` }); if (v && addAccountType(ex, v)) { toast(`${v.trim()} added to ${ex}.`); draw(); } return; }
     const dt = e.target.closest('[data-p=deltype]'); if (dt) { removeAccountType(ex, dt.dataset.v); draw(); } });
 }
@@ -58,9 +65,9 @@ ACT['inv-hidden'] = () => {
   const s = sheet('<div id="hl"></div>', { title: 'Hidden Accounts' }), root = s.el.querySelector('#hl');
   const draw = () => { const db = get(), bal = balances(db), l = db.accounts.filter((a) => !a.deleted && !a.archived && inInvest(a) && a.invHidden);
     const ht = Object.entries((db.settings.invHiddenTypes) || {}).flatMap(([ex, ws]) => ws.map((w) => [ex, w]));
-    root.innerHTML = `${ht.length ? `<h3>Hidden Account Types</h3><p class="hint">Tick a type to show it in Investments again.</p><div class="hidelist">${ht.map(([ex, w]) => `<label class="check"><input type="checkbox" data-hx="${esc(ex)}" data-w="${esc(w)}"> <span>${esc(ex)} · ${esc(w)}</span></label>`).join('')}</div>` : ''}${l.length ? `<h3>Hidden Accounts</h3><p class="hint">Untick an account to show it in Investments again. Nothing is deleted.</p><div class="hidelist">${l.map((a) => `<label class="check"><input type="checkbox" data-id="${a.id}" checked> <span>${esc(exchangeOf(a))} · ${esc(a.cur)} <small class="muted">${esc(walletOf(a))}${(bal.get(a.id) || 0) ? ' · ' + esc(fmt(bal.get(a.id) || 0, a.cur)) : ''}</small></span></label>`).join('')}</div>` : (ht.length ? '' : '<p class="empty">No hidden accounts.</p>')}
+    root.innerHTML = `${ht.length ? `<h3>Hidden Account Types</h3><p class="hint">These types are Not selected. Tap one to show it in Investments again.</p><div class="chips typechips">${ht.map(([ex, w]) => button({ html: `<b class="tmark" aria-hidden="true">–</b>${esc(ex)} · ${esc(w)}`, kind: 'chip', cls: 'tchip off', pressed: false, attr: { 'data-hx': ex, 'data-w': w } })).join('')}</div>` : ''}${l.length ? `<h3>Hidden Accounts</h3><p class="hint">Untick an account to show it in Investments again. Nothing is deleted.</p><div class="hidelist">${l.map((a) => `<label class="check"><input type="checkbox" data-id="${a.id}" checked> <span>${esc(exchangeOf(a))} · ${esc(a.cur)} <small class="muted">${esc(walletOf(a))}${(bal.get(a.id) || 0) ? ' · ' + esc(fmt(bal.get(a.id) || 0, a.cur)) : ''}</small></span></label>`).join('')}</div>` : (ht.length ? '' : '<p class="empty">No hidden accounts.</p>')}
       <div class="btnrow">${button({ label: 'Done', kind: 'primary', attr: { 'data-done': true } })}</div>`; };
   draw();
-  root.addEventListener('change', (e) => { if (e.target.dataset.hx) { const ex = e.target.dataset.hx, w = e.target.dataset.w; commit((d) => { const m = d.settings.invHiddenTypes || {}; m[ex] = (m[ex] || []).filter((x) => x !== w); if (!m[ex].length) delete m[ex]; }); toast(`${w} is shown in Investments.`); draw(); return; } const id = e.target.dataset.id; if (!id) return; commit((d) => { const a = d.accounts.find((x) => x.id === id); if (a) { if (e.target.checked) a.invHidden = true; else delete a.invHidden; stamp(a); } }); toast('Saved.'); });
-  root.addEventListener('click', (e) => { if (e.target.closest('[data-done]')) s.close(); });
+  root.addEventListener('change', (e) => { const id = e.target.dataset.id; if (!id) return; commit((d) => { const a = d.accounts.find((x) => x.id === id); if (a) { if (e.target.checked) a.invHidden = true; else delete a.invHidden; stamp(a); } }); toast('Saved.'); });
+  root.addEventListener('click', (e) => { const hc = e.target.closest('[data-hx]'); if (hc) { const ex = hc.dataset.hx, w = hc.dataset.w; commit((d) => { const m = d.settings.invHiddenTypes || {}; m[ex] = (m[ex] || []).filter((x) => x !== w); if (!m[ex].length) delete m[ex]; }); toast(`${w} is shown in Investments.`); draw(); return; } if (e.target.closest('[data-done]')) s.close(); });
 };

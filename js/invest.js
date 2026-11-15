@@ -1,6 +1,7 @@
 // Investments tab: crypto grouped by exchange (every coin is its own balance with its own market value), plus investments and
 // other financial products such as MP2. First rough version: valuation and structure; buy/sell comes next.
 import { hiddenInvLink } from './platform.js';
+import { platIcon } from './platicons.js';
 import { inMarketTab, marketBar } from './market.js';
 import { isCoin, coinIcon, flagOf, assetIcon } from './curpicker.js';
 import { enhanceSelect, pickAll, pickerList } from './picker.js';
@@ -271,7 +272,7 @@ export function investments(db) {
       <span class="hl1"><strong>${nm}</strong></span><span class="hr1">${esc(qty(b, a.cur))}</span>
       <span class="hl2">${pnl}</span><span class="hr2">${ok ? `<b>${money(v)}</b>${home}` : '<small class="muted">no price</small>'}</span>`, kind: 'plain', cls: 'row acct hold hold2', act: 'acct', attr: { 'data-id': a.id } }); };
   const exHtml = [...byEx.entries()].sort((x, y) => mode === 'risk' ? (((RISK_GROUPS.indexOf(x[0]) + 1) || 99) - ((RISK_GROUPS.indexOf(y[0]) + 1) || 99)) || x[0].localeCompare(y[0]) : exSum(y[1]) - exSum(x[1])).map(([ex, list]) => {
-    const t = exSum(list); return `<div class="ivplat" style="--pc:${platColor(ex)}">` + coll('ix-' + ex, `<span class="exname" ${ex === 'Wallets and other' ? '' : `data-act="plat-open" data-ex="${esc(ex)}" role="button" title="Settings for the whole exchange"`}>${esc(ex)}</span> <span class="gsum2"><b>${money(t)}</b>${altOf(db, t) ? ` <small class="muted">≈ ${altOf(db, t)}</small>` : ''}</span>`,
+    const t = exSum(list); return `<div class="ivplat" style="--pc:${platColor(ex)}">` + coll('ix-' + ex, `<span class="exname" ${ex === 'Wallets and other' ? '' : `data-act="plat-open" data-ex="${esc(ex)}" role="button" title="Settings for the whole exchange"`}>${platIcon(ex, 'xs')}${esc(ex)}</span> <span class="gsum2"><b>${money(t)}</b>${altOf(db, t) ? ` <small class="muted">≈ ${altOf(db, t)}</small>` : ''}</span>`,
       `${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="platbar">${button({ label: 'Platform Settings', kind: 'link', act: 'plat-open', data: 'ex', v: ex, aria: `Settings for the platform ${ex}` })}</div>` : ''}${list.length ? walletBlocks(list, t) : `<p class="hint">${cryptoAll.some((a) => (exchangeOf(a) || 'Wallets and other') === ex) ? 'Nothing with a balance here. Empty assets are hidden.' : 'No assets here yet.'}</p>`}
        ${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="btnrow left oneline">${(() => { const B = (label, act, aria, o = {}) => button({ label, kind: o.kind || 'ghost', size: 'sm', act, data: 'ex', v: ex, aria, cls: o.cls || '' }), on = PICKED[ex] || [], earnOnly = on.length === 1 && on[0] === 'Earn';
         return earnOnly ? B('Transfer In/Out', 'inv-internal', `Transfer in or out of Earn on ${ex}`, { kind: 'primary' }) : B('Record', 'inv-add', `Record activity on ${ex}`, { kind: 'primary', cls: 'iv-rec' }) + B('Internal', 'inv-internal', `Internal transfer between wallets on ${ex}`); })()}</div>` : ''}`, '') + '</div>'; }).join('');

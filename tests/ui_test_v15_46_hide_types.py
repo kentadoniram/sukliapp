@@ -13,11 +13,11 @@ with sync_playwright() as p:
     tabs=lambda: pg.evaluate("(()=>{const b=document.querySelector('.wsw');return b?[...b.querySelectorAll('[data-w]')].map(x=>x.dataset.w):[]})()")
     ok('Margin and Futures tabs are there to start', 'Margin' in tabs() and 'Futures' in tabs())
     pg.evaluate("document.querySelector('[data-act=plat-open][data-ex=Binance]').click()"); pg.wait_for_selector('#pset'); pg.wait_for_timeout(300)
-    ok('Edit Platform has a tick box for each account type', all(pg.locator('#pset [data-p=showtype][data-v=%s]'%w).count()==1 for w in ['Spot','Margin','Futures','Options','Earn']))
-    ok('all ticked by default', pg.evaluate("[...document.querySelectorAll('#pset [data-p=showtype]')].every(i=>i.checked)"))
+    ok('Edit Platform has a chip for each account type', all(pg.locator('#pset [data-p=showtype][data-v=%s]'%w).count()==1 for w in ['Spot','Margin','Futures','Options','Earn']))
+    ok('all Selected by default', pg.evaluate("[...document.querySelectorAll('#pset [data-p=showtype]')].every(i=>i.getAttribute('aria-pressed')==='true'&&i.classList.contains('on'))"))
     pg.click('#pset [data-p=showtype][data-v=Margin]'); pg.wait_for_timeout(300)
     pg.click('#pset [data-p=showtype][data-v=Futures]'); pg.wait_for_timeout(300)
-    ok('unticked state kept in the sheet', pg.evaluate("!document.querySelector('#pset [data-p=showtype][data-v=Margin]').checked && !document.querySelector('#pset [data-p=showtype][data-v=Futures]').checked && document.querySelector('#pset [data-p=showtype][data-v=Spot]').checked"))
+    ok('Not selected state kept in the sheet', pg.evaluate("document.querySelector('#pset [data-p=showtype][data-v=Margin]').classList.contains('off') && document.querySelector('#pset [data-p=showtype][data-v=Futures]').classList.contains('off') && document.querySelector('#pset [data-p=showtype][data-v=Spot]').classList.contains('on')"))
     pg.click('#pset [data-p=done]'); pg.wait_for_timeout(500)
     t=tabs(); print(t); ok('Margin and Futures are gone from the Binance tab bar', 'Margin' not in t and 'Futures' not in t)
     ok('their accounts are kept in the system', J("return c.get().accounts.filter(a=>!a.deleted&&['b2','b3'].includes(a.id)).length")==2 or pg.evaluate("(async()=>(await import('/js/core.js')).get().accounts.filter(a=>!a.deleted&&['b2','b3'].includes(a.id)).length)()")==2)
@@ -25,7 +25,7 @@ with sync_playwright() as p:
     ok('a link brings hidden accounts back', 'idden' in pg.inner_text('#view'))
     # change at any time: tick again
     pg.evaluate("document.querySelector('[data-act=plat-open][data-ex=Binance]').click()"); pg.wait_for_selector('#pset'); pg.wait_for_timeout(300)
-    ok('Margin still unticked when reopened', pg.evaluate("!document.querySelector('#pset [data-p=showtype][data-v=Margin]').checked"))
+    ok('Margin still unticked when reopened', pg.evaluate("document.querySelector('#pset [data-p=showtype][data-v=Margin]').classList.contains('off')"))
     pg.click('#pset [data-p=showtype][data-v=Margin]'); pg.wait_for_timeout(300); pg.click('#pset [data-p=done]'); pg.wait_for_timeout(500)
     t=tabs(); ok('Margin back, Futures still hidden', 'Margin' in t and 'Futures' not in t)
     # recover from the hidden-accounts sheet

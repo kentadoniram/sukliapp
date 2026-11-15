@@ -8,7 +8,7 @@ with sync_playwright() as p:
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900)
     H=3600000
-    pg.evaluate("""(async()=>{const c=await import('/js/core.js'),e=await import('/js/earn.js');const now=Date.now(),H=3600e3;window.__now=now;
+    pg.evaluate("""(async()=>{const c=await import('/js/core.js'),e=await import('/js/earn.js');const now=Date.UTC(2026,10,15,12,30,0),H=3600e3;   /* fixed clock: the result must not depend on the hour of the day */window.__now=now;
       c.commit(d=>{
         const A=(id,w,open,extra)=>d.accounts.push(c.stamp({id,name:'Zeta '+w,wallet:w,cur:'USDT',type:'crypto',assetType:'crypto',exchange:'Zeta',open,include:false,archived:false,invtab:true,...extra}));
         A('sp','Spot',2000);A('er','Earn',0,{earn:{on:true,apy:8.76,payTo:'spot',lastHour:e.floorHour(now-100*H),trackFrom:now-100*H,lastSlot:now}});
@@ -42,7 +42,7 @@ with sync_playwright() as p:
     ok('unsubscribed before the first payout: no earnings and no leftover entries %s'%a3, a3['sum']==0 and a3['txSum']==0)
     # delete the unsubscribe: it keeps earning to now
     pg.evaluate("""(async()=>{const c=await import('/js/core.js'),e=await import('/js/earn.js');c.commit(d=>{const x=d.txs.find(y=>y.id==='unsubA');x.deleted=true;c.stamp(x);e.runEarn(d,window.__now);});})()""")
-    a4=ev('er'); ok('delete the unsubscribe: earns up to now %s'%a4, a4['n']>a3['n'] and abs(a4['txSum']-a4['sum'])<1e-6 and not a4['dups'])
+    a4=ev('er'); ok('delete the unsubscribe: earns up to now %s'%a4, a4['n']>=71 and abs(a4['txSum']-a4['sum'])<1e-6 and not a4['dups'])
     # move the subscribe 10 hours later: first hours drop
     setdate('subA',10); a5=ev('er')
     ok('subscribe 10 hours later: 10 fewer hours', a5['n']==a4['n']-10 and abs(a5['txSum']-a5['sum'])<1e-6)
