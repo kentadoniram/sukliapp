@@ -9,7 +9,8 @@ import {
   compact, monthLabel, shiftMonth, thisMonth, dayLabel, rateFor, reviewCount, groupColor, groupLetter, adjustmentCategory, nowStamp,
   replaceAll, emptyDb, live, monthParts, priv, flush, factorFor,
 } from './core.js';
-import { pace, insights, trend, totals, baselineMonths, groupTrend } from './insights.js';
+import { pace, trend, totals, baselineMonths, groupTrend } from './insights.js';
+import { worthInsights, noteShown, dismiss } from './worth.js';
 import { importBluecoins, previewImport, exportCSV, SPENDABLE_TYPES } from './importer.js';
 import { exportSukliCSV } from './sukliCsv.js';
 import { predict } from './predict.js';
@@ -237,6 +238,18 @@ export const HOME_SECTIONS = [
   ['loss', 'Money lost to fees and interest', false], ['six', 'Last 6 months', false], ['trip', 'Latest trip or event', true], ['latest', 'Latest entries', false],
 ];
 // cards that analyse your spending (trends, pace, forecasts, fee losses): Simple mode keeps them off Home; Advanced shows them unless you turn them off
+// Worth Knowing: a few findings, each with what was noticed, the evidence, why it matters and what could be done. Cards fold open.
+const KIND = { fact: ['Counted', 'Counted straight from your entries.'], estimate: ['Estimate', 'Counted from your entries, then reasoned from. It can be off.'], projection: ['Projection', 'Looks forward and assumes things stay as they are. It can be wrong.'] };
+function worthCard(db) {
+  const r = worthInsights(db);
+  if (!r.items.length) return r.enough || !db.txs.some((t) => !t.deleted) ? '' : coll('h-ins', 'Worth Knowing', `<p class="hint">Worth Knowing starts after about three whole months of entries (${r.months} so far). Until then it says nothing rather than guess.</p>`);
+  const today = nowStamp().slice(0, 10), sigs = r.items.map((x) => x.sig);
+  setTimeout(() => { try { commitQuiet((d) => { d.settings.worthLog = d.settings.worthLog || {}; noteShown(d.settings.worthLog, r.items, today); }); } catch { /* history is a convenience */ } }, 0);
+  return coll('h-ins', 'Worth Knowing', `<ul class="ins worth">${r.items.map((x) => `<li class="${x.tone}"><details><summary><span class="wkbadge" title="${esc(KIND[x.kind][1])}">${KIND[x.kind][0]}</span><strong>${esc(x.title)}</strong></summary>
+    <div class="wkbody"><h4>What the numbers show</h4><ul>${x.evidence.map((e) => `<li>${esc(e)}</li>`).join('')}</ul><h4>Why it matters</h4><p>${esc(x.matters)}</p>${x.action ? `<h4>What you could do</h4><p>${esc(x.action)}</p>` : ''}
+    <div class="btnrow left">${button({ label: 'Got it, do not repeat this', kind: 'link', act: 'worth-dismiss', data: 'sig', v: x.sig })}</div></div></details></li>`).join('')}</ul>`);
+}
+ACT['worth-dismiss'] = (el) => { const sig = el.dataset.sig; commit((d) => { d.settings.worthLog = d.settings.worthLog || {}; dismiss(d.settings.worthLog, sig, nowStamp().slice(0, 10)); }); toast('Okay. Sukli will not repeat that one.'); };
 export const SIMPLE_HIDDEN = ['insights', 'unusual', 'pace', 'projpie', 'rolling', 'usual', 'outlook', 'loss', 'six', 'trip'];
 export function homeLayout(db) {
   const L = (db.settings && db.settings.homeLayout) || {}, ids = HOME_SECTIONS.map((x) => x[0]);
@@ -261,7 +274,7 @@ function homeSection(id, c) {
       return `<section class="spendable"><div><span>Spendable now</span><b>${money(sp.total)}</b></div><div class="curs">${chips || '<span class="muted">No balances yet</span>'}</div>
       ${sp.missing.length ? `<p class="hint">Not counted: ${sp.missing.join(', ')} (set a rate in Settings).</p>` : ''}${(() => { if (appMode() === 'simple') return ''; const sf = safeToSpend(db); return sf.committed > 0.5 ? `${button({ html: `<span>Safe to spend<small> after ${money(sf.committed)} already owed</small></span><b>${money(sf.safe)}</b>`, kind: 'plain', cls: 'safeto', act: 'safe-info' })}` : ''; })()}</section>`; }
     case 'alerts': { const n = reviewCount(db); return `${reminderBanner(db)}${goalBanner(db)}${budgetBanner(db)}${n ? `<a class="banner" href="#/review"><strong>${n} ${n === 1 ? 'entry needs' : 'entries need'} a quick check</strong><span>Confirm the guessed categories</span>${ic('right')}</a>` : ''}`; }
-    case 'insights': { const ins = insights(db, ui.month); return ins.length ? coll('h-ins', 'Worth Knowing', `<ul class="ins">${ins.map((x) => `<li class="${x.tone}">${x.id ? `${button({ label: x.text, kind: 'plain', cls: 'insb', act: 'edit', attr: { 'data-id': x.id } })}` : esc(x.text)}</li>`).join('')}</ul>`) : ''; }
+    case 'insights': return worthCard(db);
     case 'usual': return usualCard(db);
     case 'unusual': return unusualCard(db);
     case 'trip': return latestTripCard(db);
