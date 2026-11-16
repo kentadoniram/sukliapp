@@ -16,7 +16,8 @@ export const SIZES = [['xs', 'Extra small', 0.8], ['s', 'Small', 0.9], ['m', 'Me
 let simpleNow = false;
 // "Match the mode": calm teal in Simple, blue in Advanced (a colour you pick yourself always wins)
 export const setLookMode = (simple) => { if (simple !== simpleNow) { simpleNow = simple; applyLook(); } };
-const DEFAULT = { accent: 'auto', theme: 'auto', size: 's', pcase: 'upper' };
+const DEFAULT = { accent: 'auto', theme: 'auto', size: 's', pcase: 'upper', design: 'theme1' };
+export const DESIGNS = [['theme1', 'Theme 1'], ['legacy', 'Legacy Theme']];
 
 export function look() {
   try { return { ...DEFAULT, ...(JSON.parse(localStorage.getItem(KEY) || '{}')) }; } catch { return { ...DEFAULT }; }
@@ -33,11 +34,12 @@ export function applyLook() {
   if (v.theme === 'auto') root.removeAttribute('data-theme'); else root.dataset.theme = v.theme;
   const key = v.accent === 'auto' ? (simpleNow ? 'teal' : 'blue') : v.accent, a = (ACCENTS[key] || ACCENTS.blue)[dark ? 'd' : 'l'];
   root.style.setProperty('--line', a[0]); root.style.setProperty('--tint', a[1]); root.style.setProperty('--line-ink', a[2]);
+  root.dataset.design = v.design === 'legacy' ? 'legacy' : 'theme1';
   root.dataset.pcase = ['upper', 'title', 'lower'].includes(v.pcase) ? v.pcase : 'upper';
   const sz = SIZES.find((s) => s[0] === v.size) || SIZES[1];
   root.style.setProperty('--fs', String(sz[2]));
   const mt = document.querySelector('meta[name="theme-color"]');
-  if (mt) mt.setAttribute('content', dark ? '#0E141A' : '#F3F5F2');
+  if (mt) mt.setAttribute('content', dark ? '#0E141A' : v.design === 'legacy' ? '#F3F5F2' : '#FFFFFF');
 }
 try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (look().theme === 'auto') applyLook(); }); } catch { /* old browser */ }
 

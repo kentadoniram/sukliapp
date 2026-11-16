@@ -60,7 +60,7 @@ with sync_playwright() as p:
     ok('calendar color classes', pg.locator('.cal-d i.o').count()>0 and pg.locator('.cal-d i.b').count()>0)
     # 6 flows
     pg.goto('http://localhost:8123/index.html#/home'); pg.wait_for_selector('.strip')
-    st=pg.inner_text('.strip'); ok('strip labels renamed', all(w in st for w in ['Cash inflow','Cash outflow','Net income']) and 'Went out' not in st)
+    st=pg.inner_text('.strip'); ok('strip labels renamed', all(w in st for w in ['Income','Expense','Net income']) and 'Went out' not in st)
     for k in ['inflow','outflow','net']:
         pg.click(f'.strip [data-k={k}]'); pg.wait_for_selector('#fd'); ok('flow detail opens: '+k, len(pg.inner_text('#fd'))>20)
         if k=='outflow': pg.screenshot(path=S+'v4-flow-out.png')

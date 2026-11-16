@@ -36,7 +36,7 @@ import { yearlyCard, yearlySection } from './yearly.js';
 import { quickCard } from './quick.js';
 import { openBulkEdit } from './bulkedit.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
-import { applyHide, look, setLook, ACCENTS, SIZES, setLookMode } from './appearance.js';
+import { applyHide, look, setLook, ACCENTS, SIZES, DESIGNS, setLookMode } from './appearance.js';
 export { setLookMode };
 import { lossCard } from './loans.js';
 import { reimbCard } from './reimburse.js';
@@ -107,6 +107,15 @@ export function strip(st) {
     <button data-act="flow" data-k="inflow"><span>Cash inflow</span><b class="in">${fmt(st.income, HOME, { round: true })}</b></button>
     <button data-act="flow" data-k="outflow"><span>Cash outflow</span><b>${fmt(st.spent, HOME, { round: true })}</b></button>
     <button data-act="flow" data-k="net"><span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${fmt(net, HOME, { round: true })}</b></button></section>`;
+}
+
+// Theme 1 Home card: net income large on the left, income (arrow down = money in) and expense (arrow up = money out) below, on a soft blue card-like gradient
+export function summaryCard(st) {
+  const net = st.income - st.spent, m = (v) => fmt(v, HOME, { round: true });
+  const row = (k, arrow, label, v, cls) => button({ html: `<i class="sc-arr ${cls}" aria-hidden="true">${arrow}</i><span>${label}</span><b>${m(v)}</b>`, kind: 'plain', cls: 'sc-row', act: 'flow', attr: { 'data-k': k } });
+  return `<section class="strip sumcard" aria-label="Month totals">
+    ${button({ html: `<span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${m(net)}</b>`, kind: 'plain', cls: 'sc-net', act: 'flow', attr: { 'data-k': 'net' } })}
+    <div class="sc-rows">${row('inflow', '↓', 'Income', st.income, 'dn')}${row('outflow', '↑', 'Expense', st.spent, 'up')}</div></section>`;
 }
 
 function spendable(db) {
@@ -205,10 +214,15 @@ export function home(db) {
   const st = monthStats(db, ui.month);
   const lay = homeLayout(db);
   const off = appMode(db) === 'simple' ? [...lay.hidden, ...SIMPLE_HIDDEN] : lay.hidden;
-  const body = lay.order.filter((id) => !off.includes(id)).map((id) => { const sec = HOME_SECTIONS.find((x) => x[0] === id); if (!sec) return ''; return sec[2] ? `<div class="defer" data-defer="${id}" aria-busy="true"></div>` : homeSection(id, { db }); }).join('');
+  const mk = (id) => { const sec = HOME_SECTIONS.find((x) => x[0] === id); if (!sec) return ''; return sec[2] ? `<div class="defer" data-defer="${id}" aria-busy="true"></div>` : homeSection(id, { db }); };
+  const shown = lay.order.filter((id) => !off.includes(id)), t1 = look().design !== 'legacy', calm = t1 && appMode(db) === 'simple';
+  // Theme 1 + Simple mode: only the four things most people open the app for; everything else waits behind one "More" fold
+  const CORE = ['alerts', 'spendable', 'went', 'latest'], rest = calm ? shown.filter((id) => !CORE.includes(id)) : [];
+  const body = (calm ? shown.filter((id) => CORE.includes(id)) : shown).map(mk).join('');
+  const more = calm ? `<details class="homemore"><summary>More on Home${rest.length ? ` <small>${rest.length + 1}</small>` : ''}</summary>${weekBars(db)}${rest.map(mk).join('')}</details>` : '';
   const firstEntry = !db.txs.some((t) => !t.deleted) ? `<section class="nextstep"><b>Next step: write down your first spending.</b> ${tipBtn('firstentry')}</section>` : '';
   return `${monthNav()}
-    ${firstEntry}${strip(st)}${homeTitles(weekBars(db) + body)}`;
+    ${firstEntry}${t1 ? summaryCard(st) : strip(st)}${homeTitles(calm ? body + more : weekBars(db) + body)}`;
 }
 // what was spent on each of the last 7 days: plain HTML (not SVG) so the day, the bar and the amount never overlap and the text stays readable.
 // Horizontal or vertical is a device choice; the data and the numbers are the same in both.
@@ -799,7 +813,8 @@ export function settings(db) {
     <section><h2>Appearance</h2>
       <label class="check"><input type="checkbox" data-act="commas" ${localStorage.getItem('sukli.commas') === '0' ? '' : 'checked'}> Show thousands separators when typing (119,000)</label>
       <p class="hint">These are kept on this device only.</p>
-      <div class="field"><span>Theme</span>${segBtns('look', 'theme', [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']], lk.theme)}</div>
+      <div class="field"><span>Design</span>${segBtns('look', 'design', DESIGNS, lk.design === 'legacy' ? 'legacy' : 'theme1')}<small class="hint">Theme 1 has a white background, a blue summary card on Home, and a shorter Home in Simple mode. Legacy Theme is the design used before.</small></div>
+      <div class="field"><span>Light or dark</span>${segBtns('look', 'theme', [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']], lk.theme)}</div>
       <div class="field"><span>Colour</span><div class="swatches" role="group" aria-label="Accent colour">${button({ label: ``, kind: 'plain', cls: `swatch auto ${lk.accent === 'auto' ? 'on' : ''}`, act: 'look', aria: 'Match the mode (teal in Simple, blue in Advanced)', pressed: lk.accent === 'auto', title: 'Match the mode', attr: { 'data-k': 'accent', 'data-v': 'auto' } })}${Object.entries(ACCENTS).map(([k, v]) => `${button({ label: ``, kind: 'plain', cls: `swatch ${lk.accent === k ? 'on' : ''}`, act: 'look', aria: v.n, pressed: lk.accent === k, attr: { 'data-k': 'accent', 'data-v': k, 'style': `background:${v.l[0]}` } })}`).join('')}</div></div>
       <div class="field"><span>“Spent each day” chart on Home</span><div class="seg two small" role="group" aria-label="Chart direction">${[['v', 'Vertical bars'], ['h', 'Horizontal bars']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${weekMode() === v ? 'on' : ''}`, act: 'week-mode', pressed: weekMode() === v, attr: { 'data-v': v } })}`).join('')}</div></div>
       <div class="field"><span>Tap feedback</span>${(() => { const c = feedbackCfg(); return `<label class="check"><input type="checkbox" data-fb="haptic" ${c.haptic ? 'checked' : ''}> Vibrate a little when I tap</label><label class="check"><input type="checkbox" data-fb="visual" ${c.visual ? 'checked' : ''}> Flash the button I tapped</label><label class="check"><input type="checkbox" data-fb="sound" ${c.sound ? 'checked' : ''}> Soft click sound</label><label class="check"><input type="checkbox" data-fb="overlay" ${c.overlay !== false ? 'checked' : ''}> Real switch on keys, Save and + (iPhone)</label>${button({ label: 'Test the buzz', kind: 'ghost', size: 'sm', act: 'fb-test' })}<label class="check realsw"><input type="checkbox" switch id="fb-realsw" aria-label="Real switch test"> <span>Tap this real switch. You should feel a small tick. If you do, your phone and its System Haptics are fine.</span></label>`; })()}

@@ -11,6 +11,7 @@ with sync_playwright() as p:
     pg.evaluate("location.hash='#/'"); pg.wait_for_timeout(600)
     body=pg.inner_text('body'); ok('Advanced home shows the rolling card and the 7 daily bars', 'daily average, rolling 7 days' in body.lower() and 'spent each day, last 7 days' in body.lower())
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='simple'})})()"); pg.wait_for_timeout(1200)
+    pg.evaluate("document.querySelector('.homemore')&&(document.querySelector('.homemore').open=true)"); pg.wait_for_timeout(300)
     body=pg.inner_text('body'); ok('Simple home hides the analysing cards but keeps the 7 daily bars', 'daily average, rolling 7 days' not in body.lower() and 'pace' not in body.lower().split('spent each day')[0][-0:] and 'spent each day, last 7 days' in body.lower() and 'worth knowing' not in body.lower() and 'next month outlook' not in body.lower())
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.mode='advanced'})})()"); pg.wait_for_timeout(1000)
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.homeLayout={order:[],hidden:[]}})})()"); pg.wait_for_timeout(1200)

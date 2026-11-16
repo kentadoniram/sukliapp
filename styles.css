@@ -1804,3 +1804,42 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .invpage .segm.wsw .segi.on{font-weight:700}
 .invpage .ivgroup > .coll{border-radius:6px;padding:8px 6px 8px;margin-left:-10px;margin-right:-10px}
 .invpage .ivgroup > .coll .ivplat .coll{border-radius:8px;padding:8px 8px 10px;margin:10px 0}
+
+/* ---- v15.55 Theme 1: white page (light), blue card-like summary on Home. Legacy Theme keeps everything above exactly as it was. ---- */
+:root { --g1: #EAF4FF; --g2: #CFE5FB; --g3: #A9CFF5; --gink: #0F2A4A; --gsub: #35557C; --gchip: rgba(255, 255, 255, .55); --gline: rgba(15, 42, 74, .10); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --g1: #1B3556; --g2: #1F4E80; --g3: #2B6CA8; --gink: #F2F8FF; --gsub: #BBD4EE; --gchip: rgba(255, 255, 255, .12); --gline: rgba(255, 255, 255, .16); } }
+:root[data-theme="dark"] { --g1: #1B3556; --g2: #1F4E80; --g3: #2B6CA8; --gink: #F2F8FF; --gsub: #BBD4EE; --gchip: rgba(255, 255, 255, .12); --gline: rgba(255, 255, 255, .16); }
+:root[data-design="theme1"] { --paper: #FFFFFF; --rule: #E6EAEE; }
+@media (prefers-color-scheme: dark) { :root[data-design="theme1"]:not([data-theme="light"]) { --paper: #0E141A; --rule: #26323C; } }
+:root[data-design="theme1"][data-theme="dark"] { --paper: #0E141A; --rule: #26323C; }
+.sumcard { position: relative; display: grid; gap: 14px; margin: 10px 0 4px; padding: 18px 18px 16px; border: 0; border-radius: 22px; overflow: hidden; color: var(--gink);
+  background: linear-gradient(135deg, var(--g1) 0%, var(--g2) 55%, var(--g3) 100%); box-shadow: 0 6px 18px rgba(30, 90, 160, .14); }
+.sumcard::before { content: ""; position: absolute; right: -46px; top: -58px; width: 190px; height: 190px; border-radius: 50%; background: var(--gchip); }
+.sumcard::after { content: ""; position: absolute; right: 38px; bottom: -70px; width: 150px; height: 150px; border-radius: 50%; background: var(--gchip); opacity: .6; }
+.sumcard > *, .sumcard .sc-rows { position: relative; z-index: 1; }
+.strip.sumcard > button, .sumcard .sc-net, .sumcard .sc-row { all: unset; box-sizing: border-box; cursor: pointer; }
+.sumcard .sc-net { display: grid; gap: 2px; padding: 0; border: 0; }
+.sumcard .sc-net span { font-size: calc(13px * var(--fs, 1)); color: var(--gsub); font-weight: 600; letter-spacing: .02em; }
+.sumcard .sc-net b { font-size: calc(34px * var(--fs, 1)); font-weight: 750; letter-spacing: -.02em; line-height: 1.1; color: var(--gink); white-space: nowrap; }
+.sumcard .sc-net b.neg { color: var(--bad); }
+.sumcard .sc-rows { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--gline); max-width: 280px; }
+.sumcard .sc-row { display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 10px; padding: 0; border: 0; }
+.sumcard .sc-row span { font-size: calc(14px * var(--fs, 1)); color: var(--gsub); font-weight: 500; }
+.sumcard .sc-row b { font-size: calc(16px * var(--fs, 1)); font-weight: 650; color: var(--gink); white-space: nowrap; }
+.sumcard .sc-arr { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--gchip); font-style: normal; font-size: calc(14px * var(--fs, 1)); font-weight: 700; line-height: 1; }
+.sumcard .sc-arr.dn { color: var(--in); } .sumcard .sc-arr.up { color: var(--bad); }
+.sumcard button:hover b { text-decoration: underline; text-decoration-color: var(--gline); text-underline-offset: 3px; }
+.sumcard button:focus-visible { outline: 2px solid var(--gink); outline-offset: 3px; border-radius: 8px; }
+.homemore { margin: 10px 0; border-top: 1px solid var(--rule); }
+.homemore > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; min-height: 44px; font-weight: 650; color: var(--ink2); }
+.homemore > summary::-webkit-details-marker { display: none; }
+.homemore > summary small { font-weight: 600; color: var(--ink2); background: var(--tint); border-radius: 999px; padding: 1px 8px; }
+.homemore > summary::after { content: ""; width: 7px; height: 7px; margin-left: 10px; border-right: 2px solid var(--ink2); border-bottom: 2px solid var(--ink2); transform: rotate(45deg); transition: transform .15s; }
+.homemore[open] > summary::after { transform: rotate(-135deg); }
+.homemore > summary { flex-wrap: nowrap; } .homemore > summary > :first-child { flex: 1; }
+.strip.sumcard { grid-template-columns: 1fr; border-block: 0; }
+.strip.sumcard > .sc-net { display: grid; gap: 2px; }
+.strip.sumcard .sc-rows .sc-row { display: grid; }
+/* Theme 1 light: pure white in both Simple and Advanced (the mode tints above belong to Legacy Theme) */
+@media (prefers-color-scheme: light) { :root[data-design="theme1"]:not([data-theme="dark"]) body.simple, :root[data-design="theme1"]:not([data-theme="dark"]) body:not(.simple) { --paper: #FFFFFF; --rule: #E6EAEE; } }
+:root[data-design="theme1"][data-theme="light"] body.simple, :root[data-design="theme1"][data-theme="light"] body:not(.simple) { --paper: #FFFFFF; --rule: #E6EAEE; }

@@ -19,7 +19,7 @@ with sync_playwright() as p:
     ok('Got it closes it', pg.locator('.glancesheet').count()==0)
     ok('it is written down as shown today', pg.evaluate("window.sukli.get().settings.glance.last")==pg.evaluate("window.sukli.get().settings.glance.last") and bool(pg.evaluate("window.sukli.get().settings.glance.last")))
     reopen(); ok('opening again the same day shows nothing (once a day)', pg.locator('.glancesheet').count()==0)
-    SET("g.freq='open'"); reopen(); ok('"Every time I open the app" shows it again', pg.locator('.glancesheet').count()==1); pg.click('[data-g=done]')
+    SET("g.freq='open';g.log={}"); reopen(); ok('"Every time I open the app" shows it again', pg.locator('.glancesheet').count()==1); pg.click('[data-g=done]')
     SET("g.freq='daily';g.last='';g.on=false"); reopen(); ok('switched off: nothing appears', pg.locator('.glancesheet').count()==0)
     SET("g.on=true;g.last='';g.topics={spending:false,bills:false,invest:false,goals:false,trends:false}"); reopen(); ok('every topic off: nothing appears', pg.locator('.glancesheet').count()==0)
     SET("g.topics={spending:true,bills:true,invest:true,goals:true,trends:true};g.last='';g.log={}"); reopen()
