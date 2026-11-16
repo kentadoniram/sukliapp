@@ -1,7 +1,7 @@
 // One list behaviour for every choice field: a button showing the current choice; tapping it opens a list.
 // More than five options: a search box on top. "Add new" (when the form can add) sits right under the search box, options below,
 // grouped when the options come in groups. It enhances an ordinary <select>, so the form code keeps reading select.value.
-import { sheet, esc } from './ui.js';
+import { sheet, esc, ic as icon } from './ui.js';
 import { button } from './components.js';
 import { get } from './core.js';
 import { acctRow } from './acctpicker.js';
@@ -30,7 +30,7 @@ function treeHtml(hit, open, searching, value, levels) {
     return button({ html: `<span class="rmain"><strong>${esc(o.leaf || o.label)}</strong>${o.sub ? `<small>${esc(o.sub)}</small>` : ''}</span>${o.value === value ? '<span class="ramt">✓</span>' : ''}`, kind: 'plain', cls: `row pk-opt pkd${d} ${o.value === value ? 'on' : ''}`, pressed: o.value === value, attr: { 'data-v': o.value, ...(o.off ? { disabled: 'disabled' } : {}) } }); };
   const walk = (n, path) => `${[...n.kids.values()].map((k) => { const p = [...path, k.name], key = p.join(SEP), isOpen = searching || open.has(key), cap = ((levels[p[0]] || [])[p.length - 1]) || '';
     const ic = cap === 'Platform' ? platIcon(k.name, 'xs') : '';
-    return `<div class="pk-node pkd${path.length}">${button({ html: `<span class="pkgl">${ic}<b>${esc(k.name)}</b></span><span class="pkmeta">${holds(k) ? '<i class="pkdot" title="Holds your current choice"></i>' : ''}<small class="muted">${count(k)}</small><span aria-hidden="true">${isOpen ? '▾' : '▸'}</span></span>`, kind: 'plain', cls: `pk-gh pkh${path.length}`, attr: { 'data-g': key, 'aria-expanded': String(isOpen) } })}<div class="pk-kids" ${isOpen ? '' : 'hidden'}><div class="rows plain">${walk(k, p)}</div></div></div>`; }).join('')}${n.opts.map((o) => leaf(o, path.length)).join('')}`;
+    return `<div class="pk-node pkd${path.length}">${button({ html: `${icon('down', 'chev')}<span class="pkgl">${ic}<b>${esc(k.name)}</b></span><span class="pkmeta">${holds(k) ? '<i class="pkdot" title="Holds your current choice"></i>' : ''}<small class="muted">${count(k)}</small></span>`, kind: 'plain', cls: `pk-gh pkh${path.length}`, attr: { 'data-g': key, 'aria-expanded': String(isOpen) } })}<div class="pk-kids" ${isOpen ? '' : 'hidden'}><div class="rows plain">${walk(k, p)}</div></div></div>`; }).join('')}${n.opts.map((o) => leaf(o, path.length)).join('')}`;
   return walk(root, []);
 }
 export function pickerList(options, { value = '', title = 'Choose', onAdd = null, addLabel = 'Add new', collapse = false, tree = false, levels = {}, onPick }) {

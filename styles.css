@@ -1759,3 +1759,31 @@ img.cimg { width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
 .gline{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.gline.now{stroke:var(--line)}.gline.usual{stroke:var(--ink2);stroke-dasharray:4 4;opacity:.7}
 .gtrack{fill:var(--rule)}.gfill{fill:var(--line)}.gfill.warn{fill:var(--warn)}.gfill.over{fill:var(--warn)}
 .glance .btnrow{margin-top:2px}.gfoot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px;border-top:1px solid var(--rule);padding-top:6px}
+
+/* v15.51 Investments polish */
+/* asset rows: first row as before; second row lighter and smaller; space instead of separator lines */
+.hold2 .hl2,.hold2 .hr2,.hold2 .hr2 b,.hold2 .hr2 small,.hold2 .hhome,.hold2 .cg,.hold2 .cr{font-size:calc(12px * var(--fs, 1));font-weight:400}
+.wblock .rows.plain:has(> .hold2){display:flex;flex-direction:column;gap:18px;padding-top:6px}
+.rows.plain > .row.hold.hold2,.row.hold.hold2{border:0;border-bottom:0;box-shadow:none;padding-top:0;padding-bottom:0;margin:0}
+/* every expand/collapse arrow sits at the far left of its header, 18px wide, 8px before the text */
+.collhead .chev,.pierow .chev,.drawer .dhead .chev,.pk-gh .chev{order:-1;flex:none;width:18px;height:18px;margin:0 8px 0 0;color:var(--ink2);transition:transform .15s}
+.pierow .chev{transform:rotate(-90deg)}.pierow[open] .chev{transform:none}
+.pk-gh .chev{transform:none}.pk-gh[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+.collhead{padding-left:0}
+.pk-gh{display:flex;align-items:center;justify-content:flex-start}.pk-gh .pkgl{flex:1;min-width:0}
+.exname{display:inline-flex;align-items:center}
+.ins.worth details>summary{position:relative;padding-left:36px}
+.ins.worth summary::after{content:none!important}
+.ins.worth summary::before{content:"";position:absolute;left:14px;top:17px;width:7px;height:7px;border-right:2px solid var(--ink2);border-bottom:2px solid var(--ink2);transform:rotate(-45deg);transition:transform .15s}
+.ins.worth details[open]>summary::before{transform:rotate(45deg);top:15px}
+/* smaller primary buttons at the top of Investments */
+.invpage .btnrow.invact .btn,.invpage .hact .curchip{min-height:28px;padding:3px 10px;font-size:calc(12px * var(--fs, 1));border-radius:9px;line-height:1.2}
+.invpage .btnrow.invact{gap:6px}
+.btnrow.oneline .btn.sm{min-height:32px}
+.ivplat .collhead h2{min-width:0;flex:1;flex-wrap:nowrap}.ivplat .gsum2{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;line-height:1.2;text-align:right}
+.ivplat .gsum2 small{font-size:calc(11px * var(--fs, 1))}
+/* style guide: measured sizes in px */
+.sgpx{width:100%;border-collapse:collapse;margin-top:12px;font-size:calc(12px * var(--fs, 1))}
+.sgpx caption{text-align:left;font-weight:700;padding:0 0 4px;color:var(--ink2);text-transform:uppercase;letter-spacing:.3px}
+.sgpx th,.sgpx td{text-align:left;padding:4px 6px 4px 0;border-top:1px solid var(--rule);vertical-align:top;font-weight:400}.sgpx th{font-weight:600;white-space:nowrap}
+.sgpx code{white-space:nowrap}

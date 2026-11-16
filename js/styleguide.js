@@ -6,8 +6,22 @@ const TOKENS = [['--paper', 'Page'], ['--sheet', 'Card'], ['--ink', 'Text'], ['-
 const sec = (title, body) => `<section class="card sgsec">${sectionTitle(title, 'h3')}${body}</section>`;
 const demo = (label, html) => `<div class="sgrow"><small class="muted">${esc(label)}</small><div>${html}</div></div>`;
 
+// measured live from the page, so the numbers are what the screen really uses (CSS pixels at the current text size), never a copy that can drift
+const MEASURE = [['h2', 'Heading 2'], ['h3', 'Heading 3'], ['h4', 'Heading 4'], ['p:not(.hint):not(.muted)', 'Body text'], ['p.hint', 'Hint text'], ['.btn:not(.sm):not(.ghost)', 'Button, primary'], ['.btn.sm:not(.ghost)', 'Button, small primary'], ['.btn.ghost:not(.sm)', 'Button, ghost'], ['.btn.sm.ghost', 'Button, small ghost'], ['.chip', 'Chip'], ['.segm button', 'Segment'], ['.tabs button, .wtabs button, .segm.wsw button', 'Tab'], ['input:not([type=checkbox]):not([type=radio]):not([type=file])', 'Input'], ['select', 'Select'], ['.box', 'Box'], ['.card', 'Card'], ['.sgsw1 i', 'Colour swatch']];
+const px = (n) => `${Math.round(n * 10) / 10}px`;
+function measureGuide() {
+  const fs = getComputedStyle(document.documentElement).getPropertyValue('--fs').trim() || '1', note = document.getElementById('sgscale'); if (note) note.textContent = `${Math.round(parseFloat(fs) * 100)}%`;
+  document.querySelectorAll('.sgsec').forEach((sec) => {
+    sec.querySelector('.sgpx')?.remove(); const rows = [], seen = new Set();
+    for (const [sel, name] of MEASURE) { const el = sec.querySelector(sel); if (!el || seen.has(name)) continue; seen.add(name); const r = el.getBoundingClientRect(), c = getComputedStyle(el); if (!r.width) continue;
+      const pad = [c.paddingTop, c.paddingRight, c.paddingBottom, c.paddingLeft].map((v) => `${Math.round(parseFloat(v))}`), same = pad.every((v) => v === pad[0]);
+      rows.push(`<tr><th>${esc(name)}</th><td>${px(r.height)} high${el.matches('.btn,.chip,input,select,.sgsw1 i') ? `, ${px(r.width)} wide` : ''}</td><td>text ${px(parseFloat(c.fontSize))} / ${c.fontWeight}</td><td>padding ${same ? pad[0] : pad.join(' ')}px</td><td>corners ${px(parseFloat(c.borderTopLeftRadius) || 0)}</td></tr>`); }
+    if (rows.length) sec.insertAdjacentHTML('beforeend', `<table class="sgpx"><caption>Measured sizes</caption>${rows.join('')}</table>`); });
+}
 export function styleguide() {
+  setTimeout(measureGuide, 80);
   return `<header class="pagehead"><h2>Style Guide</h2></header>
+  <p class="hint">Sizes are CSS pixels measured live from this page at your current Text Size (<b id="sgscale">100%</b>). At 100% they match the numbers in the style sheet; at other text sizes, type and some padding scale with it. Use them for exact dimensions.</p>
   <p class="hint">Everything the app is built from. If something looks wrong here it looks wrong everywhere. Change a look once in the style sheet, not screen by screen.</p>
   ${sec('Colours', `<div class="sgsw">${TOKENS.map(([v, n]) => `<div class="sgsw1"><i style="background:var(${v})"></i><small>${esc(n)}<br><code>${esc(v)}</code></small></div>`).join('')}</div>`)}
   ${sec('Text', `<h2>Heading 2</h2><h3>Heading 3</h3><h4>Heading 4</h4><p>Body text, the size most of the app uses.</p><p class="hint">Hint text explains something quietly.</p><p class="muted">Muted text for details.</p>`)}

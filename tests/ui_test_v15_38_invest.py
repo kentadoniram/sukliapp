@@ -19,7 +19,7 @@ with sync_playwright() as p:
     ok('Binance has an Overview tab', pg.locator('.wsw [data-w=__overview]').count()>=1)
     pg.evaluate("document.querySelector('.wsw [data-w=__overview][data-ex=Binance]').click()"); pg.wait_for_timeout(500)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
-    t=pg.inner_text('#view'); ok('Binance BTC consolidated (1+2 = 3 BTC)', '3 BTC' in t)
+    t=pg.inner_text('#view'); ok('Binance BTC consolidated (1+2 = 3 BTC)', '3.00 BTC' in t)
     pg.evaluate("[...document.querySelectorAll('.ovrow')].find(r=>r.innerText.includes('BTC')).querySelector('button').click()"); pg.wait_for_timeout(300)
     t=pg.inner_text('#view'); ok('wallets of BTC visible', 'Spot' in t and 'Earn' in t)
     ok('Bybit BTC not mixed into Binance (no 3.5)', '3.5 BTC' not in t)

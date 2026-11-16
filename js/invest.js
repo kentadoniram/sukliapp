@@ -228,7 +228,11 @@ export function investments(db) {
   const byEx = new Map(); for (const a of cryptoAll) { if (!showEmpty && !keepEmpty(a) && Math.abs(bal.get(a.id) || 0) <= 1e-12 && mode === 'platform') { const k0 = exchangeOf(a) || 'Wallets and other'; if (!byEx.has(k0)) byEx.set(k0, []); continue; } if (!crypto.includes(a)) continue; const k = mode === 'type' ? (ASSET_TYPES[assetTypeOf(a)] || 'Other investments') : mode === 'risk' ? riskOf(db, a) : (exchangeOf(a) || 'Wallets and other'); if (!byEx.has(k)) byEx.set(k, []); byEx.get(k).push(a); }
   if (mode === 'platform') for (const p of (db.settings.platforms || [])) { const e = canonPlatform(p); if (e && !byEx.has(e)) byEx.set(e, []); }
   const exSum = (l) => l.reduce((s, a) => s + val(db, a, bal.get(a.id) || 0), 0);
-  const qty = (n, cur) => `${n.toLocaleString('en-US', { maximumFractionDigits: Math.max(2, Math.min(8, (CUR[cur] || { dec: 2 }).dec)) })} ${cur}`;
+  // How many decimals to show for an amount of a coin: enough that the last digit is worth no more than 0.01 USDT, never fewer than 2, never more than 8.
+  // A coin worth 0.5 USDT shows 2 decimals; BTC at ~170,000 USDT shows 8. A coin with no price keeps its own usual decimals.
+  const usdtPx = (cur) => { const u = homeFx(db, 'USDT') || homeFx(db, 'USD'), c = homeFx(db, cur); return u > 0 && c > 0 ? c / u : 0; };
+  const qtyDec = (cur) => { const px = usdtPx(cur); return px > 0 ? Math.max(2, Math.min(8, Math.ceil(Math.log10(100 * px) - 1e-9))) : Math.max(2, Math.min(8, (CUR[cur] || { dec: 2 }).dec)); };
+  const qty = (n, cur) => `${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: qtyDec(cur) })} ${cur}`;
   const paidTxt = (a) => { const p = book.pos.get(a.id); if (!p || !(p.qty > 0)) return ''; const e = Object.entries(p.paid || {}).filter(([, v]) => v > 0); return e.length ? ` · paid ${e.map(([c, v]) => qty(v, c)).join(' + ')}` : ''; };
   const basis = (a) => { const p = book.pos.get(a.id), px = homeFx(db, a.cur) || 0; if (!p || !(p.qty > 0) || !(p.cost > 0) || !px) return ''; const un = p.qty * px - p.cost; return ` · cost ${money(p.cost)} · <span class="${un >= 0 ? 'cg' : 'cr'}">${un >= 0 ? '+' : '−'}${money(Math.abs(un))} (${(un / p.cost * 100).toFixed(2)}%)</span>`; };
   const yr = String(new Date().getFullYear()), thisYear = book.realized.filter((x) => x.date.startsWith(yr)).reduce((q, x) => q + x.gain, 0), nm = (id) => (db.accounts.find((a) => a.id === id) || { name: '?' }).name;
