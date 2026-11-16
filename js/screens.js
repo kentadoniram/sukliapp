@@ -387,7 +387,7 @@ function paceCard(db) {
     <p class="legend"><i class="k lineb"></i>${esc(monthLabel(ui.month).split(' ')[0])} <i class="k bar"></i>${esc(monthLabel(p.prevYm).split(' ')[0])}${p.live ? ' <i class="k dash"></i>at this pace' : ''}</p>
     <div class="facts">
       <div><span>Daily average, last 7 days</span><b>${R(rollEnd(p).now)}</b></div>
-      <div><span>${p.live ? 'By month end' : 'Month total'}</span><b>${R(p.live ? p.projected : p.spent)}</b></div>
+      <div><span>${p.live ? 'By month end' : 'Month total'}</span><b>${R(p.live ? p.projected : p.spent)}</b>${p.live && p.low != null ? `<small class="muted">usually ${R(p.low)} to ${R(p.high)}</small>` : ''}</div>
       ${cmp || `<div><span>Same day last month</span><b>${R(p.prevSame)}</b></div>`}
     </div>`);
 }
@@ -870,6 +870,7 @@ export function settings(db) {
     <section><h2>Glossary</h2><p class="hint">What the words mean: accounts, cards (statement, billing period, posted date), interest, investments, and common words on Japanese receipts with kanji, romaji and English.</p><div class="btnrow left">${button({ label: 'Open the glossary', kind: 'ghost', act: 'glossary' })}</div></section>
     ${yearlySection(db)}
     <section><h2>Style Guide</h2><p class="hint">Every button, field and card the app is made of, on one page. Mostly useful for checking how a change looks.</p><div class="btnrow left">${button({ label: 'Open the Style Guide', kind: 'ghost', act: 'open-styleguide' })}</div></section>
+    <section><h2>Model Computation Guide</h2><p class="hint">How each forecast is computed, with the numbers it is using right now: method choice, fixed bills, range, pace, fees, safe to spend and more.</p><div class="btnrow left">${button({ label: 'Open the Model Computation Guide', kind: 'ghost', act: 'open-modelguide' })}</div></section>
     <section><h2>Put It on Your Phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
     <section><h2>Erase</h2><button class="btn danger ghost" data-act="erase">Erase everything on this device</button>
       <p class="hint">Backups in your Google Drive are not touched.</p></section>`);
@@ -1063,6 +1064,7 @@ function mapSheet(key, q = '') {
   if (inp) inp.addEventListener('change', () => mapSheet(start, inp.value.trim()));
 }
 ACT['open-styleguide'] = () => { location.hash = '#/styleguide'; };
+ACT['open-modelguide'] = () => { location.hash = '#/modelguide'; };
 ACT['nm-map'] = () => mapSheet();
 ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
 

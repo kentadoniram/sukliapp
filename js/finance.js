@@ -5,7 +5,7 @@ import {
   nowStamp, rateFor, shiftMonth, stamp, thisMonth, daysInMonth, fmt,
 } from './core.js';
 import { totals, baselineMonths } from './insights.js';
-import { sum as ssum, median, mad, robustZ, trend, forecastSeries } from './stats.js';
+import { sum as ssum, median, mad, robustZ, trend, forecastSeries, quantile } from './stats.js';
 import { merchantKey } from './merchants.js';
 import { payDest } from './earn.js';
 import { hasRate, rateAt, activePromos, isPeriodEnd, nominalFromEar, COMP_LABEL } from './interest.js';
@@ -400,57 +400,158 @@ export function transferHints(db) {
 
 // ---------- transfer fees ----------
 // Look at earlier transfers between the same two accounts (else from the same account) and suggest the usual fee.
+// Fee model: for a route (from this account to that one, else from this account), fit four shapes to your past fees and keep the one that would have
+// missed least when each past fee is left out and predicted from the others (leave-one-out). flat = the median fee; percent = the median share of the
+// amount; min+percent = the larger of the smallest fee you paid and the percent fee; tiered = the median fee inside each third of your amounts (needs 9+ fees).
+// On a tie the simpler shape wins (flat, percent, min+percent, tiered).
+export const FEE_MODELS = ['flat', 'percent', 'minpct', 'tiered'];
+const feeFit = (model, tr, amount) => {
+  const fees = tr.map((t) => t.fee), sh = tr.map((t) => t.fee / t.amount).filter((x) => isFinite(x));
+  if (model === 'flat') return median(fees);
+  if (model === 'percent') return sh.length ? median(sh) * amount : null;
+  if (model === 'minpct') { const mn = Math.min(...fees), big = tr.filter((t) => t.fee > mn * 1.0001).map((t) => t.fee / t.amount); return big.length ? Math.max(mn, median(big) * amount) : mn; }
+  if (tr.length < 9) return null;
+  const am = tr.map((t) => t.amount).sort((a, b) => a - b), c1 = am[Math.floor(am.length / 3)], c2 = am[Math.floor(am.length * 2 / 3)], band = (x) => (x < c1 ? 0 : x < c2 ? 1 : 2), same = tr.filter((t) => band(t.amount) === band(amount));
+  return same.length >= 2 ? median(same.map((t) => t.fee)) : null;
+};
+export function feeModels(tr) {
+  return FEE_MODELS.map((model) => {
+    const errs = []; for (let i = 0; i < tr.length; i++) { const rest = tr.filter((_, j) => j !== i), p = rest.length >= 2 ? feeFit(model, rest, tr[i].amount) : null; if (p != null) errs.push(Math.abs(p - tr[i].fee)); }
+    return { model, mae: errs.length >= Math.min(3, tr.length - 1) && errs.length ? errs.reduce((a, b) => a + b, 0) / errs.length : null, tests: errs.length };
+  });
+}
 export function predictFee(db, from, to, amount) {
-  const past = live(db.txs).filter((t) => t.kind === 'transfer' && t.fee > 0 && t.feeCat);
+  const past = live(db.txs).filter((t) => t.kind === 'transfer' && t.fee > 0 && t.feeCat && t.amount > 0);
   const pick = (arr) => {
     if (!arr.length) return null;
-    const recent = arr.sort((x, y) => (x.date < y.date ? 1 : -1)).slice(0, 8);
-    const vals = recent.map((t) => t.fee), first = vals[0];
-    const same = vals.filter((v) => Math.abs(v - first) < 1e-9).length;
-    let fee = first;
-    if (same < 2 && recent.length >= 3) {          // not a flat fee: try a share of the amount
-      const rs = recent.map((t) => t.fee / t.amount).sort((x, y) => x - y), med = rs[Math.floor(rs.length / 2)];
-      if (amount > 0) fee = +(amount * med).toFixed(2);
+    const recent = arr.slice().sort((x, y) => (x.date < y.date ? 1 : -1)).slice(0, 12);
+    let fee = recent[0].fee, model = 'last', mae = null;
+    if (recent.length >= 3) {
+      const fits = feeModels(recent).filter((f) => f.mae != null).sort((a, b) => a.mae - b.mae || FEE_MODELS.indexOf(a.model) - FEE_MODELS.indexOf(b.model));
+      if (fits.length && amount > 0) { const p = feeFit(fits[0].model, recent, amount); if (p != null) { fee = +p.toFixed(2); model = fits[0].model; mae = fits[0].mae; } }
     }
-    return { fee, feeCat: recent[0].feeCat, feeBy: recent[0].feeBy || 'from', n: arr.length };
+    return { fee, model, mae, feeCat: recent[0].feeCat, feeBy: recent[0].feeBy || 'from', n: arr.length };
   };
   return pick(past.filter((t) => t.acct === from && t.toAcct === to)) || pick(past.filter((t) => t.acct === from)) || null;
 }
 
 // ---------- forecast ----------
 // Complete monthly totals from your first month of data, zero months kept (a month with no spending is real information).
-export function monthlySeries(db, ym = thisMonth(), kind = 'expense', max = 36) {
+// partial: leave out the first month when your first entry of that kind came after the 7th (the month is not complete, it would read as a very cheap month)
+export function monthlySeries(db, ym = thisMonth(), kind = 'expense', max = 36, partial = false) {
   let first = null;
   for (const t of db.txs) if (!t.deleted && t.kind === kind && (!first || t.date < first)) first = t.date;
   if (!first) return { months: [], values: [] };
-  const months = [];
-  for (let i = 1; i <= max; i++) { const m = shiftMonth(ym, -i); if (m < first.slice(0, 7)) break; months.unshift(m); }
+  const months = [], skip = partial && +first.slice(8, 10) > 7 ? first.slice(0, 7) : '';
+  for (let i = 1; i <= max; i++) { const m = shiftMonth(ym, -i); if (m < first.slice(0, 7) || m === skip) break; months.unshift(m); }
   return { months, values: months.map((m) => totals(db, m, kind).total) };
 }
-// Next month: the method that would have predicted your own past months best (backtested), with a rough error range.
-// By group it still follows your recent months, scaled to that total.
-export function forecastNext(db, ym = thisMonth()) {
-  const next = shiftMonth(ym, 1), ser = monthlySeries(db, ym), fc = forecastSeries(ser.values);
-  const past = [];
-  for (let i = 1; i <= 12 && past.length < 3; i++) { const m = shiftMonth(ym, -i); if (totals(db, m).total > 0) past.push(m); }
-  const live0 = totals(db, ym), usedMonths = past, by = new Map();
-  for (const m of usedMonths) for (const [g, v] of totals(db, m).by) by.set(g, (by.get(g) || 0) + v / usedMonths.length);
-  let total = ssum([...by.values()]);
-  if (fc && ser.values.some((v) => v > 0)) { const k = total > 0 ? fc.value / total : 0; if (total > 0) for (const [g, v] of by) by.set(g, v * k); total = fc.value; }
-  const incSer = monthlySeries(db, ym, 'income').values.slice(-6).filter((v) => v > 0);
-  const incomeAvg = incSer.length ? median(incSer) : 0;
-  // repeated every month: the SUM per name per month (three coffees with one name are not one fixed bill), and a steady amount
-  const fixed = [], base = ser.months.slice(-6);
+// Fixed bills: a name that shows up in (nearly) every one of the last 6 months with a steady amount. Per month the amounts of that name are ADDED
+// (three coffees under one name are not one fixed bill). A name is fixed when its monthly sums vary by 15% or less of their median (MAD / median)
+// and it is missing from at most one month. Its fixed value is the MEDIAN of those monthly sums, so one odd month cannot move it.
+export const FIXED = { months: 6, spread: 0.15, minShow: 5 };
+function nameSums(db, m) { const mp = new Map(); for (const p of monthParts(db, m)) if (p.kind === 'expense' && p.t.name) { const k = p.t.name.trim().toLowerCase(), e = mp.get(k) || { name: p.t.name, v: 0, n: 0 }; e.v += p.v; e.n++; mp.set(k, e); } return mp; }
+export function fixedItems(db, ym = thisMonth()) {
+  const ser = monthlySeries(db, ym, 'expense', 36, true), base = ser.months.slice(-FIXED.months), per = ser.months.map((m) => nameSums(db, m)), items = [];
   if (base.length >= 3) {
-    const per = base.map((m) => { const mp = new Map(); for (const p of monthParts(db, m)) if (p.kind === 'expense' && p.t.name) { const k = p.t.name.trim().toLowerCase(); const e = mp.get(k) || { name: p.t.name, v: 0, n: 0 }; e.v += p.v; e.n++; mp.set(k, e); } return mp; });
-    for (const [k, e0] of per[per.length - 1]) {
-      const rows = per.map((mp) => mp.get(k)).filter(Boolean);
+    const pb = per.slice(-base.length);
+    for (const [k, e0] of pb[pb.length - 1]) {
+      const rows = pb.map((mp) => mp.get(k)).filter(Boolean);
       if (rows.length < Math.min(base.length, 3) || rows.length < base.length - 1) continue;
-      const vals = rows.map((r) => r.v), med = median(vals);
-      if (med > 0 && mad(vals) / med <= 0.15) fixed.push({ name: e0.name, v: med });
+      const vals = rows.map((r) => r.v), med = median(vals), sp = med > 0 ? mad(vals) / med : 1;
+      if (med > 0 && sp <= FIXED.spread) items.push({ key: k, name: e0.name, v: med, spread: sp, vals, months: rows.length, of: base.length });
     }
   }
-  return { next, months: usedMonths, total, by, incomeAvg, fixed: fixed.sort((a, b) => b.v - a.v).slice(0, 5), thisSoFar: live0.total, method: fc ? fc.label : null, tested: fc ? fc.tested : 0, low: fc ? fc.low : null, high: fc ? fc.high : null, mae: fc ? fc.mae : null };
+  items.sort((a, b) => b.v - a.v);
+  const keys = new Set(items.map((i) => i.key));
+  const history = per.map((mp) => { let t = 0; for (const [k, e] of mp) if (keys.has(k)) t += e.v; return t; });
+  return { items, history, months: ser.months, values: ser.values, total: ssum(items.map((i) => i.v)) };
+}
+// Empirical-Bayes style shrinkage for the split by group: a group seen in only a few of the last 6 months is blended toward its 6-month average
+// (which counts the empty months), so one lumpy month is not repeated. weight = months seen / (months seen + 2).
+export const SHRINK = { months: 6, recent: 3, k: 2 };
+export function groupSplit(db, ym) {
+  const used = []; for (let i = 1; i <= 12 && used.length < SHRINK.months; i++) { const m = shiftMonth(ym, -i); if (totals(db, m).total > 0) used.push(m); }
+  const tt = used.map((m) => totals(db, m).by), groups = new Set(); for (const by of tt) for (const g of by.keys()) groups.add(g);
+  const rows = [];
+  for (const g of groups) {
+    const v = tt.map((by) => by.get(g) || 0), seen = v.filter((x) => x > 0).length, recent = ssum(v.slice(0, SHRINK.recent)) / Math.min(SHRINK.recent, v.length), long = ssum(v) / v.length, w = seen / (seen + SHRINK.k);
+    rows.push({ g, seen, of: v.length, recent, long, w, est: w * recent + (1 - w) * long });
+  }
+  return { used, rows: rows.sort((a, b) => b.est - a.est) };
+}
+// Calendar effects, only when there is enough history to tell them from noise. Month-of-year index: each month against the average of the 3 months on each side,
+// the median of those ratios for that calendar month (needs 24+ months and 2+ looks), halved toward 1 and kept between 0.75 and 1.3. Weekday index: your spending per weekday over the last 13 weeks
+// against the all-day average. Payday: the day of the month your largest income usually lands, when it is steady.
+export const CAL = { minMonths: 24, minLooks: 2, shrink: 0.5, lo: 0.75, hi: 1.3, weeks: 13 };
+export const HOLIDAYS = { 1: 'New Year', 4: 'Spring holidays', 5: 'Golden Week (Japan)', 8: 'Obon (Japan)', 12: 'Christmas and year end' };
+export function calendarEffects(db, ym = thisMonth(), now = today()) {
+  const ser = monthlySeries(db, ym), n = ser.values.length, idx = {};
+  if (n >= CAL.minMonths) {
+    const by = new Map();
+    for (let i = 3; i < n - 3; i++) { const nb = [...ser.values.slice(i - 3, i), ...ser.values.slice(i + 1, i + 4)], mn = ssum(nb) / nb.length; if (mn > 0) { const c = +ser.months[i].slice(5); (by.get(c) || by.set(c, []).get(c)).push(ser.values[i] / mn); } }
+    for (const [c, r] of by) if (r.length >= CAL.minLooks) idx[c] = { raw: median(r), index: Math.min(CAL.hi, Math.max(CAL.lo, 1 + CAL.shrink * (median(r) - 1))), looks: r.length };
+  }
+  const from = addDays(now, -7 * CAL.weeks + 1), day = new Map(); for (const p of partsBetween(db, from, now)) if (p.kind === 'expense') day.set(p.t.date.slice(0, 10), (day.get(p.t.date.slice(0, 10)) || 0) + p.v);
+  const dow = Array(7).fill(0), cnt = Array(7).fill(0); for (let i = 0; i < 7 * CAL.weeks; i++) { const d = addDays(from, i), w = new Date(d + 'T00:00:00Z').getUTCDay(); dow[w] += day.get(d) || 0; cnt[w]++; }
+  const avg = ssum(dow) / Math.max(1, ssum(cnt)), dowIndex = dow.map((v, i) => (avg > 0 && cnt[i] ? v / cnt[i] / avg : 1));
+  return { months: n, active: n >= CAL.minMonths, idx, dowIndex, payday: paydayOf(db, ym), holiday: HOLIDAYS[+shiftMonth(ym, 1).slice(5)] || '' };
+}
+// the day of the month your biggest income usually arrives (from the last 6 months), only when it is steady (spread of at most 3 days)
+export function paydayOf(db, ym = thisMonth()) {
+  const days = [];
+  for (let i = 1; i <= 6; i++) { const m = shiftMonth(ym, -i); let best = null; for (const p of monthParts(db, m)) if (p.kind === 'income' && (!best || p.v > best.v)) best = p; if (best) days.push(+best.t.date.slice(8, 10)); }
+  if (days.length < 3) return null; const d = Math.round(median(days)), sp = mad(days);
+  return sp <= 3 ? { day: d, spread: sp, months: days.length } : null;
+}
+// Next month: the model chosen by the safer rule (see stats.js), on the months since the latest level shift, with fixed bills inside it.
+export function forecastNext(db, ym = thisMonth()) {
+  const next = shiftMonth(ym, 1), ser = monthlySeries(db, ym, 'expense', 36, true), fx = fixedItems(db, ym), fc = forecastSeries(ser.values, fx.history);
+  const gs = groupSplit(db, ym), usedMonths = gs.used.slice(0, 3), by = new Map(), live0 = totals(db, ym);
+  for (const r of gs.rows) by.set(r.g, r.est);
+  let total = ssum([...by.values()]), cal = null, value = fc ? fc.value : 0, low = fc ? fc.low : null, high = fc ? fc.high : null;
+  if (fc && ser.values.some((v) => v > 0)) {
+    const ce = calendarEffects(db, ym), ix = ce.idx[+next.slice(5)];
+    if (ce.active && ix) { const rec = ser.months.slice(-3).map((m) => (ce.idx[+m.slice(5)] || { index: 1 }).index), k = ix.index / (ssum(rec) / rec.length); cal = { month: +next.slice(5), index: ix.index, factor: k }; value *= k; if (low != null) { low *= k; high *= k; } }
+    if (total > 0) { const k = value / total; for (const [g, v] of by) by.set(g, v * k); }
+    total = value;
+  }
+  const incSer = monthlySeries(db, ym, 'income').values.slice(-6).filter((v) => v > 0);
+  const incomeAvg = incSer.length ? median(incSer) : 0;
+  return { next, months: usedMonths, total, by, incomeAvg, fixed: fx.items.slice(0, FIXED.minShow), fixedAll: fx.items, fixedTotal: fx.total, thisSoFar: live0.total, method: fc ? fc.label : null, methodKey: fc ? fc.method : null, why: fc ? fc.why : '', tested: fc ? fc.tested : 0, low, high, mae: fc ? fc.mae : null, shift: fc ? fc.shift : null, range: fc ? fc.range : null, cal, split: gs.rows, fc };
+}
+// ---------- accuracy log: what was forecast, what happened ----------
+// settings.forecastLog['2026-12'] = { made, value, low, high, method }. Written while the month is still ahead (the last forecast before it starts is the one that counts).
+export function nextLog(db, ym = thisMonth()) {
+  const f = forecastNext(db, ym); if (!f.fc || !(f.total > 0)) return null;
+  const log = { ...(db.settings.forecastLog || {}) }, old = log[f.next];
+  if (old && Math.abs(old.value - f.total) <= 0.01 * Math.max(1, old.value) && old.made === today()) return null;
+  log[f.next] = { made: today(), value: Math.round(f.total), low: f.low == null ? null : Math.round(f.low), high: f.high == null ? null : Math.round(f.high), method: f.methodKey };
+  return log;
+}
+export function accuracy(db, ym = thisMonth()) {
+  const ser = monthlySeries(db, ym, 'expense', 36, true), fx = fixedItems(db, ym), act = new Map(ser.months.map((m, i) => [m, ser.values[i]])), real = [], replay = [];
+  for (const [m, e] of Object.entries(db.settings.forecastLog || {}).sort()) if (m < ym && act.has(m) && act.get(m) > 0) real.push({ m, forecast: e.value, low: e.low, high: e.high, actual: act.get(m), method: e.method, prev: act.get(shiftMonth(m, -1)) });
+  for (let t = Math.max(4, ser.values.length - 6); t < ser.values.length; t++) { const f = forecastSeries(ser.values.slice(0, t), fx.history.slice(0, t)); if (f) replay.push({ m: ser.months[t], forecast: f.value, low: f.low, high: f.high, actual: ser.values[t], method: f.method, prev: ser.values[t - 1] }); }
+  const sum = (rows) => { if (!rows.length) return null; const e = rows.map((r) => Math.abs(r.forecast - r.actual)), nv = rows.filter((r) => r.prev != null).map((r) => Math.abs(r.prev - r.actual)), mape = rows.map((r) => Math.abs(r.forecast - r.actual) / Math.max(r.actual, 1));
+    return { n: rows.length, mae: ssum(e) / e.length, mape: median(mape), hit: rows.filter((r) => r.low != null && r.actual >= r.low && r.actual <= r.high).length / rows.length, mase: nv.length && ssum(nv) > 0 ? (ssum(e.slice(-nv.length)) / nv.length) / (ssum(nv) / nv.length) : null }; };
+  return { real, replay, realSum: sum(real), replaySum: sum(replay) };
+}
+// ---------- safe to spend ----------
+// Money you can use now: balances of bank, cash and e-wallet accounts (home currency), minus bills that fall due before the next payday (or the end of the month
+// if your payday is not steady): card payments due, and regular payments found by timing. Divided by the days left until then.
+export const SPENDABLE = new Set(['bank', 'cash', 'ewallet', 'ic']);
+export function safeToSpend(db, now = today()) {
+  const bal = balances(db), ym = now.slice(0, 7), pd = paydayOf(db, ym), eom = `${ym}-${String(daysInMonth(ym)).padStart(2, '0')}`;
+  let end = eom, basis = 'end of the month';
+  if (pd) { const nm = shiftMonth(ym, 1); const thisPay = `${ym}-${String(Math.min(pd.day, daysInMonth(ym))).padStart(2, '0')}`, nextPay = `${nm}-${String(Math.min(pd.day, daysInMonth(nm))).padStart(2, '0')}`; end = thisPay > now ? thisPay : nextPay; basis = `next payday (day ${pd.day})`; }
+  const days = Math.max(1, gapDays(end, now)), cash = [], bills = [];
+  for (const a of live(db.accounts)) if (!a.archived && a.include !== false && SPENDABLE.has(a.type)) { const v = (bal.get(a.id) || 0) * homeFx(db, a.cur); if (Math.abs(v) > 0.005) cash.push({ name: a.name, v }); }
+  for (const a of live(db.accounts)) if (a.type === 'card' && !a.archived) { const c = cardBilling(db, a, bal.get(a.id), now); if (c.due && c.dueAmount > 0.005 && c.due <= end) bills.push({ name: `${a.name} card`, v: c.dueAmount * homeFx(db, a.cur), due: c.due }); }
+  for (const r of detectRecurring(db, now)) if (r.next >= now && r.next <= end) bills.push({ name: r.name, v: r.amount, due: r.next });
+  const have = ssum(cash.map((c) => c.v)), owe = ssum(bills.map((b) => b.v)), free = have - owe, perDay = free / days;
+  const from = addDays(now, -29), typical = ssum(partsBetween(db, from, now).filter((p) => p.kind === 'expense').map((p) => p.v)) / 30;
+  return { have, owe, free, days, end, basis, perDay, typical, cash, bills: bills.sort((a, b) => a.due.localeCompare(b.due)), tone: free < 0 ? 'short' : perDay >= typical ? 'ok' : 'tight' };
 }
 
 // ---------- habits and rhythms (robust: your own median and spread, never a fixed rule) ----------
@@ -510,7 +611,7 @@ export function categoryTrends(db, ym = thisMonth()) {
   const groups = new Set(); for (const m of months) for (const g of totals(db, m).by.keys()) groups.add(g);
   for (const g of groups) {
     const v = months.map((m) => totals(db, m).by.get(g) || 0), t = trend(v), mn = ssum(v) / v.length;
-    if (mn >= 1000 && t.conf !== 'low' && t.conf !== 'none' && Math.abs(t.rel) >= 0.04) out.push({ g, dir: t.dir, conf: t.conf, per: Math.abs(t.slope), rel: t.rel });
+    if (v.filter((x) => x > 0).length >= Math.ceil(v.length * 0.6) && mn >= 1000 && t.conf !== 'low' && t.conf !== 'none' && Math.abs(t.rel) >= 0.04) out.push({ g, dir: t.dir, conf: t.conf, per: Math.abs(t.slope), rel: t.rel });
   }
   return out.sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel));
 }

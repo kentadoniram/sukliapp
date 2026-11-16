@@ -1,7 +1,7 @@
 // The extra windows: menu drawer, Calendar, Budget (donut), Cash flow, Categories, and the detail sheets.
 import { button } from './components.js';
 import { catIcon } from './caticons.js';
-import { softDelete, scopeIds, scopeOptionsHtml, withScope, appMode } from './core.js';
+import { commitQuiet, softDelete, scopeIds, scopeOptionsHtml, withScope, appMode } from './core.js';
 import { undoMenuHtml } from './undoui.js';
 import {
   get, commit, stamp, fmt, compact, BASE, HOME, monthParts, dayTotals, daysInMonth, shiftMonth, thisMonth, monthLabel, dayLabel, nowStamp,
@@ -10,7 +10,7 @@ import {
 import { pace, totals, trend, baselineMonths } from './insights.js';
 import { tabIds, ui, hdr, monthNav, strip, money, row, gbar, coll, trendChart, budgetOf, pieLabels } from './screens.js';
 import { openEntry, openCategoryForm } from './entry.js';
-import { forecastNext, behaviorNotes, detectRecurring } from './finance.js';
+import { forecastNext, behaviorNotes, detectRecurring, nextLog, accuracy, safeToSpend, monthlySeries } from './finance.js';
 import { reminderBanner } from './accpage.js';
 import { alertPct, budgetAlerts, budgetStatus, classCard } from './budgetsetup.js';
 import { needsCard } from './dailyneeds.js';
@@ -406,10 +406,25 @@ export function outlookCard(db) {
   return coll('h-outlook', 'Next Month Outlook', `<a class="outlook-card" href="#/outlook"><div><span class="muted">${esc(monthLabel(f.next))} forecast</span><b>${R(f.total)}</b>
     <small class="muted">${f.incomeAvg ? `usual income ${R(f.incomeAvg)}` : 'no usual income yet'}</small></div>${ic('right')}</a>${notes.length ? notesList(notes) : ''}`);
 }
+function safeCard(db) {
+  const x = safeToSpend(db);
+  if (!x.cash.length) return '';
+  const word = x.tone === 'short' ? 'Your bills before then are more than your cash.' : x.tone === 'tight' ? 'Less per day than you usually spend.' : 'About what you usually spend, or more.';
+  return coll('o-safe', 'Safe to Spend', `<div class="facts"><div><span>Per day until ${esc(x.end.slice(5))}</span><b class="${x.free < 0 ? 'neg' : ''}">${R(Math.max(0, x.perDay))}</b></div><div><span>Cash you can use</span><b>${R(x.have)}</b></div><div><span>Bills before then</span><b>${R(x.owe)}</b></div></div>
+    <p class="hint">${esc(word)} Counted to the ${esc(x.basis)}, ${x.days} ${x.days === 1 ? 'day' : 'days'}. You usually spend ${R(x.typical)} a day. Bills: ${x.bills.length ? x.bills.map((b) => `${esc(b.name)} ${R(b.v)}`).join(', ') : 'none found'}.</p>`);
+}
+function accuracyCard(db, ym) {
+  const a = accuracy(db, ym), rows = a.real.length ? a.real : a.replay, sm = a.real.length ? a.realSum : a.replaySum;
+  if (!rows.length) return '';
+  return coll('o-acc', 'How Close Past Forecasts Were', `<p class="hint">${a.real.length ? 'Forecasts this app made before each month began.' : 'No forecast has been recorded yet, so this replays the model on your own past months (using only what was known at the time).'}</p>
+    <div class="rows plain">${rows.slice(-6).map((r) => { const e = r.actual ? (r.forecast - r.actual) / r.actual * 100 : 0, inR = r.low != null && r.actual >= r.low && r.actual <= r.high; return `<div class="row ln1"><span class="rmain"><strong>${esc(monthLabel(r.m))}</strong><small>forecast ${R(r.forecast)} · actual ${R(r.actual)}${r.low != null ? (inR ? ' · inside the range' : ' · outside the range') : ''}</small></span><span class="ramt"><b class="${Math.abs(e) <= 15 ? 'in' : 'neg'}">${e > 0 ? '+' : ''}${Math.round(e)}%</b></span></div>`; }).join('')}</div>
+    <p class="hint">Typical miss ${Math.round(sm.mape * 100)}% · inside the range ${Math.round(sm.hit * 100)}% of the time${sm.mase != null ? ` · ${sm.mase < 1 ? 'better' : 'worse'} than just repeating last month (${sm.mase.toFixed(2)}; under 1 is better)` : ''}.</p>`);
+}
 export function outlook(db) {
   const ym = thisMonth(), f = forecastNext(db, ym), notes = behaviorNotes(db, ym);
   if (!f.months.length) return `${hdr('Outlook')}<p class="empty">Add a month or two of entries and Sukli will forecast the next one.</p>`;
-  const left = f.incomeAvg - f.total;
+  const left = f.incomeAvg - f.total, shiftM = f.shift && f.fc ? monthlySeries(db, ym, 'expense', 36, true).months[f.fc.usedFrom] : '';
+  setTimeout(() => { try { const nl = nextLog(db, ym); if (nl) commitQuiet((d) => { d.settings.forecastLog = nl; }); } catch { /* the log is a nicety */ } }, 60);
   const hist = [];
   for (let i = 4; i >= 0; i--) { const m = shiftMonth(ym, -i); hist.push({ m, v: totals(db, m).total, fc: false }); }
   hist.push({ m: f.next, v: f.total, fc: true });
@@ -436,11 +451,13 @@ export function outlook(db) {
   return `${hdr('Outlook')}
     ${reminderBanner(db)}
     <section class="outhead"><span class="muted">${esc(monthLabel(f.next))} forecast</span><b class="big">${R(f.total)}</b>
-      ${f.method ? `<small class="muted fcmethod">Based on the ${esc(f.method)}${f.low != null ? `. In past months this kind of guess was usually within about ${R(f.high - f.total)} either way (${R(f.low)} to ${R(f.high)}), tested on ${f.tested} months.` : '. Not enough history yet to test how close it usually is.'}</small>` : ''}
+      ${f.method ? `<small class="muted fcmethod">Based on the ${esc(f.method)}. ${esc(f.why || '')}${f.low != null ? ` Likely between ${R(f.low)} and ${R(f.high)} (${f.range && f.range.basis === 'tested' ? `how far off it was in ${f.range.n} tests on your own months` : 'a rough 40% either way, there are not enough months to test'}).` : ''}${shiftM ? ` Your spending moved to a new level around ${esc(monthLabel(shiftM))}, so only the months since then are used.` : ''}</small>` : ''}
       <span class="${left >= 0 ? 'in' : 'neg'}">${f.incomeAvg ? (left >= 0 ? `About ${R(left)} left after the usual ${R(f.incomeAvg)} income` : `About ${R(-left)} more than the usual ${R(f.incomeAvg)} income`) : 'Add income entries to compare against what comes in'}</span>
-      <small class="muted">Based on ${f.months.length === 1 ? 'one earlier month' : f.months.length + ' earlier months'} (${f.months.slice().reverse().map((m) => monthLabel(m).split(' ')[0]).join(', ')}). It is a plain average of your own history, not a promise.</small></section>
+      <small class="muted">The split by group follows your last ${f.months.length === 1 ? 'month' : f.months.length + ' months'} (${f.months.slice().reverse().map((m) => monthLabel(m).split(' ')[0]).join(', ')}), with groups that show up only now and then pulled toward their longer average. It is an estimate from your own history, not a promise.</small></section>
     ${coll('o-chart', 'Spending by Month', `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Spending in recent months and the forecast">${inc}${bars}</svg><p class="legend"><i class="k bar"></i>Actual <i class="k dash"></i>Forecast${f.incomeAvg ? ' <i class="k inc"></i>Usual income' : ''} · tap a bar</p>`)}
+    ${safeCard(db)}
     ${coll('o-notes', 'Warnings, Tips and Rewards', notesList(notes))}
+    ${accuracyCard(db, ym)}
     ${coll('o-groups', 'Where It Will Probably Go', rows ? `${rows}<p class="hint tap">The tick shows how far this month is. Tap a group for its details.</p>` : '<p class="empty">Nothing to show yet.</p>')}
     ${(() => { const reg = detectRecurring(db); return reg.length ? coll('o-reg', 'Regular Payments Found', `<p class="hint">Found from how often and how much you pay. About ${R(reg.reduce((n, r) => n + r.monthly, 0))} a month in total.</p><div class="rows plain">${reg.slice(0, 8).map((r) => `<div class="row ln1"><span class="rmain"><strong>${esc(r.name)}</strong><small>${esc(r.every)}${r.steady ? '' : ' (varies)'} · next ${esc(r.next)}</small></span><span class="ramt"><b>${R(r.amount)}</b></span></div>`).join('')}</div>`) : ''; })()}
     ${f.fixed.length ? coll('o-fixed', 'Repeats Every Month', `<div class="rows plain">${f.fixed.map((x) => `<div class="row ln1"><span class="rmain"><strong>${esc(x.name)}</strong><small>every one of ${f.months.length} months</small></span><span class="ramt"><b>${R(x.v)}</b></span></div>`).join('')}</div>`) : ''}`;
