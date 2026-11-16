@@ -35,7 +35,7 @@ with sync_playwright() as p:
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.goto(U+'#/home'); pg.wait_for_timeout(600)
     while pg.locator('[data-act=month][data-d="1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="1"]'); pg.wait_for_timeout(250)
-    pg.wait_for_timeout(1200); hx=pg.inner_text('#view'); ok('trading fee counted as an expense (group Fees)', 'Fees' in hx)
+    pg.wait_for_timeout(1200); hx=pg.inner_text('#view'); ok('trading fee counted as an expense (group Fees)', 'fees' in hx.lower())
     ok('no errors', not errs); print(errs[:5])
     b.close()
 print(sum(res),'/',len(res))

@@ -168,6 +168,7 @@ const queue = () => { if (!pending) { pending = true; requestAnimationFrame(rend
   }
   render();
   if (oauthMsg) toast(oauthMsg, { ms: 9000 });
+  import('./glance.js').then((m) => m.glanceOnOpen()).catch(() => {});
   cloudInit();
   ratesInit(); initGestures(); autoPurge(); undoLoad();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && runInterest()) queue(); });

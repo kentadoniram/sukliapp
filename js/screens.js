@@ -11,6 +11,7 @@ import {
 } from './core.js';
 import { pace, trend, totals, baselineMonths, groupTrend } from './insights.js';
 import { worthInsights, noteShown, dismiss } from './worth.js';
+import { cfg as glanceCfg, TOPICS as GLANCE_TOPICS, KIND_LABEL as GLANCE_KINDS, showGlance } from './glance.js';
 import { importBluecoins, previewImport, exportCSV, SPENDABLE_TYPES } from './importer.js';
 import { exportSukliCSV } from './sukliCsv.js';
 import { predict } from './predict.js';
@@ -1067,7 +1068,7 @@ ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
 
 // Settings, grouped by what they are for. Advanced items sit in their own folded group.
 const SET_GROUPS = [
-  ['look', 'Look and Feel', 'Simple or Advanced, tabs, Home cards, colours, text size', ['Mode', 'Tabs and Home Cards', 'Add Button', 'Investments', 'Appearance', 'Display']],
+  ['look', 'Look and Feel', 'Simple or Advanced, tabs, Home cards, colours, text size', ['Mode', 'Tabs and Home Cards', 'Add Button', 'Quick Glance', 'Investments', 'Appearance', 'Display']],
   ['money', 'Money and Alerts', 'Home currency, spending warnings', ['Currency', 'Spending Safety', 'Left Out of Cash Outflow', 'Compare Rates']],
   ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Pictures', 'Account Types', 'Name Matching', 'Yearly Events']],
   ['data', 'Backup and Data', 'Undo, reminders, backups, export', ['Undo', 'Backup Reminder', 'Your Data', 'Google Backup (Optional)']],
@@ -1112,6 +1113,7 @@ function addBtnSection(db) { const c = addCfg(db), opt = (id, v, l, cur) => `<la
     <label class="check"><input type="checkbox" data-act="add-banner" ${c.banner ? 'checked' : ''}> Colour the Expense, Income and Transfer labels in the entry window: red, green and blue</label>
     <label class="check"><input type="checkbox" data-act="add-savelabel" ${c.confirmSave ? 'checked' : ''}> Name the type on the Save button (Save expense, Save income...)</label>
   </section>
+  ${glanceSection(db)}
   <section id="ratecmp"><h2>Compare Rates</h2>
     <p class="hint">Savings and earning options side by side (government savings, time deposits, crypto earn), each with its source and the date it was read.</p>
     <div class="btnrow left">${button({ label: 'Open Compare Rates', kind: 'ghost', act: 'open-rates' })}</div>
@@ -1120,6 +1122,23 @@ function addBtnSection(db) { const c = addCfg(db), opt = (id, v, l, cur) => `<la
     <p class="hint">Which tab each platform opens on when you come to Investments. Platforms with only one wallet have no tabs.</p>
     ${[['overview', 'Overview (all wallets of the platform added together)'], ['spot', 'Spot'], ['last', 'The tab I used last']].map(([v, l]) => opt('inv-open', v, l, (db.settings || {}).invOpen || 'overview')).join('')}
   </section>`; }
+function glanceSection(db) { const c = glanceCfg(db), opt = (id, v, l, cur) => `<label class="check"><input type="radio" name="${id}" data-act="${id}" value="${v}" ${cur === v ? 'checked' : ''}> ${l}</label>`;
+  return `<section id="glance"><h2>Quick Glance</h2>
+    <p class="hint">A short card when you open the app: one thing worth knowing, like your daily average, a card bill coming up, a budget running low or a balance that looks wrong. It saves you from digging through screens.</p>
+    <label class="check"><input type="checkbox" data-act="glance-on" ${c.on ? 'checked' : ''}> Show a Quick Glance when I open the app</label>
+    <h3>How often</h3>${opt('glance-freq', 'daily', 'The first time I open the app each day', c.freq)}${opt('glance-freq', 'open', 'Every time I open the app', c.freq)}
+    <h3>What it may talk about</h3>${Object.entries(GLANCE_TOPICS).map(([k, l]) => `<label class="check"><input type="checkbox" data-act="glance-topic" data-k="${k}" ${c.topics[k] !== false ? 'checked' : ''}> ${l}</label>`).join('')}
+    <label class="check"><input type="checkbox" data-act="glance-charts" ${c.charts ? 'checked' : ''}> Include small charts</label>
+    ${Object.keys(c.mute).length ? `<p class="hint">Stopped: ${Object.keys(c.mute).map((k) => esc(GLANCE_KINDS[k] || k)).join(', ')}.</p><div class="btnrow left">${button({ label: 'Allow them again', kind: 'ghost', act: 'glance-unmute' })}</div>` : ''}
+    <div class="btnrow left">${button({ label: 'Show me one now', kind: 'ghost', act: 'glance-now' })}</div>
+  </section>`; }
+const gset = (fn) => commit((d) => { d.settings.glance = { ...glanceCfg(d), ...(d.settings.glance || {}) }; fn(d.settings.glance); });
+ACT['glance-on'] = (el) => gset((g) => { g.on = !!el.checked; });
+ACT['glance-freq'] = (el) => gset((g) => { g.freq = el.value; });
+ACT['glance-topic'] = (el) => gset((g) => { g.topics = { ...(g.topics || {}), [el.dataset.k]: !!el.checked }; });
+ACT['glance-charts'] = (el) => gset((g) => { g.charts = !!el.checked; });
+ACT['glance-unmute'] = () => gset((g) => { g.mute = {}; });
+ACT['glance-now'] = () => { if (!showGlance({ force: true })) toast('Nothing to show right now. Turn on more topics, or add a few more entries.'); };
 ACT['open-rates'] = () => { location.hash = '#/rates'; };
 ACT['add-start'] = (el) => commit((d) => { d.settings.addStart = el.value; });
 ACT['add-fab'] = (el) => commit((d) => { d.settings.addFab = el.value; });
