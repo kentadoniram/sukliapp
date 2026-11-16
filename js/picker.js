@@ -37,18 +37,27 @@ export function pickerList(options, { value = '', title = 'Choose', onAdd = null
   const many = options.length > SEARCH_AFTER;
   // collapse: each group is a heading you can open or close; only the group holding the current choice starts open
   const cur = options.find((o) => o.value === value), open = new Set(tree ? [] : collapse && cur ? [cur.group] : (collapse ? [(options.find((o) => o.group) || {}).group] : []));
-  const s = sheet(`${many ? `<input type="search" class="search pk-q" data-noclear="1" placeholder="${tree ? 'Search platform, asset or currency' : 'Search'}" autocomplete="off" aria-label="Search">` : ''}
+  // tree lists get the same currency chips as the account list in a new entry (one habit for every account or asset choice)
+  const accOf = new Map(get().accounts.map((x) => [x.id, x])), curs = tree ? [...new Set(options.map((o) => (accOf.get(o.value) || {}).cur).filter(Boolean))] : [];
+  let chip = '', fold = false;
+  try { fold = localStorage.getItem('sukli-acchips-fold') === '1'; } catch { /* private window: stay open */ }
+  const chips = tree && curs.length > 1 ? `${button({ label: `Currency: All ${fold ? '▸' : '▾'}`, kind: 'link', cls: 'chipfold', attr: { 'data-chipfold': '', 'aria-expanded': String(!fold) } })}
+    <div class="seg sm scrollx acchips" role="group" aria-label="Currency" ${fold ? 'hidden' : ''}>${['', ...curs].map((c) => button({ label: c || 'All', kind: 'plain', attr: { 'data-chip': c } })).join('')}</div>` : '';
+  const s = sheet(`${many ? `<input type="search" class="search pk-q" data-noclear="1" placeholder="${tree ? 'Search account, type or currency' : 'Search'}" autocomplete="off" aria-label="Search">` : ''}
+    ${chips}
     ${onAdd ? `${button({ label: `+ ${addLabel}`, kind: 'ghost', size: 'sm', cls: 'wide pk-add' })}` : ''}
     <div class="pk-list"></div>`, { title, cls: many ? 'pickfix' : '' });
   const draw = () => {
     const q = many ? s.el.querySelector('.pk-q').value.trim().toLowerCase() : '';
-    const hit = options.filter((o) => !q || (o.label + ' ' + o.group + ' ' + (o.leaf || '')).toLowerCase().includes(q));
-    if (tree) { s.el.querySelector('.pk-list').innerHTML = hit.length ? treeHtml(hit, open, !!q, value, levels) : '<p class="empty">Nothing matches. Try another word.</p>'; return; }
+    const hit = options.filter((o) => (q ? (o.label + ' ' + o.group + ' ' + (o.leaf || '')).toLowerCase().includes(q) : !chip || (accOf.get(o.value) || {}).cur === chip));
+    if (tree) { const cn = s.el.querySelector('.chipfold'); if (cn) cn.textContent = `Currency: ${q ? 'All' : chip || 'All'} ${fold ? '▸' : '▾'}`; s.el.querySelectorAll('[data-chip]').forEach((b) => { const on = b.dataset.chip === (q ? '' : chip); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); s.el.querySelector('.pk-list').innerHTML = hit.length ? treeHtml(hit, open, !!q, value, levels) : '<p class="empty">Nothing matches. Try another word.</p>'; return; }
     const groups = new Map(); for (const o of hit) { if (!groups.has(o.group)) groups.set(o.group, []); groups.get(o.group).push(o); }
     s.el.querySelector('.pk-list').innerHTML = hit.length ? [...groups.entries()].map(([g, l]) => { const fold = collapse && g && !q && !open.has(g); return `${g ? (collapse ? `${button({ html: `<span>${esc(g)} <small class="muted">${l.length}</small></span><span aria-hidden="true">${fold ? '▸' : '▾'}</span>`, kind: 'plain', cls: 'pk-gh', attr: { 'data-g': g, 'aria-expanded': String(!fold) } })}` : `<h3>${esc(g)}</h3>`) : ''}<div class="rows plain" ${fold ? 'hidden' : ''}>${l.map((o) => `<button type="button" class="row pk-opt ${o.value === value ? 'on' : ''}" data-v="${esc(o.value)}" ${o.off ? 'disabled' : ''} aria-pressed="${o.value === value}"><span class="rmain"><strong>${esc(o.label)}</strong></span>${o.value === value ? '<span class="ramt">✓</span>' : ''}</button>`).join('')}</div>`; }).join('') : '<p class="empty">Nothing matches. Try another word' + (onAdd ? ', or add it with the button above' : '') + '.</p>';
   };
   if (many) s.el.querySelector('.pk-q').addEventListener('input', draw);
-  s.el.addEventListener('click', (e) => { const h = e.target.closest('.pk-gh'); if (h) { const g = h.dataset.g; if (open.has(g)) open.delete(g); else open.add(g); draw(); return; } const b = e.target.closest('.pk-opt'); if (b) { s.close(); onPick(b.dataset.v); } });
+  s.el.addEventListener('click', (e) => { if (e.target.closest('[data-chipfold]')) { fold = !fold; s.el.querySelector('.acchips').hidden = fold; try { localStorage.setItem('sukli-acchips-fold', fold ? '1' : '0'); } catch { /* not saved */ } draw(); return; }
+    const cb = e.target.closest('[data-chip]'); if (cb) { chip = cb.dataset.chip; draw(); return; }
+    const h = e.target.closest('.pk-gh'); if (h) { const g = h.dataset.g; if (open.has(g)) open.delete(g); else open.add(g); draw(); return; } const b = e.target.closest('.pk-opt'); if (b) { s.close(); onPick(b.dataset.v); } });
   if (onAdd) s.el.querySelector('.pk-add').onclick = () => { s.close(); onAdd(); };
   draw(); return s;
 }

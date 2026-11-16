@@ -1798,3 +1798,9 @@ select,#acct-form select{-webkit-appearance:none;appearance:none;padding-right:3
 .aview select,.curwrap select,.feebox select{padding-right:22px;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50%}
 select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50%}
 #acct-form select{padding-left:12px;padding-right:30px}
+/* v15.53: smaller Overview / Spot / Margin tabs, flatter and wider Crypto card (and so wider platform cards) */
+.invpage .segm.wsw{padding:3px;gap:3px;border-radius:12px;margin:4px 0 8px;flex-wrap:nowrap;overflow-x:auto}
+.invpage .segm.wsw .segi{flex:1 1 0;min-height:28px;padding:0 8px;border-radius:9px;font-size:calc(12px * var(--fs, 1));font-weight:600}
+.invpage .segm.wsw .segi.on{font-weight:700}
+.invpage .ivgroup > .coll{border-radius:6px;padding:8px 6px 8px;margin-left:-10px;margin-right:-10px}
+.invpage .ivgroup > .coll .ivplat .coll{border-radius:8px;padding:8px 8px 10px;margin:10px 0}
