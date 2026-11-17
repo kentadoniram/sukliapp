@@ -58,3 +58,9 @@ export function selectField({ label = '', id, name, options = [], value, hint = 
 export function tabs({ items = [], value, act, aria = '', attrOf } = {}) {
   return `<div class="wtabs" role="tablist"${aria ? ` aria-label="${esc(aria)}"` : ''}>${items.map((x) => button({ label: x.label, kind: 'chip', cls: `wtab ${x.cls || ''}`.trim(), on: x.value === value, act, v: x.value, attr: { role: 'tab', 'aria-selected': String(x.value === value), ...(attrOf ? attrOf(x) : {}) } })).join('')}</div>`;
 }
+
+// the one reusable card: every card-like box takes its look from the shared card tokens (see DESIGN SYSTEM in styles.css), so a theme changes the tokens, not each screen
+export function card({ body = '', cls = '', tone = '', tag = 'section', attr = {} } = {}) {
+  const a = Object.entries(attr).map(([k, v]) => ` ${k}="${String(v).replace(/"/g, '&quot;')}"`).join('');
+  return `<${tag} class="ui-card${tone ? ' ui-card--' + tone : ''}${cls ? ' ' + cls : ''}"${a}>${body}</${tag}>`;
+}

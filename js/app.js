@@ -89,6 +89,7 @@ function render() {
   const y = key === curKey ? window.scrollY : 0;
   const ae = document.activeElement;
   if (route === lastRoute && route === 'settings' && ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && document.getElementById('view').contains(ae)) return;
+  document.getElementById('view').dataset.screen = route;
   document.getElementById('view').innerHTML = empty && route !== 'settings' ? firstRun() : fn(db);
   document.getElementById('tabs').innerHTML = tabs(route);
   document.getElementById('tabs').hidden = empty && route !== 'settings';

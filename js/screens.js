@@ -63,7 +63,7 @@ export const ui = { month: thisMonth(), tag: '', q: '', filter: 'all', acct: '',
 // collapsible section: tap the heading to fold it away (remembered on this device)
 export function coll(id, title, body, extra = '') {
   const closed = !!ui.collapsed[id];
-  return `<section data-sec="${id}" class="coll ${closed ? 'closed' : ''}"><div class="collrow">${button({ html: `<h2>${title}</h2>${ic('down', 'chev')}`, kind: 'plain', cls: 'collhead', act: 'coll', attr: { 'data-id': id, 'aria-expanded': !closed } })}${extra}</div><div class="collbody" ${closed ? 'hidden' : ''}>${body}</div></section>`;
+  return `<section data-sec="${id}" class="coll ui-card ${closed ? 'closed' : ''}"><div class="collrow">${button({ html: `<h2>${title}</h2>${ic('down', 'chev')}`, kind: 'plain', cls: 'collhead', act: 'coll', attr: { 'data-id': id, 'aria-expanded': !closed } })}${extra}</div><div class="collbody" ${closed ? 'hidden' : ''}>${body}</div></section>`;
 }
 // opening or closing a card only flips that card in place; redrawing the whole screen made the pie charts beside it flicker
 ACT.coll = (el) => {
@@ -259,7 +259,7 @@ function weekBars(db) {
   if (!total) body = '<p class="empty">Nothing yet.</p>';
   else if (mode === 'v') body = `<div class="wkv" role="img" aria-label="Spending for each of the last 7 days">${dates.map((d, i) => `<div class="wc ${i === 6 ? 'now' : ''}" data-tip="${esc(full(d, i) + ': ' + (vals[i] ? money(vals[i]) : 'nothing spent'))}"><span class="wa ${vals[i] ? '' : 'muted'}" ${cl(i) ? `style="color:${cl(i)}"` : ''}>${vals[i] ? esc(amt(vals[i])) : ''}</span><span class="wb"><i style="height:${vals[i] > 0 ? Math.max(3, Math.round(vals[i] / top * 100)) : 0}%${cl(i) ? `;background:${cl(i)}` : ''}"></i></span><span class="wl">${esc(day(d, i))}</span></div>`).join('')}</div>`;
   else body = dates.map((d, i) => `<div class="wk ${i === 6 ? 'now' : ''}"><span class="wd">${esc(full(d, i))}</span><span class="wtrack"><i style="width:${vals[i] > 0 ? Math.max(2, Math.round(vals[i] / top * 100)) : 0}%${cl(i) ? `;background:${cl(i)}` : ''}"></i></span><b class="wv ${vals[i] ? '' : 'muted'}" ${cl(i) ? `style="color:${cl(i)}"` : ''}>${vals[i] ? esc(money(vals[i])) : '–'}</b></div>`).join('');
-  return `<section class="week" aria-label="Spending in the last 7 days"><div class="weekhead"><h3 class="subh">Spent Each Day, Last 7 Days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3></div>${body}${avgs}</section>`;
+  return `<section class="week ui-card" aria-label="Spending in the last 7 days"><div class="weekhead"><h3 class="subh">Spent Each Day, Last 7 Days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3></div>${body}${avgs}</section>`;
 }
 // the cards on Home, in the order you chose in Settings. [id, name, heavy: drawn a moment later so the numbers above appear at once]
 export const HOME_SECTIONS = [

@@ -1877,3 +1877,16 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 :where(:root[data-design="theme1"] body:not(.simple)) .btn { min-height: 48px; border-radius: 14px; }
 :where(:root[data-design="theme1"] body:not(.simple)) .tabs button:not(.fab) { min-height: 62px; font-size: calc(12.5px * var(--fs, 1)); }
 :where(:root[data-design="theme1"] body:not(.simple)) .hint, :where(:root[data-design="theme1"] body:not(.simple)) small { line-height: 1.5; }
+
+/* ===== DESIGN SYSTEM: cards (v15.57) =====
+   One set of card tokens. A theme changes these values (or the --card-* overrides below); screens never restyle cards themselves.
+   Base look = what the app already had, so Legacy Theme and every other tab stay unchanged. */
+:root { --card-bg: var(--sheet); --card-bd: var(--rule); --card-r: 14px; --card-pad: 10px 12px 12px; --card-shadow: 0 1px 2px rgba(0,0,0,.04); --card-gap: 12px; }
+:where(.ui-card) { background: var(--card-bg); border: 1px solid var(--card-bd); border-radius: var(--card-r); box-shadow: var(--card-shadow); }
+/* Theme 1, Home only: simple flat rectangle, rounded corners, soft raised shadow, no gradient (only .main-home-card has one). Left accent bars on alert cards stay: the colour carries meaning. */
+:root[data-design="theme1"] body:not(.simple) { --card-bg: var(--sheet); --card-bd: transparent; --card-r: 18px; --card-pad: 14px 16px 16px; --card-shadow: 0 2px 12px rgba(20,40,90,.09), 0 1px 2px rgba(20,40,90,.06); --card-gap: 14px; }
+:root[data-design="theme1"][data-theme="dark"] body:not(.simple) { --card-shadow: 0 2px 12px rgba(0,0,0,.4); --card-bd: color-mix(in srgb, var(--rule) 60%, transparent); }
+@media (prefers-color-scheme: dark) { :root[data-design="theme1"]:not([data-theme="light"]) body:not(.simple) { --card-shadow: 0 2px 12px rgba(0,0,0,.4); --card-bd: color-mix(in srgb, var(--rule) 60%, transparent); } }
+:where(:root[data-design="theme1"] body:not(.simple) #view[data-screen="home"]) :is(.coll, .week, section.card, .cardbox, .banner, .rem) { background: var(--card-bg); border-color: var(--card-bd); border-radius: var(--card-r); box-shadow: var(--card-shadow); background-image: none; }
+:where(:root[data-design="theme1"] body:not(.simple) #view[data-screen="home"]) :is(.coll, .week, section.card, .cardbox) { padding: var(--card-pad); margin-block: var(--card-gap); }
+:where(:root[data-design="theme1"] body:not(.simple) #view[data-screen="home"]) .coll .coll { box-shadow: none; background: transparent; border-radius: 12px; }
