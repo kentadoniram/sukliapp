@@ -22,7 +22,6 @@ with sync_playwright() as p:
     pg.click('.msyear [data-d="-1"]'); pg.wait_for_timeout(100); ok('the year can step back', pg.inner_text('.msyear b')=='2025')
     pg.click('.msm[data-m="2025-12"]'); pg.wait_for_timeout(600)
     ok('picking a month switches to it', 'December 2025' in pg.inner_text('.mscard') and pg.locator('.mspanel:visible').count()==0)
-    pg.click('.mscard'); pg.mouse.click(300,700); pg.wait_for_timeout(200); ok('tapping outside closes it', pg.locator('.mspanel:visible').count()==0)
     # font setting
     pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(800)
     t=pg.evaluate("document.body.textContent"); ok('Settings has a Font choice', 'Rounded' in t and 'Standard' in t and 'Automatic' in t)

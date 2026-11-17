@@ -91,33 +91,27 @@ function monthPanel() {
   return `<div class="msyear">${button({ html: `${ic('left')}`, kind: 'plain', cls: 'iconbtn', act: 'msyear', aria: 'Previous year', attr: { 'data-d': '-1' } })}<b>${yr}</b>${button({ html: `${ic('right')}`, kind: 'plain', cls: 'iconbtn', act: 'msyear', aria: 'Next year', attr: { 'data-d': '1', ...(yr >= nowY ? { disabled: '' } : {}) } })}</div>
     <div class="msgrid" role="group" aria-label="Month">${MONTHS.map((n, i) => { const m = `${yr}-${String(i + 1).padStart(2, '0')}`; return button({ label: n, kind: 'plain', cls: `msm ${m === ui.month ? 'on' : ''}`, act: 'mspick', pressed: m === ui.month, attr: { 'data-m': m, ...(m > now ? { disabled: '' } : {}) } }); }).join('')}</div>`;
 }
-// make every month box on the page match MS (open / closed, year shown). The tapped buttons are never replaced: only the year text, the disabled flags and the month grid change, so the tap that caused the change still has a live target (iPhone Safari lost track of taps whose button was rebuilt under the finger).
+// The picker is a panel in the normal page flow, right under the header (not a floating dropdown): nothing is positioned over other content, there is no "tap outside" detection to misfire on a phone, and the arrow that opened it closes it. State (open, year) lives here; every redraw reads it.
 function msSync() {
-  document.querySelectorAll('.monthsel').forEach((box) => {
-    const b = box.querySelector('.mscard'), pn = box.querySelector('.mspanel'); if (!b || !pn) return;
-    b.setAttribute('aria-expanded', String(MS.open)); pn.hidden = !MS.open;
-    if (!MS.open) return;
-    const yr = MS.year || +ui.month.slice(0, 4), now = thisMonth(), nowY = +now.slice(0, 4), yb = pn.querySelector('.msyear b');
-    if (!yb) { pn.innerHTML = monthPanel(); return; }
-    yb.textContent = String(yr);
-    const nx = pn.querySelector('.msyear [data-d="1"]'); if (nx) nx.disabled = yr >= nowY;
-    pn.querySelectorAll('.msm').forEach((x, i) => { const m = `${yr}-${String(i + 1).padStart(2, '0')}`; x.dataset.m = m; x.disabled = m > now; x.classList.toggle('on', m === ui.month); x.setAttribute('aria-pressed', String(m === ui.month)); });
-  });
+  const b = document.querySelector('.mscard'), pn = document.getElementById('mspanel'); if (!b || !pn) return;
+  b.setAttribute('aria-expanded', String(MS.open)); pn.hidden = !MS.open;
+  if (!MS.open) return;
+  const yr = MS.year || +ui.month.slice(0, 4), now = thisMonth(), nowY = +now.slice(0, 4), yb = pn.querySelector('.msyear b');
+  if (!yb) { pn.innerHTML = monthPanel(); return; }
+  yb.textContent = String(yr);
+  const nx = pn.querySelector('.msyear [data-d="1"]'); if (nx) nx.disabled = yr >= nowY;
+  pn.querySelectorAll('.msm').forEach((x, i) => { const m = `${yr}-${String(i + 1).padStart(2, '0')}`; x.dataset.m = m; x.disabled = m > now; x.classList.toggle('on', m === ui.month); x.setAttribute('aria-pressed', String(m === ui.month)); });
 }
 ACT.msel = () => { MS.open = !MS.open; if (MS.open) MS.year = 0; msSync(); };
 ACT.msyear = (el) => { const yr = (MS.year || +ui.month.slice(0, 4)) + (+el.dataset.d); if (yr > +thisMonth().slice(0, 4)) return; MS.year = yr; msSync(); };
 ACT.mspick = (el) => { if (el.dataset.m > thisMonth()) return; ui.month = el.dataset.m; ui.limit = 120; MS.year = 0; MS.open = false; window.dispatchEvent(new Event('sukli-render')); };
-// Was this tap inside the picker? Decided in the capture phase, before any handler can touch the page, so it never depends on the tapped node still being attached (event.composedPath() on a removed node is unreliable in WebKit).
-let msInside = false;
-try {
-  document.addEventListener('click', (e) => { msInside = !!(e.target && e.target.closest && e.target.closest('.monthsel')); }, true);
-  document.addEventListener('click', (e) => { if (MS.open && !msInside && (!e.target || e.target.isConnected)) { MS.open = false; msSync(); } });
-} catch { /* no document */ }
+try { document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && MS.open) { MS.open = false; msSync(); } }); } catch { /* no document */ }
 export function monthNav(title) {
   syncMonth();
   const isNow = ui.month === thisMonth(), label = esc(title || monthLabel(ui.month));
   if (look().design !== 'legacy') return `<header class="top t1top"><div class="hl">${burger()}</div>
-    <div class="hact">${helpBtn()}${eyeBtn()}<div class="monthsel">${button({ html: `<h1>${label}</h1>${ic('down', 'chev')}`, kind: 'plain', cls: 'mscard', act: 'msel', aria: 'Choose month', attr: { 'aria-expanded': String(MS.open), 'aria-haspopup': 'true' } })}<div class="mspanel" ${MS.open ? `data-yr="${MS.year || +ui.month.slice(0, 4)}"` : 'hidden'}>${MS.open ? monthPanel() : ''}</div></div></div></header>`;
+    <div class="hact">${helpBtn()}${eyeBtn()}<div class="monthsel">${button({ html: `<h1>${label}</h1>${ic('down', 'chev')}`, kind: 'plain', cls: 'mscard', act: 'msel', aria: 'Choose month', attr: { 'aria-expanded': String(MS.open), 'aria-controls': 'mspanel' } })}</div></div></header>
+    <div class="mspanel" id="mspanel" role="group" aria-label="Choose month" ${MS.open ? '' : 'hidden'}>${MS.open ? monthPanel() : ''}</div>`;
   return `<header class="top"><div class="hl">${burger()}<div class="monthbox">${button({ html: `${ic('left')}`, kind: 'plain', cls: 'iconbtn', act: 'month', aria: 'Previous month', attr: { 'data-d': '-1' } })}
     <h1>${label}</h1>
     <button class="iconbtn" data-act="month" data-d="1" aria-label="Next month" ${isNow ? 'disabled' : ''}>${ic('right')}</button></div></div>

@@ -18,7 +18,6 @@ with sync_playwright() as p:
         ok('%d: previous-year arrow steps back repeatedly %s %s'%(W,y1,y2), int(y2)==int(y1)-1 and pg.locator('.mspanel:visible').count()==1)
         pg.evaluate("window.dispatchEvent(new Event('sukli-render'))"); pg.wait_for_timeout(400)
         ok('%d: a screen redraw keeps the picker open'%W, pg.locator('.mspanel:visible').count()==1 and pg.get_attribute('.mscard','aria-expanded')=='true')
-        pg.mouse.click(10,600); pg.wait_for_timeout(200); ok('%d: outside tap closes'%W, pg.locator('.mspanel:visible').count()==0)
         pg.evaluate("window.scrollTo(0,0)")
         # main card
         c=pg.evaluate("(()=>{const q=s=>document.querySelector(s),cs=e=>getComputedStyle(e);const lab=q('.sc-front .sc-lab');return {h:q('.main-home-card').getBoundingClientRect().height,lfs:parseFloat(cs(lab).fontSize),rows:q('.sc-front .sc-rows').getBoundingClientRect().bottom,card:q('.main-home-card').getBoundingClientRect().bottom,bt:cs(q('.sc-front .sc-rows')).borderTopWidth,bl:cs(q('.sc-front .sc-row:last-child')).borderLeftWidth,txt:q('.sc-front .sc-rows').innerText,front:q('.sc-front .sc-net').innerText}})()")

@@ -1934,9 +1934,9 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 /* ---- v15.59: the whole main home card flips (each face is a complete card) ---- */
 .strip.sumcard.main-home-card { background: none; box-shadow: none; border-radius: 0; padding: 0; overflow: visible; display: block; perspective: 1400px; margin: 10px 0 4px; }
 .strip.sumcard.main-home-card::before, .strip.sumcard.main-home-card::after { content: none; }
-.main-home-card .sc-inner { position: relative; display: grid; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.4, .1, .2, 1); }
+.strip.main-home-card > .sc-inner { padding: 0; gap: 0; border: 0; position: relative; display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.4, .1, .2, 1); }
 .main-home-card.flipped .sc-inner { transform: rotateY(180deg); }
-.main-home-card .sc-face { position: relative; grid-area: 1 / 1; display: grid; align-content: space-between; gap: 26px; min-height: 176px; padding: 22px 20px 12px; border-radius: 22px; overflow: hidden; color: var(--gink); backface-visibility: hidden; -webkit-backface-visibility: hidden; background: linear-gradient(135deg, var(--g1) 0%, var(--g2) 55%, var(--g3) 100%); box-shadow: 0 6px 18px rgba(30, 90, 160, .14); }
+.main-home-card .sc-face { position: relative; grid-area: 1 / 1; display: grid; align-content: space-between; gap: 26px; min-height: 206px; padding: 22px 20px 12px; border-radius: 22px; overflow: hidden; color: var(--gink); backface-visibility: hidden; -webkit-backface-visibility: hidden; background: linear-gradient(135deg, var(--g1) 0%, var(--g2) 55%, var(--g3) 100%); box-shadow: 0 6px 18px rgba(30, 90, 160, .14); }
 .main-home-card .sc-face::before { content: ""; position: absolute; right: -46px; top: -58px; width: 190px; height: 190px; border-radius: 50%; background: var(--gchip); }
 .main-home-card .sc-face::after { content: ""; position: absolute; right: 38px; bottom: -70px; width: 150px; height: 150px; border-radius: 50%; background: var(--gchip); opacity: .6; }
 .main-home-card .sc-face > * { position: relative; z-index: 1; }
@@ -1945,3 +1945,15 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .main-home-card .sc-face .sc-swap i { font-style: normal; font-size: calc(14px * var(--fs, 1)); }
 .main-home-card .sc-face .sc-swap:focus-visible { outline: 2px solid var(--gink); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .main-home-card .sc-inner { transition: none; } }
+
+.main-home-card .sc-face, .main-home-card .sc-face * { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.main-home-card .sc-front { transform: rotateY(0deg) translateZ(1px); visibility: visible; transition: visibility 0s linear .35s; }
+.main-home-card .sc-back { transform: rotateY(180deg) translateZ(1px); visibility: hidden; transition: visibility 0s linear .35s; }
+.main-home-card.flipped .sc-front { visibility: hidden; }
+.main-home-card.flipped .sc-back { visibility: visible; }
+@media (prefers-reduced-motion: reduce) { .main-home-card .sc-front, .main-home-card .sc-back { transition: none; } }
+/* month picker as an in-page panel under the header */
+.mspanel { position: static; z-index: auto; left: auto; right: auto; top: auto; width: auto; margin: 0 0 12px; box-shadow: var(--card-shadow, 0 2px 10px rgba(22, 32, 42, .1)); }
+.mspanel .msgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.t1top .mspanel { left: auto; right: auto; }
+.main-home-card .sc-face .sc-swap, .main-home-card .sc-face .sc-swap * { backface-visibility: hidden; -webkit-backface-visibility: hidden; }

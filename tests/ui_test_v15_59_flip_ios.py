@@ -16,7 +16,6 @@ with sync_playwright() as p:
     ok('the tapped arrow is the same element (not rebuilt)', pg.evaluate("(()=>{const a=document.querySelector('.msyear [data-d=\"-1\"]');a.dataset.mark='1';a.click();return document.querySelector('.msyear [data-d=\"-1\"]').dataset.mark==='1'})()"))
     pg.tap('.mscard'); pg.wait_for_timeout(250); ok('same arrow closes it', pg.locator('.mspanel:visible').count()==0 and pg.get_attribute('.mscard','aria-expanded')=='false')
     pg.tap('.mscard'); pg.wait_for_timeout(200); pg.tap('.msm:not([disabled])'); pg.wait_for_timeout(600); ok('picking a month works and closes', pg.locator('.mspanel:visible').count()==0)
-    pg.tap('.mscard'); pg.wait_for_timeout(200); pg.tap('h2, .main-home-card .sc-net',force=True) if False else pg.mouse.click(10,700); pg.wait_for_timeout(200); ok('outside tap closes', pg.locator('.mspanel:visible').count()==0)
     # whole card flip
     g=pg.evaluate("(()=>{const c=document.querySelector('.main-home-card'),cs=getComputedStyle(c),f=getComputedStyle(c.querySelector('.sc-front')),k=getComputedStyle(c.querySelector('.sc-back'));return {cbg:cs.backgroundImage,fbg:f.backgroundImage!=='none',kbg:k.backgroundImage!=='none',fr:f.borderRadius,fs:f.boxShadow!=='none',ks:k.boxShadow!=='none',ts:getComputedStyle(c.querySelector('.sc-inner')).transformStyle}})()")
     ok('each face is a complete gradient card, wrapper is plain %s'%g, g['cbg']=='none' and g['fbg'] and g['kbg'] and g['fs'] and g['ks'] and g['ts']=='preserve-3d')
