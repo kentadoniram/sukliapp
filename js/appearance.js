@@ -16,7 +16,8 @@ export const SIZES = [['xs', 'Extra small', 0.8], ['s', 'Small', 0.9], ['m', 'Me
 let simpleNow = false;
 // "Match the mode": calm teal in Simple, blue in Advanced (a colour you pick yourself always wins)
 export const setLookMode = (simple) => { if (simple !== simpleNow) { simpleNow = simple; applyLook(); } };
-const DEFAULT = { accent: 'auto', theme: 'auto', size: 's', pcase: 'upper', design: 'theme1' };
+const DEFAULT = { accent: 'auto', theme: 'auto', size: 's', pcase: 'upper', design: 'theme1', font: 'auto' };
+export const FONTS = [['auto', 'Automatic'], ['rounded', 'Rounded'], ['standard', 'Standard']];
 export const DESIGNS = [['theme1', 'Theme 1'], ['legacy', 'Legacy Theme']];
 
 export function look() {
@@ -35,6 +36,7 @@ export function applyLook() {
   const key = v.accent === 'auto' ? (simpleNow ? 'teal' : 'blue') : v.accent, a = (ACCENTS[key] || ACCENTS.blue)[dark ? 'd' : 'l'];
   root.style.setProperty('--line', a[0]); root.style.setProperty('--tint', a[1]); root.style.setProperty('--line-ink', a[2]);
   root.dataset.design = v.design === 'legacy' ? 'legacy' : 'theme1';
+  root.dataset.font = v.font === 'standard' || (v.font !== 'rounded' && v.design === 'legacy') ? 'standard' : 'rounded';   // Automatic: rounded in Theme 1, the old font in Legacy Theme
   root.dataset.pcase = ['upper', 'title', 'lower'].includes(v.pcase) ? v.pcase : 'upper';
   const sz = SIZES.find((s) => s[0] === v.size) || SIZES[1];
   root.style.setProperty('--fs', String(sz[2]));

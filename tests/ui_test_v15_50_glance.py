@@ -5,6 +5,8 @@ def ok(n,c): print(('PASS ' if c else 'FAIL ')+n)
 with sync_playwright() as p:
     b=p.chromium.launch(); ctx=b.new_context(viewport={'width':390,'height':844},service_workers='block'); ctx.add_init_script('window.__sukliGlance=true'); pg=ctx.new_page(); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached'); pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(3000)
+    # the sample CSV ends in October; give the app recent days so the glance finders (daily average, pace) have something to find on any date
+    pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{const a=d.accounts.find(x=>!x.deleted&&x.type!=='card'),cat=(d.categories.find(x=>!x.deleted&&x.kind==='expense')||{}).id;for(let i=1;i<=28;i++){const t=new Date(Date.now()-i*864e5).toISOString().slice(0,10);d.txs.push(c.stamp({id:'rg'+i,kind:'expense',date:t+' 12:00:00',acct:a.id,cat,cur:a.cur,fx:1,amount:300+i*20,name:'Recent '+i}))}})})()"); pg.wait_for_timeout(600)
     SET=lambda js: pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commitQuiet(d=>{const g=d.settings.glance=Object.assign({},d.settings.glance||{});"+js+"});await c.flush&&c.flush()})()"); pg.wait_for_timeout(900)
     jsclick=lambda sel: pg.evaluate('(s)=>document.querySelector(s).click()', sel)
     def reopen(wait=3600):

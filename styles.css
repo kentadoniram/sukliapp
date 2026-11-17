@@ -1,4 +1,10 @@
 @font-face {
+  font-family: "Nunito";
+  src: url("fonts/nunito-latin-wght-normal.woff2") format("woff2");
+  font-weight: 200 1000;
+  font-display: swap;
+}
+@font-face {
   font-family: "Schibsted Grotesk";
   src: url("fonts/schibsted-grotesk-latin-wght-normal.woff2") format("woff2");
   font-weight: 400 900;
@@ -42,7 +48,7 @@ body.noscroll { overflow: visible; }   /* the sheet's own dim layer blocks the p
 .scrim, .drawer-scrim { overscroll-behavior: contain; } .sheet-body, .drawer { overscroll-behavior: contain; }
 main { max-width: 560px; margin: 0 auto; padding: calc(8px + env(safe-area-inset-top)) 16px calc(112px + env(safe-area-inset-bottom)); min-height: 100vh; min-height: 100dvh; }
 h1 { font-size: calc(26px * var(--fs, 1)); line-height: 1.15; font-weight: 700; letter-spacing: -.015em; margin: 0; }
-h2 { font-size: calc(17px * var(--fs, 1)); font-weight: 650; margin: 0 0 8px; letter-spacing: -.005em; }
+h2 { font-size: var(--h2, calc(17px * var(--fs, 1))); font-weight: 650; margin: 0 0 8px; letter-spacing: -.005em; }
 h3 { font-size: calc(15px * var(--fs, 1)); font-weight: 650; margin: 0 0 6px; }
 section { margin: 22px 0; }
 a { color: var(--line); }
@@ -1816,17 +1822,18 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
   background: linear-gradient(135deg, var(--g1) 0%, var(--g2) 55%, var(--g3) 100%); box-shadow: 0 6px 18px rgba(30, 90, 160, .14); }
 .sumcard::before { content: ""; position: absolute; right: -46px; top: -58px; width: 190px; height: 190px; border-radius: 50%; background: var(--gchip); }
 .sumcard::after { content: ""; position: absolute; right: 38px; bottom: -70px; width: 150px; height: 150px; border-radius: 50%; background: var(--gchip); opacity: .6; }
-.sumcard > *, .sumcard .sc-rows { position: relative; z-index: 1; }
+.sumcard > * { position: relative; z-index: 1; }
 .strip.sumcard > button, .sumcard .sc-net, .sumcard .sc-row { all: unset; box-sizing: border-box; cursor: pointer; }
 .sumcard .sc-net { display: grid; gap: 2px; padding: 0; border: 0; }
 .sumcard .sc-net span { font-size: calc(13px * var(--fs, 1)); color: var(--gsub); font-weight: 600; letter-spacing: .02em; }
 .sumcard .sc-net b { font-size: calc(34px * var(--fs, 1)); font-weight: 750; letter-spacing: -.02em; line-height: 1.1; color: var(--gink); white-space: nowrap; }
 .sumcard .sc-net b.neg { color: var(--bad); }
-.sumcard .sc-rows { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--gline); max-width: 280px; }
-.sumcard .sc-row { display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 10px; padding: 0; border: 0; }
-.sumcard .sc-row span { font-size: calc(14px * var(--fs, 1)); color: var(--gsub); font-weight: 500; }
-.sumcard .sc-row b { font-size: calc(16px * var(--fs, 1)); font-weight: 650; color: var(--gink); white-space: nowrap; }
-.sumcard .sc-arr { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--gchip); font-style: normal; font-size: calc(14px * var(--fs, 1)); font-weight: 700; line-height: 1; }
+.sumcard .sc-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding-top: 14px; border-top: 1px solid var(--gline); }
+.strip.sumcard .sc-rows .sc-row { display: grid; align-content: start; gap: 4px; padding: 0 0 0 16px; border: 0; border-left: 1px solid var(--gline); min-width: 0; }
+.strip.sumcard .sc-rows .sc-row:first-child { padding-left: 0; border-left: 0; }
+.sumcard .sc-lab { display: inline-flex; align-items: center; gap: 8px; font-size: calc(14px * var(--fs, 1)); color: var(--gsub); font-weight: 600; }
+.sumcard .sc-val { font-size: var(--h2, calc(17px * var(--fs, 1))); font-weight: 750; line-height: 1.2; color: var(--gink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sumcard .sc-arr { display: inline-grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 50%; background: var(--gchip); font-style: normal; font-size: calc(14px * var(--fs, 1)); font-weight: 700; line-height: 1; }
 .sumcard .sc-arr.dn { color: var(--in); } .sumcard .sc-arr.up { color: var(--bad); }
 .sumcard button:hover b { text-decoration: underline; text-decoration-color: var(--gline); text-underline-offset: 3px; }
 .sumcard button:focus-visible { outline: 2px solid var(--gink); outline-offset: 3px; border-radius: 8px; }
@@ -1839,7 +1846,34 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .homemore > summary { flex-wrap: nowrap; } .homemore > summary > :first-child { flex: 1; }
 .strip.sumcard { grid-template-columns: 1fr; border-block: 0; }
 .strip.sumcard > .sc-net { display: grid; gap: 2px; }
-.strip.sumcard .sc-rows .sc-row { display: grid; }
 /* Theme 1 light: pure white in both Simple and Advanced (the mode tints above belong to Legacy Theme) */
 @media (prefers-color-scheme: light) { :root[data-design="theme1"]:not([data-theme="dark"]) body.simple, :root[data-design="theme1"]:not([data-theme="dark"]) body:not(.simple) { --paper: #FFFFFF; --rule: #E6EAEE; } }
 :root[data-design="theme1"][data-theme="light"] body.simple, :root[data-design="theme1"][data-theme="light"] body:not(.simple) { --paper: #FFFFFF; --rule: #E6EAEE; }
+
+/* ---- v15.56 Theme 1: rounded font, month card, larger and cleaner Advanced ---- */
+:root[data-font="rounded"] { --f: "Nunito", "Schibsted Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif; }
+:root[data-font="rounded"] h1, :root[data-font="rounded"] h2, :root[data-font="rounded"] h3 { letter-spacing: 0; }
+:root[data-font="rounded"] .sumcard .sc-net b { font-weight: 800; letter-spacing: -.01em; }
+.monthsel { position: relative; }
+.mscard { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 12px 6px 16px; border-radius: 16px; background: var(--sheet); border: 1px solid var(--rule); box-shadow: 0 2px 8px rgba(22, 32, 42, .06); }
+.mscard h1 { font-size: calc(19px * var(--fs, 1)); white-space: nowrap; }
+.mscard .chev { flex: none; width: 20px; height: 20px; margin-left: auto; color: var(--ink2); transition: transform .15s; }
+.mscard[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.mscard:focus-visible { outline: 2px solid var(--line); outline-offset: 2px; }
+.mspanel { position: absolute; z-index: 40; left: 0; top: calc(100% + 6px); width: min(320px, calc(100vw - 32px)); padding: 12px; border-radius: 18px; background: var(--sheet); border: 1px solid var(--rule); box-shadow: 0 12px 32px rgba(22, 32, 42, .18); }
+.mspanel[hidden] { display: none; }
+.msyear { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.msyear b { font-size: calc(17px * var(--fs, 1)); }
+.msgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.msm { all: unset; box-sizing: border-box; cursor: pointer; text-align: center; padding: 11px 0; border-radius: 12px; font-weight: 600; background: var(--paper); border: 1px solid var(--rule); }
+.msm.on { background: var(--line); color: var(--line-ink); border-color: var(--line); }
+.msm[disabled] { opacity: .35; cursor: default; }
+.msm:focus-visible { outline: 2px solid var(--line); outline-offset: 1px; }
+/* larger, cleaner Advanced in Theme 1 (Simple is left alone) */
+:where(:root[data-design="theme1"] body:not(.simple)) { --h2: calc(20px * var(--fs, 1)); --h-control: 52px; font-size: calc(17px * var(--fs, 1)); }
+:where(:root[data-design="theme1"] body:not(.simple)) h3 { font-size: calc(16px * var(--fs, 1)); }
+:where(:root[data-design="theme1"] body:not(.simple)) .row { padding-block: 11px; }
+:where(:root[data-design="theme1"] body:not(.simple)) .coll, :where(:root[data-design="theme1"] body:not(.simple)) section.card { border-radius: 18px; }
+:where(:root[data-design="theme1"] body:not(.simple)) .btn { min-height: 48px; border-radius: 14px; }
+:where(:root[data-design="theme1"] body:not(.simple)) .tabs button:not(.fab) { min-height: 62px; font-size: calc(12.5px * var(--fs, 1)); }
+:where(:root[data-design="theme1"] body:not(.simple)) .hint, :where(:root[data-design="theme1"] body:not(.simple)) small { line-height: 1.5; }

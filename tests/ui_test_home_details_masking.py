@@ -29,7 +29,7 @@ with sync_playwright() as p:
     ok('entry opens from detail', pg.locator('#f-amount').count()==1)
     pg.click('[data-close]'); pg.wait_for_timeout(100)
     # income detail (September has none, go back a month)
-    pg.click('[data-act=month][data-d="-1"]'); pg.wait_for_timeout(300)
+    pg.evaluate("document.querySelector('.mscard').click();document.querySelector('.msm.on').previousElementSibling.click()"); pg.wait_for_timeout(300)
     pg.screenshot(path=S+'v3-home-prev.png',full_page=True)
     pg.locator('.gbar.click[data-k=income]').first.click(); pg.wait_for_selector('#gd .gdhead')
     ok('income detail opens', '%' in pg.inner_text('#gd .gdhead'))

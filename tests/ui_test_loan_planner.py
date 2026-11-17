@@ -18,7 +18,6 @@ with sync_playwright() as p:
     pg.click('[data-rec]'); pg.wait_for_timeout(300); ok('asks to confirm fees', 'deducted upfront' in pg.inner_text('.confirm-text'))
     pg.click('[data-yes]'); pg.wait_for_timeout(700)
     pg.goto(U+'#/ledger'); pg.wait_for_timeout(500)
-    while pg.locator('[data-act=month][data-d="1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="1"]'); pg.wait_for_timeout(200)
     lt=pg.inner_text('#view'); ok('loan is one entry: borrowed, fees deducted, received', 'Loan: borrowed' in lt and 'fees' in lt and 'received' in lt and 'Loan fees:' not in lt)
     pg.goto(U+'#/accounts'); pg.wait_for_timeout(500)
     pg.select_option('[data-aview=group]','class'); pg.wait_for_timeout(300)
@@ -28,7 +27,7 @@ with sync_playwright() as p:
     pg.click('#ad [data-act=loan-charge]'); pg.wait_for_selector('#lc'); choose(pg,'#lc [name=what]',value='Late fee'); pg.fill('#lc [name=amt]','400'); pg.click('#lc .btn:not(.ghost)'); pg.wait_for_timeout(600)
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.goto(U+'#/home'); pg.wait_for_timeout(800)
-    while pg.locator('[data-act=month][data-d="1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="1"]'); pg.wait_for_timeout(300)
+    pg.wait_for_selector('.mscard'); pg.evaluate("(async()=>{const c=await import('/js/core.js');document.querySelector('.mscard').click();document.querySelector('.msm[data-m=\"'+c.thisMonth()+'\"]').click()})()")
     pg.wait_for_timeout(1200)
     h=pg.inner_text('#view'); ok('financial loss card', 'money lost to fees and interest' in h.lower() and 'Loan fees' in h and 'Late fee' in h)
     # no interest on debts

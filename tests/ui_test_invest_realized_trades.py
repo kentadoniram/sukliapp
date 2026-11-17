@@ -34,7 +34,7 @@ with sync_playwright() as p:
     pg.locator('#ad button.row[data-act=edit]').first.click(); pg.wait_for_selector('[data-del]'); ok('trade detail opens', 'not counted as spending' in pg.inner_text('.sheet >> nth=-1'))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.goto(U+'#/home'); pg.wait_for_timeout(600)
-    while pg.locator('[data-act=month][data-d="1"]:not([disabled])').count(): pg.click('[data-act=month][data-d="1"]'); pg.wait_for_timeout(250)
+    pg.wait_for_selector('.mscard'); pg.evaluate("(async()=>{const c=await import('/js/core.js');document.querySelector('.mscard').click();document.querySelector('.msm[data-m=\"'+c.thisMonth()+'\"]').click()})()")
     pg.wait_for_timeout(1200); hx=pg.inner_text('#view'); ok('trading fee counted as an expense (group Fees)', 'fees' in hx.lower())
     ok('no errors', not errs); print(errs[:5])
     b.close()

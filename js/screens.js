@@ -36,7 +36,7 @@ import { yearlyCard, yearlySection } from './yearly.js';
 import { quickCard } from './quick.js';
 import { openBulkEdit } from './bulkedit.js';
 import { cloudSync, cloudStatus, signIn, signUp, signOut, signedIn, session, lastOk, SETUP_SQL, signInWithGoogle, configured } from './cloud.js';
-import { applyHide, look, setLook, ACCENTS, SIZES, DESIGNS, setLookMode } from './appearance.js';
+import { applyHide, look, setLook, ACCENTS, SIZES, DESIGNS, FONTS, setLookMode } from './appearance.js';
 export { setLookMode };
 import { lossCard } from './loans.js';
 import { reimbCard } from './reimburse.js';
@@ -83,11 +83,24 @@ export const eq = (amount, cur, fx, date) => (showHome() && cur !== HOME && fx >
 let seenMonth = thisMonth();
 export function syncMonth() { const m = thisMonth(); if (m !== seenMonth) { if (ui.month === seenMonth) ui.month = m; seenMonth = m; } }
 try { document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const was = seenMonth; syncMonth(); if (was !== seenMonth) window.dispatchEvent(new Event('sukli-render')); } }); } catch { /* no document */ }
+// Theme 1: the month is one rounded card with an arrow at the right; it opens a small year + month picker. Legacy Theme keeps the left / right buttons.
+const MS = { year: 0 }, MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function monthPanel() {
+  const yr = MS.year || +ui.month.slice(0, 4), now = thisMonth(), nowY = +now.slice(0, 4);
+  return `<div class="msyear">${button({ html: `${ic('left')}`, kind: 'plain', cls: 'iconbtn', act: 'msyear', aria: 'Previous year', attr: { 'data-d': '-1' } })}<b>${yr}</b>${button({ html: `${ic('right')}`, kind: 'plain', cls: 'iconbtn', act: 'msyear', aria: 'Next year', attr: { 'data-d': '1', ...(yr >= nowY ? { disabled: '' } : {}) } })}</div>
+    <div class="msgrid" role="group" aria-label="Month">${MONTHS.map((n, i) => { const m = `${yr}-${String(i + 1).padStart(2, '0')}`; return button({ label: n, kind: 'plain', cls: `msm ${m === ui.month ? 'on' : ''}`, act: 'mspick', pressed: m === ui.month, attr: { 'data-m': m, ...(m > now ? { disabled: '' } : {}) } }); }).join('')}</div>`;
+}
+ACT.msel = (el) => { const box = el.closest('.monthsel'), open = el.getAttribute('aria-expanded') !== 'true'; if (open) { MS.year = 0; box.querySelector('.mspanel').innerHTML = monthPanel(); } el.setAttribute('aria-expanded', String(open)); box.querySelector('.mspanel').hidden = !open; };
+ACT.msyear = (el) => { const yr = (MS.year || +ui.month.slice(0, 4)) + (+el.dataset.d); if (yr > +thisMonth().slice(0, 4)) return; MS.year = yr; el.closest('.mspanel').innerHTML = monthPanel(); };
+ACT.mspick = (el) => { if (el.dataset.m > thisMonth()) return; ui.month = el.dataset.m; ui.limit = 120; MS.year = 0; window.dispatchEvent(new Event('sukli-render')); };
+try { document.addEventListener('click', (e) => { document.querySelectorAll('.monthsel .mscard[aria-expanded="true"]').forEach((b) => { if (!e.composedPath().includes(b.closest('.monthsel'))) { b.setAttribute('aria-expanded', 'false'); b.closest('.monthsel').querySelector('.mspanel').hidden = true; } }); }); } catch { /* no document */ }
 export function monthNav(title) {
   syncMonth();
-  const isNow = ui.month === thisMonth();
+  const isNow = ui.month === thisMonth(), label = esc(title || monthLabel(ui.month));
+  if (look().design !== 'legacy') return `<header class="top"><div class="hl">${burger()}<div class="monthsel">${button({ html: `<h1>${label}</h1>${ic('down', 'chev')}`, kind: 'plain', cls: 'mscard', act: 'msel', aria: 'Choose month', attr: { 'aria-expanded': 'false', 'aria-haspopup': 'true' } })}<div class="mspanel" hidden></div></div></div>
+    <div class="hact">${helpBtn()}${eyeBtn()}</div></header>`;
   return `<header class="top"><div class="hl">${burger()}<div class="monthbox">${button({ html: `${ic('left')}`, kind: 'plain', cls: 'iconbtn', act: 'month', aria: 'Previous month', attr: { 'data-d': '-1' } })}
-    <h1>${esc(title || monthLabel(ui.month))}</h1>
+    <h1>${label}</h1>
     <button class="iconbtn" data-act="month" data-d="1" aria-label="Next month" ${isNow ? 'disabled' : ''}>${ic('right')}</button></div></div>
     <div class="hact">${helpBtn()}${eyeBtn()}</div></header>`;
 }
@@ -109,14 +122,16 @@ export function strip(st) {
     <button data-act="flow" data-k="net"><span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${fmt(net, HOME, { round: true })}</b></button></section>`;
 }
 
-// Theme 1 Home card: net income large on the left, income (arrow down = money in) and expense (arrow up = money out) below, on a soft blue card-like gradient
-export function summaryCard(st) {
+// MAIN HOME CARD (search "main-home-card" / mainHomeCard to find or change it).
+// Theme 1 Home card: net income large on top; below it, Income (arrow down = money in) and Expense (arrow up = money out) side by side in one row, each with its amount underneath in the heading (H2) size.
+export function mainHomeCard(st) {
   const net = st.income - st.spent, m = (v) => fmt(v, HOME, { round: true });
-  const row = (k, arrow, label, v, cls) => button({ html: `<i class="sc-arr ${cls}" aria-hidden="true">${arrow}</i><span>${label}</span><b>${m(v)}</b>`, kind: 'plain', cls: 'sc-row', act: 'flow', attr: { 'data-k': k } });
-  return `<section class="strip sumcard" aria-label="Month totals">
+  const cell = (k, arrow, label, v, cls) => button({ html: `<span class="sc-lab"><i class="sc-arr ${cls}" aria-hidden="true">${arrow}</i>${label}</span><b class="sc-val">${m(v)}</b>`, kind: 'plain', cls: 'sc-row', act: 'flow', attr: { 'data-k': k } });
+  return `<section class="strip sumcard main-home-card" data-id="main-home-card" aria-label="Month totals">
     ${button({ html: `<span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${m(net)}</b>`, kind: 'plain', cls: 'sc-net', act: 'flow', attr: { 'data-k': 'net' } })}
-    <div class="sc-rows">${row('inflow', '↓', 'Income', st.income, 'dn')}${row('outflow', '↑', 'Expense', st.spent, 'up')}</div></section>`;
+    <div class="sc-rows">${cell('inflow', '↓', 'Income', st.income, 'dn')}${cell('outflow', '↑', 'Expense', st.spent, 'up')}</div></section>`;
 }
+export const summaryCard = mainHomeCard;
 
 function spendable(db) {
   const bal = balances(db);
@@ -222,7 +237,7 @@ export function home(db) {
   const more = calm ? `<details class="homemore"><summary>More on Home${rest.length ? ` <small>${rest.length + 1}</small>` : ''}</summary>${weekBars(db)}${rest.map(mk).join('')}</details>` : '';
   const firstEntry = !db.txs.some((t) => !t.deleted) ? `<section class="nextstep"><b>Next step: write down your first spending.</b> ${tipBtn('firstentry')}</section>` : '';
   return `${monthNav()}
-    ${firstEntry}${t1 ? summaryCard(st) : strip(st)}${homeTitles(calm ? body + more : weekBars(db) + body)}`;
+    ${firstEntry}${t1 ? mainHomeCard(st) : strip(st)}${homeTitles(calm ? body + more : weekBars(db) + body)}`;
 }
 // what was spent on each of the last 7 days: plain HTML (not SVG) so the day, the bar and the amount never overlap and the text stays readable.
 // Horizontal or vertical is a device choice; the data and the numbers are the same in both.
@@ -814,6 +829,7 @@ export function settings(db) {
       <label class="check"><input type="checkbox" data-act="commas" ${localStorage.getItem('sukli.commas') === '0' ? '' : 'checked'}> Show thousands separators when typing (119,000)</label>
       <p class="hint">These are kept on this device only.</p>
       <div class="field"><span>Design</span>${segBtns('look', 'design', DESIGNS, lk.design === 'legacy' ? 'legacy' : 'theme1')}<small class="hint">Theme 1 has a white background, a blue summary card on Home, and a shorter Home in Simple mode. Legacy Theme is the design used before.</small></div>
+      <div class="field"><span>Font</span>${segBtns('look', 'font', FONTS, ['rounded', 'standard'].includes(lk.font) ? lk.font : 'auto')}<small class="hint">Automatic uses a rounded, softer font in Theme 1 and the original font in Legacy Theme.</small></div>
       <div class="field"><span>Light or dark</span>${segBtns('look', 'theme', [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']], lk.theme)}</div>
       <div class="field"><span>Colour</span><div class="swatches" role="group" aria-label="Accent colour">${button({ label: ``, kind: 'plain', cls: `swatch auto ${lk.accent === 'auto' ? 'on' : ''}`, act: 'look', aria: 'Match the mode (teal in Simple, blue in Advanced)', pressed: lk.accent === 'auto', title: 'Match the mode', attr: { 'data-k': 'accent', 'data-v': 'auto' } })}${Object.entries(ACCENTS).map(([k, v]) => `${button({ label: ``, kind: 'plain', cls: `swatch ${lk.accent === k ? 'on' : ''}`, act: 'look', aria: v.n, pressed: lk.accent === k, attr: { 'data-k': 'accent', 'data-v': k, 'style': `background:${v.l[0]}` } })}`).join('')}</div></div>
       <div class="field"><span>“Spent each day” chart on Home</span><div class="seg two small" role="group" aria-label="Chart direction">${[['v', 'Vertical bars'], ['h', 'Horizontal bars']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${weekMode() === v ? 'on' : ''}`, act: 'week-mode', pressed: weekMode() === v, attr: { 'data-v': v } })}`).join('')}</div></div>
