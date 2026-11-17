@@ -1881,7 +1881,7 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 /* ===== DESIGN SYSTEM: cards (v15.57) =====
    One set of card tokens. A theme changes these values (or the --card-* overrides below); screens never restyle cards themselves.
    Base look = what the app already had, so Legacy Theme and every other tab stay unchanged. */
-:root { --card-bg: var(--sheet); --card-bd: var(--rule); --card-r: 14px; --card-pad: 10px 12px 12px; --card-shadow: 0 1px 2px rgba(0,0,0,.04); --card-gap: 12px; }
+:root { --dot-ring: #fff; --card-bg: var(--sheet); --card-bd: var(--rule); --card-r: 14px; --card-pad: 10px 12px 12px; --card-shadow: 0 1px 2px rgba(0,0,0,.04); --card-gap: 12px; }
 :where(.ui-card) { background: var(--card-bg); border: 1px solid var(--card-bd); border-radius: var(--card-r); box-shadow: var(--card-shadow); }
 /* Theme 1, Home only: simple flat rectangle, rounded corners, soft raised shadow, no gradient (only .main-home-card has one). Left accent bars on alert cards stay: the colour carries meaning. */
 :root[data-design="theme1"] body:not(.simple) { --card-bg: var(--sheet); --card-bd: transparent; --card-r: 18px; --card-pad: 14px 16px 16px; --card-shadow: 0 2px 12px rgba(20,40,90,.09), 0 1px 2px rgba(20,40,90,.06); --card-gap: 14px; }
@@ -1957,3 +1957,16 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .mspanel .msgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .t1top .mspanel { left: auto; right: auto; }
 .main-home-card .sc-face .sc-swap, .main-home-card .sc-face .sc-swap * { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+
+/* ---- v15.61: line graph inside the main home card; steadier flip ---- */
+.main-home-card .sc-face { min-height: 244px; gap: 8px; align-content: space-between; }
+.main-home-card .sc-spark { position: relative; height: 64px; margin: 0 -4px; }
+.main-home-card .sc-spark svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.main-home-card .sk-line { fill: none; stroke: var(--gink); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; opacity: .9; filter: drop-shadow(0 3px 3px rgba(20, 50, 100, .28)); }
+.main-home-card .sk-area { stroke: none; }
+.main-home-card .sk-base { stroke: var(--gline); stroke-width: 1.5; stroke-dasharray: 3 5; vector-effect: non-scaling-stroke; }
+.main-home-card .sk-dot { position: absolute; width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; border-radius: 50%; background: var(--gink); border: 2.5px solid var(--dot-ring); box-shadow: 0 3px 7px rgba(20, 50, 100, .38); }
+/* flip: put the turning parts on their own layers up front so the browser does not repaint them mid-turn */
+.main-home-card .sc-inner, .main-home-card .sc-face { will-change: transform; }
+.main-home-card .sc-face { contain: paint; }
+.main-home-card .fbflash { animation: none !important; }

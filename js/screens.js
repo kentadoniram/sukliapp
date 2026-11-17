@@ -3,7 +3,7 @@ import { addCfg, startKind, KIND_META, START_CHOICES } from './addset.js';
 import { button, textField } from './components.js';
 import { catIcon } from './caticons.js';
 import { softDelete, appMode, reimbKeep } from './core.js';
-import { safetyCfg, balanceTrail, netWorth } from './finance.js';
+import { safetyCfg, balanceTrail, netWorth, cashFlowSeries, netWorthSeries } from './finance.js';
 import {
   get, commit, commitQuiet, stamp, uid, fmt, BASE, HOME, homeFx, homeRate, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
   compact, monthLabel, shiftMonth, thisMonth, dayLabel, rateFor, reviewCount, groupColor, groupLetter, adjustmentCategory, nowStamp,
@@ -139,9 +139,26 @@ export function strip(st) {
 
 // MAIN HOME CARD (search "main-home-card" / mainHomeCard to find or change it).
 // Theme 1 Home card: net income large on top; below it, Income (arrow down = money in) and Expense (arrow up = money out) side by side in one row, each with its amount underneath in the heading (H2) size.
+// smooth line for the Home card: a spline through the points, a soft shadow, and a round marker on the last point. The line is stretched to the card; the marker is a separate round element so it never gets squashed.
+let SKN = 0;
+function spark(vals, label) {
+  const gid = `skg${++SKN}`;
+  const W = 300, H = 64, pad = 8;
+  if (!vals || vals.length < 2) return `<div class="sc-spark empty" role="img" aria-label="${esc(label)}: not enough days yet"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}" class="sk-base"/></svg></div>`;
+  const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || Math.max(1, Math.abs(hi) * .1);
+  const pts = vals.map((v, i) => [i / (vals.length - 1) * W, pad + (1 - (v - lo) / span) * (H - 2 * pad)]);
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {   // Catmull-Rom to Bezier, y kept inside the box so the curve never overshoots
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2, c = (v) => Math.max(pad / 2, Math.min(H - pad / 2, v));
+    d += `C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${c(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${c(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  const end = pts[pts.length - 1], area = `${d}L${end[0].toFixed(1)},${H}L0,${H}Z`;
+  return `<div class="sc-spark" role="img" aria-label="${esc(label)}"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><path d="${area}" class="sk-area" fill="url(#${gid})"/><path d="${d}" class="sk-line"/></svg><i class="sk-dot" style="left:${(end[0] / W * 100).toFixed(2)}%;top:${(end[1] / H * 100).toFixed(2)}%"></i></div>`;
+}
 const FACE = { worth: false };   // Net income is showing every time the app opens; the flip is remembered only until it is closed
 export function mainHomeCard(st, db) {
   const net = st.income - st.spent, m = (v) => fmt(v, HOME, { round: true }), nw = db ? netWorth(db) : { net: 0, assets: 0, debts: 0 };
+  const flow = db ? cashFlowSeries(db, ui.month) : [], worth = db ? netWorthSeries(db, ui.month) : [];
   const cell = (k, arrow, label, v, cls) => button({ html: `<span class="sc-lab"><i class="sc-arr ${cls}" aria-hidden="true">${arrow}</i>${label}</span><b class="sc-val">${m(v)}</b>`, kind: 'plain', cls: 'sc-row', act: 'flow', attr: { 'data-k': k } });
   const plain = (label, v, cls, arrow) => `<div class="sc-row"><span class="sc-lab"><i class="sc-arr ${cls}" aria-hidden="true">${arrow}</i>${label}</span><b class="sc-val">${m(v)}</b></div>`;
   const w = FACE.worth;
@@ -150,9 +167,9 @@ export function mainHomeCard(st, db) {
   return `<section class="strip sumcard main-home-card ${w ? 'flipped' : ''}" data-id="main-home-card" aria-label="Month totals">
     <div class="sc-inner">
       <div class="sc-face sc-front" ${w ? 'inert aria-hidden="true"' : ''}>${button({ html: `<span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${m(net)}</b>`, kind: 'plain', cls: 'sc-net', act: 'flow', attr: { 'data-k': 'net' } })}
-        <div class="sc-rows">${cell('inflow', '↓', 'Income', st.income, 'dn')}${cell('outflow', '↑', 'Expenses', st.spent, 'up')}</div>${swap('Net worth', 'Show net worth')}</div>
+        ${spark(flow, 'Cash flow this month')}<div class="sc-rows">${cell('inflow', '↓', 'Income', st.income, 'dn')}${cell('outflow', '↑', 'Expenses', st.spent, 'up')}</div>${swap('Net worth', 'Show net worth')}</div>
       <div class="sc-face sc-back" ${w ? '' : 'inert aria-hidden="true"'}><div class="sc-net"><span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${m(nw.net)}</b></div>
-        <div class="sc-rows">${plain('Assets', nw.assets, 'dn', '↑')}${plain('Liabilities', nw.debts, 'up', '↓')}</div>${swap('Net income', 'Show net income')}</div>
+        ${spark(worth, 'Net worth over the last six months')}<div class="sc-rows">${plain('Assets', nw.assets, 'dn', '↑')}${plain('Liabilities', nw.debts, 'up', '↓')}</div>${swap('Net income', 'Show net income')}</div>
     </div></section>`;
 }
 // flips the whole card in place (no redraw, so nothing jumps); the rotation is pure CSS

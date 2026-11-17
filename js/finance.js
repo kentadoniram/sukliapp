@@ -764,3 +764,26 @@ export function safetyCheck(db, { amount, acctId, kind = 'expense', date, group 
   const rank = { danger: 0, warn: 1, info: 2 };
   return out.sort((x, y) => rank[x.level] - rank[y.level]).slice(0, 4);
 }
+
+// ---------- Home card graphs (v15.61) ----------
+// Cash flow: running net income (income minus spending) day by day inside one month. Stops at today for the current month.
+export function cashFlowSeries(db, ym) {
+  const n = daysInMonth(ym), now = new Date(), cur = ym === thisMonth(), last = cur ? Math.min(n, now.getDate()) : n, per = new Array(n).fill(0);
+  for (const p of monthParts(db, ym)) { const d = +p.t.date.slice(8, 10) - 1; if (d >= 0 && d < n) per[d] += p.kind === 'income' ? p.v : -p.v; }
+  let run = 0; const out = [];
+  for (let i = 0; i < last; i++) { run += per[i]; out.push(run); }
+  return out;
+}
+// Net worth about every week over the six months that end with the chosen month (its last day, or today for the current month), today's rates, liabilities against it. The last point is the figure on the card.
+export function netWorthSeries(db, ym) {
+  const n = daysInMonth(ym), cur = ym === thisMonth(), endDay = cur ? Math.min(n, new Date().getDate()) : n, end = new Date(+ym.slice(0, 4), +ym.slice(5, 7) - 1, endDay, 12), out = [], accts = live(db.accounts);
+  const first = db.txs.reduce((m, t) => (!t.deleted && t.date < m ? t.date : m), '9999');
+  for (let k = 26; k >= 0; k--) {
+    const dt = new Date(end.getTime() - k * 7 * 864e5), ds = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    if (ds < first.slice(0, 10) && k > 0) continue;
+    const bal = balances(db, `${ds} 23:59:59`); let assets = 0, debts = 0;
+    for (const a of accts) { const r = homeFx(db, a.cur), base = (bal.get(a.id) || 0) * (r || 0); if (base > 0) assets += base; else if (base < 0) debts += -base; }
+    out.push(assets - debts);
+  }
+  return out;
+}
