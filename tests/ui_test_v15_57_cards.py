@@ -12,7 +12,7 @@ with sync_playwright() as p:
     r=pg.evaluate(Q); print(r)
     ok('every Home card has the same radius', len({x[1] for x in r})==1 and r[0][1]=="24px")
     ok('every Home card is raised (shadow) and has no gradient', all(x[2] and x[3]=='none' for x in r))
-    ok('main-home-card keeps its gradient', pg.evaluate("getComputedStyle(document.querySelector('.main-home-card')).backgroundImage")!='none')
+    ok('main-home-card keeps its gradient', pg.evaluate("getComputedStyle(document.querySelector('.main-home-card .sc-front')).backgroundImage")!='none')
     pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(800)
     ok('other tab not restyled', pg.evaluate("[...document.querySelectorAll('#view .coll')].every(e=>getComputedStyle(e).borderRadius==='14px')"))
     pg.evaluate("document.querySelector('[data-act=look][data-k=design][data-v=legacy]').click()"); pg.wait_for_timeout(400)

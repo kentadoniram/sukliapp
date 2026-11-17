@@ -91,18 +91,28 @@ function monthPanel() {
   return `<div class="msyear">${button({ html: `${ic('left')}`, kind: 'plain', cls: 'iconbtn', act: 'msyear', aria: 'Previous year', attr: { 'data-d': '-1' } })}<b>${yr}</b>${button({ html: `${ic('right')}`, kind: 'plain', cls: 'iconbtn', act: 'msyear', aria: 'Next year', attr: { 'data-d': '1', ...(yr >= nowY ? { disabled: '' } : {}) } })}</div>
     <div class="msgrid" role="group" aria-label="Month">${MONTHS.map((n, i) => { const m = `${yr}-${String(i + 1).padStart(2, '0')}`; return button({ label: n, kind: 'plain', cls: `msm ${m === ui.month ? 'on' : ''}`, act: 'mspick', pressed: m === ui.month, attr: { 'data-m': m, ...(m > now ? { disabled: '' } : {}) } }); }).join('')}</div>`;
 }
-// make every month box on the page match MS (open / closed, year shown)
+// make every month box on the page match MS (open / closed, year shown). The tapped buttons are never replaced: only the year text, the disabled flags and the month grid change, so the tap that caused the change still has a live target (iPhone Safari lost track of taps whose button was rebuilt under the finger).
 function msSync() {
   document.querySelectorAll('.monthsel').forEach((box) => {
     const b = box.querySelector('.mscard'), pn = box.querySelector('.mspanel'); if (!b || !pn) return;
     b.setAttribute('aria-expanded', String(MS.open)); pn.hidden = !MS.open;
-    if (MS.open) { const yr = MS.year || +ui.month.slice(0, 4); if (!pn.firstChild || pn.dataset.yr !== String(yr)) { pn.innerHTML = monthPanel(); pn.dataset.yr = String(yr); } }
+    if (!MS.open) return;
+    const yr = MS.year || +ui.month.slice(0, 4), now = thisMonth(), nowY = +now.slice(0, 4), yb = pn.querySelector('.msyear b');
+    if (!yb) { pn.innerHTML = monthPanel(); return; }
+    yb.textContent = String(yr);
+    const nx = pn.querySelector('.msyear [data-d="1"]'); if (nx) nx.disabled = yr >= nowY;
+    pn.querySelectorAll('.msm').forEach((x, i) => { const m = `${yr}-${String(i + 1).padStart(2, '0')}`; x.dataset.m = m; x.disabled = m > now; x.classList.toggle('on', m === ui.month); x.setAttribute('aria-pressed', String(m === ui.month)); });
   });
 }
 ACT.msel = () => { MS.open = !MS.open; if (MS.open) MS.year = 0; msSync(); };
 ACT.msyear = (el) => { const yr = (MS.year || +ui.month.slice(0, 4)) + (+el.dataset.d); if (yr > +thisMonth().slice(0, 4)) return; MS.year = yr; msSync(); };
 ACT.mspick = (el) => { if (el.dataset.m > thisMonth()) return; ui.month = el.dataset.m; ui.limit = 120; MS.year = 0; MS.open = false; window.dispatchEvent(new Event('sukli-render')); };
-try { document.addEventListener('click', (e) => { if (MS.open && !e.composedPath().some((n) => n && n.classList && n.classList.contains('monthsel'))) { MS.open = false; msSync(); } }); } catch { /* no document */ }
+// Was this tap inside the picker? Decided in the capture phase, before any handler can touch the page, so it never depends on the tapped node still being attached (event.composedPath() on a removed node is unreliable in WebKit).
+let msInside = false;
+try {
+  document.addEventListener('click', (e) => { msInside = !!(e.target && e.target.closest && e.target.closest('.monthsel')); }, true);
+  document.addEventListener('click', (e) => { if (MS.open && !msInside && (!e.target || e.target.isConnected)) { MS.open = false; msSync(); } });
+} catch { /* no document */ }
 export function monthNav(title) {
   syncMonth();
   const isNow = ui.month === thisMonth(), label = esc(title || monthLabel(ui.month));
@@ -141,22 +151,22 @@ export function mainHomeCard(st, db) {
   const cell = (k, arrow, label, v, cls) => button({ html: `<span class="sc-lab"><i class="sc-arr ${cls}" aria-hidden="true">${arrow}</i>${label}</span><b class="sc-val">${m(v)}</b>`, kind: 'plain', cls: 'sc-row', act: 'flow', attr: { 'data-k': k } });
   const plain = (label, v, cls, arrow) => `<div class="sc-row"><span class="sc-lab"><i class="sc-arr ${cls}" aria-hidden="true">${arrow}</i>${label}</span><b class="sc-val">${m(v)}</b></div>`;
   const w = FACE.worth;
+  const swap = (to, label) => button({ html: `<span class="sc-swaplab">${to}</span><i aria-hidden="true">⇄</i>`, kind: 'plain', cls: 'sc-swap', act: 'sumflip', aria: label });
+  // the whole card is the turning unit: each face carries its own gradient, corners and shadow, so the card flips like a credit card
   return `<section class="strip sumcard main-home-card ${w ? 'flipped' : ''}" data-id="main-home-card" aria-label="Month totals">
-    <div class="sc-flip"><div class="sc-inner">
+    <div class="sc-inner">
       <div class="sc-face sc-front" ${w ? 'inert aria-hidden="true"' : ''}>${button({ html: `<span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${m(net)}</b>`, kind: 'plain', cls: 'sc-net', act: 'flow', attr: { 'data-k': 'net' } })}
-        <div class="sc-rows">${cell('inflow', '↓', 'Income', st.income, 'dn')}${cell('outflow', '↑', 'Expenses', st.spent, 'up')}</div></div>
+        <div class="sc-rows">${cell('inflow', '↓', 'Income', st.income, 'dn')}${cell('outflow', '↑', 'Expenses', st.spent, 'up')}</div>${swap('Net worth', 'Show net worth')}</div>
       <div class="sc-face sc-back" ${w ? '' : 'inert aria-hidden="true"'}><div class="sc-net"><span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${m(nw.net)}</b></div>
-        <div class="sc-rows">${plain('Assets', nw.assets, 'dn', '↑')}${plain('Liabilities', nw.debts, 'up', '↓')}</div></div>
-    </div></div>
-    ${button({ html: `<span class="sc-swaplab">${w ? 'Net income' : 'Net worth'}</span><i aria-hidden="true">⇄</i>`, kind: 'plain', cls: 'sc-swap', act: 'sumflip', aria: w ? 'Show net income' : 'Show net worth' })}</section>`;
+        <div class="sc-rows">${plain('Assets', nw.assets, 'dn', '↑')}${plain('Liabilities', nw.debts, 'up', '↓')}</div>${swap('Net income', 'Show net income')}</div>
+    </div></section>`;
 }
-// flips the card in place (no redraw, so nothing jumps); the rotation is pure CSS
+// flips the whole card in place (no redraw, so nothing jumps); the rotation is pure CSS
 ACT.sumflip = (el) => {
   FACE.worth = !FACE.worth; const c = el.closest('.main-home-card'); if (!c) return;
   c.classList.toggle('flipped', FACE.worth);
   c.querySelector('.sc-front').toggleAttribute('inert', FACE.worth); c.querySelector('.sc-front').setAttribute('aria-hidden', String(FACE.worth));
   c.querySelector('.sc-back').toggleAttribute('inert', !FACE.worth); c.querySelector('.sc-back').setAttribute('aria-hidden', String(!FACE.worth));
-  el.querySelector('.sc-swaplab').textContent = FACE.worth ? 'Net income' : 'Net worth'; el.setAttribute('aria-label', FACE.worth ? 'Show net income' : 'Show net worth');
 };
 export const summaryCard = mainHomeCard;
 

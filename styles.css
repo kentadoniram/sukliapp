@@ -1930,3 +1930,18 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .actrow .btn { white-space: nowrap; }
 .rows.plain > .row.acct { width: auto; max-width: 100%; box-sizing: border-box; } .rows.plain > .row.acct .rmain { flex: 1 1 0; }
 .rows.plain { grid-template-columns: minmax(0, 1fr); }
+
+/* ---- v15.59: the whole main home card flips (each face is a complete card) ---- */
+.strip.sumcard.main-home-card { background: none; box-shadow: none; border-radius: 0; padding: 0; overflow: visible; display: block; perspective: 1400px; margin: 10px 0 4px; }
+.strip.sumcard.main-home-card::before, .strip.sumcard.main-home-card::after { content: none; }
+.main-home-card .sc-inner { position: relative; display: grid; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.4, .1, .2, 1); }
+.main-home-card.flipped .sc-inner { transform: rotateY(180deg); }
+.main-home-card .sc-face { position: relative; grid-area: 1 / 1; display: grid; align-content: space-between; gap: 26px; min-height: 176px; padding: 22px 20px 12px; border-radius: 22px; overflow: hidden; color: var(--gink); backface-visibility: hidden; -webkit-backface-visibility: hidden; background: linear-gradient(135deg, var(--g1) 0%, var(--g2) 55%, var(--g3) 100%); box-shadow: 0 6px 18px rgba(30, 90, 160, .14); }
+.main-home-card .sc-face::before { content: ""; position: absolute; right: -46px; top: -58px; width: 190px; height: 190px; border-radius: 50%; background: var(--gchip); }
+.main-home-card .sc-face::after { content: ""; position: absolute; right: 38px; bottom: -70px; width: 150px; height: 150px; border-radius: 50%; background: var(--gchip); opacity: .6; }
+.main-home-card .sc-face > * { position: relative; z-index: 1; }
+.main-home-card .sc-back { transform: rotateY(180deg); }
+.main-home-card .sc-face .sc-swap { all: unset; box-sizing: border-box; position: absolute; z-index: 2; top: 14px; right: 14px; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 11px; border-radius: 999px; background: var(--gchip); color: var(--gink); font-size: calc(12px * var(--fs, 1)); font-weight: 650; cursor: pointer; }
+.main-home-card .sc-face .sc-swap i { font-style: normal; font-size: calc(14px * var(--fs, 1)); }
+.main-home-card .sc-face .sc-swap:focus-visible { outline: 2px solid var(--gink); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .main-home-card .sc-inner { transition: none; } }
