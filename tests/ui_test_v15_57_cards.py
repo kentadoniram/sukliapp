@@ -10,7 +10,7 @@ with sync_playwright() as p:
     ok('view carries the screen name', pg.evaluate("document.getElementById('view').dataset.screen")=='home')
     ok('week and coll cards use ui-card', pg.locator('.week.ui-card').count()==1 and pg.locator('.coll.ui-card').count()>=2)
     r=pg.evaluate(Q); print(r)
-    ok('every Home card has the same radius', len({x[1] for x in r})==1 and r[0][1]=='18px')
+    ok('every Home card has the same radius', len({x[1] for x in r})==1 and r[0][1]=="24px")
     ok('every Home card is raised (shadow) and has no gradient', all(x[2] and x[3]=='none' for x in r))
     ok('main-home-card keeps its gradient', pg.evaluate("getComputedStyle(document.querySelector('.main-home-card')).backgroundImage")!='none')
     pg.goto('http://localhost:8123/#/settings'); pg.wait_for_timeout(800)

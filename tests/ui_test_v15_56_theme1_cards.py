@@ -10,7 +10,7 @@ with sync_playwright() as p:
     g=pg.evaluate("(()=>{const r=e=>e.getBoundingClientRect(),c=document.querySelector('.main-home-card'),a=c.querySelectorAll('.sc-row'),h2=parseFloat(getComputedStyle(document.createElement('h2')).fontSize),v=[...a].map(x=>x.querySelector('.sc-val')),h=document.body.appendChild(document.createElement('h2')),h2s=parseFloat(getComputedStyle(h).fontSize);h.remove();return {top:[r(a[0]).top,r(a[1]).top],left:[r(a[0]).left,r(a[1]).left],w:[r(a[0]).width,r(a[1]).width],lab:[a[0].querySelector('.sc-lab').innerText.trim(),a[1].querySelector('.sc-lab').innerText.trim()],arr:[a[0].querySelector('.sc-arr').textContent,a[1].querySelector('.sc-arr').textContent],vfs:v.map(x=>parseFloat(getComputedStyle(x).fontSize)),h2s,vy:v.map(x=>r(x).top-r(x.parentElement.querySelector('.sc-lab')).bottom)}})()")
     ok('Income and Expense are side by side %s'%g['top'], abs(g['top'][0]-g['top'][1])<1 and g['left'][1]>g['left'][0]+100)
     ok('equal widths', abs(g['w'][0]-g['w'][1])<4)
-    ok('arrows beside the labels: down for Income, up for Expense', g['lab'][0].endswith('Income') and g['arr']==['↓','↑'] and g['lab'][1].endswith('Expense'))
+    ok('arrows beside the labels: down for Income, up for Expense', g['lab'][0].endswith('Income') and g['arr']==['↓','↑'] and g['lab'][1].endswith('Expenses'))
     ok('values are under the labels in the H2 size %s'%g['vfs'], all(abs(x-g['h2s'])<0.6 for x in g['vfs']) and all(y>=0 for y in g['vy']))
     ok('card font is the rounded one by default', 'Nunito' in pg.evaluate("getComputedStyle(document.querySelector('.main-home-card .sc-net b')).fontFamily") and pg.evaluate("document.documentElement.dataset.font")=='rounded')
     # month selector

@@ -3,7 +3,7 @@ import { addCfg, startKind, KIND_META, START_CHOICES } from './addset.js';
 import { button, textField } from './components.js';
 import { catIcon } from './caticons.js';
 import { softDelete, appMode, reimbKeep } from './core.js';
-import { safetyCfg, balanceTrail } from './finance.js';
+import { safetyCfg, balanceTrail, netWorth } from './finance.js';
 import {
   get, commit, commitQuiet, stamp, uid, fmt, BASE, HOME, homeFx, homeRate, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
   compact, monthLabel, shiftMonth, thisMonth, dayLabel, rateFor, reviewCount, groupColor, groupLetter, adjustmentCategory, nowStamp,
@@ -84,28 +84,39 @@ let seenMonth = thisMonth();
 export function syncMonth() { const m = thisMonth(); if (m !== seenMonth) { if (ui.month === seenMonth) ui.month = m; seenMonth = m; } }
 try { document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const was = seenMonth; syncMonth(); if (was !== seenMonth) window.dispatchEvent(new Event('sukli-render')); } }); } catch { /* no document */ }
 // Theme 1: the month is one rounded card with an arrow at the right; it opens a small year + month picker. Legacy Theme keeps the left / right buttons.
-const MS = { year: 0 }, MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MS = { year: 0, open: false }, MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// The picker's open / closed state and its year live here, not in the page. A redraw of the screen (rates arriving, a sync, a heavy card finishing) used to rebuild the header and silently reset it; now every redraw reads this state, and the handlers only change it and then sync the DOM from it.
 function monthPanel() {
   const yr = MS.year || +ui.month.slice(0, 4), now = thisMonth(), nowY = +now.slice(0, 4);
   return `<div class="msyear">${button({ html: `${ic('left')}`, kind: 'plain', cls: 'iconbtn', act: 'msyear', aria: 'Previous year', attr: { 'data-d': '-1' } })}<b>${yr}</b>${button({ html: `${ic('right')}`, kind: 'plain', cls: 'iconbtn', act: 'msyear', aria: 'Next year', attr: { 'data-d': '1', ...(yr >= nowY ? { disabled: '' } : {}) } })}</div>
     <div class="msgrid" role="group" aria-label="Month">${MONTHS.map((n, i) => { const m = `${yr}-${String(i + 1).padStart(2, '0')}`; return button({ label: n, kind: 'plain', cls: `msm ${m === ui.month ? 'on' : ''}`, act: 'mspick', pressed: m === ui.month, attr: { 'data-m': m, ...(m > now ? { disabled: '' } : {}) } }); }).join('')}</div>`;
 }
-ACT.msel = (el) => { const box = el.closest('.monthsel'), open = el.getAttribute('aria-expanded') !== 'true'; if (open) { MS.year = 0; box.querySelector('.mspanel').innerHTML = monthPanel(); } el.setAttribute('aria-expanded', String(open)); box.querySelector('.mspanel').hidden = !open; };
-ACT.msyear = (el) => { const yr = (MS.year || +ui.month.slice(0, 4)) + (+el.dataset.d); if (yr > +thisMonth().slice(0, 4)) return; MS.year = yr; el.closest('.mspanel').innerHTML = monthPanel(); };
-ACT.mspick = (el) => { if (el.dataset.m > thisMonth()) return; ui.month = el.dataset.m; ui.limit = 120; MS.year = 0; window.dispatchEvent(new Event('sukli-render')); };
-try { document.addEventListener('click', (e) => { document.querySelectorAll('.monthsel .mscard[aria-expanded="true"]').forEach((b) => { if (!e.composedPath().includes(b.closest('.monthsel'))) { b.setAttribute('aria-expanded', 'false'); b.closest('.monthsel').querySelector('.mspanel').hidden = true; } }); }); } catch { /* no document */ }
+// make every month box on the page match MS (open / closed, year shown)
+function msSync() {
+  document.querySelectorAll('.monthsel').forEach((box) => {
+    const b = box.querySelector('.mscard'), pn = box.querySelector('.mspanel'); if (!b || !pn) return;
+    b.setAttribute('aria-expanded', String(MS.open)); pn.hidden = !MS.open;
+    if (MS.open) { const yr = MS.year || +ui.month.slice(0, 4); if (!pn.firstChild || pn.dataset.yr !== String(yr)) { pn.innerHTML = monthPanel(); pn.dataset.yr = String(yr); } }
+  });
+}
+ACT.msel = () => { MS.open = !MS.open; if (MS.open) MS.year = 0; msSync(); };
+ACT.msyear = (el) => { const yr = (MS.year || +ui.month.slice(0, 4)) + (+el.dataset.d); if (yr > +thisMonth().slice(0, 4)) return; MS.year = yr; msSync(); };
+ACT.mspick = (el) => { if (el.dataset.m > thisMonth()) return; ui.month = el.dataset.m; ui.limit = 120; MS.year = 0; MS.open = false; window.dispatchEvent(new Event('sukli-render')); };
+try { document.addEventListener('click', (e) => { if (MS.open && !e.composedPath().some((n) => n && n.classList && n.classList.contains('monthsel'))) { MS.open = false; msSync(); } }); } catch { /* no document */ }
 export function monthNav(title) {
   syncMonth();
   const isNow = ui.month === thisMonth(), label = esc(title || monthLabel(ui.month));
-  if (look().design !== 'legacy') return `<header class="top"><div class="hl">${burger()}<div class="monthsel">${button({ html: `<h1>${label}</h1>${ic('down', 'chev')}`, kind: 'plain', cls: 'mscard', act: 'msel', aria: 'Choose month', attr: { 'aria-expanded': 'false', 'aria-haspopup': 'true' } })}<div class="mspanel" hidden></div></div></div>
-    <div class="hact">${helpBtn()}${eyeBtn()}</div></header>`;
+  if (look().design !== 'legacy') return `<header class="top t1top"><div class="hl">${burger()}</div>
+    <div class="hact">${helpBtn()}${eyeBtn()}<div class="monthsel">${button({ html: `<h1>${label}</h1>${ic('down', 'chev')}`, kind: 'plain', cls: 'mscard', act: 'msel', aria: 'Choose month', attr: { 'aria-expanded': String(MS.open), 'aria-haspopup': 'true' } })}<div class="mspanel" ${MS.open ? `data-yr="${MS.year || +ui.month.slice(0, 4)}"` : 'hidden'}>${MS.open ? monthPanel() : ''}</div></div></div></header>`;
   return `<header class="top"><div class="hl">${burger()}<div class="monthbox">${button({ html: `${ic('left')}`, kind: 'plain', cls: 'iconbtn', act: 'month', aria: 'Previous month', attr: { 'data-d': '-1' } })}
     <h1>${label}</h1>
     <button class="iconbtn" data-act="month" data-d="1" aria-label="Next month" ${isNow ? 'disabled' : ''}>${ic('right')}</button></div></div>
     <div class="hact">${helpBtn()}${eyeBtn()}</div></header>`;
 }
 const burger = () => { const n = reviewCount(get()); return `${button({ html: `${ic('menu')}${n ? '<em class="dot" aria-label="items to check"></em>' : ''}`, kind: 'plain', cls: 'iconbtn burger', act: 'menu', aria: 'Open menu' })}`; };
-export const hdr = (title, right = '') => `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${right}${helpBtn()}${eyeBtn()}</div></header>`;
+export const hdr = (title, right = '', o = {}) => o.below
+  ? `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${helpBtn()}${eyeBtn()}</div></header><div class="btnrow actrow">${right}</div>`
+  : `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${right}${helpBtn()}${eyeBtn()}</div></header>`;
 const eyeBtn = () => `${button({ html: `${ic(priv.on ? 'eyeoff' : 'eye')}`, kind: 'plain', cls: 'iconbtn', act: 'eye', pressed: priv.on, aria: priv.on ? 'Show amounts' : 'Hide amounts' })}`;
 ACT.eye = () => { priv.set(!priv.on); applyHide(); window.dispatchEvent(new Event('sukli-render')); };
 ACT.month = (el) => {
@@ -124,13 +135,29 @@ export function strip(st) {
 
 // MAIN HOME CARD (search "main-home-card" / mainHomeCard to find or change it).
 // Theme 1 Home card: net income large on top; below it, Income (arrow down = money in) and Expense (arrow up = money out) side by side in one row, each with its amount underneath in the heading (H2) size.
-export function mainHomeCard(st) {
-  const net = st.income - st.spent, m = (v) => fmt(v, HOME, { round: true });
+const FACE = { worth: false };   // Net income is showing every time the app opens; the flip is remembered only until it is closed
+export function mainHomeCard(st, db) {
+  const net = st.income - st.spent, m = (v) => fmt(v, HOME, { round: true }), nw = db ? netWorth(db) : { net: 0, assets: 0, debts: 0 };
   const cell = (k, arrow, label, v, cls) => button({ html: `<span class="sc-lab"><i class="sc-arr ${cls}" aria-hidden="true">${arrow}</i>${label}</span><b class="sc-val">${m(v)}</b>`, kind: 'plain', cls: 'sc-row', act: 'flow', attr: { 'data-k': k } });
-  return `<section class="strip sumcard main-home-card" data-id="main-home-card" aria-label="Month totals">
-    ${button({ html: `<span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${m(net)}</b>`, kind: 'plain', cls: 'sc-net', act: 'flow', attr: { 'data-k': 'net' } })}
-    <div class="sc-rows">${cell('inflow', '↓', 'Income', st.income, 'dn')}${cell('outflow', '↑', 'Expense', st.spent, 'up')}</div></section>`;
+  const plain = (label, v, cls, arrow) => `<div class="sc-row"><span class="sc-lab"><i class="sc-arr ${cls}" aria-hidden="true">${arrow}</i>${label}</span><b class="sc-val">${m(v)}</b></div>`;
+  const w = FACE.worth;
+  return `<section class="strip sumcard main-home-card ${w ? 'flipped' : ''}" data-id="main-home-card" aria-label="Month totals">
+    <div class="sc-flip"><div class="sc-inner">
+      <div class="sc-face sc-front" ${w ? 'inert aria-hidden="true"' : ''}>${button({ html: `<span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${m(net)}</b>`, kind: 'plain', cls: 'sc-net', act: 'flow', attr: { 'data-k': 'net' } })}
+        <div class="sc-rows">${cell('inflow', '↓', 'Income', st.income, 'dn')}${cell('outflow', '↑', 'Expenses', st.spent, 'up')}</div></div>
+      <div class="sc-face sc-back" ${w ? '' : 'inert aria-hidden="true"'}><div class="sc-net"><span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${m(nw.net)}</b></div>
+        <div class="sc-rows">${plain('Assets', nw.assets, 'dn', '↑')}${plain('Liabilities', nw.debts, 'up', '↓')}</div></div>
+    </div></div>
+    ${button({ html: `<span class="sc-swaplab">${w ? 'Net income' : 'Net worth'}</span><i aria-hidden="true">⇄</i>`, kind: 'plain', cls: 'sc-swap', act: 'sumflip', aria: w ? 'Show net income' : 'Show net worth' })}</section>`;
 }
+// flips the card in place (no redraw, so nothing jumps); the rotation is pure CSS
+ACT.sumflip = (el) => {
+  FACE.worth = !FACE.worth; const c = el.closest('.main-home-card'); if (!c) return;
+  c.classList.toggle('flipped', FACE.worth);
+  c.querySelector('.sc-front').toggleAttribute('inert', FACE.worth); c.querySelector('.sc-front').setAttribute('aria-hidden', String(FACE.worth));
+  c.querySelector('.sc-back').toggleAttribute('inert', !FACE.worth); c.querySelector('.sc-back').setAttribute('aria-hidden', String(!FACE.worth));
+  el.querySelector('.sc-swaplab').textContent = FACE.worth ? 'Net income' : 'Net worth'; el.setAttribute('aria-label', FACE.worth ? 'Show net income' : 'Show net worth');
+};
 export const summaryCard = mainHomeCard;
 
 function spendable(db) {
@@ -237,7 +264,7 @@ export function home(db) {
   const more = calm ? `<details class="homemore"><summary>More on Home${rest.length ? ` <small>${rest.length + 1}</small>` : ''}</summary>${weekBars(db)}${rest.map(mk).join('')}</details>` : '';
   const firstEntry = !db.txs.some((t) => !t.deleted) ? `<section class="nextstep"><b>Next step: write down your first spending.</b> ${tipBtn('firstentry')}</section>` : '';
   return `${monthNav()}
-    ${firstEntry}${t1 ? mainHomeCard(st) : strip(st)}${homeTitles(calm ? body + more : weekBars(db) + body)}`;
+    ${firstEntry}${t1 ? mainHomeCard(st, db) : strip(st)}${homeTitles(calm ? body + more : weekBars(db) + body)}`;
 }
 // what was spent on each of the last 7 days: plain HTML (not SVG) so the day, the bar and the amount never overlap and the text stays readable.
 // Horizontal or vertical is a device choice; the data and the numbers are the same in both.
@@ -1130,7 +1157,7 @@ function settingsGrouped(html) {
 }
 
 // ---------------- Arrange tabs and Home cards (Settings) ----------------
-export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Entries', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash Flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'], invest: ['Invest', 'spark'], debts: ['Debts', 'calc'], owed: ['Owed to You', 'wallet'], reimburse: ['Reimbursement', 'wallet'], savings: ['Savings', 'goal'] };
+export const TAB_DEFS = { home: ['Home', 'home'], ledger: ['Transactions', 'list'], calendar: ['Calendar', 'calendar'], accounts: ['Accounts', 'wallet'], budget: ['Budget', 'pie'], cashflow: ['Cash Flow', 'flow'], outlook: ['Outlook', 'spark'], analytics: ['Analytics', 'chart'], invest: ['Invest', 'spark'], debts: ['Debts', 'calc'], owed: ['Owed to You', 'wallet'], reimburse: ['Reimbursement', 'wallet'], savings: ['Savings', 'goal'] };
 export const MAX_TABS = 5;
 export const DEFAULT_TABS = ['home', 'ledger', 'invest', 'accounts'];
 export function tabIds(db) {

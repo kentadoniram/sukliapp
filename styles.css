@@ -116,7 +116,7 @@ button { font: inherit; color: inherit; }
 .rows.plain::before { display: none; }
 .row { display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center; width: 100%; padding: 9px 0; border: 0; background: none; text-align: left; cursor: pointer; }
 .row:hover .rmain strong { text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
-.row.acct { grid-template-columns: 28px 1fr auto; }
+.row.acct { grid-template-columns: 28px minmax(0, 1fr) auto; } .row.acct > * { min-width: 0; } .row.acct .ramt, .row.acct .ramt small { white-space: normal; overflow-wrap: anywhere; }
 .rmain { display: grid; min-width: 0; }
 .rmain strong { display: flex; align-items: center; gap: 8px; font-weight: 600; min-width: 0; }
 .rmain strong .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -1890,3 +1890,43 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 :where(:root[data-design="theme1"] body:not(.simple) #view[data-screen="home"]) :is(.coll, .week, section.card, .cardbox, .banner, .rem) { background: var(--card-bg); border-color: var(--card-bd); border-radius: var(--card-r); box-shadow: var(--card-shadow); background-image: none; }
 :where(:root[data-design="theme1"] body:not(.simple) #view[data-screen="home"]) :is(.coll, .week, section.card, .cardbox) { padding: var(--card-pad); margin-block: var(--card-gap); }
 :where(:root[data-design="theme1"] body:not(.simple) #view[data-screen="home"]) .coll .coll { box-shadow: none; background: transparent; border-radius: 12px; }
+
+/* ---- v15.58 Theme 1: header order, main card flip and spacing, softer cards ---- */
+.t1top { flex-wrap: nowrap; }
+.t1top .hl { flex: 0 0 auto; }
+.t1top .hact { flex: 1 1 auto; min-width: 0; justify-content: flex-end; flex-wrap: nowrap; gap: 4px; margin-left: auto; }
+.t1top .monthsel { flex: 0 1 auto; min-width: 0; margin-left: 4px; }
+.t1top .mscard { min-width: 0; max-width: 100%; padding-inline: 14px 10px; gap: 6px; }
+.t1top .mscard h1 { overflow: hidden; text-overflow: ellipsis; }
+.t1top .mspanel { left: auto; right: 0; }
+@media (max-width: 360px) { .t1top .mscard h1 { font-size: calc(16px * var(--fs, 1)); } .t1top .hact .helpbtn { display: none; } }
+/* main home card: taller, smaller labels sitting lower, no divider lines */
+.sumcard { padding: 22px 20px 12px; gap: 0; }
+.sumcard .sc-flip { display: grid; perspective: 1400px; }
+.sumcard .sc-inner { display: grid; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.4, .1, .2, 1); will-change: transform; }
+.sumcard.flipped .sc-inner { transform: rotateY(180deg); }
+.sumcard .sc-face { grid-area: 1 / 1; display: grid; align-content: space-between; gap: 26px; min-height: 148px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.sumcard .sc-back { transform: rotateY(180deg); }
+.sumcard .sc-back .sc-net { display: grid; gap: 2px; }
+.sumcard .sc-back .sc-net span { font-size: calc(13px * var(--fs, 1)); color: var(--gsub); font-weight: 600; letter-spacing: .02em; }
+.sumcard .sc-back .sc-net b { font-size: calc(34px * var(--fs, 1)); font-weight: 750; letter-spacing: -.02em; line-height: 1.1; color: var(--gink); white-space: nowrap; }
+.sumcard .sc-back .sc-net b.neg { color: var(--bad); }
+.sumcard .sc-rows { border-top: 0; padding-top: 0; align-self: end; }
+.strip.sumcard .sc-rows .sc-row { border-left: 0; padding-left: 0; }
+.sumcard .sc-back .sc-row { display: grid; align-content: start; gap: 4px; min-width: 0; }
+.sumcard .sc-lab { font-size: calc(12px * var(--fs, 1)); gap: 6px; }
+.sumcard .sc-arr { width: 18px; height: 18px; font-size: calc(12px * var(--fs, 1)); }
+.strip.sumcard > button.sc-swap { all: unset; box-sizing: border-box; position: absolute; z-index: 2; top: 14px; right: 14px; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 11px; border-radius: 999px; background: var(--gchip); color: var(--gink); font-size: calc(12px * var(--fs, 1)); font-weight: 650; cursor: pointer; }
+.sumcard .sc-swap i { font-style: normal; font-size: calc(14px * var(--fs, 1)); }
+.sumcard .sc-swap:focus-visible { outline: 2px solid var(--gink); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .sumcard .sc-inner { transition: none; } }
+/* softer Home cards (Theme 1 card tokens): rounder corners, deeper soft shadow; Spent Each Day bars follow */
+:root[data-design="theme1"] body:not(.simple) { --card-r: 24px; --card-shadow: 0 4px 18px rgba(20,40,90,.12), 0 1px 3px rgba(20,40,90,.07); }
+:where(:root[data-design="theme1"] body:not(.simple) #view[data-screen="home"]) .week .wtrack, :where(:root[data-design="theme1"] body:not(.simple) #view[data-screen="home"]) .week .wtrack i { border-radius: 8px; }
+:where(:root[data-design="theme1"] body:not(.simple) #view[data-screen="home"]) .week .wc .wb { border-radius: 9px 9px 4px 4px; }
+:where(:root[data-design="theme1"] body:not(.simple) #view[data-screen="home"]) .coll .coll { border-radius: 16px; }
+/* Accounts (and any screen using hdr(..., {below})): action buttons on their own wrapping row under the title and eye, never pushing the page sideways */
+.actrow { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; justify-content: flex-start; }
+.actrow .btn { white-space: nowrap; }
+.rows.plain > .row.acct { width: auto; max-width: 100%; box-sizing: border-box; } .rows.plain > .row.acct .rmain { flex: 1 1 0; }
+.rows.plain { grid-template-columns: minmax(0, 1fr); }
