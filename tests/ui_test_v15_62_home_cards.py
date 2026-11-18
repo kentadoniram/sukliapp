@@ -9,21 +9,21 @@ with sync_playwright() as p:
         pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached'); pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000)
         pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(1800)
         # --- average card
-        r=pg.evaluate("(()=>{const w=document.querySelector('.week').getBoundingClientRect(),a=document.querySelector('.avgcard').getBoundingClientRect();return {wb:w.bottom,at:a.top,ab:a.bottom,wl:w.left,al:a.left,wr:w.right,ar:a.right,seg:[...document.querySelectorAll('.avgcard .seg button')].map(x=>x.textContent),hidden:getComputedStyle(document.querySelector('.wkavg')).display,r1:getComputedStyle(document.querySelector('.week')).borderRadius,r2:getComputedStyle(document.querySelector('.avgcard')).borderRadius,after:document.querySelector('.week').parentElement.children[1]===document.querySelector('.avgcard')}})()")
+        r=pg.evaluate("(()=>{const w=document.querySelector('.week').getBoundingClientRect(),a=document.querySelector('.avgcard').getBoundingClientRect();return {wb:w.bottom,at:a.top,ab:a.bottom,wl:w.left,al:a.left,wr:w.right,ar:a.right,seg:[...document.querySelectorAll('.avgcard .t1s-slot')].map(x=>x.getAttribute('aria-label')),hidden:getComputedStyle(document.querySelector('.wkavg')).display,r1:getComputedStyle(document.querySelector('.week')).borderRadius,r2:getComputedStyle(document.querySelector('.avgcard')).borderRadius,after:document.querySelector('.week').parentElement.children[1]===document.querySelector('.avgcard')}})()")
         print(r)
         ok('%d: average card sits directly under Spent Each Day, tucked (overlapping edge), two stacked cards'%W, r['after'] and r['at']<r['wb'] and r['ab']>r['wb'] and r['al']>=r['wl'] and r['ar']<=r['wr'])
         ok('%d: three options'%W, r['seg']==['Last 7 Days','Last 30 Days','Overall'])
         ok('%d: same radius, old inline averages hidden in Theme 1'%W, r['r1']==r['r2'] and r['hidden']=='none')
         vals={}
         for k,lab in (('d7','Last 7 Days'),('d30','Last 30 Days'),('all','Overall')):
-            pg.tap('.avgcard .seg button:has-text("%s")'%lab); pg.wait_for_timeout(150)
+            pg.tap('.avgcard .t1s-slot[aria-label="%s"]'%lab); pg.wait_for_timeout(150)
             vals[k]=pg.inner_text('.avgval b')
         want=pg.evaluate("(async()=>{const c=await import('/js/core.js'),r=await import('/js/rolling.js');const a=r.dailyAverages(c.get(),new Date().toISOString().slice(0,10));return a})()")
         print(vals,want)
         ok('%d: toggling changes the value (7 / 30 / overall)'%W, len(set(vals.values()))>=2)
         ok('%d: Overall shows the number of days'%W, 'days' in pg.inner_text('.avgval small'))
-        pg.tap('.avgcard .seg button:has-text("Last 30 Days")'); pg.wait_for_timeout(100); pg.reload(); pg.wait_for_timeout(1500)
-        ok('%d: choice is remembered'%W, 'on' in (pg.get_attribute('.avgcard .seg button:nth-child(2)','class') or ''))
+        pg.tap('.avgcard .t1s-slot[aria-label="Last 30 Days"]'); pg.wait_for_timeout(100); pg.reload(); pg.wait_for_timeout(1500)
+        ok('%d: choice is remembered'%W, 'on' in (pg.get_attribute('.avgcard .t1s-slot:nth-child(2)','class') or ''))
         # --- net income chip
         ch=pg.evaluate("(()=>{const c=document.querySelector('.sc-front .bm-chip'),n=document.querySelector('.sc-front .sc-net b');return {has:!!c,txt:c&&c.textContent,fs:parseFloat(getComputedStyle(n).fontSize),lab:c&&c.getAttribute('aria-label')}})()")
         print(ch)

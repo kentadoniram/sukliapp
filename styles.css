@@ -1997,3 +1997,37 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 :root[data-design="theme1"] .wkavg { display: none; }
 :root[data-design="legacy"] .avgcard { display: none; }
 :root[data-design="legacy"] .cardstack { margin: 0; }
+
+/* ---- v15.63: diagonal arrows + comparison tags on every figure, compact Theme 1 switch, raised bars ---- */
+.main-home-card .dg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; vertical-align: -.12em; }
+.main-home-card .sc-arr { font-size: calc(13px * var(--fs, 1)); }
+.main-home-card .sc-arr .dg { width: 12px; height: 12px; }
+.main-home-card .bm-chip .bm-dg { width: 13px; height: 13px; font-size: inherit; }
+.main-home-card .bm-chip.good b, .main-home-card .bm-chip.good .bm-dg { color: var(--good); }
+.main-home-card .bm-chip.bad b, .main-home-card .bm-chip.bad .bm-dg { color: var(--bad); }
+.main-home-card .bm-chip.up b, .main-home-card .bm-chip.down b { color: inherit; }
+/* the small tag under each figure: arrow + percent in a quiet pill, colour = better (green) or worse (red) than the benchmark */
+.main-home-card .sc-row { align-content: start; }
+.main-home-card .bm-mini { display: inline-flex; align-items: center; gap: 3px; justify-self: start; margin-top: 3px; padding: 1px 8px 1px 6px; border-radius: 999px; background: var(--gchip); font-size: calc(11.5px * var(--fs, 1)); font-weight: 750; line-height: 1.5; }
+.main-home-card .bm-mini .dg { width: 11px; height: 11px; stroke-width: 3; }
+.main-home-card .bm-mini.good { color: var(--good); }
+.main-home-card .bm-mini.bad { color: var(--bad); }
+.main-home-card .sc-face { min-height: 280px; }
+/* Average Spent Per Day: label and a compact switch on one row; a pill slides inside a rounded three-slot track */
+.avgcard { padding: 34px 16px 12px; gap: 2px; }
+.avgcard .avghead { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.t1seg { position: relative; display: inline-grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: 16px; background: var(--rule); box-shadow: inset 0 1px 2px rgba(20, 40, 90, .14); }
+.t1seg::before { content: ""; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3); border-radius: 13px; background: var(--card-bg, var(--sheet)); box-shadow: 0 1px 3px rgba(20, 40, 90, .28), 0 0 0 .5px rgba(20, 40, 90, .08); transform: translateX(calc(var(--sel, 0) * 100%)); transition: transform .25s cubic-bezier(.4, .1, .2, 1); }
+.t1seg[data-sel="0"] { --sel: 0; } .t1seg[data-sel="1"] { --sel: 1; } .t1seg[data-sel="2"] { --sel: 2; }
+.t1seg .t1s-slot { all: unset; box-sizing: border-box; position: relative; z-index: 1; display: grid; place-items: center; min-width: 40px; min-height: 28px; padding: 0 9px; font-size: calc(12px * var(--fs, 1)); font-weight: 650; color: var(--ink2); cursor: pointer; border-radius: 13px; }
+.t1seg .t1s-slot.on { color: var(--ink); font-weight: 750; }
+.t1seg .t1s-slot:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) { .t1seg::before { transition: none; } }
+:root[data-design="legacy"] .t1seg { display: none; }
+/* Spent Each Day bars: raised off a recessed slot, soft shadow and a light edge (Theme 1) */
+:root[data-design="theme1"] .week .wc .wb { overflow: visible; background: var(--rule); box-shadow: inset 0 1px 3px rgba(20, 40, 90, .16); }
+:root[data-design="theme1"] .week .wc .wb i { position: relative; box-shadow: 0 3px 6px rgba(20, 50, 100, .28), 0 1px 1px rgba(20, 50, 100, .18), inset 0 1px 0 rgba(255, 255, 255, .45), inset 1px 0 0 rgba(255, 255, 255, .18); }
+:root[data-design="theme1"] .week .wc.now .wb i { box-shadow: 0 4px 9px rgba(20, 50, 100, .34), 0 1px 1px rgba(20, 50, 100, .2), inset 0 1px 0 rgba(255, 255, 255, .5); }
+:root[data-design="theme1"] .week .wk .wtrack { overflow: visible; box-shadow: inset 0 1px 3px rgba(20, 40, 90, .14); }
+:root[data-design="theme1"] .week .wk .wtrack i { box-shadow: 0 2px 5px rgba(20, 50, 100, .26), inset 0 1px 0 rgba(255, 255, 255, .4); }
+.main-home-card .bm-mini b, .main-home-card .sc-row .bm-mini b { font-size: inherit; font-weight: inherit; letter-spacing: 0; color: inherit; line-height: inherit; }

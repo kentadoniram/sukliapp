@@ -5,7 +5,7 @@ import { catIcon } from './caticons.js';
 import { softDelete, appMode, reimbKeep } from './core.js';
 import { safetyCfg, balanceTrail, netWorth, cashFlowSeries, netWorthSeries } from './finance.js';
 import {
-  partsBetween, get, commit, commitQuiet, stamp, uid, fmt, BASE, HOME, homeFx, homeRate, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
+  partsBetween, daysInMonth, get, commit, commitQuiet, stamp, uid, fmt, BASE, HOME, homeFx, homeRate, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
   compact, monthLabel, shiftMonth, thisMonth, dayLabel, rateFor, reviewCount, groupColor, groupLetter, adjustmentCategory, nowStamp,
   replaceAll, emptyDb, live, monthParts, priv, flush, factorFor,
 } from './core.js';
@@ -159,17 +159,19 @@ const FACE = { worth: false };   // Net income is showing every time the app ope
 export function mainHomeCard(st, db) {
   const net = st.income - st.spent, m = (v) => fmt(v, HOME, { round: true }), nw = db ? netWorth(db) : { net: 0, assets: 0, debts: 0 };
   const flow = db ? cashFlowSeries(db, ui.month) : [], worth = db ? netWorthSeries(db, ui.month) : [];
-  const cell = (k, arrow, label, v, cls) => button({ html: `<span class="sc-lab"><i class="sc-arr ${cls}" aria-hidden="true">${arrow}</i>${label}</span><b class="sc-val">${m(v)}</b>`, kind: 'plain', cls: 'sc-row', act: 'flow', attr: { 'data-k': k } });
-  const plain = (label, v, cls, arrow) => `<div class="sc-row"><span class="sc-lab"><i class="sc-arr ${cls}" aria-hidden="true">${arrow}</i>${label}</span><b class="sc-val">${m(v)}</b></div>`;
+  const H = db ? benchHistory(db, ui.month) : { inc: [], exp: [], net: [] }, S = db ? benchStock(db) : { assets: [], liabs: [] };
+  const arr = (up, cls) => `<i class="sc-arr ${cls}" aria-hidden="true">${diag(up)}</i>`;
+  const cell = (k, up, label, v, cls, tag) => button({ html: `<span class="sc-lab">${arr(up, cls)}${label}</span><b class="sc-val">${m(v)}</b>${tag}`, kind: 'plain', cls: 'sc-row', act: 'flow', attr: { 'data-k': k } });
+  const plain = (up, label, v, cls, tag) => `<div class="sc-row"><span class="sc-lab">${arr(up, cls)}${label}</span><b class="sc-val">${m(v)}</b>${tag}</div>`;
   const w = FACE.worth;
   const swap = (to, label) => button({ html: `<span class="sc-swaplab">${to}</span><i aria-hidden="true">⇄</i>`, kind: 'plain', cls: 'sc-swap', act: 'sumflip', aria: label });
   // the whole card is the turning unit: each face carries its own gradient, corners and shadow, so the card flips like a credit card
   return `<section class="strip sumcard main-home-card ${w ? 'flipped' : ''}" data-id="main-home-card" aria-label="Month totals">
     <div class="sc-inner">
-      <div class="sc-face sc-front" ${w ? 'inert aria-hidden="true"' : ''}>${button({ html: `<span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${m(net)}</b>`, kind: 'plain', cls: 'sc-net', act: 'flow', attr: { 'data-k': 'net' } })}${benchChip(db, ui.month, net)}
-        ${spark(flow, 'Cash flow this month')}<div class="sc-rows">${cell('inflow', '↓', 'Income', st.income, 'dn')}${cell('outflow', '↑', 'Expenses', st.spent, 'up')}</div>${swap('Net worth', 'Show net worth')}</div>
+      <div class="sc-face sc-front" ${w ? 'inert aria-hidden="true"' : ''}>${button({ html: `<span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${m(net)}</b>`, kind: 'plain', cls: 'sc-net', act: 'flow', attr: { 'data-k': 'net' } })}${bmChip(db ? benchList(H.net, net, false, 'Net income') : null, true)}
+        ${spark(flow, 'Cash flow this month')}<div class="sc-rows">${cell('inflow', false, 'Income', st.income, 'dn', bmChip(db ? benchList(H.inc, st.income, false, 'Income') : null))}${cell('outflow', true, 'Expenses', st.spent, 'up', bmChip(db ? benchList(H.exp, st.spent, true, 'Expenses') : null))}</div>${swap('Net worth', 'Show net worth')}</div>
       <div class="sc-face sc-back" ${w ? '' : 'inert aria-hidden="true"'}><div class="sc-net"><span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${m(nw.net)}</b></div>
-        ${spark(worth, 'Net worth over the last six months')}<div class="sc-rows">${plain('Assets', nw.assets, 'dn', '↑')}${plain('Liabilities', nw.debts, 'up', '↓')}</div>${swap('Net income', 'Show net income')}</div>
+        ${spark(worth, 'Net worth over the last six months')}<div class="sc-rows">${plain(true, 'Assets', nw.assets, 'dn', bmChip(db ? benchList(S.assets, nw.assets, false, 'Assets') : null))}${plain(false, 'Liabilities', nw.debts, 'up', bmChip(db ? benchList(S.liabs, nw.debts, true, 'Liabilities') : null))}</div>${swap('Net income', 'Show net income')}</div>
     </div></section>`;
 }
 // flips the whole card in place (no redraw, so nothing jumps); the rotation is pure CSS
@@ -295,58 +297,88 @@ ACT['week-mode'] = (el) => {
   const sec = document.querySelector('.week'); if (sec) sec.outerHTML = weekBars(get());
   if (el.closest('.seg')) { el.closest('.seg').querySelectorAll('button').forEach((b) => { const on = b.dataset.v === el.dataset.v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); }
 };
-// ---- Net income against your own history (v15.62): the months before the one shown, as average / median / best ----
-const BENCH = [['avg', 'average'], ['median', 'median'], ['best', 'best month']]   // 'average month', 'median month', 'best month';
+// ---- The card's figures against your own history (v15.62, widened in v15.63): net income, income, expenses (earlier months), assets, liabilities (earlier month-ends) as average / median / best ----
+const BENCH = [['avg', 'average'], ['median', 'median'], ['best', 'best month']];
 const benchSel = () => { try { const v = localStorage.getItem('sukli-bench'); return BENCH.some((b) => b[0] === v) ? v : 'avg'; } catch { return 'avg'; } };
-function benchChips(db, ym, net) {
-  const first = db.txs.reduce((m, t) => (!t.deleted && t.date && t.date < m ? t.date : m), '9999').slice(0, 7); if (first === '9999') return null;
-  // the month still in progress is compared with earlier months over the same days only (1st to today's date), so a half month is not set against whole ones
-  const part = ym === thisMonth() ? String(new Date().getDate()).padStart(2, '0') : '', nets = [];
-  for (let k = shiftMonth(ym, -1); k >= first && nets.length < 60; k = shiftMonth(k, -1)) {
-    if (part) { const ps = partsBetween(db, `${k}-01`, `${k}-${part}`); if (ps.length) nets.push(ps.reduce((a, p) => a + (p.kind === 'income' ? p.v : -p.v), 0)); }
-    else { const x = monthStats(db, k); if (x.count) nets.push(x.income - x.spent); }
-  }
-  if (nets.length < 2) return null;
-  const sorted = nets.slice().sort((x, y) => x - y), mid = sorted.length >> 1;
-  const val = { avg: nets.reduce((x, y) => x + y, 0) / nets.length, median: sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2, best: sorted[sorted.length - 1] };
+// diagonal arrows: up-right (above / money out / assets) and down-right (below / money in / liabilities)
+const DG = { up: 'M7 17L17 7M9 7h8v8', down: 'M7 7l10 10M9 17h8V9' };
+const diag = (up, cls = '') => `<svg class="dg ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${up ? DG.up : DG.down}"/></svg>`;
+// one benchmark list for one figure. lowIsBest: expenses and liabilities, where a smaller number is the better result
+function benchList(vals, v, lowIsBest, noun) {
+  if (!vals || vals.length < 2) return null;
+  const sorted = vals.slice().sort((x, y) => x - y), mid = sorted.length >> 1;
+  const ref = { avg: vals.reduce((x, y) => x + y, 0) / vals.length, median: sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2, best: lowIsBest ? sorted[0] : sorted[sorted.length - 1] };
   return BENCH.map(([k, name]) => {
-    const b = val[k], d = net - b, pct = Math.abs(b) < 1 ? null : Math.abs(d / b) * 100, up = d >= 0;
-    const txt = priv.on ? '•••' : pct === null ? `${up ? '+' : '-'}${fmt(Math.abs(d), HOME, { round: true })}` : `${pct > 999 ? '>999' : Math.round(pct)}%`;   // hidden-amounts mode hides the size of the gap too, the arrow still says above or below
-    return { k, up, txt, name, full: `${up ? 'Above' : 'Below'} your ${name} by ${txt}${part ? ' (earlier months, same days of the month)' : ''}. Past months compared: ${nets.length}.` };
+    const b = ref[k], d = v - b, pct = Math.abs(b) < 1 ? null : Math.abs(d / b) * 100, up = d >= 0, good = lowIsBest ? !up : up;
+    const txt = priv.on ? '•••' : pct === null ? `${up ? '+' : '-'}${fmt(Math.abs(d), HOME, { round: true })}` : `${pct > 999 ? '>999' : Math.round(pct)}%`;   // hidden-amounts mode hides the size of the gap too; the arrow still says above or below
+    return { k, up, good, txt, name, full: `${noun}: ${up ? 'above' : 'below'} your ${name} by ${txt}. ${good ? 'Better' : 'Worse'} than that benchmark.` };
   });
 }
-function benchChip(db, ym, net) {
-  const list = db ? benchChips(db, ym, net) : null; if (!list) return '';
-  const cur = Math.max(0, list.findIndex((x) => x.k === benchSel())), x = list[cur];
-  return button({ html: `<i class="bm-arrow" aria-hidden="true">${x.up ? '▲' : '▼'}</i><b>${esc(x.txt)}</b><span>vs ${esc(x.name)}</span>`, kind: 'plain', cls: `bm-chip ${x.up ? 'up' : 'down'}`, act: 'bench', aria: `${x.full} Tap to compare with ${list[(cur + 1) % list.length].name} instead.`, attr: { 'data-i': cur, 'data-list': JSON.stringify(list.map((y) => ({ k: y.k, up: y.up, txt: y.txt, name: y.name, full: y.full }))) } });
+// earlier months: the month in progress is compared with earlier months over the same days only (1st to today's date), so a half month is not set against whole ones
+function benchHistory(db, ym) {
+  const first = db.txs.reduce((m, t) => (!t.deleted && t.date && t.date < m ? t.date : m), '9999').slice(0, 7), out = { inc: [], exp: [], net: [] };
+  if (first === '9999') return out;
+  const part = ym === thisMonth() ? String(new Date().getDate()).padStart(2, '0') : '';
+  for (let k = shiftMonth(ym, -1); k >= first && out.net.length < 60; k = shiftMonth(k, -1)) {
+    let inc = 0, exp = 0, n = 0;
+    if (part) { const ps = partsBetween(db, `${k}-01`, `${k}-${part}`); n = ps.length; for (const q of ps) { if (q.kind === 'income') inc += q.v; else exp += q.v; } }
+    else { const x = monthStats(db, k); n = x.count; inc = x.income; exp = x.spent; }
+    if (n) { out.inc.push(inc); out.exp.push(exp); out.net.push(inc - exp); }
+  }
+  return out;
+}
+// assets and liabilities at the end of up to 12 earlier months (the card shows today's, so the months before this one)
+function benchStock(db) {
+  const out = { assets: [], liabs: [] }, first = db.txs.reduce((m, t) => (!t.deleted && t.date && t.date < m ? t.date : m), '9999').slice(0, 7), accts = live(db.accounts);
+  if (first === '9999') return out;
+  for (let k = shiftMonth(thisMonth(), -1), n = 0; k >= first && n < 12; k = shiftMonth(k, -1), n++) {
+    const bal = balances(db, `${k}-${String(daysInMonth(k)).padStart(2, '0')} 23:59:59`); let as = 0, de = 0;
+    for (const a of accts) { const base = (bal.get(a.id) || 0) * (homeFx(db, a.cur) || 0); if (base > 0) as += base; else if (base < 0) de += -base; }
+    out.assets.push(as); out.liabs.push(de);
+  }
+  return out;
+}
+const bmInner = (x) => `${diag(x.up, 'bm-dg')}<b>${esc(x.txt)}</b>`;
+const bmName = (x) => `<span>vs ${esc(x.name)}</span>`;
+// the comparison on one figure: big = the pill under Net income (tap it to change the benchmark for the whole card), small = the tag under each figure
+function bmChip(list, big) {
+  if (!list) return '';
+  const cur = Math.max(0, list.findIndex((x) => x.k === benchSel())), x = list[cur], data = { 'data-bm': '1', 'data-i': cur, 'data-list': JSON.stringify(list) };
+  if (!big) return `<span class="bm-mini ${x.good ? 'good' : 'bad'}" data-bm="1" data-i="${cur}" data-list='${esc(JSON.stringify(list))}' title="${esc(x.full)}">${bmInner(x)}</span>`;
+  return button({ html: `${bmInner(x)}${bmName(x)}`, kind: 'plain', cls: `bm-chip ${x.good ? 'good' : 'bad'}`, act: 'bench', aria: `${x.full} Tap to compare with ${list[(cur + 1) % list.length].name} instead.`, attr: data });
 }
 ACT.bench = (el) => {
-  let list; try { list = JSON.parse(el.dataset.list); } catch { return; }
-  const i = (+el.dataset.i + 1) % list.length, x = list[i], nx = list[(i + 1) % list.length];
-  try { localStorage.setItem('sukli-bench', x.k); } catch { /* a convenience only */ }
-  el.dataset.i = String(i); el.classList.toggle('up', x.up); el.classList.toggle('down', !x.up);
-  el.innerHTML = `<i class="bm-arrow" aria-hidden="true">${x.up ? '▲' : '▼'}</i><b>${esc(x.txt)}</b><span>vs ${esc(x.name)}</span>`;
-  el.setAttribute('aria-label', `${x.full} Tap to compare with ${nx.name} instead.`);
+  const card = el.closest('.main-home-card'); if (!card) return;
+  let nextK; card.querySelectorAll('[data-bm]').forEach((c) => {
+    let list; try { list = JSON.parse(c.dataset.list); } catch { return; }
+    const i = (+c.dataset.i + 1) % list.length, x = list[i], nx = list[(i + 1) % list.length]; nextK = x.k; c.dataset.i = String(i);
+    c.classList.toggle('good', x.good); c.classList.toggle('bad', !x.good);
+    if (c.classList.contains('bm-chip')) { c.innerHTML = `${bmInner(x)}${bmName(x)}`; c.setAttribute('aria-label', `${x.full} Tap to compare with ${nx.name} instead.`); } else { c.innerHTML = bmInner(x); c.title = x.full; }
+  });
+  try { if (nextK) localStorage.setItem('sukli-bench', nextK); } catch { /* a convenience only */ }
 };
 // ---- Average per day: a second card tucked under Spent Each Day (v15.62) ----
 const AVGS = [['d7', 'Last 7 Days', 'last 7 days'], ['d30', 'Last 30 Days', 'last 30 days'], ['all', 'Overall', 'since your first entry']];
 const avgSel = () => { try { const v = localStorage.getItem('sukli-avg'); return AVGS.some((a) => a[0] === v) ? v : 'd7'; } catch { return 'd7'; } };
+const AVG_SHORT = { d7: '7D', d30: '30D', all: 'All' };
 function avgCard(db) {
   const av = dailyAverages(db, todayStr()); if (!av.days) return '';
   const vs = (k) => (k === 'all' || !av.all ? '' : (() => { const d = (av[k] - av.all) / av.all * 100; return Math.abs(d) < 1 ? 'About the same as your overall average' : `${Math.round(Math.abs(d))}% ${d > 0 ? 'above' : 'below'} your overall average`; })());
   const data = {}; for (const [k, , per] of AVGS) { data[k] = { v: money(av[k]), sub: k === 'all' ? `per day, ${av.days} days (${per})` : `per day, ${per}`, vs: vs(k) }; }
-  const sel = avgSel(), x = data[sel];
+  const sel = avgSel(), x = data[sel], idx = AVGS.findIndex((a) => a[0] === sel);
+  // Theme 1's own switch (not the shared seg): a pill slides inside a three-slot rounded track; the label and the switch share one row
+  const slots = AVGS.map(([v, l]) => button({ html: AVG_SHORT[v], kind: 'plain', cls: `t1s-slot ${v === sel ? 'on' : ''}`, act: 'avgsel', pressed: v === sel, aria: l, attr: { 'data-v': v } })).join('');
   return `<section class="avgcard ui-card" aria-label="Average spent per day" data-avg='${esc(JSON.stringify(data))}'>
-    <h3 class="subh">Average Spent Per Day</h3>
-    <p class="avgval"><b>${x.v}</b> <small class="muted">${esc(x.sub)}</small></p><p class="avgvs muted">${esc(x.vs)}</p>
-    ${seg({ options: AVGS.map(([v, l]) => ({ label: l, value: v })), value: sel, act: 'avgsel', aria: 'Average period', size: 'sm' })}</section>`;
+    <div class="avghead"><h3 class="subh">Average Spent Per Day</h3><div class="t1seg" role="group" aria-label="Average period" data-sel="${idx}">${slots}</div></div>
+    <p class="avgval"><b>${x.v}</b> <small class="muted">${esc(x.sub)}</small></p><p class="avgvs muted">${esc(x.vs)}</p></section>`;
 }
 ACT.avgsel = (el) => {
   const c = el.closest('.avgcard'); if (!c) return; let data; try { data = JSON.parse(c.dataset.avg); } catch { return; }
   const k = el.dataset.v, x = data[k]; if (!x) return;
   try { localStorage.setItem('sukli-avg', k); } catch { /* a convenience only */ }
   c.querySelector('.avgval b').textContent = x.v; c.querySelector('.avgval small').textContent = x.sub; c.querySelector('.avgvs').textContent = x.vs;
-  c.querySelectorAll('.seg button').forEach((b) => { const on = b === el; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+  const g = c.querySelector('.t1seg'); if (g) g.dataset.sel = String(['d7', 'd30', 'all'].indexOf(k));
+  c.querySelectorAll('.t1s-slot').forEach((b) => { const on = b === el; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
 };
 function weekBars(db) {
   const { dates, vals } = dailySpend(db, todayStr(), 7), base = dayBaseline(db), cl = (i) => dayColor(vals[i], base), top = Math.max(...vals), total = vals.reduce((a, b) => a + b, 0), mode = weekMode();
