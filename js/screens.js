@@ -167,8 +167,10 @@ export function mainHomeCard(st, db) {
   const flowTips = flow.map((v, i) => `${dlab(`${ui.month}-${String(i + 1).padStart(2, '0')}`)} · ${m(v)}`), worthTips = worth.map((v, i) => `${dlab((worth.dates || [])[i] || `${ui.month}-01`)} · ${m(v)}`);
   const H = db ? benchHistory(db, ui.month) : { inc: [], exp: [], net: [] }, S = db ? benchStock(db) : { assets: [], liabs: [] };
   const arr = (up, cls) => `<i class="sc-arr ${cls}" aria-hidden="true">${diag(up)}</i>`;
-  const cell = (k, up, label, v, cls, tag) => button({ html: `<span class="sc-lab">${arr(up, cls)}${label}</span><b class="sc-val">${m(v)}</b>${tag}`, kind: 'plain', cls: 'sc-row', act: 'flow', attr: { 'data-k': k } });
-  const plain = (up, label, v, cls, tag) => `<div class="sc-row"><span class="sc-lab">${arr(up, cls)}${label}</span><b class="sc-val">${m(v)}</b>${tag}</div>`;
+  const sym = fmt(0, HOME, { round: true }).replace(/[\d.,\s\u2212-]/g, ''), mk = (v) => (priv.on || Math.abs(v) < 1e6 ? m(v) : `${v < 0 ? '\u2212' : ''}${sym}${(Math.abs(v) / 1e6).toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}M`);   // a figure of a million or more is shortened in the small rows (₱1.15M) so its comparison fits beside it
+  const vl = (v, tag) => `<span class="sc-vl"><b class="sc-val" title="${m(v)}">${mk(v)}</b>${tag ? '<i class="sc-sep" aria-hidden="true">·</i>' + tag : ''}</span>`;   // the figure and its comparison on one line: ₱12,345 · 5%
+  const cell = (k, up, label, v, cls, tag) => button({ html: `<span class="sc-lab">${arr(up, cls)}${label}</span>${vl(v, tag)}`, kind: 'plain', cls: 'sc-row', act: 'flow', attr: { 'data-k': k } });
+  const plain = (up, label, v, cls, tag) => `<div class="sc-row"><span class="sc-lab">${arr(up, cls)}${label}</span>${vl(v, tag)}</div>`;
   const w = FACE.worth;
   const swap = (to, label) => button({ html: `<span class="sc-swaplab">${to}</span><i aria-hidden="true">⇄</i>`, kind: 'plain', cls: 'sc-swap', act: 'sumflip', aria: label });
   // the whole card is the turning unit: each face carries its own gradient, corners and shadow, so the card flips like a credit card
@@ -176,7 +178,7 @@ export function mainHomeCard(st, db) {
     <div class="sc-inner">
       <div class="sc-face sc-front" ${w ? 'inert aria-hidden="true"' : ''}>${button({ html: `<span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${m(net)}</b>`, kind: 'plain', cls: 'sc-net', act: 'flow', attr: { 'data-k': 'net' } })}${bmChip(db ? benchList(H.net, net, false, 'Net income') : null, true)}
         ${spark(flow, 'Cash flow this month', flowTips)}<div class="sc-rows">${cell('inflow', false, 'Income', st.income, 'dn', bmChip(db ? benchList(H.inc, st.income, false, 'Income') : null))}${cell('outflow', true, 'Expenses', st.spent, 'up', bmChip(db ? benchList(H.exp, st.spent, true, 'Expenses') : null))}</div>${swap('Net worth', 'Show net worth')}</div>
-      <div class="sc-face sc-back" ${w ? '' : 'inert aria-hidden="true"'}><div class="sc-net"><span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${m(nw.net)}</b></div>
+      <div class="sc-face sc-back" ${w ? '' : 'inert aria-hidden="true"'}><div class="sc-net"><span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${m(nw.net)}</b></div>${bmChip(db ? benchList(S.net, nw.net, false, 'Net worth') : null, true)}
         ${spark(worth, 'Net worth over the last six months', worthTips)}<div class="sc-rows">${plain(true, 'Assets', nw.assets, 'dn', bmChip(db ? benchList(S.assets, nw.assets, false, 'Assets') : null))}${plain(false, 'Liabilities', nw.debts, 'up', bmChip(db ? benchList(S.liabs, nw.debts, true, 'Liabilities') : null))}</div>${swap('Net income', 'Show net income')}</div>
     </div></section>`;
 }
@@ -360,12 +362,12 @@ function benchHistory(db, ym) {
 }
 // assets and liabilities at the end of up to 12 earlier months (the card shows today's, so the months before this one)
 function benchStock(db) {
-  const out = { assets: [], liabs: [] }, first = db.txs.reduce((m, t) => (!t.deleted && t.date && t.date < m ? t.date : m), '9999').slice(0, 7), accts = live(db.accounts);
+  const out = { assets: [], liabs: [], net: [] }, first = db.txs.reduce((m, t) => (!t.deleted && t.date && t.date < m ? t.date : m), '9999').slice(0, 7), accts = live(db.accounts);
   if (first === '9999') return out;
   for (let k = shiftMonth(thisMonth(), -1), n = 0; k >= first && n < 12; k = shiftMonth(k, -1), n++) {
     const bal = balances(db, `${k}-${String(daysInMonth(k)).padStart(2, '0')} 23:59:59`); let as = 0, de = 0;
     for (const a of accts) { const base = (bal.get(a.id) || 0) * (homeFx(db, a.cur) || 0); if (base > 0) as += base; else if (base < 0) de += -base; }
-    out.assets.push(as); out.liabs.push(de);
+    out.assets.push(as); out.liabs.push(de); out.net.push(as - de);
   }
   return out;
 }
@@ -788,7 +790,7 @@ export function t1seg({ options, value, act, aria, wide = false }) {
 }
 // which quick range the chosen dates match (none when you picked your own dates)
 const rangeKey = () => { const t = todayStr(), sub = (n) => { const x = new Date(); x.setDate(x.getDate() - n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; }; if (ui.to !== t) return ''; return ui.from === sub(6) ? '7' : ui.from === sub(29) ? '30' : ui.from === `${t.slice(0, 7)}-01` ? 'm' : ui.from === `${t.slice(0, 4)}-01-01` ? 'y' : ''; };
-const reviewBtn = () => { const n = reviewCount(get()); return `<a class="iconbtn reviewbtn" href="#/review" aria-label="${n ? `Review, ${n} to check` : 'Review, nothing to check'}">${ic('check')}${n ? `<i class="bdot" aria-hidden="true">${n > 99 ? '99+' : n}</i>` : ''}</a>`; };
+const reviewBtn = () => { const n = reviewCount(get()); return `<a class="iconbtn reviewbtn ${n ? 'ringing' : ''}" href="#/review" aria-label="${n ? `Review, ${n} to check` : 'Review, nothing to check'}">${ic('check')}${n ? `<i class="bdot" aria-hidden="true">${n > 99 ? '99+' : n}</i>` : ''}</a>`; };
 export function ledger(db) {
   syncMonth();
   const f = [['all', 'All'], ['review', 'Check'], ['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']], t1 = look().design !== 'legacy';

@@ -2096,3 +2096,40 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .t1chip:active { transform: translateY(1px); box-shadow: 0 1px 3px rgba(20, 40, 90, .14); }
 .t1chip:focus-visible { outline: 2px solid var(--line); outline-offset: 2px; }
 :root[data-design="legacy"] .t1chips { display: none; }
+
+/* v16.4 (Theme 1) ---------------------------------------------------- */
+/* bell / review check: a small wiggle every few seconds while something is waiting; none for reduced motion */
+@keyframes bellnudge { 0%, 62%, 100% { transform: rotate(0); } 66% { transform: rotate(14deg); } 72% { transform: rotate(-12deg); } 78% { transform: rotate(9deg); } 84% { transform: rotate(-6deg); } 90% { transform: rotate(3deg); } }
+@keyframes bdotpulse { 0%, 62%, 100% { transform: scale(1); } 72% { transform: scale(1.3); } 84% { transform: scale(1); } }
+:root[data-design="theme1"] .iconbtn.ringing svg { transform-origin: 50% 12%; animation: bellnudge 6s ease-in-out 1.5s infinite; }
+:root[data-design="theme1"] .iconbtn.ringing .bdot { animation: bdotpulse 6s ease-in-out 1.5s infinite; }
+@media (prefers-reduced-motion: reduce) { :root[data-design="theme1"] .iconbtn.ringing svg, :root[data-design="theme1"] .iconbtn.ringing .bdot { animation: none; } }
+/* graph tag: the card gradient flips light/dark, so the tag takes the card's own two colours (readable in both) */
+.main-home-card .sk-tip { background: var(--gink); color: var(--g1); box-shadow: 0 3px 10px rgba(10, 20, 40, .3); }
+/* Spent Each Day: wider bars, smaller gaps */
+:root[data-design="theme1"] .week .wkv { gap: 2px; }
+:root[data-design="theme1"] .week .wc .wb { width: 80%; max-width: 44px; }
+/* main card: figure and comparison on one line; shorter card */
+.main-home-card .sc-vl { display: flex; align-items: center; flex-wrap: wrap; gap: 0 6px; min-width: 0; }
+.main-home-card .sc-vl .sc-val { flex: 0 1 auto; max-width: 100%; }
+.main-home-card .sc-vl .sc-sep { font-style: normal; color: var(--gsub); font-weight: 700; }
+.main-home-card .sc-vl .bm-mini { margin-top: 0; }
+.strip.sumcard .sc-rows .sc-row { gap: 2px; }
+.main-home-card .sc-face { min-height: 214px; gap: 6px; padding: 18px 20px 12px; }
+.main-home-card .sc-spark { height: 54px; }
+/* burger menu: narrower, with the Home card's gradient */
+:root[data-design="theme1"] .drawer { width: min(68vw, 264px); background: linear-gradient(165deg, var(--g2) 0%, var(--g1) 34%, var(--paper) 78%); border-radius: 0 22px 22px 0; box-shadow: 10px 0 34px rgba(10, 30, 70, .28); padding-left: 10px; padding-right: 10px; }
+:root[data-design="theme1"] .drawer-head b { font-size: calc(22px * var(--fs, 1)); letter-spacing: -.01em; color: var(--gink); }
+:root[data-design="theme1"] .drawer h3, :root[data-design="theme1"] .drawer .dhead { color: var(--gsub); }
+:root[data-design="theme1"] .drawer a { min-height: 42px; gap: 12px; border-radius: 14px; font-weight: 600; }
+:root[data-design="theme1"] .drawer a:hover { background: var(--gchip); }
+:root[data-design="theme1"] .drawer a.on { background: var(--gchip); color: var(--gink); box-shadow: inset 3px 0 0 var(--line), 0 1px 3px rgba(20, 50, 100, .12); }
+:root[data-design="theme1"] .drawer ul.dgrp + ul.dgrp, :root[data-design="theme1"] .drawer ul.last { border-top-color: var(--gline); }
+/* Accounts: Assets / Liabilities cards are told apart by a soft gradient, not a coloured border */
+:root[data-design="theme1"] body:not(.simple) .topgrp { border: 1px solid var(--card-bd); border-radius: 22px; box-shadow: var(--card-shadow, 0 2px 8px rgba(20, 40, 90, .08)); }
+:root[data-design="theme1"] body:not(.simple) .topgrp.assets { background: linear-gradient(160deg, color-mix(in srgb, var(--in) 18%, var(--sheet)) 0%, color-mix(in srgb, var(--in) 7%, var(--sheet)) 55%, var(--sheet) 100%); }
+:root[data-design="theme1"] body:not(.simple) .topgrp.liabs { background: linear-gradient(160deg, color-mix(in srgb, var(--bad) 16%, var(--sheet)) 0%, color-mix(in srgb, var(--bad) 7%, var(--sheet)) 55%, var(--sheet) 100%); }
+
+/* dark mode: the comparison chips on the blue card use brighter greens and reds */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .main-home-card { --good: #8EE6B0; --bad: #FF9E92; } }
+:root[data-theme="dark"] .main-home-card { --good: #8EE6B0; --bad: #FF9E92; }

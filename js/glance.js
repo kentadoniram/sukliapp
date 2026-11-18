@@ -132,11 +132,11 @@ export function glanceUnread(db, today = nowStamp().slice(0, 10)) {
 // the bell on Home: a button with a small count badge while anything is unread
 export function bellBtn(db) {
   const n = glanceUnread(db).length;
-  return button({ html: `${ic('bell')}${n ? `<i class="bdot" aria-hidden="true">${n > 9 ? '9+' : n}</i>` : ''}`, kind: 'plain', cls: 'iconbtn bellbtn', act: 'glancebell', aria: n ? `Quick Glance, ${n} unread` : 'Quick Glance, all read' });
+  return button({ html: `${ic('bell')}${n ? `<i class="bdot" aria-hidden="true">${n > 9 ? '9+' : n}</i>` : ''}`, kind: 'plain', cls: 'iconbtn bellbtn', act: 'glancebell', aria: n ? `Quick Glance, ${n} unread` : 'Quick Glance, all read' }).replace('class="', `class="${n ? 'ringing ' : ''}`);
 }
 export function refreshBell() {
   const db = get(); if (!db) return; const n = glanceUnread(db).length;
-  document.querySelectorAll('[data-act="glancebell"]').forEach((b) => { b.innerHTML = `${ic('bell')}${n ? `<i class="bdot" aria-hidden="true">${n > 9 ? '9+' : n}</i>` : ''}`; b.setAttribute('aria-label', n ? `Quick Glance, ${n} unread` : 'Quick Glance, all read'); });
+  document.querySelectorAll('[data-act="glancebell"]').forEach((b) => { b.innerHTML = `${ic('bell')}${n ? `<i class="bdot" aria-hidden="true">${n > 9 ? '9+' : n}</i>` : ''}`; b.setAttribute('aria-label', n ? `Quick Glance, ${n} unread` : 'Quick Glance, all read'); b.classList.toggle('ringing', n > 0); });
 }
 export function showGlance({ force = false, reopen = false, rng = Math.random, today = nowStamp().slice(0, 10) } = {}) {
   const db = get(); if (!db) return false; const c = cfg(db); if (!force && !reopen && !wantNow(db, c, today)) return false;

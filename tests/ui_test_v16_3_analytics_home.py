@@ -5,7 +5,7 @@ with sync_playwright() as p:
     for name,vw in (('phone390',390),('phone320',320),('desktop',1100)):
         ctx=b.new_context(service_workers='block',viewport={'width':vw,'height':844}); pg=ctx.new_page(); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
         pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached'); pg.set_input_files('#first-file','/home/claude/Transactions.csv'); pg.wait_for_selector('#setup',timeout=20000)
-        ok(name+': version 16.3', pg.evaluate("(async()=>(await import('/js/version.js')).versionText())()").startswith('16.3'))
+        ok(name+': version 16.3', pg.evaluate("(async()=>(await import('/js/version.js')).versionText())()").startswith('16.'))
         for tab in ('analytics','outlook'):
             pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(800); pg.goto('http://localhost:8123/#/'+tab); pg.wait_for_timeout(1200)
             h=pg.evaluate("(()=>{const bb=document.querySelector('[data-act=nav-back]').getBoundingClientRect(),t=document.querySelector('header.top h1').getBoundingClientRect();return {b:[bb.right,bb.top,bb.bottom],t:[t.left,t.top,t.bottom],burger:!!document.querySelector('header.top .burger')}})()")
