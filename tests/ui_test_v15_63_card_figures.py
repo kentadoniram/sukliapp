@@ -48,7 +48,7 @@ with sync_playwright() as p:
         pg.evaluate("""(async()=>{const m=await import('/js/core.js');const d0=new Date();const ds=n=>{const d=new Date(d0.getTime()-n*864e5);return d.toISOString().slice(0,10)+' 12:00:00'};m.commit(d=>{const a=d.accounts.find(x=>!x.deleted);[[0,420],[1,1500],[3,800],[5,260]].forEach(([n,v],i)=>d.txs.push(m.stamp({id:'bar'+i,kind:'expense',date:ds(n),name:'Test '+i,amount:v,cur:a.cur,fx:1,acct:a.id})))})})()"""); pg.wait_for_timeout(1200)
         bar=pg.evaluate("(()=>{const i=document.querySelector('.week .wc .wb i')||document.querySelector('.week .wk .wtrack i');const s=getComputedStyle(i);return {sh:s.boxShadow,ov:getComputedStyle(i.parentElement).overflow}})()")
         print(bar)
-        ok('%d: bars have shadow and a light edge, slot not clipping them'%W, bar['sh']!='none' and 'inset' in bar['sh'] and bar['ov']=='visible')
+        ok('%d: bars have an outward shadow, slot not clipping them'%W, bar['sh']!='none' and bar['ov']=='visible')
         ok('%d: no page errors %s'%(W,errs), not errs)
         # legacy
         pg.evaluate("(async()=>{const a=await import('/js/appearance.js');})()")

@@ -1881,7 +1881,7 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 /* ===== DESIGN SYSTEM: cards (v15.57) =====
    One set of card tokens. A theme changes these values (or the --card-* overrides below); screens never restyle cards themselves.
    Base look = what the app already had, so Legacy Theme and every other tab stay unchanged. */
-:root { --cx: 50%; --n: 3; --sel: 0; --dot-ring: #fff; --card-bg: var(--sheet); --card-bd: var(--rule); --card-r: 14px; --card-pad: 10px 12px 12px; --card-shadow: 0 1px 2px rgba(0,0,0,.04); --card-gap: 12px; }
+:root { --bc: initial; --cx: 50%; --n: 3; --sel: 0; --dot-ring: #fff; --card-bg: var(--sheet); --card-bd: var(--rule); --card-r: 14px; --card-pad: 10px 12px 12px; --card-shadow: 0 1px 2px rgba(0,0,0,.04); --card-gap: 12px; }
 :where(.ui-card) { background: var(--card-bg); border: 1px solid var(--card-bd); border-radius: var(--card-r); box-shadow: var(--card-shadow); }
 /* Theme 1, Home only: simple flat rectangle, rounded corners, soft raised shadow, no gradient (only .main-home-card has one). Left accent bars on alert cards stay: the colour carries meaning. */
 :root[data-design="theme1"] body:not(.simple) { --card-bg: var(--sheet); --card-bd: transparent; --card-r: 18px; --card-pad: 14px 16px 16px; --card-shadow: 0 2px 12px rgba(20,40,90,.09), 0 1px 2px rgba(20,40,90,.06); --card-gap: 14px; }
@@ -2133,3 +2133,17 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 /* dark mode: the comparison chips on the blue card use brighter greens and reds */
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .main-home-card { --good: #8EE6B0; --bad: #FF9E92; } }
 :root[data-theme="dark"] .main-home-card { --good: #8EE6B0; --bad: #FF9E92; }
+
+/* v16.5 (Theme 1): Spent Each Day, floating gradient bars on gridlines, no empty slots */
+:root[data-design="theme1"] .week .wkv { position: relative; gap: 8px; --wkh: 84px; }
+:root[data-design="theme1"] .week .wkv::before { content: ""; position: absolute; left: 0; right: 0; top: 18px; height: var(--wkh); pointer-events: none;
+  background: linear-gradient(var(--rule), var(--rule)) 0 0 / 100% 1px no-repeat, linear-gradient(var(--rule), var(--rule)) 0 50% / 100% 1px no-repeat, linear-gradient(var(--rule), var(--rule)) 0 100% / 100% 1px no-repeat; opacity: .9; }
+:root[data-design="theme1"] .week .wc { position: relative; }
+:root[data-design="theme1"] .week .wc .wb { width: 46%; max-width: 22px; background: none; box-shadow: none; overflow: visible; border-radius: 0; }
+:root[data-design="theme1"] .week .wc .wb i { --c: var(--bc, var(--bar, var(--line))); background: linear-gradient(to bottom, color-mix(in srgb, var(--c) var(--bar-top, 82%), black) 0%, var(--c) 45%, color-mix(in srgb, var(--c) 55%, white) 100%); border-radius: 12px 12px 5px 5px; box-shadow: 0 7px 9px -3px color-mix(in srgb, var(--c) 45%, transparent), 0 3px 5px rgba(20, 40, 90, .16); }
+:root[data-design="theme1"] .week .wc.now .wb i { box-shadow: 0 8px 11px -3px color-mix(in srgb, var(--c) 55%, transparent), 0 3px 6px rgba(20, 40, 90, .2); }
+/* graph fill: a mountain that is strongest by the line and fades out; the line itself is almost invisible */
+.main-home-card .sk-line { opacity: .22; stroke-width: 1.5; filter: none; }
+:root[data-design="theme1"] .t1line .t1l { opacity: .22; stroke-width: 1.5; filter: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .week .wkv { --bar-top: 100%; } }
+:root[data-theme="dark"] .week .wkv { --bar-top: 100%; }

@@ -25,7 +25,7 @@ with sync_playwright() as p:
         pg.evaluate("document.querySelectorAll('.coll').forEach(c=>{if(c.classList.contains('closed')||!c.open&&c.tagName==='DETAILS')c.open=true})")
         g=pg.evaluate("[...document.querySelectorAll('svg.t1line')].map(s=>({line:!!s.querySelector('.t1l'),dot:!!s.querySelector('.t1dot'),op:s.querySelector('stop').getAttribute('stop-opacity'),filt:getComputedStyle(s.querySelector('.t1l')).filter!=='none'}))")
         print(g)
-        ok(name+': both graphs use the Home-style line (smooth, end marker, shadow, stronger fill)', len(g)==2 and all(x['line'] and x['dot'] and x['filt'] and float(x['op'])>.3 for x in g))
+        ok(name+': both graphs use the Home-style line (smooth, end marker, stronger fill)', len(g)==2 and all(x['line'] and x['dot'] and float(x['op'])>.3 for x in g))
         ok(name+': no errors %s'%errs, not errs)
         pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(1500)
         c=pg.evaluate("(()=>{const q=s=>document.querySelector(s),r=e=>e.getBoundingClientRect(),a=r(q('.avgcard')),n=r(q('.t1chips')),ch=[...document.querySelectorAll('.t1chip')].map(r);return {h:Math.round(a.height),gap:Math.round(n.top-a.bottom),labels:[...document.querySelectorAll('.t1chip')].map(e=>e.textContent),hh:ch.map(x=>Math.round(x.height)),tops:ch.map(x=>Math.round(x.top)),left:Math.round(ch[0].left-a.left),right:Math.round(a.right-ch[1].right),over:document.documentElement.scrollWidth>innerWidth,legacyBtn:document.querySelectorAll('.t1chips button').length}})()")

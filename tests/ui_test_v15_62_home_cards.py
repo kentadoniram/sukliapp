@@ -41,7 +41,7 @@ with sync_playwright() as p:
         pg.tap('.mscard'); pg.wait_for_timeout(150); pg.evaluate("(()=>{const b=[...document.querySelectorAll('.msm')].find(x=>x.dataset.m.endsWith('-10')&&!x.disabled);if(b)b.click()})()"); pg.wait_for_timeout(900)
         # --- mountain
         m=pg.evaluate("(()=>{const a=document.querySelector('.sc-front .sk-area'),g=document.querySelector('.sc-front linearGradient'),st=[...g.querySelectorAll('stop')].map(s=>s.getAttribute('stop-opacity'));return {fill:a.getAttribute('fill'),st}})()")
-        ok('%d: mountain fill fades from semi-transparent to clear %s'%(W,m), m['fill'].startswith('url(') and float(m['st'][0])<=.35 and float(m['st'][1])==0)
+        ok('%d: mountain fill fades from strong at the line to clear %s'%(W,m), m['fill'].startswith('url(') and float(m['st'][0])>=.45 and float(m['st'][-1])==0)
         # --- bell
         pos=pg.evaluate("(()=>{const q=s=>document.querySelector(s).getBoundingClientRect();return {bell:q('.bellbtn'),eye:q('[data-act=eye]'),t:document.querySelector('.bellbtn .bdot')&&document.querySelector('.bellbtn .bdot').textContent}})()")
         ok('%d: bell immediately left of the eye %s'%(W,pos['t']), pos['bell']['right']<=pos['eye']['left']+1 and pos['eye']['left']-pos['bell']['right']<12)
