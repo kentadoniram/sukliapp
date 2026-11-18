@@ -5,12 +5,12 @@ with sync_playwright() as p:
     for name,vw in (('phone390',390),('phone320',320),('desktop',1100)):
         ctx=b.new_context(service_workers='block',viewport={'width':vw,'height':844}); pg=ctx.new_page(); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
         pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached'); pg.set_input_files('#first-file','/home/claude/Transactions.csv'); pg.wait_for_selector('#setup',timeout=20000)
-        ok(name+': version 16.2', pg.evaluate("(async()=>(await import('/js/version.js')).versionText())()").startswith('16.2'))
+        ok(name+': version 16.2', pg.evaluate("(async()=>(await import('/js/version.js')).versionText())()").startswith('16.'))
         # review
         pg.goto('http://localhost:8123/#/ledger'); pg.wait_for_timeout(900); pg.click('.reviewbtn'); pg.wait_for_timeout(600)
-        h=pg.evaluate("(()=>{const bb=document.querySelector('[data-act=review-back]').getBoundingClientRect(),t=document.querySelector('header.top h1').getBoundingClientRect();return {b:[bb.right,bb.top,bb.bottom],t:[t.left,t.top,t.bottom],txt:document.querySelector('header.top h1').textContent}})()")
+        h=pg.evaluate("(()=>{const bb=document.querySelector('[data-act=nav-back]').getBoundingClientRect(),t=document.querySelector('header.top h1').getBoundingClientRect();return {b:[bb.right,bb.top,bb.bottom],t:[t.left,t.top,t.bottom],txt:document.querySelector('header.top h1').textContent}})()")
         ok(name+': back arrow just left of Review title, aligned %s'%h, h['txt']=='Review' and 0<=h['t'][0]-h['b'][0]<12 and abs((h['b'][1]+h['b'][2])/2-(h['t'][1]+h['t'][2])/2)<3)
-        pg.click('[data-act=review-back]'); pg.wait_for_timeout(500)
+        pg.click('[data-act=nav-back]'); pg.wait_for_timeout(500)
         ok(name+': back goes to the previous tab', pg.evaluate("location.hash")=='#/ledger')
         pg.click('.burger'); pg.wait_for_timeout(500)
         ok(name+': menu has no Review item', pg.evaluate("![...document.querySelectorAll('.drawer a, .drawer button, [role=dialog] a')].some(e=>e.textContent.trim().startsWith('Review'))"))

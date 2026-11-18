@@ -9,7 +9,7 @@ import {
   reviewCount, catMap, accountMap, groupColor, groupLetter, sortedTxs,
 } from './core.js';
 import { pace, totals, trend, baselineMonths } from './insights.js';
-import { tabIds, ui, hdr, monthNav, strip, money, row, gbar, coll, trendChart, budgetOf, pieLabels } from './screens.js';
+import { tabIds, ui, hdr, backHdr, monthNav, strip, money, row, gbar, coll, trendChart, budgetOf, pieLabels } from './screens.js';
 import { openEntry, openCategoryForm } from './entry.js';
 import { forecastNext, behaviorNotes, detectRecurring, nextLog, accuracy, safeToSpend, monthlySeries } from './finance.js';
 import { reminderBanner } from './accpage.js';
@@ -430,7 +430,7 @@ function accuracyCard(db, ym) {
 }
 export function outlook(db) {
   const ym = thisMonth(), f = forecastNext(db, ym), notes = behaviorNotes(db, ym);
-  if (!f.months.length) return `${hdr('Outlook')}<p class="empty">Add a month or two of entries and Sukli will forecast the next one.</p>`;
+  if (!f.months.length) return `${backHdr('Outlook')}<p class="empty">Add a month or two of entries and Sukli will forecast the next one.</p>`;
   const left = f.incomeAvg - f.total, shiftM = f.shift && f.fc ? monthlySeries(db, ym, 'expense', 36, true).months[f.fc.usedFrom] : '';
   setTimeout(() => { try { const nl = nextLog(db, ym); if (nl) commitQuiet((d) => { d.settings.forecastLog = nl; }); } catch { /* the log is a nicety */ } }, 60);
   const hist = [];
@@ -456,7 +456,7 @@ export function outlook(db) {
       <div class="track"><div class="fill" style="width:${v / gmax * 100}%;background:${groupColor(g)}"></div><div class="mark now" style="left:${Math.min(100, now / gmax * 100)}%"></div></div>
       <small class="muted">${pct}% of forecast · ${R(now)} so far this month</small></div>`, kind: 'plain', cls: 'gbar click', act: 'grp', attr: { 'data-g': g, 'data-k': 'expense', 'data-m': ym, 'data-tip': `${g}: about ${R(v)} next month; ${R(now)} so far this month` } })}`;
   }).join('');
-  return `${hdr('Outlook')}
+  return `${backHdr('Outlook')}
     ${reminderBanner(db)}
     <section class="outhead"><span class="muted">${esc(monthLabel(f.next))} forecast</span><b class="big">${R(f.total)}</b>
       ${f.method ? `<small class="muted fcmethod">Based on the ${esc(f.method)}. ${esc(f.why || '')}${f.low != null ? ` Likely between ${R(f.low)} and ${R(f.high)} (${f.range && f.range.basis === 'tested' ? `how far off it was in ${f.range.n} tests on your own months` : 'a rough 40% either way, there are not enough months to test'}).` : ''}${shiftM ? ` Your spending moved to a new level around ${esc(monthLabel(shiftM))}, so only the months since then are used.` : ''}</small>` : ''}

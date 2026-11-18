@@ -523,7 +523,7 @@ svg .blurred, text.blurred { filter: blur(5px); }
 .tile span { color: var(--ink2); font-size: calc(13px * var(--fs, 1)); }
 .tile b { font-size: calc(19px * var(--fs, 1)); }
 .tile .in, .in { color: var(--in); } .neg { color: var(--bad); }
-.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin: 0 3px 0 8px; }
+.ldot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin: 0 3px 0 8px; }
 .cmp { width: 100%; border-collapse: collapse; font-size: calc(14px * var(--fs, 1)); }
 .cmp th, .cmp td { padding: 5px 4px; text-align: right; border-bottom: 1px solid var(--rule); }
 .cmp th:first-child, .cmp td:first-child { text-align: left; }
@@ -2074,3 +2074,25 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .spcard.two .sp-b{padding:10px 12px;margin:-4px 0;border-radius:14px;background:var(--tint);cursor:pointer}
 .spcard.two .sp-b b{color:var(--ink)}
 @media (max-width:359px){.spcard.two{grid-template-columns:1fr}}
+
+/* v16.3: Analytics (Theme 1): period switch, line graphs like the Home card */
+.t1arange{display:grid;gap:8px}
+.t1a .t1seg{margin:0}
+.t1line .t1l{fill:none;stroke:var(--line);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;filter:drop-shadow(0 3px 3px rgba(20,50,100,.28))}
+.t1line .t1base{stroke:var(--rule);stroke-width:1.2;stroke-dasharray:3 5;vector-effect:non-scaling-stroke}
+.t1line .t1dot{fill:var(--line);stroke:var(--dot-ring);stroke-width:2.5;filter:drop-shadow(0 3px 4px rgba(20,50,100,.38))}
+.t1line{overflow:visible}
+
+/* v16.3: Home: smaller Average card, Outlook / Analytics chips (Theme 1 only, own design) */
+.avgcard { padding: 30px 14px 8px; gap: 0; }
+.avgcard .avgval { gap: 2px 8px; align-items: baseline; }
+.avgcard .avgval b { font-size: calc(21px * var(--fs, 1)); }
+.avgcard .avgval small { font-size: calc(12px * var(--fs, 1)); }
+.avgcard .avgvs { margin: 0 0 0 auto; font-size: calc(11.5px * var(--fs, 1)); min-height: 0; text-align: right; }
+.avgcard .t1seg .t1s-slot { min-height: 26px; }
+.t1chips { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 12px 0; position: relative; z-index: 1; }
+.t1chip { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 999px; text-decoration: none; font-size: calc(13px * var(--fs, 1)); font-weight: 650; color: var(--ink); background: var(--card-bg, var(--sheet)); border: 1px solid var(--card-bd, var(--rule)); box-shadow: 0 2px 6px rgba(20, 40, 90, .10); -webkit-tap-highlight-color: transparent; }
+.t1chip svg { width: 15px; height: 15px; flex: none; color: var(--line); }
+.t1chip:active { transform: translateY(1px); box-shadow: 0 1px 3px rgba(20, 40, 90, .14); }
+.t1chip:focus-visible { outline: 2px solid var(--line); outline-offset: 2px; }
+:root[data-design="legacy"] .t1chips { display: none; }

@@ -121,6 +121,8 @@ const burger = () => { const n = reviewCount(get()); return `${button({ html: `$
 export const hdr = (title, right = '', o = {}) => o.below
   ? `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${helpBtn()}${eyeBtn()}</div></header><div class="btnrow actrow">${right}</div>`
   : `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${right}${helpBtn()}${eyeBtn()}</div></header>`;
+// Theme 1: a left arrow replaces the burger on pages you open from somewhere else (Review, Outlook, Analytics); Legacy keeps the normal header
+export const backHdr = (title) => look().design === 'legacy' ? hdr(title) : `<header class="top"><div class="hl">${button({ html: ic('left'), kind: 'plain', cls: 'iconbtn', act: 'nav-back', aria: 'Back' })}<h1>${esc(title)}</h1></div><div class="hact">${helpBtn()}${eyeBtn()}</div></header>`;
 const eyeBtn = () => `${button({ html: `${ic(priv.on ? 'eyeoff' : 'eye')}`, kind: 'plain', cls: 'iconbtn', act: 'eye', pressed: priv.on, aria: priv.on ? 'Show amounts' : 'Hide amounts' })}`;
 ACT.eye = () => { priv.set(!priv.on); applyHide(); window.dispatchEvent(new Event('sukli-render')); };
 ACT.month = (el) => {
@@ -392,14 +394,14 @@ const avgSel = () => { try { const v = localStorage.getItem('sukli-avg'); return
 const AVG_SHORT = { d7: '7D', d30: '30D', all: 'All' };
 function avgCard(db) {
   const av = dailyAverages(db, todayStr()); if (!av.days) return '';
-  const vs = (k) => (k === 'all' || !av.all ? '' : (() => { const d = (av[k] - av.all) / av.all * 100; return Math.abs(d) < 1 ? 'About the same as your overall average' : `${Math.round(Math.abs(d))}% ${d > 0 ? 'above' : 'below'} your overall average`; })());
+  const vs = (k) => (k === 'all' || !av.all ? '' : (() => { const d = (av[k] - av.all) / av.all * 100; return Math.abs(d) < 1 ? 'About your overall average' : `${Math.round(Math.abs(d))}% ${d > 0 ? 'above' : 'below'} overall`; })());
   const data = {}; for (const [k, , per] of AVGS) { data[k] = { v: money(av[k]), sub: k === 'all' ? `per day, ${av.days} days (${per})` : `per day, ${per}`, vs: vs(k) }; }
   const sel = avgSel(), x = data[sel], idx = AVGS.findIndex((a) => a[0] === sel);
   // Theme 1's own switch (not the shared seg): a pill slides inside a rounded track; the label and the switch share one row
   const sw = t1seg({ options: AVGS.map(([v, l]) => ({ value: v, label: AVG_SHORT[v], aria: l })), value: sel, act: 'avgsel', aria: 'Average period' });
   return `<section class="avgcard ui-card" aria-label="Average spent per day" data-avg='${esc(JSON.stringify(data))}'>
     <div class="avghead"><h3 class="subh">Average Spent Per Day</h3>${sw}</div>
-    <p class="avgval"><b>${x.v}</b> <small class="muted">${esc(x.sub)}</small></p><p class="avgvs muted">${esc(x.vs)}</p></section>`;
+    <p class="avgval"><b>${x.v}</b> <small class="muted">${esc(x.sub)}</small><span class="avgvs muted">${esc(x.vs)}</span></p></section>${appMode(db) === 'simple' ? '' : `<nav class="t1chips" aria-label="More views"><a class="t1chip" href="#/outlook">${ic('spark')}<span>Outlook</span></a><a class="t1chip" href="#/analytics">${ic('chart')}<span>Analytics</span></a></nav>`}`;
 }
 ACT.avgsel = (el) => {
   const c = el.closest('.avgcard'); if (!c) return; let data; try { data = JSON.parse(c.dataset.avg); } catch { return; }
@@ -849,7 +851,7 @@ export function bindLedger() {
 }
 
 // ---------------- Review ----------------
-ACT['review-back'] = () => { if (history.length > 1) history.back(); else location.hash = '#/ledger'; };
+ACT['nav-back'] = () => { if (history.length > 1) history.back(); else location.hash = '#/ledger'; };
 export function review(db) {
   const accts = accountMap(db), cats = catMap(db);
   const list = sortedTxs(db).filter((t) => t.flag === 'review');
@@ -863,7 +865,7 @@ export function review(db) {
       ${button({ label: 'Edit', kind: 'chip', cls: 'more', act: 'edit-now', attr: { 'data-id': t.id } })}</div></article>`;
   });
   const sure = list.filter((t) => { const p = predict(modelFor(t.kind === 'income' ? 'income' : 'expense'), t.name, t.amount, { acct: t.acct, cur: t.cur, hour: +t.date.slice(11, 13) }); return p.conf >= 0.8 && !(t.items && t.items.length); }).length;
-  const rh = look().design === 'legacy' ? hdr('Review') : `<header class="top"><div class="hl">${button({ html: ic('left'), kind: 'plain', cls: 'iconbtn', act: 'review-back', aria: 'Back' })}<h1>Review</h1></div><div class="hact">${helpBtn()}${eyeBtn()}</div></header>`;
+  const rh = backHdr('Review');
   return `${rh}
     <p class="lede">${list.length ? 'Tap the right category to confirm each one. Your choice teaches the guesser.' : 'All caught up. Entries the app is unsure about will show up here.'}</p>
     ${sure ? `${button({ html: `Confirm the ${sure} I’m sure about (80%+)`, kind: 'primary', cls: 'wide', act: 'confirm-sure' })}` : ''}

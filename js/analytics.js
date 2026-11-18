@@ -2,7 +2,8 @@
 import { scopeIds, scopeOptionsHtml, get, fmt, HOME, partsBetween, balances, homeFx, live, catMap, accountMap, shiftMonth, groupColor, monthLabel, CUR } from './core.js';
 import { today, cardBilling, isLiability, safetyCfg } from './finance.js';
 import { esc, ic, ACT, sheet } from './ui.js';
-import { hdr, coll, ui } from './screens.js';
+import { hdr, backHdr, t1seg, coll, ui } from './screens.js';
+import { look } from './appearance.js';
 import { openDatePicker } from './datepicker.js';
 import { norm } from './merchants.js';
 import { fillCandidates, canonMerchant } from './merchantpick.js';
@@ -82,6 +83,7 @@ function pickerOptions(db) {
   return { accts, curs, groups };
 }
 
+let ANG = 0;
 export function analytics(db) {
   const P = period(), cm = catMap(db), am = accountMap(db);
   const parts = filt(partsBetween(db, P.from, P.to)), prevParts = filt(partsBetween(db, P.pFrom, P.pTo));
@@ -89,7 +91,9 @@ export function analytics(db) {
   const delta = (cur, prev, goodUp) => { if (!prev) return '<small class="muted">no earlier data</small>'; const d = (cur - prev) / prev * 100; const good = goodUp ? d >= 0 : d <= 0; return `<small class="${good ? 'in' : 'neg'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(d))}% vs earlier</small>`; };
   const { accts, curs, groups } = pickerOptions(db);
   const presets = [['7d', '7 days'], ['30d', '30 days'], ['m', 'This month'], ['pm', 'Last month'], ['3m', '3 months'], ['6m', '6 months'], ['y', 'This year'], ['custom', 'Custom']];
-  const filters = `<div class="afilters"><div class="seg sm scrollx" role="group" aria-label="Period">${presets.map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${A.range === v ? 'on' : ''}`, act: 'an-range', pressed: A.range === v, attr: { 'data-v': v } })}`).join('')}</div>
+  const t1 = look().design !== 'legacy';
+  const t1rows = [presets.slice(0, 4), presets.slice(4)].map((row) => t1seg({ options: row.map(([v, l]) => ({ value: v, label: l })), value: row.some(([v]) => v === A.range) ? A.range : null, act: 'an-range', aria: 'Period', wide: true })).join('');
+  const filters = `<div class="afilters ${t1 ? 't1a' : ''}">${t1 ? `<div class="t1arange">${t1rows}</div>` : `<div class="seg sm scrollx" role="group" aria-label="Period">${presets.map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${A.range === v ? 'on' : ''}`, act: 'an-range', pressed: A.range === v, attr: { 'data-v': v } })}`).join('')}</div>`}
     ${A.range === 'custom' ? `<div class="two">${button({ html: `<span>${esc(P.from)}</span>${ic('calendar')}`, kind: 'plain', cls: 'whenbtn', act: 'an-from' })}${button({ html: `<span>${esc(P.to)}</span>${ic('calendar')}`, kind: 'plain', cls: 'whenbtn', act: 'an-to' })}</div>` : ''}
     <div class="three"><select data-an="acct" aria-label="Platform, wallet or account">${scopeOptionsHtml(db, A.acct, esc)}</select>
       <select data-an="cur" aria-label="Currency"><option value="">All currencies</option>${curs.map((c) => `<option ${A.cur === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
@@ -111,7 +115,7 @@ export function analytics(db) {
       <rect x="${n * bw + bw / 2 - g * 2}" y="${H - 16 - hi}" width="${g * 2 - 0.5}" height="${hi}" fill="var(--in)"/><rect x="${n * bw + bw / 2 + 0.5}" y="${H - 16 - he}" width="${g * 2 - 0.5}" height="${he}" fill="var(--bad)"/>
       ${bd.length <= 12 || n % Math.ceil(bd.length / 8) === 0 ? `<text x="${n * bw + bw / 2}" y="${H - 3}" text-anchor="middle" class="axis">${x.l}</text>` : ''}</g>`; }).join('');
   const incExp = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Income and spending over time. Tap a bar to see its entries."><line x1="0" x2="${W}" y1="${H - 16}" y2="${H - 16}" stroke="var(--rule)"/>${bars}</svg>
-    <p class="hint"><i class="dot" style="background:var(--in)"></i> Income <i class="dot" style="background:var(--bad)"></i> Spending · tap a bar for its entries</p>`;
+    <p class="hint"><i class="ldot" style="background:var(--in)"></i> Income <i class="ldot" style="background:var(--bad)"></i> Spending · tap a bar for its entries</p>`;
 
   // cash-flow and net worth lines
   const bal0 = (asOf) => { const b = balances(db, asOf + ' 23:59:59'); let nw = 0; for (const a of live(db.accounts)) { if (a.archived && !(b.get(a.id) || 0)) continue; if (A.acct && !scopeIds(db, A.acct).has(a.id)) continue; if (A.cur && a.cur !== A.cur) continue; nw += (b.get(a.id) || 0) * (homeFx(db, a.cur) || 0); } return nw; };
@@ -124,6 +128,13 @@ export function analytics(db) {
     const X = (i) => 4 + i / Math.max(1, series.length - 1) * (W - 8), Y = (v) => 110 - 8 - (v - lo) / sp * 90;
     const pts = series.map((x, i) => [+X(i).toFixed(1), +Y(x.v).toFixed(1), x.l, money(x.v)]);
     const path = series.map((x, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(x.v).toFixed(1)}`).join('');
+    if (look().design !== 'legacy') {   // Theme 1: the same rounded line, end marker and shadow as the Home card, with a stronger mountain fill
+      const P2 = pts.map((q) => [q[0], q[1]]);
+      let d = `M${P2[0][0]},${P2[0][1]}`;
+      for (let k = 0; k < P2.length - 1; k++) { const p0 = P2[k - 1] || P2[k], p1 = P2[k], p2 = P2[k + 1], p3 = P2[k + 2] || p2, c = (v) => Math.max(2, Math.min(108, v)); d += `C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${c(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${c(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0]},${p2[1]}`; }
+      const e = P2[P2.length - 1], gid = `ang${++ANG}`;
+      return `<svg class="chart scrub t1line" data-pts="${esc(JSON.stringify(pts))}" viewBox="0 0 ${W} 110" role="img" aria-label="${label}. Touch and drag to read."><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--line)" stop-opacity=".42"/><stop offset="1" style="stop-color:var(--line)" stop-opacity=".03"/></linearGradient></defs><line x1="0" x2="${W}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" class="t1base"/><path d="${d}L${e[0]},110L${P2[0][0]},110Z" fill="url(#${gid})" stroke="none"/><path d="${d}" class="t1l"/><circle cx="${e[0]}" cy="${e[1]}" r="5" class="t1dot"/></svg>`;
+    }
     return `<svg class="chart scrub" data-pts="${esc(JSON.stringify(pts))}" viewBox="0 0 ${W} 110" role="img" aria-label="${label}. Touch and drag to read."><line x1="0" x2="${W}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="var(--rule)" stroke-dasharray="3 3"/><path d="${path}" fill="none" stroke="var(--line)" stroke-width="2.4" stroke-linejoin="round"/></svg>`;
   };
 
@@ -171,7 +182,7 @@ export function analytics(db) {
   const topHtml = `<div class="rows plain">${top5.map((p) => `${button({ html: `<i class="badge sm" style="background:${groupColor(p.group)}">${esc((p.group || '?')[0])}</i><span class="rmain"><strong>${esc(p.label || p.t.name || 'Entry')}</strong><small>${esc(p.t.date.slice(0, 10))} · ${esc(p.group)}</small></span><span class="ramt expense"><b>${money(p.v)}</b></span>`, kind: 'plain', cls: 'row', act: 'edit', attr: { 'data-id': p.t.id } })}`).join('') || '<p class="empty">Nothing yet.</p>'}</div>`;
 
   LAST = { parts, P };
-  return `${hdr('Analytics')}${filters}${kpis}
+  return `${backHdr('Analytics')}${filters}${kpis}
     ${coll('an-ie', 'Income vs Spending', incExp)}${coll('an-cf', 'Cash Flow (Running Net)', line(cf, 'Running net cash flow'))}${coll('an-nw', 'Net Worth', line(nwS, 'Net worth'))}
     ${coll('an-by', 'Where the Money Went', breakdown)}${coll('an-merch', 'By Merchant', merchHtml)}${coll('an-bud', 'Budgets and Limit', budgets)}${coll('an-card', 'Credit Cards', cardsHtml)}${coll('an-cmp', 'Compared with the Earlier Period', compare)}${coll('an-top', 'Biggest Expenses', topHtml)}`;
 }

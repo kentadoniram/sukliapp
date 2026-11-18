@@ -23,7 +23,7 @@ with sync_playwright() as p:
     # scroll memory: go down, open outlook, back
     pg.evaluate("window.scrollTo(0, document.body.scrollHeight*0.6)"); pg.wait_for_timeout(300)
     y=pg.evaluate("window.scrollY")
-    link=pg.locator('a[href="#/outlook"]')
+    link=pg.locator('a[href="#/outlook"]:not(.t1chip)')
     if link.count(): link.first.scroll_into_view_if_needed(); y=pg.evaluate("window.scrollY"); link.first.click()
     else: pg.goto(U+'#/outlook')
     pg.wait_for_timeout(700); pg.go_back(); pg.wait_for_timeout(1500)
