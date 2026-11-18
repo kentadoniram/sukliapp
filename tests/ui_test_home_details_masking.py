@@ -38,7 +38,7 @@ with sync_playwright() as p:
     before=pg.inner_text('.strip')
     pg.click('header [data-act=eye]'); pg.wait_for_timeout(200)
     hid=pg.inner_text('.strip'); ok('eye masks amounts: '+hid.replace('\n',' '), '•••' in hid and not any(c.isdigit() for c in hid))
-    ok('mask also on spendable+bars', '•••' in pg.inner_text('.spendable') and '•••' in pg.inner_text('.gbar'))
+    ok('mask also on spendable+bars', '•••' in pg.inner_text('.spendable, .spcard') and '•••' in pg.inner_text('.gbar'))
     pg.screenshot(path=S+'v3-hidden.png')
     pg.reload(); pg.wait_for_selector('.strip'); ok('hidden state remembered after reload','•••' in pg.inner_text('.strip'))
     # entry sheet under hide: amount typed is masked

@@ -129,7 +129,7 @@ def part2(p,b,ctx,pg,errs):
     s=pg.evaluate("(async()=>{const m=await import('/js/safe.js');const c=await import('/js/core.js');const r=m.safeToSpend(c.get());return [r.money,r.committed,r.safe,r.items.map(x=>x.name)]})()")
     ok('card owed counts as committed %s'%s, s[1]>=12345-0.01 and 'Safe Card' in s[3] and abs(s[0]-s[1]-s[2])<0.01)
     pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(900)
-    t=pg.inner_text('#view'); ok('Home shows Safe to spend', 'Safe to spend' in t and 'already owed' in t)
+    t=pg.inner_text('#view'); ok('Home shows Safe to spend', 'safe to spend' in t.lower() and 'already owed' in t)
     pg.evaluate("document.querySelector('[data-act=safe-info]').click()"); pg.wait_for_selector('.sheet'); ok('breakdown lists the card', 'Safe Card' in pg.inner_text('.sheet') and 'Safe to spend' in pg.inner_text('.sheet'))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.evaluate("(()=>{const b=document.createElement('button');b.dataset.act='card-pay';b.dataset.id='cardsafe';b.id='tmpb';document.body.appendChild(b);b.click();})()"); pg.wait_for_timeout(800)

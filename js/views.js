@@ -1,5 +1,6 @@
 // The extra windows: menu drawer, Calendar, Budget (donut), Cash flow, Categories, and the detail sheets.
 import { button } from './components.js';
+import { look } from './appearance.js';
 import { catIcon } from './caticons.js';
 import { commitQuiet, softDelete, scopeIds, scopeOptionsHtml, withScope, appMode } from './core.js';
 import { undoMenuHtml } from './undoui.js';
@@ -44,7 +45,7 @@ ACT.menu = () => {
       const nav = (ids) => ids.map(([h, l, i, b]) => item(h, l, i, b)).join('');
       const act = (a2, l, i) => `<li><a href="#" data-act="${a2}">${ic(i)}<span>${l}</span></a></li>`;
       const groups = [
-        nav([['home', 'Home', 'home'], ['ledger', 'Entries', 'list'], ['calendar', 'Calendar', 'calendar'], ['review', 'Review', 'check', n]].filter(inMenu)),
+        nav([['home', 'Home', 'home'], ['ledger', 'Entries', 'list'], ['calendar', 'Calendar', 'calendar'], ...(look().design === 'legacy' ? [['review', 'Review', 'check', n]] : [])].filter(inMenu)),
         nav([['accounts', 'Accounts', 'wallet']].filter(inMenu).concat([ ['budget', 'Budget', 'pie'], ['savings', 'Savings', 'goal'], ...(simple ? [] : [['cashflow', 'Cash Flow', 'flow'], ['spend', 'Spending by Group', 'pie']])])),
         nav([...(simple ? [] : [['invest', 'Investments', 'spark']]), ['debts', 'Debts', 'calc'], ['owed', 'Owed to You', 'wallet'], ['reimburse', 'Reimbursement', 'wallet']]) + (simple ? '' : act('loan-plan', 'Loan Planner', 'calc') + act('loan-wizard', 'Loan Setup', 'calc')),
         ...(simple ? [] : [nav([['outlook', 'Outlook', 'spark'], ['analytics', 'Analytics', 'chart'], ['trips', 'Trips and Events', 'calendar']])]),
@@ -186,13 +187,20 @@ export function calendar(db) {
   }
   const maxW = Math.max(1, ...weeks.map((w) => w.out)), per = upto ? tOut / upto : 0, entries = db.txs.filter((t) => !t.deleted && t.date.startsWith(ym)).length;
   const st = monthStat(db, ym);
+  const t1 = look().design !== 'legacy', net = st.income - st.spent;
+  const legend = '<p class="legend cal-l"><i class="k o"></i>Cash Outflow (darker = more) <i class="k g"></i>Cash Inflow <i class="k b"></i>Transfer</p>';
+  const t1card = `<section class="t1-card calsum" aria-label="Month totals">
+      ${button({ html: `<span>Cash Inflow</span><b class="in">${R(st.income)}</b>`, kind: 'plain', act: 'flow', attr: { 'data-k': 'inflow' } })}
+      ${button({ html: `<span>Cash Outflow</span><b>${R(st.spent)}</b>`, kind: 'plain', act: 'flow', attr: { 'data-k': 'outflow' } })}
+      ${button({ html: `<span>Net Income</span><b class="${net < 0 ? 'neg' : ''}">${R(net)}</b>`, kind: 'plain', act: 'flow', attr: { 'data-k': 'net' } })}
+      <div><span>Transfer</span><b class="cb">${R(tTr)}</b></div></section>${legend}`;
   return `${monthNav()}
-    ${strip(st)}
+    ${t1 ? t1card : strip(st)}
     <section class="calwrap"><div class="cal-h">${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => `<span>${d}</span>`).join('')}</div>
       <div class="cal">${cells}</div>
-      <p class="legend cal-l"><i class="k o"></i>Cash outflow (darker = more) <i class="k g"></i>Cash inflow <i class="k b"></i>Transfer</p>
+      ${t1 ? '' : '<p class="legend cal-l"><i class="k o"></i>Cash outflow (darker = more) <i class="k g"></i>Cash inflow <i class="k b"></i>Transfer</p>'}
       ${isNow ? '' : `<div class="btnrow left">${button({ label: 'Go to this month', kind: 'ghost', size: 'sm', act: 'cal-today' })}</div>`}</section>
-    <section class="facts three"><div><span>Cash outflow</span><b class="cr">${R(tOut)}</b></div><div><span>Cash inflow</span><b class="cg">${R(tIn)}</b></div><div><span>Transfers</span><b class="cb">${R(tTr)}</b></div></section>
+    ${t1 ? '' : `<section class="facts three"><div><span>Cash outflow</span><b class="cr">${R(tOut)}</b></div><div><span>Cash inflow</span><b class="cg">${R(tIn)}</b></div><div><span>Transfers</span><b class="cb">${R(tTr)}</b></div></section>`}
     <section><h2>This Month by Day</h2>
       <ul class="calfacts">
         <li><span>Average per day${isNow ? ' so far' : ''}</span><b>${upto ? R(per) : '—'}</b></li>

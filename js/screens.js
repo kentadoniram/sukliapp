@@ -463,8 +463,14 @@ function homeSection(id, c) {
     case 'yearly': return yearlyCard(db);
     case 'quick': return quickCard(db);
     case 'spendable': { const sp = spendable(db), chips = [...sp.by.entries()].filter(([, v]) => Math.abs(v) >= 0.005).map(([cur, v]) => { const e = eq(v, cur, rateFor(db, cur)); return `<span>${money(v, cur)}${e ? `<small> ${e}</small>` : ''}</span>`; }).join('');
+      const sf = appMode() === 'simple' ? null : safeToSpend(db), safeOn = sf && sf.committed > 0.5;
+      const miss = sp.missing.length ? `<p class="hint">Not counted: ${sp.missing.join(', ')} (set a rate in Settings).</p>` : '';
+      if (look().design !== 'legacy') return `<section class="t1-card spcard ${safeOn ? 'two' : ''}" aria-label="Spendable and safe to spend">
+        <div class="sp-a"><span class="sp-k">Spendable Now</span><b>${money(sp.total)}</b><small>All the money in your accounts marked Spendable, before anything you owe.</small></div>
+        ${safeOn ? button({ html: `<span class="sp-k">Safe to Spend</span><b>${money(sf.safe)}</b><small>What is left after ${money(sf.committed)} already owed (cards, loans and bills due soon). Tap for details.</small>`, kind: 'plain', cls: 'sp-b', act: 'safe-info' }) : ''}
+        <div class="curs">${chips || '<span class="muted">No balances yet</span>'}</div>${miss}</section>`;
       return `<section class="spendable"><div><span>Spendable now</span><b>${money(sp.total)}</b></div><div class="curs">${chips || '<span class="muted">No balances yet</span>'}</div>
-      ${sp.missing.length ? `<p class="hint">Not counted: ${sp.missing.join(', ')} (set a rate in Settings).</p>` : ''}${(() => { if (appMode() === 'simple') return ''; const sf = safeToSpend(db); return sf.committed > 0.5 ? `${button({ html: `<span>Safe to spend<small> after ${money(sf.committed)} already owed</small></span><b>${money(sf.safe)}</b>`, kind: 'plain', cls: 'safeto', act: 'safe-info' })}` : ''; })()}</section>`; }
+      ${miss}${(() => { if (appMode() === 'simple') return ''; return safeOn ? `${button({ html: `<span>Safe to spend<small> after ${money(sf.committed)} already owed</small></span><b>${money(sf.safe)}</b>`, kind: 'plain', cls: 'safeto', act: 'safe-info' })}` : ''; })()}</section>`; }
     case 'alerts': { const n = reviewCount(db); return `${reminderBanner(db)}${goalBanner(db)}${budgetBanner(db)}${n ? `<a class="banner" href="#/review"><strong>${n} ${n === 1 ? 'entry needs' : 'entries need'} a quick check</strong><span>Confirm the guessed categories</span>${ic('right')}</a>` : ''}`; }
     case 'insights': return worthCard(db);
     case 'usual': return usualCard(db);
@@ -843,6 +849,7 @@ export function bindLedger() {
 }
 
 // ---------------- Review ----------------
+ACT['review-back'] = () => { if (history.length > 1) history.back(); else location.hash = '#/ledger'; };
 export function review(db) {
   const accts = accountMap(db), cats = catMap(db);
   const list = sortedTxs(db).filter((t) => t.flag === 'review');
@@ -856,7 +863,8 @@ export function review(db) {
       ${button({ label: 'Edit', kind: 'chip', cls: 'more', act: 'edit-now', attr: { 'data-id': t.id } })}</div></article>`;
   });
   const sure = list.filter((t) => { const p = predict(modelFor(t.kind === 'income' ? 'income' : 'expense'), t.name, t.amount, { acct: t.acct, cur: t.cur, hour: +t.date.slice(11, 13) }); return p.conf >= 0.8 && !(t.items && t.items.length); }).length;
-  return `${hdr('Review')}
+  const rh = look().design === 'legacy' ? hdr('Review') : `<header class="top"><div class="hl">${button({ html: ic('left'), kind: 'plain', cls: 'iconbtn', act: 'review-back', aria: 'Back' })}<h1>Review</h1></div><div class="hact">${helpBtn()}${eyeBtn()}</div></header>`;
+  return `${rh}
     <p class="lede">${list.length ? 'Tap the right category to confirm each one. Your choice teaches the guesser.' : 'All caught up. Entries the app is unsure about will show up here.'}</p>
     ${sure ? `${button({ html: `Confirm the ${sure} I’m sure about (80%+)`, kind: 'primary', cls: 'wide', act: 'confirm-sure' })}` : ''}
     <div class="rcards">${cards.join('')}</div>`;

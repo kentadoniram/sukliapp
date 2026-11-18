@@ -18,7 +18,7 @@ with sync_playwright() as p:
     pg.click('#setup .btn'); pg.wait_for_timeout(300)
     pg.screenshot(path=S+'s3-home.png')
     print('home strip:',pg.inner_text('.strip').replace('\n',' | '))
-    print('spendable:',pg.inner_text('.spendable').replace('\n',' | ')[:200])
+    print('spendable:',pg.inner_text('.spendable, .spcard').replace('\n',' | ')[:200])
     # tabular figures check
     w=pg.evaluate("""()=>{const m=(t)=>{const s=document.createElement('span');s.style.cssText='font:700 30px "Schibsted Grotesk";font-feature-settings:"tnum" 1;position:absolute;visibility:hidden';s.textContent=t;document.body.appendChild(s);const w=s.getBoundingClientRect().width;s.remove();return w};return [m('1111'),m('8888')]}""")
     print('tnum widths 1111 vs 8888:',w)

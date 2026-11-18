@@ -2056,3 +2056,21 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .main-home-card .sk-tip[hidden] { display: none; }
 /* v16: tags in a row's sub line may not run past the (now padded) day card */
 .rtags{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+
+/* v16.2: Calendar summary card, Home Spendable / Safe to Spend card (Theme 1) */
+.calsum{display:grid;grid-template-columns:1fr 1fr;gap:12px 0}
+.calsum > *{display:grid;gap:2px;align-content:start;text-align:left;border:0;background:none;color:inherit;font:inherit;padding:0 8px 0 0;min-width:0}
+.calsum > *:nth-child(even){padding-left:14px;border-left:1px solid var(--rule)}
+.calsum span{font-size:calc(13px * var(--fs, 1));color:var(--ink2)}
+.calsum b{font-size:calc(19px * var(--fs, 1));font-weight:650;letter-spacing:-.01em;white-space:nowrap}
+.t1-card + .legend.cal-l{margin:8px 2px 4px;flex-wrap:wrap;row-gap:4px}
+.spcard{display:grid;gap:12px}
+.spcard.two{grid-template-columns:1fr 1fr;align-items:stretch}
+.spcard .curs,.spcard .hint{grid-column:1 / -1;margin:0}
+.spcard .sp-a,.spcard .sp-b{display:grid;gap:3px;align-content:start;text-align:left;min-width:0;font:inherit;color:inherit;border:0;background:none;padding:0}
+.spcard .sp-k{font-size:calc(13px * var(--fs, 1));font-weight:650;color:var(--ink2)}
+.spcard b{font-size:calc(24px * var(--fs, 1));font-weight:700;letter-spacing:-.02em;overflow-wrap:anywhere}
+.spcard small{font-size:calc(12px * var(--fs, 1));line-height:1.35;color:var(--ink2);white-space:normal}
+.spcard.two .sp-b{padding:10px 12px;margin:-4px 0;border-radius:14px;background:var(--tint);cursor:pointer}
+.spcard.two .sp-b b{color:var(--ink)}
+@media (max-width:359px){.spcard.two{grid-template-columns:1fr}}
