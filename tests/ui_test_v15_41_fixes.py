@@ -11,8 +11,8 @@ with sync_playwright() as p:
       A('b1','Binance BTC','BTC','Binance','Spot',1.23456789);A('b2','Binance USDT','USDT','Binance','Spot',123456.789);A('b3','Binance BTC Earn','BTC','Binance','Earn',2);A('b4','Binance SHIB','SHIB','Binance','Spot',987654321.12345)})""")
     # version
     v=J("return (await import('/js/version.js')).versionText()"); v=pg.evaluate("(async()=>(await import('/js/version.js')).versionText())()"); print(v)
-    ok('version is past 37', int(v.split('.')[1])>=43)
-    sw=pg.evaluate("fetch('/sw.js').then(r=>r.text())"); ok('sw cache name matches version', ("sukli-v15.%s'"%v.split('.')[1]) in sw)
+    ok('version is past 37', int(v.split('.')[0])>=16 or int(v.split('.')[1])>=43)
+    sw=pg.evaluate("fetch('/sw.js').then(r=>r.text())"); ok('sw cache name matches version', ("sukli-v%s.%s'"%(v.split('.')[0],v.split('.')[1])) in sw)
     # Spot tab contained
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(1200); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); pg.wait_for_timeout(300)
     r=pg.evaluate("""[...document.querySelectorAll('.hold')].map(h=>{const rc=h.getBoundingClientRect(),a=h.querySelector('.hr2').getBoundingClientRect(),m=h.querySelector('.hl2');const pr=h.closest('.wblock').getBoundingClientRect();return {inside:a.right<=pr.right+1&&rc.right<=pr.right+1,clip:m.scrollWidth>m.clientWidth+1,wrap:getComputedStyle(m).whiteSpace}})""")

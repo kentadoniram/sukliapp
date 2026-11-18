@@ -1881,7 +1881,7 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 /* ===== DESIGN SYSTEM: cards (v15.57) =====
    One set of card tokens. A theme changes these values (or the --card-* overrides below); screens never restyle cards themselves.
    Base look = what the app already had, so Legacy Theme and every other tab stay unchanged. */
-:root { --dot-ring: #fff; --card-bg: var(--sheet); --card-bd: var(--rule); --card-r: 14px; --card-pad: 10px 12px 12px; --card-shadow: 0 1px 2px rgba(0,0,0,.04); --card-gap: 12px; }
+:root { --cx: 50%; --n: 3; --sel: 0; --dot-ring: #fff; --card-bg: var(--sheet); --card-bd: var(--rule); --card-r: 14px; --card-pad: 10px 12px 12px; --card-shadow: 0 1px 2px rgba(0,0,0,.04); --card-gap: 12px; }
 :where(.ui-card) { background: var(--card-bg); border: 1px solid var(--card-bd); border-radius: var(--card-r); box-shadow: var(--card-shadow); }
 /* Theme 1, Home only: simple flat rectangle, rounded corners, soft raised shadow, no gradient (only .main-home-card has one). Left accent bars on alert cards stay: the colour carries meaning. */
 :root[data-design="theme1"] body:not(.simple) { --card-bg: var(--sheet); --card-bd: transparent; --card-r: 18px; --card-pad: 14px 16px 16px; --card-shadow: 0 2px 12px rgba(20,40,90,.09), 0 1px 2px rgba(20,40,90,.06); --card-gap: 14px; }
@@ -2016,9 +2016,9 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 /* Average Spent Per Day: label and a compact switch on one row; a pill slides inside a rounded three-slot track */
 .avgcard { padding: 34px 16px 12px; gap: 2px; }
 .avgcard .avghead { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.t1seg { position: relative; display: inline-grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: 16px; background: var(--rule); box-shadow: inset 0 1px 2px rgba(20, 40, 90, .14); }
-.t1seg::before { content: ""; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3); border-radius: 13px; background: var(--card-bg, var(--sheet)); box-shadow: 0 1px 3px rgba(20, 40, 90, .28), 0 0 0 .5px rgba(20, 40, 90, .08); transform: translateX(calc(var(--sel, 0) * 100%)); transition: transform .25s cubic-bezier(.4, .1, .2, 1); }
-.t1seg[data-sel="0"] { --sel: 0; } .t1seg[data-sel="1"] { --sel: 1; } .t1seg[data-sel="2"] { --sel: 2; }
+.t1seg { position: relative; display: inline-grid; grid-template-columns: repeat(var(--n, 3), 1fr); padding: 3px; border-radius: 16px; background: var(--rule); box-shadow: inset 0 1px 2px rgba(20, 40, 90, .14); }
+.t1seg::before { content: ""; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / var(--n, 3)); border-radius: 13px; background: var(--card-bg, var(--sheet)); box-shadow: 0 1px 3px rgba(20, 40, 90, .28), 0 0 0 .5px rgba(20, 40, 90, .08); transform: translateX(calc(var(--sel, 0) * 100%)); transition: transform .25s cubic-bezier(.4, .1, .2, 1); }
+.t1seg[data-sel="-1"]::before { opacity: 0; }
 .t1seg .t1s-slot { all: unset; box-sizing: border-box; position: relative; z-index: 1; display: grid; place-items: center; min-width: 40px; min-height: 28px; padding: 0 9px; font-size: calc(12px * var(--fs, 1)); font-weight: 650; color: var(--ink2); cursor: pointer; border-radius: 13px; }
 .t1seg .t1s-slot.on { color: var(--ink); font-weight: 750; }
 .t1seg .t1s-slot:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -2031,3 +2031,28 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 :root[data-design="theme1"] .week .wk .wtrack { overflow: visible; box-shadow: inset 0 1px 3px rgba(20, 40, 90, .14); }
 :root[data-design="theme1"] .week .wk .wtrack i { box-shadow: 0 2px 5px rgba(20, 50, 100, .26), inset 0 1px 0 rgba(255, 255, 255, .4); }
 .main-home-card .bm-mini b, .main-home-card .sc-row .bm-mini b { font-size: inherit; font-weight: inherit; letter-spacing: 0; color: inherit; line-height: inherit; }
+
+/* ---- v16: reusable Theme 1 card for any list group, wide switches (Transactions filters), review button ---- */
+/* .t1-card = the Home card look (tokens) but only in Theme 1, so Legacy keeps its own design wherever this class is used */
+:root[data-design="theme1"] .t1-card { background: var(--card-bg); border: 1px solid var(--card-bd); border-radius: var(--card-r); box-shadow: var(--card-shadow); padding: var(--card-pad); margin: var(--card-gap) 0 0; }
+:root[data-design="theme1"] .day.t1-card .dayhead { border-bottom-color: var(--rule); }
+:root[data-design="theme1"] .day.t1-card.off .dayhead { border-bottom: 0; padding-bottom: 0; }
+.t1f .t1seg, .t1q .t1seg { display: grid; width: 100%; }
+.t1seg.wide .t1s-slot { min-width: 0; min-height: 36px; padding: 2px 4px; font-size: calc(12.5px * var(--fs, 1)); line-height: 1.15; text-align: center; white-space: normal; }
+.t1q { margin: 8px 0 4px; display: block; }
+.t1f { margin: 10px 0 4px; display: block; }
+.reviewbtn { position: relative; }
+.reviewbtn .bdot { position: absolute; top: 4px; right: 3px; box-sizing: content-box; min-width: 13px; height: 13px; padding: 0 2px; border-radius: 9px; background: var(--bad); color: var(--dot-ring); font: 700 calc(10px * var(--fs, 1)) / 13px system-ui, sans-serif; font-style: normal; text-align: center; border: 2px solid var(--paper); }
+@media (max-width: 360px) { .t1seg.wide .t1s-slot { font-size: calc(11.5px * var(--fs, 1)); } }
+
+/* ---- v16: the card graph can be touched ---- */
+.main-home-card .sc-spark { height: 68px; touch-action: pan-y; cursor: crosshair; outline: none; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+.main-home-card .sc-spark:focus-visible { outline: 2px solid var(--gink); outline-offset: 2px; border-radius: 8px; }
+.main-home-card .sk-dot { transition: width .12s, height .12s, margin .12s; pointer-events: none; z-index: 2; }
+.main-home-card .sk-dot.held { width: 17px; height: 17px; margin: -8.5px 0 0 -8.5px; }
+.main-home-card .sk-tip { position: absolute; z-index: 3; pointer-events: none; white-space: nowrap; padding: 4px 9px; border-radius: 9px; background: var(--gink); color: var(--dot-ring); font-size: calc(11.5px * var(--fs, 1)); font-weight: 650; line-height: 1.3; box-shadow: 0 3px 8px rgba(20, 50, 100, .3); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.main-home-card .sk-tip::after { content: ""; position: absolute; left: var(--cx, 50%); bottom: -4px; width: 8px; height: 8px; margin-left: -4px; background: inherit; transform: rotate(45deg); border-radius: 0 0 2px 0; }
+.main-home-card .sk-tip.below::after { bottom: auto; top: -4px; border-radius: 2px 0 0 0; }
+.main-home-card .sk-tip[hidden] { display: none; }
+/* v16: tags in a row's sub line may not run past the (now padded) day card */
+.rtags{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}

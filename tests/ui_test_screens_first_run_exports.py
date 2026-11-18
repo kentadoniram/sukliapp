@@ -9,7 +9,7 @@ def part_phone_sizes():
     ROUTES=['home','ledger','calendar','accounts','budget','cashflow','outlook','analytics','invest','settings']
     UA='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
     SMALL="[...document.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]),select,textarea')].filter(e=>e.getBoundingClientRect().width>0&&parseFloat(getComputedStyle(e).fontSize)<16).map(e=>e.name||e.id||e.className)"
-    OVER="(()=>{const W=innerWidth;return [document.documentElement.scrollWidth>W+1,[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width&&(r.right>W+1)&&getComputedStyle(e).position!=='fixed'&&!e.closest('svg,.wkv,.chips,.qp,.fquick,.ratebox,.scrollx,.seg,.nmap')}).length]})()"
+    OVER="(()=>{const W=innerWidth;return [document.documentElement.scrollWidth>W+1,[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width&&(r.right>W+1)&&getComputedStyle(e).position!=='fixed'&&!e.closest('svg,.rtags,.wkv,.chips,.qp,.fquick,.ratebox,.scrollx,.seg,.nmap')}).length]})()"
     with sync_playwright() as p:
         b=p.chromium.launch()
         ctx=b.new_context(viewport={'width':402,'height':874},device_scale_factor=3,is_mobile=True,has_touch=True,user_agent=UA,service_workers='block')

@@ -777,13 +777,13 @@ export function cashFlowSeries(db, ym) {
 // Net worth about every week over the six months that end with the chosen month (its last day, or today for the current month), today's rates, liabilities against it. The last point is the figure on the card.
 export function netWorthSeries(db, ym) {
   const n = daysInMonth(ym), cur = ym === thisMonth(), endDay = cur ? Math.min(n, new Date().getDate()) : n, end = new Date(+ym.slice(0, 4), +ym.slice(5, 7) - 1, endDay, 12), out = [], accts = live(db.accounts);
-  const first = db.txs.reduce((m, t) => (!t.deleted && t.date < m ? t.date : m), '9999');
+  const first = db.txs.reduce((m, t) => (!t.deleted && t.date < m ? t.date : m), '9999'); out.dates = [];
   for (let k = 26; k >= 0; k--) {
     const dt = new Date(end.getTime() - k * 7 * 864e5), ds = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
     if (ds < first.slice(0, 10) && k > 0) continue;
     const bal = balances(db, `${ds} 23:59:59`); let assets = 0, debts = 0;
     for (const a of accts) { const r = homeFx(db, a.cur), base = (bal.get(a.id) || 0) * (r || 0); if (base > 0) assets += base; else if (base < 0) debts += -base; }
-    out.push(assets - debts);
+    out.push(assets - debts); out.dates.push(ds);
   }
   return out;
 }

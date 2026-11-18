@@ -2,6 +2,10 @@
 
 A private money tracker that runs entirely in the browser. Your data stays on your device, with an optional backup to a hidden folder in your own Google Drive. No server, no subscription, no AI service: the category guesser is a small model that learns from your own entries and runs on the phone.
 
+## What's new in v16
+
+- **16.1 (Theme 1):** version is now 16 everywhere (Settings "Sukli version 16.1.1.1118", service-worker cache `sukli-v16.1`). The Main Home Card graphs are interactive: point, drag (mouse or finger) or use the arrow keys to move a dot along the line; a small tag above it shows the date and figure, and it goes back to the end point when you let go. Transactions tab (Theme 1 only): All/Check/Expense/Income/Transfer and the date ranges use the sliding switch; each day is a card like Home; the title is "Transactions" and the check (review) button sits next to the eye. Legacy Theme is unchanged. Tests ui_test_v16_graph_ledger, ui_test_component_rules.
+
 ## What's new in v13
 
 - **15.37 (fixes):** the Scan button is as wide as the other menu items; Pick a Place results are compact (name, then area in smaller text, in one scrolling box); the Investments header no longer overflows on small phones (the currency chip sits beside the eye, the action buttons wrap on their own row).

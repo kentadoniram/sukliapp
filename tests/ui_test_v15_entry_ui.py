@@ -9,7 +9,7 @@ with sync_playwright() as p:
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900)
     J=lambda js: pg.evaluate("(async()=>{const c=await import('/js/core.js');"+js+"})()")
     J("c.commit(d=>{d.settings.mode='advanced';delete d.settings.tabs;const home=d.settings.homeCur||'PHP';d.accounts.push(c.stamp({id:'w1',name:'Wallet One',cur:home,type:'cash',open:5000,include:true,archived:false}));for(const [i,n] of [['pa','Ana'],['pb','Ben']])d.accounts.push(c.stamp({id:i,name:n,cur:home,type:'owed',open:0,include:true,archived:false}))})")
-    ok('version starts with 15', pg.evaluate("(async()=>(await import('/js/version.js')).versionText())()").startswith('15.'))
+    ok('version starts with 16', pg.evaluate("(async()=>(await import('/js/version.js')).versionText())()").startswith('16.'))
     ok('four default tabs', pg.evaluate("(async()=>(await import('/js/screens.js')).DEFAULT_TABS.length)()")==4)
     J("c.commit(d=>{for(let i=0;i<40;i++)d.txs.push(c.stamp({id:'mm'+i,kind:'expense',date:'2026-10-01',name:'X'+i,amount:10,cur:d.accounts.find(a=>a.id==='w1').cur,fx:1,acct:'w1',merchant:'Shop '+i}))})")
     pg.evaluate("document.querySelector('[data-act=add]').click()"); pg.wait_for_selector('#entry'); pg.wait_for_timeout(400)

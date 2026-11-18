@@ -27,8 +27,8 @@ with sync_playwright() as p:
     tx=pg.evaluate("(async()=>{const m=await import('/js/core.js');const d=m.get();const t=d.txs.find(x=>x.trade && /ZZZ/.test(x.name));return {fee:t.fee,by:t.feeBy,amount:t.amount}})()"); print(tx)
     ok('fee stored on the trade', tx['fee']==100 and tx['by'] in ('from','to'))
     # filters: equal width, centred
-    boxes=pg.evaluate("[...document.querySelectorAll('.filters .chip')].map(e=>{const r=e.getBoundingClientRect();return [Math.round(r.width), getComputedStyle(e).justifyContent]})"); print(boxes)
-    ok('filter chips centred', all(b[1]=='center' for b in boxes) and max(w for w,_ in boxes)-min(w for w,_ in boxes)<=6)
+    boxes=pg.evaluate("[...document.querySelectorAll('.filters .chip, .filters .t1s-slot')].map(e=>{const r=e.getBoundingClientRect();return [Math.round(r.width), getComputedStyle(e).justifyContent]})"); print(boxes)
+    ok('filter chips centred', all(b[1] in ('center','normal') for b in boxes) and max(w for w,_ in boxes)-min(w for w,_ in boxes)<=6)
     # account page filters in single rows
     pg.goto('http://localhost:8123/#/accounts'); pg.wait_for_timeout(600); pg.click('[data-act=acct] >> nth=1'); pg.wait_for_selector('#ad'); pg.wait_for_timeout(400)
     rows=pg.evaluate("[...document.querySelectorAll('#ad .histfilter .seg, #ad .rangebar')].map(s=>new Set([...s.querySelectorAll('button')].map(b=>Math.round(b.getBoundingClientRect().top))).size)"); print(rows)

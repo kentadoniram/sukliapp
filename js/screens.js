@@ -141,7 +141,7 @@ export function strip(st) {
 // Theme 1 Home card: net income large on top; below it, Income (arrow down = money in) and Expense (arrow up = money out) side by side in one row, each with its amount underneath in the heading (H2) size.
 // smooth line for the Home card: a spline through the points, a soft shadow, and a round marker on the last point. The line is stretched to the card; the marker is a separate round element so it never gets squashed.
 let SKN = 0;
-function spark(vals, label) {
+function spark(vals, label, tips) {
   const gid = `skg${++SKN}`;
   const W = 300, H = 64, pad = 8;
   if (!vals || vals.length < 2) return `<div class="sc-spark empty" role="img" aria-label="${esc(label)}: not enough days yet"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}" class="sk-base"/></svg></div>`;
@@ -153,12 +153,16 @@ function spark(vals, label) {
     d += `C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${c(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${c(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
   }
   const end = pts[pts.length - 1], area = `${d}L${end[0].toFixed(1)},${H}L0,${H}Z`;
-  return `<div class="sc-spark" role="img" aria-label="${esc(label)}"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--gink)" stop-opacity=".26"/><stop offset="1" style="stop-color:var(--gink)" stop-opacity="0"/></linearGradient></defs><path d="${area}" class="sk-area" fill="url(#${gid})"/><path d="${d}" class="sk-line"/></svg><i class="sk-dot" style="left:${(end[0] / W * 100).toFixed(2)}%;top:${(end[1] / H * 100).toFixed(2)}%"></i></div>`;
+  // every point can be picked: its place on the line (in %) and the text for its tooltip
+  const sel = JSON.stringify(pts.map((q, i) => [+(q[0] / W * 100).toFixed(2), +(q[1] / H * 100).toFixed(2), (tips && tips[i]) || '']));
+  return `<div class="sc-spark" tabindex="0" role="slider" aria-label="${esc(label)}, drag to see each point" aria-valuemin="0" aria-valuemax="${pts.length - 1}" aria-valuenow="${pts.length - 1}" aria-valuetext="${esc((tips && tips[pts.length - 1]) || '')}" data-pts='${esc(sel)}'><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--gink)" stop-opacity=".26"/><stop offset="1" style="stop-color:var(--gink)" stop-opacity="0"/></linearGradient></defs><path d="${area}" class="sk-area" fill="url(#${gid})"/><path d="${d}" class="sk-line"/></svg><i class="sk-dot" style="left:${(end[0] / W * 100).toFixed(2)}%;top:${(end[1] / H * 100).toFixed(2)}%"></i><span class="sk-tip" role="status" hidden></span></div>`;
 }
 const FACE = { worth: false };   // Net income is showing every time the app opens; the flip is remembered only until it is closed
 export function mainHomeCard(st, db) {
   const net = st.income - st.spent, m = (v) => fmt(v, HOME, { round: true }), nw = db ? netWorth(db) : { net: 0, assets: 0, debts: 0 };
   const flow = db ? cashFlowSeries(db, ui.month) : [], worth = db ? netWorthSeries(db, ui.month) : [];
+  const dlab = (ds) => new Date(ds.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const flowTips = flow.map((v, i) => `${dlab(`${ui.month}-${String(i + 1).padStart(2, '0')}`)} · ${m(v)}`), worthTips = worth.map((v, i) => `${dlab((worth.dates || [])[i] || `${ui.month}-01`)} · ${m(v)}`);
   const H = db ? benchHistory(db, ui.month) : { inc: [], exp: [], net: [] }, S = db ? benchStock(db) : { assets: [], liabs: [] };
   const arr = (up, cls) => `<i class="sc-arr ${cls}" aria-hidden="true">${diag(up)}</i>`;
   const cell = (k, up, label, v, cls, tag) => button({ html: `<span class="sc-lab">${arr(up, cls)}${label}</span><b class="sc-val">${m(v)}</b>${tag}`, kind: 'plain', cls: 'sc-row', act: 'flow', attr: { 'data-k': k } });
@@ -169,11 +173,36 @@ export function mainHomeCard(st, db) {
   return `<section class="strip sumcard main-home-card ${w ? 'flipped' : ''}" data-id="main-home-card" aria-label="Month totals">
     <div class="sc-inner">
       <div class="sc-face sc-front" ${w ? 'inert aria-hidden="true"' : ''}>${button({ html: `<span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${m(net)}</b>`, kind: 'plain', cls: 'sc-net', act: 'flow', attr: { 'data-k': 'net' } })}${bmChip(db ? benchList(H.net, net, false, 'Net income') : null, true)}
-        ${spark(flow, 'Cash flow this month')}<div class="sc-rows">${cell('inflow', false, 'Income', st.income, 'dn', bmChip(db ? benchList(H.inc, st.income, false, 'Income') : null))}${cell('outflow', true, 'Expenses', st.spent, 'up', bmChip(db ? benchList(H.exp, st.spent, true, 'Expenses') : null))}</div>${swap('Net worth', 'Show net worth')}</div>
+        ${spark(flow, 'Cash flow this month', flowTips)}<div class="sc-rows">${cell('inflow', false, 'Income', st.income, 'dn', bmChip(db ? benchList(H.inc, st.income, false, 'Income') : null))}${cell('outflow', true, 'Expenses', st.spent, 'up', bmChip(db ? benchList(H.exp, st.spent, true, 'Expenses') : null))}</div>${swap('Net worth', 'Show net worth')}</div>
       <div class="sc-face sc-back" ${w ? '' : 'inert aria-hidden="true"'}><div class="sc-net"><span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${m(nw.net)}</b></div>
-        ${spark(worth, 'Net worth over the last six months')}<div class="sc-rows">${plain(true, 'Assets', nw.assets, 'dn', bmChip(db ? benchList(S.assets, nw.assets, false, 'Assets') : null))}${plain(false, 'Liabilities', nw.debts, 'up', bmChip(db ? benchList(S.liabs, nw.debts, true, 'Liabilities') : null))}</div>${swap('Net income', 'Show net income')}</div>
+        ${spark(worth, 'Net worth over the last six months', worthTips)}<div class="sc-rows">${plain(true, 'Assets', nw.assets, 'dn', bmChip(db ? benchList(S.assets, nw.assets, false, 'Assets') : null))}${plain(false, 'Liabilities', nw.debts, 'up', bmChip(db ? benchList(S.liabs, nw.debts, true, 'Liabilities') : null))}</div>${swap('Net income', 'Show net income')}</div>
     </div></section>`;
 }
+// ---- the card's graph is touchable (v16): point, hover or drag along the line; the dot follows and a small tag above it tells that day's figure ----
+const SPK = { timer: 0 };
+function spkShow(sp, i) {
+  let pts; try { pts = sp._pts || (sp._pts = JSON.parse(sp.dataset.pts)); } catch { return; }
+  const last = pts.length - 1, k = i == null ? last : Math.max(0, Math.min(last, i)), q = pts[k], dot = sp.querySelector('.sk-dot'), tip = sp.querySelector('.sk-tip'); if (!dot || !tip) return;
+  dot.style.left = q[0] + '%'; dot.style.top = q[1] + '%'; dot.classList.toggle('held', i != null);
+  sp.setAttribute('aria-valuenow', String(k)); sp.setAttribute('aria-valuetext', q[2]);
+  if (i == null) { tip.hidden = true; sp.dataset.k = ''; return; }
+  sp.dataset.k = String(k); tip.textContent = q[2]; tip.hidden = false;
+  const w = sp.clientWidth, h = sp.clientHeight, x = q[0] / 100 * w, y = q[1] / 100 * h, tw = tip.offsetWidth, th = tip.offsetHeight, left = Math.max(0, Math.min(w - tw, x - tw / 2));
+  tip.style.left = left + 'px'; tip.style.setProperty('--cx', Math.max(8, Math.min(tw - 8, x - left)) + 'px');
+  const above = y - th - 10 >= -4;   // above the dot when there is room, otherwise just under it, always inside the graph box
+  tip.classList.toggle('below', !above); tip.style.top = (above ? y - th - 10 : y + 12) + 'px';
+}
+const spkIndex = (sp, cx) => { let n; try { n = (sp._pts || (sp._pts = JSON.parse(sp.dataset.pts))).length; } catch { return 0; } const r = sp.getBoundingClientRect(); return Math.round(Math.max(0, Math.min(1, (cx - r.left) / (r.width || 1))) * (n - 1)); };
+try {
+  document.addEventListener('pointerdown', (e) => { const sp = e.target.closest && e.target.closest('.sc-spark'); if (!sp) return; clearTimeout(SPK.timer); try { sp.setPointerCapture(e.pointerId); } catch { /* fine */ } sp._drag = true; spkShow(sp, spkIndex(sp, e.clientX)); });
+  document.addEventListener('pointermove', (e) => { const sp = e.target.closest && e.target.closest('.sc-spark'); if (!sp) return; if (e.pointerType === 'mouse' || sp._drag) spkShow(sp, spkIndex(sp, e.clientX)); });
+  const end = (e) => { const sp = e.target.closest && e.target.closest('.sc-spark'); if (!sp) return; sp._drag = false; if (e.pointerType !== 'mouse') { clearTimeout(SPK.timer); SPK.timer = setTimeout(() => spkShow(sp, null), 2600); } };   // a finger lifts: the tag stays a moment, then the dot goes home
+  document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+  document.addEventListener('pointerout', (e) => { const sp = e.target.closest && e.target.closest('.sc-spark'); if (sp && e.pointerType === 'mouse' && !sp.contains(e.relatedTarget)) spkShow(sp, null); });
+  document.addEventListener('keydown', (e) => { const sp = e.target.closest && e.target.closest('.sc-spark'); if (!sp) return; const cur = sp.dataset.k === '' || sp.dataset.k == null ? +sp.getAttribute('aria-valuenow') : +sp.dataset.k;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); spkShow(sp, cur + (e.key === 'ArrowRight' ? 1 : -1)); } else if (e.key === 'Escape' || e.key === 'Home' && false) spkShow(sp, null); });
+  document.addEventListener('focusout', (e) => { const sp = e.target.closest && e.target.closest('.sc-spark'); if (sp) spkShow(sp, null); });
+} catch { /* no document */ }
 // flips the whole card in place (no redraw, so nothing jumps); the rotation is pure CSS
 ACT.sumflip = (el) => {
   FACE.worth = !FACE.worth; const c = el.closest('.main-home-card'); if (!c) return;
@@ -366,10 +395,10 @@ function avgCard(db) {
   const vs = (k) => (k === 'all' || !av.all ? '' : (() => { const d = (av[k] - av.all) / av.all * 100; return Math.abs(d) < 1 ? 'About the same as your overall average' : `${Math.round(Math.abs(d))}% ${d > 0 ? 'above' : 'below'} your overall average`; })());
   const data = {}; for (const [k, , per] of AVGS) { data[k] = { v: money(av[k]), sub: k === 'all' ? `per day, ${av.days} days (${per})` : `per day, ${per}`, vs: vs(k) }; }
   const sel = avgSel(), x = data[sel], idx = AVGS.findIndex((a) => a[0] === sel);
-  // Theme 1's own switch (not the shared seg): a pill slides inside a three-slot rounded track; the label and the switch share one row
-  const slots = AVGS.map(([v, l]) => button({ html: AVG_SHORT[v], kind: 'plain', cls: `t1s-slot ${v === sel ? 'on' : ''}`, act: 'avgsel', pressed: v === sel, aria: l, attr: { 'data-v': v } })).join('');
+  // Theme 1's own switch (not the shared seg): a pill slides inside a rounded track; the label and the switch share one row
+  const sw = t1seg({ options: AVGS.map(([v, l]) => ({ value: v, label: AVG_SHORT[v], aria: l })), value: sel, act: 'avgsel', aria: 'Average period' });
   return `<section class="avgcard ui-card" aria-label="Average spent per day" data-avg='${esc(JSON.stringify(data))}'>
-    <div class="avghead"><h3 class="subh">Average Spent Per Day</h3><div class="t1seg" role="group" aria-label="Average period" data-sel="${idx}">${slots}</div></div>
+    <div class="avghead"><h3 class="subh">Average Spent Per Day</h3>${sw}</div>
     <p class="avgval"><b>${x.v}</b> <small class="muted">${esc(x.sub)}</small></p><p class="avgvs muted">${esc(x.vs)}</p></section>`;
 }
 ACT.avgsel = (el) => {
@@ -377,7 +406,7 @@ ACT.avgsel = (el) => {
   const k = el.dataset.v, x = data[k]; if (!x) return;
   try { localStorage.setItem('sukli-avg', k); } catch { /* a convenience only */ }
   c.querySelector('.avgval b').textContent = x.v; c.querySelector('.avgval small').textContent = x.sub; c.querySelector('.avgvs').textContent = x.vs;
-  const g = c.querySelector('.t1seg'); if (g) g.dataset.sel = String(['d7', 'd30', 'all'].indexOf(k));
+  const g = c.querySelector('.t1seg'); if (g) { const n = ['d7', 'd30', 'all'].indexOf(k); g.dataset.sel = String(n); g.style.setProperty('--sel', String(n)); }
   c.querySelectorAll('.t1s-slot').forEach((b) => { const on = b === el; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
 };
 function weekBars(db) {
@@ -676,7 +705,7 @@ function ledgerRows(db) {
   let html = '', day = '', dayTotal = 0, buf = '', byCur = new Map(), n = 0; const shown = []; ui.shown = shown;
   const flush = () => { if (buf) { const off = ui.daysOff.has(day), col = '', curs = [...byCur.entries()].sort((a, b) => (a[0] === HOME ? 1 : b[0] === HOME ? -1 : 0)), foreign = curs.some(([c]) => c !== HOME);
     const lines = curs.map(([c, v]) => `<span class="dline">${money(-v, c)}</span>`).join('');
-    html += `<div class="day ${off ? 'off' : ''}">${button({ html: `<span class="dcaret">${off ? '▸' : '▾'}</span><span class="dlabel">${dayLabel(day)}${off ? ` <small class="muted">${n} ${n === 1 ? 'entry' : 'entries'}</small>` : ''}</span><span class="dtot" ${col ? `style="color:${col}"` : ''}>${dayTotal ? (foreign ? `${lines}<small class="dcur">${money(-dayTotal)}</small>` : `<span class="dline">${money(-dayTotal)}</span>`) : ''}</span>`, kind: 'plain', cls: 'dayhead', act: 'day-toggle', attr: { 'data-d': day, 'aria-expanded': !off } })}<div class="rows" ${off ? 'hidden' : ''}>${buf}</div></div>`; } buf = ''; dayTotal = 0; byCur = new Map(); n = 0; };
+    html += `<div class="day t1-card ${off ? 'off' : ''}">${button({ html: `<span class="dcaret">${off ? '▸' : '▾'}</span><span class="dlabel">${dayLabel(day)}${off ? ` <small class="muted">${n} ${n === 1 ? 'entry' : 'entries'}</small>` : ''}</span><span class="dtot" ${col ? `style="color:${col}"` : ''}>${dayTotal ? (foreign ? `${lines}<small class="dcur">${money(-dayTotal)}</small>` : `<span class="dline">${money(-dayTotal)}</span>`) : ''}</span>`, kind: 'plain', cls: 'dayhead', act: 'day-toggle', attr: { 'data-d': day, 'aria-expanded': !off } })}<div class="rows" ${off ? 'hidden' : ''}>${buf}</div></div>`; } buf = ''; dayTotal = 0; byCur = new Map(); n = 0; };
   for (const t of list) {
     const d = t.date.slice(0, 10);
     if (d !== day) { flush(); day = d; }
@@ -744,15 +773,29 @@ function tagBar(db) {
   if (!tags.length) return '';
   return `<div class="tagbar" role="group" aria-label="Tags and events">${tags.map((x) => `${button({ label: `#${x.tag}`, kind: 'chip', cls: `${ui.tag && x.tag.toLowerCase() === ui.tag.toLowerCase() ? 'on' : ''}`, act: 'tag-filter', pressed: !!ui.tag && x.tag.toLowerCase() === ui.tag.toLowerCase(), attr: { 'data-v': x.tag } })}`).join('')}</div>`;
 }
+// Theme 1 switch with any number of slots (the same .t1seg as the Average card): one pill slides under the chosen slot; none chosen = pill hidden
+export function t1seg({ options, value, act, aria, wide = false }) {
+  const idx = options.findIndex((o) => o.value === value);
+  return `<div class="t1seg ${wide ? 'wide' : ''}" role="group" aria-label="${esc(aria)}" data-sel="${idx}" style="--n:${options.length};--sel:${Math.max(0, idx)}">${options.map((o) => button({ html: esc(o.label), kind: 'plain', cls: `t1s-slot ${o.value === value ? 'on' : ''}`, act, pressed: o.value === value, aria: o.aria || '', attr: { 'data-v': o.value, ...(o.title ? { title: o.title } : {}) } })).join('')}</div>`;
+}
+// which quick range the chosen dates match (none when you picked your own dates)
+const rangeKey = () => { const t = todayStr(), sub = (n) => { const x = new Date(); x.setDate(x.getDate() - n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; }; if (ui.to !== t) return ''; return ui.from === sub(6) ? '7' : ui.from === sub(29) ? '30' : ui.from === `${t.slice(0, 7)}-01` ? 'm' : ui.from === `${t.slice(0, 4)}-01-01` ? 'y' : ''; };
+const reviewBtn = () => { const n = reviewCount(get()); return `<a class="iconbtn reviewbtn" href="#/review" aria-label="${n ? `Review, ${n} to check` : 'Review, nothing to check'}">${ic('check')}${n ? `<i class="bdot" aria-hidden="true">${n > 99 ? '99+' : n}</i>` : ''}</a>`; };
 export function ledger(db) {
   syncMonth();
-  const f = [['all', 'All'], ['review', 'Check'], ['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']];
-  return `${hdr('Entries')}
+  const f = [['all', 'All'], ['review', 'Check'], ['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']], t1 = look().design !== 'legacy';
+  const head = t1 ? `<header class="top"><div class="hl">${burger()}<h1>Transactions</h1></div><div class="hact">${helpBtn()}${reviewBtn()}${eyeBtn()}</div></header>` : hdr('Transactions');
+  const filt = t1 ? `<div class="filters t1f">${t1seg({ options: f.map(([v, l]) => ({ value: v, label: l, title: v === 'review' ? 'Entries with a guessed category or label that you have not confirmed yet' : '' })), value: ui.filter, act: 'filter', aria: 'Filter', wide: true })}</div>`
+    : `<div class="filters" role="group" aria-label="Filter">${f.map(([v, l]) => `<button class="chip ${ui.filter === v ? 'on' : ''}" data-act="filter" data-v="${v}" ${v === 'review' ? 'title="Entries with a guessed category or label that you have not confirmed yet"' : ''}>${l}</button>`).join('')}</div>`;
+  const RQ = [['7', 'Last 7 days'], ['30', 'Last 30 days'], ['m', 'This month'], ['y', 'This year']];
+  const quick = t1 ? `<div class="fquick t1q">${t1seg({ options: RQ.map(([v, l]) => ({ value: v, label: l })), value: rangeKey(), act: 'f-range', aria: 'Quick ranges', wide: true })}</div>`
+    : `<div class="fquick" role="group" aria-label="Quick ranges">${RQ.map(([v, l]) => `${button({ html: `${l}`, kind: 'chip', act: 'f-range', attr: { 'data-v': v } })}`).join('')}</div>`;
+  return `${head}
     <div class="searchbar">${ic('search')}<input id="q" type="search" placeholder="Search entries, items, notes" value="${esc(ui.q)}" aria-label="Search entries"></div>
-    <div class="filters" role="group" aria-label="Filter">${f.map(([v, l]) => `<button class="chip ${ui.filter === v ? 'on' : ''}" data-act="filter" data-v="${v}" ${v === 'review' ? 'title="Entries with a guessed category or label that you have not confirmed yet"' : ''}>${l}</button>`).join('')}</div>
+    ${filt}
     <div class="frow2">
       <div class="frange">${button({ html: `<small>From</small><b>${ui.from ? esc(fshort(ui.from)) : 'Any date'}</b>`, kind: 'plain', cls: `fdbtn ${ui.from ? 'set' : ''}`, act: 'f-pick', aria: 'From date', attr: { 'data-k': 'from' } })}<span class="fdash" aria-hidden="true">–</span>${button({ html: `<small>To</small><b>${ui.to ? esc(fshort(ui.to)) : 'Any date'}</b>`, kind: 'plain', cls: `fdbtn ${ui.to ? 'set' : ''}`, act: 'f-pick', aria: 'To date', attr: { 'data-k': 'to' } })}</div>
-      <div class="fquick" role="group" aria-label="Quick ranges">${[['7', 'Last 7 days'], ['30', 'Last 30 days'], ['m', 'This month'], ['y', 'This year']].map(([v, l]) => `${button({ html: `${l}`, kind: 'chip', act: 'f-range', attr: { 'data-v': v } })}`).join('')}</div>
+      ${quick}
     </div>
     <div class="frow3">
       <select id="acctfilter" aria-label="Account filter"><option value="">All accounts</option>${db.accounts.filter((a) => !a.deleted).sort((a, b) => a.name.localeCompare(b.name)).map((a) => `<option value="${a.id}" ${ui.acct === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
