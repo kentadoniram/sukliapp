@@ -1,17 +1,17 @@
 // The five screens: Home, Ledger, Review, Accounts, Reports, and Settings.
 import { addCfg, startKind, KIND_META, START_CHOICES } from './addset.js';
-import { button, textField } from './components.js';
+import { button, textField, seg } from './components.js';
 import { catIcon } from './caticons.js';
 import { softDelete, appMode, reimbKeep } from './core.js';
 import { safetyCfg, balanceTrail, netWorth, cashFlowSeries, netWorthSeries } from './finance.js';
 import {
-  get, commit, commitQuiet, stamp, uid, fmt, BASE, HOME, homeFx, homeRate, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
+  partsBetween, get, commit, commitQuiet, stamp, uid, fmt, BASE, HOME, homeFx, homeRate, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
   compact, monthLabel, shiftMonth, thisMonth, dayLabel, rateFor, reviewCount, groupColor, groupLetter, adjustmentCategory, nowStamp,
   replaceAll, emptyDb, live, monthParts, priv, flush, factorFor,
 } from './core.js';
 import { pace, trend, totals, baselineMonths, groupTrend } from './insights.js';
 import { worthInsights, noteShown, dismiss } from './worth.js';
-import { cfg as glanceCfg, TOPICS as GLANCE_TOPICS, KIND_LABEL as GLANCE_KINDS, showGlance } from './glance.js';
+import { cfg as glanceCfg, TOPICS as GLANCE_TOPICS, KIND_LABEL as GLANCE_KINDS, showGlance, bellBtn } from './glance.js';
 import { importBluecoins, previewImport, exportCSV, SPENDABLE_TYPES } from './importer.js';
 import { exportSukliCSV } from './sukliCsv.js';
 import { predict } from './predict.js';
@@ -106,11 +106,11 @@ ACT.msel = () => { MS.open = !MS.open; if (MS.open) MS.year = 0; msSync(); };
 ACT.msyear = (el) => { const yr = (MS.year || +ui.month.slice(0, 4)) + (+el.dataset.d); if (yr > +thisMonth().slice(0, 4)) return; MS.year = yr; msSync(); };
 ACT.mspick = (el) => { if (el.dataset.m > thisMonth()) return; ui.month = el.dataset.m; ui.limit = 120; MS.year = 0; MS.open = false; window.dispatchEvent(new Event('sukli-render')); };
 try { document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && MS.open) { MS.open = false; msSync(); } }); } catch { /* no document */ }
-export function monthNav(title) {
+export function monthNav(title, o = {}) {
   syncMonth();
   const isNow = ui.month === thisMonth(), label = esc(title || monthLabel(ui.month));
   if (look().design !== 'legacy') return `<header class="top t1top"><div class="hl">${burger()}</div>
-    <div class="hact">${helpBtn()}${eyeBtn()}<div class="monthsel">${button({ html: `<h1>${label}</h1>${ic('down', 'chev')}`, kind: 'plain', cls: 'mscard', act: 'msel', aria: 'Choose month', attr: { 'aria-expanded': String(MS.open), 'aria-controls': 'mspanel' } })}</div></div></header>
+    <div class="hact">${helpBtn()}${o.bell && get() ? bellBtn(get()) : ''}${eyeBtn()}<div class="monthsel">${button({ html: `<h1>${label}</h1>${ic('down', 'chev')}`, kind: 'plain', cls: 'mscard', act: 'msel', aria: 'Choose month', attr: { 'aria-expanded': String(MS.open), 'aria-controls': 'mspanel' } })}</div></div></header>
     <div class="mspanel" id="mspanel" role="group" aria-label="Choose month" ${MS.open ? '' : 'hidden'}>${MS.open ? monthPanel() : ''}</div>`;
   return `<header class="top"><div class="hl">${burger()}<div class="monthbox">${button({ html: `${ic('left')}`, kind: 'plain', cls: 'iconbtn', act: 'month', aria: 'Previous month', attr: { 'data-d': '-1' } })}
     <h1>${label}</h1>
@@ -153,7 +153,7 @@ function spark(vals, label) {
     d += `C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${c(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${c(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
   }
   const end = pts[pts.length - 1], area = `${d}L${end[0].toFixed(1)},${H}L0,${H}Z`;
-  return `<div class="sc-spark" role="img" aria-label="${esc(label)}"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><path d="${area}" class="sk-area" fill="url(#${gid})"/><path d="${d}" class="sk-line"/></svg><i class="sk-dot" style="left:${(end[0] / W * 100).toFixed(2)}%;top:${(end[1] / H * 100).toFixed(2)}%"></i></div>`;
+  return `<div class="sc-spark" role="img" aria-label="${esc(label)}"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--gink)" stop-opacity=".26"/><stop offset="1" style="stop-color:var(--gink)" stop-opacity="0"/></linearGradient></defs><path d="${area}" class="sk-area" fill="url(#${gid})"/><path d="${d}" class="sk-line"/></svg><i class="sk-dot" style="left:${(end[0] / W * 100).toFixed(2)}%;top:${(end[1] / H * 100).toFixed(2)}%"></i></div>`;
 }
 const FACE = { worth: false };   // Net income is showing every time the app opens; the flip is remembered only until it is closed
 export function mainHomeCard(st, db) {
@@ -166,7 +166,7 @@ export function mainHomeCard(st, db) {
   // the whole card is the turning unit: each face carries its own gradient, corners and shadow, so the card flips like a credit card
   return `<section class="strip sumcard main-home-card ${w ? 'flipped' : ''}" data-id="main-home-card" aria-label="Month totals">
     <div class="sc-inner">
-      <div class="sc-face sc-front" ${w ? 'inert aria-hidden="true"' : ''}>${button({ html: `<span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${m(net)}</b>`, kind: 'plain', cls: 'sc-net', act: 'flow', attr: { 'data-k': 'net' } })}
+      <div class="sc-face sc-front" ${w ? 'inert aria-hidden="true"' : ''}>${button({ html: `<span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${m(net)}</b>`, kind: 'plain', cls: 'sc-net', act: 'flow', attr: { 'data-k': 'net' } })}${benchChip(db, ui.month, net)}
         ${spark(flow, 'Cash flow this month')}<div class="sc-rows">${cell('inflow', '↓', 'Income', st.income, 'dn')}${cell('outflow', '↑', 'Expenses', st.spent, 'up')}</div>${swap('Net worth', 'Show net worth')}</div>
       <div class="sc-face sc-back" ${w ? '' : 'inert aria-hidden="true"'}><div class="sc-net"><span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${m(nw.net)}</b></div>
         ${spark(worth, 'Net worth over the last six months')}<div class="sc-rows">${plain('Assets', nw.assets, 'dn', '↑')}${plain('Liabilities', nw.debts, 'up', '↓')}</div>${swap('Net income', 'Show net income')}</div>
@@ -284,7 +284,7 @@ export function home(db) {
   const body = (calm ? shown.filter((id) => CORE.includes(id)) : shown).map(mk).join('');
   const more = calm ? `<details class="homemore"><summary>More on Home${rest.length ? ` <small>${rest.length + 1}</small>` : ''}</summary>${weekBars(db)}${rest.map(mk).join('')}</details>` : '';
   const firstEntry = !db.txs.some((t) => !t.deleted) ? `<section class="nextstep"><b>Next step: write down your first spending.</b> ${tipBtn('firstentry')}</section>` : '';
-  return `${monthNav()}
+  return `${monthNav(undefined, { bell: true })}
     ${firstEntry}${t1 ? mainHomeCard(st, db) : strip(st)}${homeTitles(calm ? body + more : weekBars(db) + body)}`;
 }
 // what was spent on each of the last 7 days: plain HTML (not SVG) so the day, the bar and the amount never overlap and the text stays readable.
@@ -294,6 +294,59 @@ ACT['week-mode'] = (el) => {
   try { localStorage.setItem('sukli-week', el.dataset.v); } catch { /* blocked */ }
   const sec = document.querySelector('.week'); if (sec) sec.outerHTML = weekBars(get());
   if (el.closest('.seg')) { el.closest('.seg').querySelectorAll('button').forEach((b) => { const on = b.dataset.v === el.dataset.v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); }
+};
+// ---- Net income against your own history (v15.62): the months before the one shown, as average / median / best ----
+const BENCH = [['avg', 'average'], ['median', 'median'], ['best', 'best month']]   // 'average month', 'median month', 'best month';
+const benchSel = () => { try { const v = localStorage.getItem('sukli-bench'); return BENCH.some((b) => b[0] === v) ? v : 'avg'; } catch { return 'avg'; } };
+function benchChips(db, ym, net) {
+  const first = db.txs.reduce((m, t) => (!t.deleted && t.date && t.date < m ? t.date : m), '9999').slice(0, 7); if (first === '9999') return null;
+  // the month still in progress is compared with earlier months over the same days only (1st to today's date), so a half month is not set against whole ones
+  const part = ym === thisMonth() ? String(new Date().getDate()).padStart(2, '0') : '', nets = [];
+  for (let k = shiftMonth(ym, -1); k >= first && nets.length < 60; k = shiftMonth(k, -1)) {
+    if (part) { const ps = partsBetween(db, `${k}-01`, `${k}-${part}`); if (ps.length) nets.push(ps.reduce((a, p) => a + (p.kind === 'income' ? p.v : -p.v), 0)); }
+    else { const x = monthStats(db, k); if (x.count) nets.push(x.income - x.spent); }
+  }
+  if (nets.length < 2) return null;
+  const sorted = nets.slice().sort((x, y) => x - y), mid = sorted.length >> 1;
+  const val = { avg: nets.reduce((x, y) => x + y, 0) / nets.length, median: sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2, best: sorted[sorted.length - 1] };
+  return BENCH.map(([k, name]) => {
+    const b = val[k], d = net - b, pct = Math.abs(b) < 1 ? null : Math.abs(d / b) * 100, up = d >= 0;
+    const txt = priv.on ? '•••' : pct === null ? `${up ? '+' : '-'}${fmt(Math.abs(d), HOME, { round: true })}` : `${pct > 999 ? '>999' : Math.round(pct)}%`;   // hidden-amounts mode hides the size of the gap too, the arrow still says above or below
+    return { k, up, txt, name, full: `${up ? 'Above' : 'Below'} your ${name} by ${txt}${part ? ' (earlier months, same days of the month)' : ''}. Past months compared: ${nets.length}.` };
+  });
+}
+function benchChip(db, ym, net) {
+  const list = db ? benchChips(db, ym, net) : null; if (!list) return '';
+  const cur = Math.max(0, list.findIndex((x) => x.k === benchSel())), x = list[cur];
+  return button({ html: `<i class="bm-arrow" aria-hidden="true">${x.up ? '▲' : '▼'}</i><b>${esc(x.txt)}</b><span>vs ${esc(x.name)}</span>`, kind: 'plain', cls: `bm-chip ${x.up ? 'up' : 'down'}`, act: 'bench', aria: `${x.full} Tap to compare with ${list[(cur + 1) % list.length].name} instead.`, attr: { 'data-i': cur, 'data-list': JSON.stringify(list.map((y) => ({ k: y.k, up: y.up, txt: y.txt, name: y.name, full: y.full }))) } });
+}
+ACT.bench = (el) => {
+  let list; try { list = JSON.parse(el.dataset.list); } catch { return; }
+  const i = (+el.dataset.i + 1) % list.length, x = list[i], nx = list[(i + 1) % list.length];
+  try { localStorage.setItem('sukli-bench', x.k); } catch { /* a convenience only */ }
+  el.dataset.i = String(i); el.classList.toggle('up', x.up); el.classList.toggle('down', !x.up);
+  el.innerHTML = `<i class="bm-arrow" aria-hidden="true">${x.up ? '▲' : '▼'}</i><b>${esc(x.txt)}</b><span>vs ${esc(x.name)}</span>`;
+  el.setAttribute('aria-label', `${x.full} Tap to compare with ${nx.name} instead.`);
+};
+// ---- Average per day: a second card tucked under Spent Each Day (v15.62) ----
+const AVGS = [['d7', 'Last 7 Days', 'last 7 days'], ['d30', 'Last 30 Days', 'last 30 days'], ['all', 'Overall', 'since your first entry']];
+const avgSel = () => { try { const v = localStorage.getItem('sukli-avg'); return AVGS.some((a) => a[0] === v) ? v : 'd7'; } catch { return 'd7'; } };
+function avgCard(db) {
+  const av = dailyAverages(db, todayStr()); if (!av.days) return '';
+  const vs = (k) => (k === 'all' || !av.all ? '' : (() => { const d = (av[k] - av.all) / av.all * 100; return Math.abs(d) < 1 ? 'About the same as your overall average' : `${Math.round(Math.abs(d))}% ${d > 0 ? 'above' : 'below'} your overall average`; })());
+  const data = {}; for (const [k, , per] of AVGS) { data[k] = { v: money(av[k]), sub: k === 'all' ? `per day, ${av.days} days (${per})` : `per day, ${per}`, vs: vs(k) }; }
+  const sel = avgSel(), x = data[sel];
+  return `<section class="avgcard ui-card" aria-label="Average spent per day" data-avg='${esc(JSON.stringify(data))}'>
+    <h3 class="subh">Average Spent Per Day</h3>
+    <p class="avgval"><b>${x.v}</b> <small class="muted">${esc(x.sub)}</small></p><p class="avgvs muted">${esc(x.vs)}</p>
+    ${seg({ options: AVGS.map(([v, l]) => ({ label: l, value: v })), value: sel, act: 'avgsel', aria: 'Average period', size: 'sm' })}</section>`;
+}
+ACT.avgsel = (el) => {
+  const c = el.closest('.avgcard'); if (!c) return; let data; try { data = JSON.parse(c.dataset.avg); } catch { return; }
+  const k = el.dataset.v, x = data[k]; if (!x) return;
+  try { localStorage.setItem('sukli-avg', k); } catch { /* a convenience only */ }
+  c.querySelector('.avgval b').textContent = x.v; c.querySelector('.avgval small').textContent = x.sub; c.querySelector('.avgvs').textContent = x.vs;
+  c.querySelectorAll('.seg button').forEach((b) => { const on = b === el; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
 };
 function weekBars(db) {
   const { dates, vals } = dailySpend(db, todayStr(), 7), base = dayBaseline(db), cl = (i) => dayColor(vals[i], base), top = Math.max(...vals), total = vals.reduce((a, b) => a + b, 0), mode = weekMode();
@@ -307,7 +360,7 @@ function weekBars(db) {
   if (!total) body = '<p class="empty">Nothing yet.</p>';
   else if (mode === 'v') body = `<div class="wkv" role="img" aria-label="Spending for each of the last 7 days">${dates.map((d, i) => `<div class="wc ${i === 6 ? 'now' : ''}" data-tip="${esc(full(d, i) + ': ' + (vals[i] ? money(vals[i]) : 'nothing spent'))}"><span class="wa ${vals[i] ? '' : 'muted'}" ${cl(i) ? `style="color:${cl(i)}"` : ''}>${vals[i] ? esc(amt(vals[i])) : ''}</span><span class="wb"><i style="height:${vals[i] > 0 ? Math.max(3, Math.round(vals[i] / top * 100)) : 0}%${cl(i) ? `;background:${cl(i)}` : ''}"></i></span><span class="wl">${esc(day(d, i))}</span></div>`).join('')}</div>`;
   else body = dates.map((d, i) => `<div class="wk ${i === 6 ? 'now' : ''}"><span class="wd">${esc(full(d, i))}</span><span class="wtrack"><i style="width:${vals[i] > 0 ? Math.max(2, Math.round(vals[i] / top * 100)) : 0}%${cl(i) ? `;background:${cl(i)}` : ''}"></i></span><b class="wv ${vals[i] ? '' : 'muted'}" ${cl(i) ? `style="color:${cl(i)}"` : ''}>${vals[i] ? esc(money(vals[i])) : '–'}</b></div>`).join('');
-  return `<section class="week ui-card" aria-label="Spending in the last 7 days"><div class="weekhead"><h3 class="subh">Spent Each Day, Last 7 Days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3></div>${body}${avgs}</section>`;
+  return `<div class="cardstack"><section class="week ui-card" aria-label="Spending in the last 7 days"><div class="weekhead"><h3 class="subh">Spent Each Day, Last 7 Days <small class="muted">${total ? money(total) + ' in all' : ''}</small></h3></div>${body}${avgs}</section>${avgCard(db)}</div>`;
 }
 // the cards on Home, in the order you chose in Settings. [id, name, heavy: drawn a moment later so the numbers above appear at once]
 export const HOME_SECTIONS = [
@@ -1219,6 +1272,7 @@ ACT['glance-freq'] = (el) => gset((g) => { g.freq = el.value; });
 ACT['glance-topic'] = (el) => gset((g) => { g.topics = { ...(g.topics || {}), [el.dataset.k]: !!el.checked }; });
 ACT['glance-charts'] = (el) => gset((g) => { g.charts = !!el.checked; });
 ACT['glance-unmute'] = () => gset((g) => { g.mute = {}; });
+ACT.glancebell = () => { if (!showGlance({ reopen: true })) toast('Nothing to show yet. Add a few more entries and check back.'); };
 ACT['glance-now'] = () => { if (!showGlance({ force: true })) toast('Nothing to show right now. Turn on more topics, or add a few more entries.'); };
 ACT['open-rates'] = () => { location.hash = '#/rates'; };
 ACT['add-start'] = (el) => commit((d) => { d.settings.addStart = el.value; });

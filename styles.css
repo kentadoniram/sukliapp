@@ -1970,3 +1970,30 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .main-home-card .sc-inner, .main-home-card .sc-face { will-change: transform; }
 .main-home-card .sc-face { contain: paint; }
 .main-home-card .fbflash { animation: none !important; }
+
+/* ---- v15.62: bigger Net income with a benchmark chip, Quick Glance bell, Average-per-day card stacked under Spent Each Day ---- */
+.main-home-card .sc-net b, .main-home-card .sc-back .sc-net b { font-size: clamp(30px, calc(11.5vw * var(--fs, 1)), calc(46px * var(--fs, 1))); }
+.main-home-card .sc-face { min-height: 262px; }
+.main-home-card .bm-chip { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; justify-self: start; min-height: 30px; padding: 3px 12px 3px 9px; border-radius: 999px; background: var(--gchip); font-size: calc(12.5px * var(--fs, 1)); font-weight: 650; color: var(--gsub); cursor: pointer; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.main-home-card .bm-chip b { font-size: calc(14px * var(--fs, 1)); font-weight: 800; }
+.main-home-card .bm-chip.up b, .main-home-card .bm-chip.up .bm-arrow { color: var(--good); }
+.main-home-card .bm-chip.down b, .main-home-card .bm-chip.down .bm-arrow { color: var(--bad); }
+.main-home-card .bm-arrow { font-style: normal; font-size: calc(10px * var(--fs, 1)); }
+.main-home-card .bm-chip:focus-visible { outline: 2px solid var(--gink); outline-offset: 2px; }
+.main-home-card .sc-front .sc-net { margin-bottom: -8px; }
+/* the bell */
+.bellbtn { position: relative; }
+.bellbtn .bdot { position: absolute; top: 4px; right: 3px; box-sizing: content-box; min-width: 13px; height: 13px; padding: 0 2px; border-radius: 9px; background: var(--bad); color: var(--dot-ring); font: 700 calc(10px * var(--fs, 1)) / 13px system-ui, sans-serif; font-style: normal; text-align: center; border: 2px solid var(--paper); }
+@media (max-width: 360px) { .t1top .hact .bellbtn { width: 38px; } }
+/* two stacked cards: Spent Each Day on top, Average per day tucked under it */
+.cardstack { position: relative; margin: var(--card-gap, 12px) 0; }
+.cardstack > .week { position: relative; z-index: 2; margin-bottom: 0 !important; }
+.avgcard { position: relative; z-index: 1; margin: -26px 12px 0; padding: 38px 16px 14px; display: grid; gap: 6px; }
+.avgcard .subh { margin: 0; }
+.avgcard .avgval { margin: 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.avgcard .avgval b { font-size: calc(26px * var(--fs, 1)); font-weight: 750; letter-spacing: -.01em; }
+.avgcard .avgvs { margin: 0; font-size: calc(12.5px * var(--fs, 1)); min-height: 1.3em; }
+.avgcard .seg { margin-top: 4px; }
+:root[data-design="theme1"] .wkavg { display: none; }
+:root[data-design="legacy"] .avgcard { display: none; }
+:root[data-design="legacy"] .cardstack { margin: 0; }

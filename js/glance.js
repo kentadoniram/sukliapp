@@ -124,14 +124,32 @@ const cardHtml = (g, i, n, c) => `<div class="glance ${g.tone}">
   <p class="ghead">${esc(g.headline)}</p>${g.sub ? `<p class="gsub">${esc(g.sub)}</p>` : ''}${c.charts && g.chart ? g.chart : ''}
   <div class="btnrow">${button({ label: 'Got it', kind: 'primary', attr: { 'data-g': 'done' } })}${n > 1 ? button({ label: 'Another one', kind: 'ghost', attr: { 'data-g': 'next' } }) : ''}${g.go ? button({ label: g.goLabel || 'Open', kind: 'ghost', attr: { 'data-g': 'go', 'data-to': g.go } }) : ''}</div>
   <div class="gfoot">${button({ label: `Stop showing: ${esc(KIND_LABEL[kindOf(g.id)] || 'this kind')}`, kind: 'link', attr: { 'data-g': 'mute', 'data-k': kindOf(g.id) } })}${button({ label: 'Quick Glance settings', kind: 'link', attr: { 'data-g': 'set' } })}</div></div>`;
-export function showGlance({ force = false, rng = Math.random, today = nowStamp().slice(0, 10) } = {}) {
-  const db = get(); if (!db) return false; const c = cfg(db); if (!force && !wantNow(db, c, today)) return false;
-  if (!force && navigator.webdriver && !window.__sukliGlance) return false;   // automated browsers (tests) stay undisturbed unless they opt in
+// Items not read yet: what the automatic Quick Glance would still offer (topics you left on, not stopped, not already shown in the last 3 days). The bell counts these; reading an item (it is marked when it appears) takes it off the count.
+export function glanceUnread(db, today = nowStamp().slice(0, 10)) {
+  if (!db) return []; const c = cfg(db);
+  return glanceCandidates(db, today).filter((x) => c.topics[x.topic] !== false && !c.mute[kindOf(x.id)] && !(c.log[x.id] && dayN(today) - dayN(c.log[x.id]) < 3));
+}
+// the bell on Home: a button with a small count badge while anything is unread
+export function bellBtn(db) {
+  const n = glanceUnread(db).length;
+  return button({ html: `${ic('bell')}${n ? `<i class="bdot" aria-hidden="true">${n > 9 ? '9+' : n}</i>` : ''}`, kind: 'plain', cls: 'iconbtn bellbtn', act: 'glancebell', aria: n ? `Quick Glance, ${n} unread` : 'Quick Glance, all read' });
+}
+export function refreshBell() {
+  const db = get(); if (!db) return; const n = glanceUnread(db).length;
+  document.querySelectorAll('[data-act="glancebell"]').forEach((b) => { b.innerHTML = `${ic('bell')}${n ? `<i class="bdot" aria-hidden="true">${n > 9 ? '9+' : n}</i>` : ''}`; b.setAttribute('aria-label', n ? `Quick Glance, ${n} unread` : 'Quick Glance, all read'); });
+}
+export function showGlance({ force = false, reopen = false, rng = Math.random, today = nowStamp().slice(0, 10) } = {}) {
+  const db = get(); if (!db) return false; const c = cfg(db); if (!force && !reopen && !wantNow(db, c, today)) return false;
+  if (!force && !reopen && navigator.webdriver && !window.__sukliGlance) return false;   // automated browsers (tests) stay undisturbed unless they opt in
   if (document.querySelector('.scrim') || document.querySelector('.welcome') || document.querySelector('#setup')) return false;
-  const list = pickGlances(glanceCandidates(db, today), force ? { ...c, log: {} } : c, today, rng); if (!list.length) return false;
+  // the bell reopens what is still unread; when everything has been read it shows them all again (so a closed Quick Glance can always be brought back)
+  const cands = glanceCandidates(db, today);
+  let list = reopen ? pickGlances(cands, c, today, rng, 12) : pickGlances(cands, force ? { ...c, log: {} } : c, today, rng);
+  if (reopen && !list.length) list = pickGlances(cands, { ...c, log: {} }, today, rng, 12);
+  if (!list.length) return false;
   let i = 0; const s = sheet('<div id="glancebox"></div>', { title: 'Quick glance', cls: 'glancesheet' }), root = s.el || document.querySelector('.glancesheet') || document.body, box = () => document.getElementById('glancebox');
   const mark = () => { const g = list[i]; try { commitQuiet((d) => { const x = (d.settings.glance = { ...DEFAULTS, ...(d.settings.glance || {}) }); x.log = { ...(x.log || {}), [g.id]: today }; x.last = today; x.lastTopic = g.topic; }); } catch { /* history is a convenience */ } };
-  const draw = () => { box().innerHTML = cardHtml(list[i], i, list.length, cfg(get())); mark(); };
+  const draw = () => { box().innerHTML = cardHtml(list[i], i, list.length, cfg(get())); mark(); refreshBell(); };
   try { if (c.freq === 'open') sessionStorage.setItem('sukli-glance', '1'); } catch { /* fine */ }
   draw();
   const q = document.querySelector('.glancesheet') || root;
