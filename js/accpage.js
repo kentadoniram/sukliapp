@@ -14,7 +14,7 @@ import {
 import { transferHints } from './finance.js';
 import { lockInfo, interestPreview, promoStatus, rateHistory, debtPreview, hasDebtInt, accountHistory, netWorth, cardInfo, billingPeriods, statementSummary, postedDay, cardReminders, cardIcs, interestChangeFrom, isLiability, setLiab, today, postInterest, postDebtInterest, interestTaxPct, retaxInterest } from './finance.js';
 import { esc, ic, ACT, sheet, toast, download, confirmDialog, promptDialog } from './ui.js';
-import { applyHide } from './appearance.js';
+import { applyHide, look } from './appearance.js';
 import { money, eq, hdr, coll, ui, tradeKids, effectLine } from './screens.js';
 import { openEntry } from './entry.js';
 import './earnui.js';
@@ -146,16 +146,19 @@ export function accounts(db) {
   const exBtn = (g) => (grp === 'exchange' && g.key.startsWith('ex-') && g.title !== 'No exchange' ? `${button({ label: 'Rename', kind: 'link', size: 'sm', act: 'inv-rename', attr: { 'data-ex': g.title } })}` : '');
   const secOf = (g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.top === 'Liabilities' ? Math.abs(g.total) : g.total)}</small>`,
     `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, exBtn(g));
-  const sections = grp === 'class' ? ['Assets', 'Liabilities'].map((top) => { const gs = groups.filter((g) => g.top === top); if (!gs.length) return ''; const tot = sum(gs.map((g) => g.total));
-    return `<section class="topgrp ${top === 'Assets' ? 'assets' : 'liabs'}"><div class="tophead"><h2>${top}</h2><b>${money(Math.abs(tot))}</b></div><p class="hint">${top === 'Assets' ? 'What you own: cash, bank, investments, property.' : 'What you owe: credit cards, loans, money owed.'}</p>${gs.map(secOf).join('')}</section>`; }).join('') : groups.map((g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.total)}</small>`,
+  const sections = grp === 'class' ? ['Assets', 'Liabilities'].map((top) => { const gs = groups.filter((g) => g.top === top); if (!gs.length) return ''; const all = gs.flatMap((g) => g.list), tot = top === 'Assets' ? sum(all.map((a) => Math.max(0, val(a)))) : sum(groups.flatMap((g) => g.list).map((a) => Math.max(0, -val(a))));   // the same rule as Net worth: what is above zero is an asset, what is below zero is a debt
+    return `<section class="topgrp ${top === 'Assets' ? 'assets' : 'liabs'}"><div class="tophead"><h2>${top}</h2><b>${money(Math.abs(tot))}</b></div><p class="hint">${top === 'Assets' ? `What you own: cash, bank, property${invAccts.length ? '. Investments are listed below and are added in the Assets of the Net worth card.' : '.'}` : 'What you owe: credit cards, loans, money owed.'}</p>${gs.map(secOf).join('')}</section>`; }).join('') : groups.map((g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.total)}</small>`,
     `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, exBtn(g))).join('');
   const segs = (name, opts, cur) => `<div class="seg sm" role="group" aria-label="${name}">${opts.map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${cur === v ? 'on' : ''}`, act: 'aview', pressed: cur === v, attr: { 'data-k': name, 'data-v': v } })}`).join('')}</div>`;
-  return `${hdr('Accounts', `${button({ label: 'Loan planner', kind: 'ghost', size: 'sm', act: 'loan-plan' })} ${button({ label: 'Loan setup', kind: 'ghost', size: 'sm', act: 'loan-wizard' })} ${button({ label: 'Bills', kind: 'ghost', size: 'sm', act: 'bills-open' })} ${button({ label: 'Add account', kind: 'primary', size: 'sm', act: 'acct-new' })}`, { below: true })}
+  return `${hdr('Accounts', `${button({ label: 'Loan planner', kind: 'ghost', size: 'sm', act: 'loan-plan' })} ${button({ label: 'Loan setup', kind: 'ghost', size: 'sm', act: 'loan-wizard' })} ${button({ label: 'Bills', kind: 'ghost', size: 'sm', act: 'bills-open' })} <a class="btn ghost sm" href="#/invest">Investments</a> ${button({ label: 'Add account', kind: 'primary', size: 'sm', act: 'acct-new' })}`, { below: true })}
     ${reminderBanner(db)}
-    <section class="nwcard">${button({ html: `<span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b>
+    ${look().design === 'legacy' ? `<section class="nwcard">${button({ html: `<span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b>
       <small>Assets ${money(nw.assets)} · Debts ${money(nw.debts)}</small>
       ${nw.assets + nw.debts > 0 ? `<span class="nwbar" role="img" aria-label="Assets against debts"><i style="width:${Math.round(nw.assets / (nw.assets + nw.debts) * 100)}%"></i></span>` : ''}`, kind: 'plain', cls: 'nwmain', act: 'nw', aria: 'Net worth details' })}
-      ${button({ html: `<span>Spendable now</span><b>${money(sp)}</b>`, kind: 'plain', cls: 'nwsp', act: 'acct-sp' })}</section>
+      ${button({ html: `<span>Spendable now</span><b>${money(sp)}</b>`, kind: 'plain', cls: 'nwsp', act: 'acct-sp' })}</section>` : `<section class="nwcard t1nw">${button({ html: `<span class="nwk">Net worth</span><b class="nwv ${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b>
+      <span class="nwrow"><i class="nwdot up"></i>Assets: <b>${money(nw.assets)}</b></span><span class="nwrow"><i class="nwdot dn"></i>Debts: <b>${money(nw.debts)}</b></span>
+      ${nw.assets + nw.debts > 0 ? `<span class="nwbar" role="img" aria-label="Assets against debts"><i style="width:${Math.round(nw.assets / (nw.assets + nw.debts) * 100)}%"></i></span>` : ''}`, kind: 'plain', cls: 'nwmain', act: 'nw', aria: 'Net worth details' })}
+      ${button({ html: `<span class="nwk">Spendable now</span><b class="nwv">${money(sp)}</b>`, kind: 'plain', cls: 'nwsp', act: 'acct-sp' })}</section>`}
     ${nw.missing ? `<p class="hint">Some accounts have no exchange rate yet, so they are left out of these totals. Set rates in Settings.</p>` : ''}
     <div class="aview compact"><label>Group <select data-aview="group" aria-label="Group accounts by">${[['class', 'Assets / debts'], ['cur', 'Currency'], ['type', 'Category'], ['exchange', 'Exchange'], ['none', 'None']].map(([v, l]) => `<option value="${v}" ${grp === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <label>Sort <select data-aview="sort" aria-label="Sort accounts">${[['high', 'High → low'], ['low', 'Low → high'], ['name', 'A–Z'], ['cat', 'Category']].map(([v, l]) => `<option value="${v}" ${view.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>

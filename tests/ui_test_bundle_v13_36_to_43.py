@@ -192,7 +192,7 @@ def part6(p,b,ctx,pg,errs):
     # exchange settings sheet
     from tests.invnavhelp import go_invest; go_invest(pg,'Wx')
     ok('platform settings are reachable', pg.locator('[data-act=plat-open][data-ex=Wx]').count()>=1)
-    pg.evaluate("document.querySelector('.plathero [data-act=plat-open][data-ex=Wx]').click()"); pg.wait_for_selector('#pset'); t=pg.inner_text('#pset')
+    pg.evaluate("document.querySelector('.holdhead [data-act=plat-open][data-ex=Wx]').click()"); pg.wait_for_selector('#pset'); t=pg.inner_text('#pset')
     ok('settings for the whole exchange %s'%t[:60].replace('\\n',' '), 'Timezone of Wx' in t and 'Internal Transfer' in t and 'Earn Products' in t and 'Rename' in t)
     pg.select_option('#pset [data-p=tz]','9'); pg.wait_for_timeout(300); z=pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.get().settings.platformTz.Wx})()"); ok('timezone saved %s'%z, z==9)
     pg.click('#pset [data-p=done]'); pg.wait_for_timeout(300)

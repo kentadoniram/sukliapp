@@ -13,9 +13,23 @@ export const INV = { sec: SECTIONS.includes(rd('sukli-invsec', '')) ? rd('sukli-
 const rerender = () => window.dispatchEvent(new Event('sukli-render'));
 export const setSec = (s) => { INV.sec = s; wr('sukli-invsec', s); };
 export const selectPlatform = (name) => { INV.plat = name; wr('sukli-invplat', name); setSec('platform'); };
-ACT['inv-sec'] = (el) => { setSec(el.dataset.v); if (el.dataset.v === 'accounts') { INV.cat = ''; wr('sukli-invcat', ''); } window.scrollTo(0, 0); rerender(); };
-ACT['inv-cat'] = (el) => { INV.cat = el.dataset.v || ''; wr('sukli-invcat', INV.cat); window.scrollTo(0, 0); rerender(); };
-ACT['inv-plat'] = (el) => { selectPlatform(el.dataset.ex); window.scrollTo(0, 0); rerender(); };
+// Every move inside Investments (section, category, platform) is a step in the browser history, so the back arrow and a right swipe go to the screen you were just on,
+// not out to Accounts. Each history entry remembers {sec, plat, cat}.
+const snap = () => ({ sec: INV.sec, plat: INV.plat, cat: INV.cat });
+const apply = (v) => { INV.sec = v.sec; INV.plat = v.plat; INV.cat = v.cat; wr('sukli-invsec', v.sec); wr('sukli-invplat', v.plat); wr('sukli-invcat', v.cat); };
+const same = (a, b) => a.sec === b.sec && a.plat === b.plat && a.cat === b.cat;
+function go(change) {
+  const before = snap();
+  try { if (!(history.state && history.state.inv)) history.replaceState({ ...(history.state || {}), inv: before }, ''); } catch { /* ignore */ }
+  change();
+  const after = snap();
+  if (!same(before, after)) { try { history.pushState({ inv: after }, ''); } catch { /* ignore */ } }
+  INV.fresh = true; window.scrollTo(0, 0); rerender();
+}
+window.addEventListener('popstate', (e) => { const v = e.state && e.state.inv; if (v && /^#\/invest/.test(location.hash)) { apply(v); rerender(); } });
+ACT['inv-sec'] = (el) => go(() => { setSec(el.dataset.v); if (el.dataset.v === 'accounts') { INV.cat = ''; wr('sukli-invcat', ''); } });
+ACT['inv-cat'] = (el) => go(() => { INV.cat = el.dataset.v || ''; wr('sukli-invcat', INV.cat); });
+ACT['inv-plat'] = (el) => go(() => selectPlatform(el.dataset.ex));
 ACT['inv-month'] = (el) => { INV.month = shiftMonth(INV.month || thisMonth(), +el.dataset.d); rerender(); };
 ACT['inv-range'] = (el) => { INV.rg = el.dataset.v; rerender(); };
 
@@ -36,8 +50,10 @@ export function levelTwo(cat, items, back) {
   return `<div class="invl2"><div class="invback">${button({ html: `${ic('left')}<span>Investment Categories</span>`, kind: 'plain', cls: 'linkbtn invbackbtn', act: 'inv-cat', attr: { 'data-v': '' }, aria: 'Back to investment categories' })}</div><h2 class="invh">${esc(cat[1])}</h2>
     ${items.length ? `<div class="invcats l2">${items.join('')}</div>` : `<p class="empty invemp">Nothing here yet.</p>`}</div>`;
 }
-export const platformCard = (name, total, icon) => button({ html: `${icon}<span class="ic-t">${esc(name)}</span><b class="ic-v">${esc(total)}</b>${ic('right', 'chev')}`, kind: 'plain', cls: 'invcat invplat ui-card', act: 'inv-plat', attr: { 'data-ex': name }, aria: `${name}, ${total}` });
-export const productCard = (a, total) => button({ html: `<span class="ic-t">${esc(a.name)}</span><b class="ic-v">${esc(total)}</b>${ic('right', 'chev')}`, kind: 'plain', cls: 'invcat invplat ui-card', act: 'acct', attr: { 'data-id': a.id }, aria: `${a.name}, ${total}` });
+// level 2 cards: logo and name on the left, the total (and, when Investments uses another currency, the total in your home currency) on the right; everything centred on one line
+const l2 = (left, total, conv, act, attr, aria) => button({ html: `<span class="pl-l">${left}</span><span class="pl-r"><b class="ic-v">${esc(total)}</b>${conv ? `<small class="ic-c">${esc(conv)}</small>` : ''}</span>${ic('right', 'chev')}`, kind: 'plain', cls: 'invcat invplat ui-card', act, attr, aria });
+export const platformCard = (name, total, icon, conv = '') => l2(`${icon}<span class="ic-t">${esc(name)}</span>`, total, conv, 'inv-plat', { 'data-ex': name }, `${name}, ${total}`);
+export const productCard = (a, total, conv = '') => l2(`<span class="ic-t">${esc(a.name)}</span>`, total, conv, 'acct', { 'data-id': a.id }, `${a.name}, ${total}`);
 
 // an investment transaction = one that touches an investment account. Regular income and spending never do.
 export const isInvTx = (t, ids) => !t.deleted && (ids.has(t.acct) || ids.has(t.toAcct));

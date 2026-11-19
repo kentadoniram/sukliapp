@@ -17,7 +17,7 @@ with sync_playwright() as p:
       row1:Math.abs(g('.hl1').top-g('.hr1').top)<14,row2:Math.abs(g('.hl2').top-g('.hr2').top)<14,order:g('.hl2').top>g('.hl1').top,
       inside:g('.hr1').right<=c.right+1&&g('.hr2').right<=c.right+1,leftAlign:g('.hl1').left<g('.hr1').left&&g('.hl2').left<g('.hr2').left}})""")
     for x in r: print(x)
-    btc=[x for x in r if x['name']=='BTC'][0]
+    btc=[x for x in r if x['name'].startswith('BTC')][0]
     ok('profit or loss row shows a loss in dollars with percent: '+btc['pnl'], btc['pnl'].startswith('−$') and '%' in btc['pnl'] and '6.67' in btc['pnl'])
     ok('3 holdings', len(r)==3)
     ok('row 1 = name left, quantity right on one line', all(x['row1'] and x['leftAlign'] for x in r))

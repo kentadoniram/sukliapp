@@ -22,19 +22,22 @@ with sync_playwright() as p:
     go_invest(pg,'AudEx'); t=pg.inner_text('.platpage')
     # by hand: cost of units sold = 1005/0.01*0.002 = 201 ; gain = 210-201-1 = 8
     # still held 0.008 BTC: cost 804, worth 0.008*99700 = 797.60 -> -6.40 ; earned 16.949 (rate saved with the entry) + 4 recorded income
-    un=money(t,'Unrealized'); re_=money(t,'Realized sold'); ea=money(t,'Earned'); tot=money(t,'Total profit and loss')
+    un=money(t,'Unrealized'); re_=money(t,'Realized sold'); ea=money(t,'Earned'); tot=money(t,'Trading profit and loss')
     ok('unrealized = -6.40 (%s)'%un, abs(un+6.40)<0.01)
     ok('realized = +8.00 after cost incl. buying fee and the selling fee (%s)'%re_, abs(re_-8)<0.01)
     ok('earned counts interest at its saved rate and recorded income, in USD (%s)'%ea, abs(ea-(0.00017*4985000/50+4))<0.01)
-    ok('total = unrealized + realized + earned (%s)'%tot, abs(tot-(un+re_+ea))<0.011 and abs(tot-(-6.4+8+16.949+4))<0.02)
+    ok('v16.8: trading profit and loss = unrealized + realized, interest is NOT in it (%s)'%tot, abs(tot-(un+re_))<0.011 and abs(tot-(-6.4+8))<0.02)
     hero=pg.inner_text('.plathero'); mm=re.search(r'([+−])\$([\d,]+\.\d+) ·',hero); hv=float(mm.group(2).replace(',',''))*(-1 if mm.group(1)=='−' else 1)
     ok('hero PNL equals the list total (%s vs %s)'%(hv,tot), abs(hv-tot)<0.011)
     r=pg.evaluate("""async()=>{const c=await import('/js/core.js'),tp=await import('/js/tokenperf.js'),tc=await import('/js/tradecalc.js');const db=c.get();const book=tc.tradeBook(db.txs);
       return tp.tokenPerformance(db,book,db.accounts.filter(a=>a.exchange==='AudEx'),c.HOME).find(x=>x.cur==='BTC')}""")
     ok('Token performance agrees (gain %.3f vs %.3f)'%(r['gain'],tot), abs(r['gain']-tot)<0.011)
+    f=6/1210; be=(804-8)/(0.008*(1-f))   # fees paid / value traded is the assumed selling fee; interest is not part of it
+    ok('breakeven %.2f = (cost - realized) / (units x (1 - selling fee)) = %.2f'%(r['breakeven'],be), abs(r['breakeven']-be)<0.01 and abs(r['feeRate']-f)<1e-6)
+    ok('trading PNL and interest are separate fields (total = gain + earned + income)', abs(r['total']-(r['gain']+r['earned']+r['income']))<1e-6 and r['earned']+r['income']>20)
     go_invest(pg,None,sec='overview'); pg.evaluate("document.querySelector('[data-act=inv-dsw][data-v=i-gain]')&&document.querySelector('[data-act=inv-dsw][data-v=i-gain]').click()"); pg.wait_for_timeout(400)
-    o=pg.inner_text('#view'); m=re.search(r'Realized \+ Earned, all time\s*\n?\s*([+−])\$([\d,]+\.\d+)',o)
-    ok('Overview Realized + Earned = %s'%(m.group(0).replace('\n',' ') if m else None), m and abs(float(m.group(2))-(8+16.949+4))<0.02)
+    o=pg.inner_text('#view'); m=re.search(r'Trading profit and loss\s*\n?\s*([+−])\$([\d,]+\.\d+)',o); m2=re.search(r'Earned, all time\s*\n?\s*([+−])\$([\d,]+\.\d+)',o)
+    ok('Overview trading P&L = +1.60 and Earned all time = %s'%(m2.group(0).replace('\n',' ') if m2 else None), m and m2 and abs(float(m.group(2))-1.6)<0.02 and abs(float(m2.group(2))-(16.949+4))<0.02)
     ok('no page errors %s'%errs, not errs)
     # audit guard: an entry's rate (t.fx) is per PHP, so money shown in HOME must go through factorFor, never `amount * t.fx`
     import glob

@@ -2200,3 +2200,61 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .dashcard.flat .perf { padding: 10px 0; border-bottom: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); }
 .dashcard.flat .perf:last-of-type { border-bottom: 0; }
 .dashcard.flat .calfacts { margin-top: 0; }
+
+/* v16.8: the arrow of a collapsible sits inside its button, so tapping the arrow works (it used to sit in padding beside the button) */
+.collrow { padding-right: 0; }
+.collrow .collhead { position: relative; padding-right: 40px; min-height: 44px; }
+.collrow .collhead .chev { position: absolute; right: 12px; top: 50%; margin: -9px 0 0; }
+
+/* Investments: moves between screens fade in instead of flashing */
+@keyframes invin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.invpage.enter > :not(header) { animation: invin .22s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .invpage.enter > :not(header) { animation: none; } }
+.invcats.l2 .invcat, .invcat.invplat { min-height: 58px; }
+.invplat { grid-template-columns: minmax(0, 1fr) auto 18px; align-items: center; }
+.invplat .pl-l { display: flex; align-items: center; gap: 10px; min-width: 0; grid-column: 1; grid-row: 1; }
+.invplat .pl-l .ic-t { grid-column: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.invplat .pl-r { display: grid; justify-items: end; align-content: center; gap: 1px; grid-column: 2; grid-row: 1; }
+.invplat .pl-r .ic-v { grid-column: auto; grid-row: auto; font-size: calc(17px * var(--fs, 1)); line-height: 1.2; }
+.invplat .ic-c { color: var(--ink2); font-size: calc(11.5px * var(--fs, 1)); line-height: 1.2; }
+.invplat .chev { grid-column: 3; grid-row: 1; align-self: center; }
+
+/* Theme 1: Net worth and Spendable now in one slim card */
+.nwcard.t1nw { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 0; padding: 0; margin: 12px 0 6px; border: 1px solid var(--card-bd, var(--rule)); border-radius: var(--card-r, 22px); background: var(--card-bg, var(--sheet)); box-shadow: var(--card-shadow, none); overflow: hidden; }
+.nwcard.t1nw button { border: 0; border-radius: 0; background: none; box-shadow: none; padding: 10px 14px; gap: 1px; }
+.nwcard.t1nw .nwsp { border-left: 1px solid var(--rule); align-content: center; }
+.nwcard.t1nw .nwk { color: var(--ink2); font-size: calc(12.5px * var(--fs, 1)); }
+.nwcard.t1nw .nwv { font-size: calc(24px * var(--fs, 1)); line-height: 1.15; }
+.nwcard.t1nw .nwsp .nwv { font-size: calc(20px * var(--fs, 1)); }
+.nwcard.t1nw .nwrow { display: flex; align-items: center; gap: 7px; color: var(--ink2); font-size: calc(12px * var(--fs, 1)); line-height: 1.35; }
+.nwcard.t1nw .nwrow b { font-size: calc(12px * var(--fs, 1)); color: var(--ink); letter-spacing: 0; margin-left: auto; }
+.nwcard.t1nw .nwdot { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 11px; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent); }
+.nwcard.t1nw .nwdot.up { background: var(--in); color: var(--in); } .nwcard.t1nw .nwdot.dn { background: var(--bad); color: var(--bad); }
+.nwcard.t1nw .nwbar { height: 8px; margin-top: 5px; }
+
+/* Theme 1: platform page */
+:root[data-design="theme1"] .platpage { gap: 10px; margin-top: 6px; }
+:root[data-design="theme1"] .plathero { padding: 10px 14px; gap: 2px; }
+:root[data-design="theme1"] .plathero .phead { gap: 10px; }
+:root[data-design="theme1"] .plathero .phead b { font-size: calc(22px * var(--fs, 1)); letter-spacing: -.01em; }
+:root[data-design="theme1"] .plathero .pl-v { font-size: calc(26px * var(--fs, 1)); line-height: 1.15; }
+.holdhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 2px; }
+.holdhead .invh { margin: 0; font-size: calc(19px * var(--fs, 1)); font-weight: 750; }
+.holdhead .holdset { min-height: 28px; height: 28px; padding: 0 8px; font-size: calc(12.5px * var(--fs, 1)); }
+.platpage .ivplat .segm.wsw { margin: 2px 0 6px; }
+.platpage .ivplat .wblock > .wtsum { margin: 0 0 4px; }
+/* holdings: values in body size, not heading size */
+.platpage .ovrow .collhead h2, .platpage .ovrow .ovname b { font-size: calc(14px * var(--fs, 1)); font-weight: 650; }
+.platpage .ovrow .ovname small { font-size: calc(12px * var(--fs, 1)); }
+.platpage .ovrow .gsum2, .platpage .ovrow .gsum2 b { font-size: calc(14px * var(--fs, 1)); font-weight: 650; }
+.hold2 .unitpx { font-weight: 400; margin-left: 4px; }
+/* performance */
+.invrg { display: flex; flex-direction: row; flex-wrap: nowrap; width: 100%; }
+.invrg > button { flex: 1 1 0; min-width: 0; }
+.invline { min-height: 0; } .invline .t1line .t1l { opacity: .95 !important; stroke-width: 2.4 !important; }
+.invspan { margin: 2px 0 0; }
+.platpage .invcard.perf { gap: 4px; padding-top: 10px; padding-bottom: 10px; }
+.platpage > .ui-card, .platpage > section { margin: 0; }
+.platpage .invcard .calfacts { margin: 0; }
+.platpage .invcard .calfacts li { padding: 8px 0; }
+.platpage .holdhead .invh { font-size: calc(19px * var(--fs, 1)); font-weight: 750; }

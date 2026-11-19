@@ -9,7 +9,7 @@ import { enhanceSelect, pickAll, pickerList } from './picker.js';
 import { tipBtn } from './interest.js';
 import { groupColor, compact, WALLETS, WALLET_INFO, walletOf, accLabel, get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, findOrAddCategory, factorFor, allCurrencies, ensureCurrency } from './core.js';
 import { ACT, sheet, ic, esc, toast, promptDialog, confirmDialog } from './ui.js';
-import { hdr, coll, pieLabels, ui } from './screens.js';
+import { hdr, backHdr, coll, pieLabels, ui } from './screens.js';
 import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
 import { pendingReview } from './tradereview.js';
@@ -260,20 +260,23 @@ export function investments(db) {
   const earned = earnedTx.reduce((q, t) => q + eVal(t), 0), earnedYr = earnedTx.filter((t) => String(t.date).startsWith(yr)).reduce((q, t) => q + eVal(t), 0);
   const got = earnedUnits(db), accIn = items.filter(isAsset);
   const unreal = accIn.reduce((q, a) => { const px = homeFx(db, a.cur) || 0, o = openCost(a, bal.get(a.id) || 0, book.pos.get(a.id), got); return o.cost > 0 && px ? q + o.qty * px - o.cost : q; }, 0);
-  const sg = (v) => `${v >= 0 ? '+' : '−'}${money(Math.abs(v))}`, cl = (v) => (v >= 0 ? 'cg' : 'cr'), realTotal = book.total + earned;
+  const sg = (v) => `${v >= 0 ? '+' : '−'}${money(Math.abs(v))}`, cl = (v) => (v >= 0 ? 'cg' : 'cr'), tradeTotal = unreal + book.total;
   const recent = [...book.realized.map((x) => ({ date: x.date, label: nm(x.acct), v: x.gain })), ...earnedTx.map((t) => ({ date: t.date, label: `${nm(earnAcctOf(t))} · ${t.invIncome ? String(t.invIncome.type || 'income').toLowerCase() : 'interest'}${t.earnOpen ? ' (still adding up)' : ''}`, v: eVal(t) }))].sort((x, y) => (x.date < y.date ? 1 : -1)).slice(0, 8);
-  const gains = book.realized.length || earnedTx.length || unreal ? panel('i-gain', `Realized Gains and Losses <small class="muted gsum">${sg(realTotal)}</small>`, `<ul class="calfacts"><li><span>Unrealized Profit <small class="muted">on paper, still held</small></span><b class="${cl(unreal)}">${sg(unreal)}</b></li><li><span>Realized Profit <small class="muted">locked in by selling</small></span><b class="${cl(book.total)}">${sg(book.total)}</b></li><li><span>Earned <small class="muted">interest from Earn</small></span><b class="${cl(earned)}">${sg(earned)}</b></li><li><span>Realized + Earned, this year</span><b class="${cl(thisYear + earnedYr)}">${sg(thisYear + earnedYr)}</b></li><li><span>Realized + Earned, all time</span><b class="${cl(realTotal)}">${sg(realTotal)}</b></li>
-    ${recent.map((x) => `<li><span>${esc(String(x.date).slice(0, 10))} · ${esc(x.label)}</span><b class="${cl(x.v)}">${sg(x.v)}</b></li>`).join('')}</ul><p class="hint">Average-cost method, after fees. Units you held before using Sukli have no known cost and are left out of gains. Earned is the interest your Earn products paid, added up day by day.</p>`, '') : '';
+  const gains = book.realized.length || earnedTx.length || unreal ? panel('i-gain', `Trading Profit and Loss <small class="muted gsum">${sg(tradeTotal)}</small>`, `<ul class="calfacts"><li><span>Unrealized Profit <small class="muted">on paper, still held</small></span><b class="${cl(unreal)}">${sg(unreal)}</b></li><li><span>Realized Profit <small class="muted">locked in by selling</small></span><b class="${cl(book.total)}">${sg(book.total)}</b></li><li><span>Realized, this year</span><b class="${cl(thisYear)}">${sg(thisYear)}</b></li><li><span><b>Trading profit and loss</b></span><b class="${cl(tradeTotal)}">${sg(tradeTotal)}</b></li></ul>
+    <h3 class="subh">Interest and income <small class="muted">not part of profit and loss</small></h3><ul class="calfacts"><li><span>Earned, this year</span><b class="${cl(earnedYr)}">${sg(earnedYr)}</b></li><li><span>Earned, all time</span><b class="${cl(earned)}">${sg(earned)}</b></li></ul>
+    <h3 class="subh">Recent</h3><ul class="calfacts">${recent.map((x) => `<li><span>${esc(String(x.date).slice(0, 10))} · ${esc(x.label)}</span><b class="${cl(x.v)}">${sg(x.v)}</b></li>`).join('')}</ul><p class="hint">Average-cost method, after fees. Units you held before using Sukli have no known cost and are left out of gains. Earned is the interest and income your assets paid, kept apart from trading.</p>`, '') : '';
   // inside a platform: its wallets (Spot, Futures, Margin, Earn…), each with its own assets, when there is more than one wallet or a wallet other than Spot
   // what a wallet has earned so far (interest, staking, dividends), counted in your home currency
   const earnCats = new Set(db.categories.filter((c) => !c.deleted && c.group === 'Earn').map((c) => c.id));
   const earnedTxt = (l) => { const ids = new Set(l.map((a) => a.id)); let e = 0; for (const t of db.txs) if (!t.deleted && t.kind === 'income' && ids.has(t.acct) && (t.auto || t.invIncome || earnCats.has(t.cat))) e += t.amount * factorFor(db, t); return e > 0 ? ` · earned ${money(e)}` : ''; };
   // Overview of one platform: each coin once, its wallets (Spot, Earn, Futures...) added together; open a coin to see the wallets
+  // price of one unit in the Investments currency; it is why the units and the value differ (14,334.91 USDC is worth 14,340.74 because 1 USDC = 1.0004)
+  const unitPx = (a) => `@ ${px(homeFx(db, a.cur) || 0)}`;
   const platOverview = (list, ex) => { const by = new Map(); for (const a of list) { if (!by.has(a.cur)) by.set(a.cur, []); by.get(a.cur).push(a); }
     const rows = [...by.entries()].map(([cur, l]) => ({ cur, l, q: l.reduce((t, a) => t + (bal.get(a.id) || 0), 0), v: exSum(l) })).sort((x, y) => y.v - x.v), tot = exSum(list);
     return `<div class="wblock" data-w="Overview"><p class="hint wtsum"><b>Overview</b> ${money(tot)} · every wallet on ${esc(ex)} added together</p><div class="ovlist">${rows.map((r) => { const a0 = r.l[0], ic = assetIcon(a0, tickers), nm = (tickers[r.cur] && tickers[r.cur].ticker) || r.cur, key = `ov-${ex}-${r.cur}`; if (ui.collapsed[key] === undefined) ui.collapsed[key] = true;
       const parts = r.l.slice().sort((x, y) => val(db, y, bal.get(y.id) || 0) - val(db, x, bal.get(x.id) || 0)).map((a) => button({ html: `<span class="rmain"><strong>${esc(walletOf(a) || 'Other')}</strong><small>${qty(bal.get(a.id) || 0, a.cur)}</small></span><span class="ramt"><b>${priced(db, a) ? money(val(db, a, bal.get(a.id) || 0)) : '<small class="muted">no price</small>'}</b></span>`, kind: 'plain', cls: 'row acct hold ovpart', act: 'acct', attr: { 'data-id': a.id } })).join('');
-      return `<div class="ovrow">${coll(key, `<i class="badge sm ${ic.coin ? 'coinbadge' : ''}" style="background:${ic.coin ? 'transparent' : ic.manual ? groupColor(a0.type) : 'var(--xfer)'}">${ic.html}</i> <span class="ovname"><b>${esc(nm)}</b> <small class="muted">${qty(r.q, r.cur)} · ${r.l.length} ${r.l.length === 1 ? 'wallet' : 'wallets'}</small></span> <span class="gsum2"><b>${priced(db, a0) ? money(r.v) : '<small class="muted">no price</small>'}</b>${tot > 0 && priced(db, a0) ? ` <small class="muted">${Math.round((r.v / tot) * 100)}%</small>` : ''}</span>`, `<div class="rows plain">${parts}</div>`)}</div>`; }).join('')}</div></div>`; };
+      return `<div class="ovrow">${coll(key, `<i class="badge sm ${ic.coin ? 'coinbadge' : ''}" style="background:${ic.coin ? 'transparent' : ic.manual ? groupColor(a0.type) : 'var(--xfer)'}">${ic.html}</i> <span class="ovname"><b>${esc(nm)}</b> <small class="muted">${qty(r.q, r.cur)}${priced(db, a0) && a0.cur !== HOME ? ` · ${unitPx(a0)}` : ''}</small></span> <span class="gsum2"><b>${priced(db, a0) ? money(r.v) : '<small class="muted">no price</small>'}</b>${tot > 0 && priced(db, a0) ? ` <small class="muted">${Math.round((r.v / tot) * 100)}%</small>` : ''}</span>`, `<div class="rows plain">${parts}</div>`)}</div>`; }).join('')}</div></div>`; };
   const walletBlocks = (list, t) => { const srt = (l) => l.slice().sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0));
     const ws = new Map(); for (const a of list) { const w = a.exchange ? walletOf(a) : ''; if (!ws.has(w)) ws.set(w, []); ws.get(w).push(a); }
     if (mode !== 'platform' || (ws.size === 1 && (ws.has('Spot') || ws.has('')))) return `<div class="rows plain">${srt(list).map((a) => holding(a, t)).join('')}</div>`;
@@ -293,7 +296,7 @@ export function investments(db) {
     if (p && p.qty > 0 && p.cost > 0 && pxh) { const un = p.qty * pxh - p.cost, pc = un / p.cost * 100; pnl = `<span class="${un >= 0 ? 'cg' : 'cr'}">${un >= 0 ? '+' : '−'}${money(Math.abs(un))} (${un >= 0 ? '+' : '−'}${Math.abs(pc).toFixed(2)}%)</span>`; }
     const home = invC !== HOME ? ` <small class="hhome">(${esc(f2(v, HOME))})</small>` : '';
     return button({ html: `<i class="badge sm ${ic.coin ? 'coinbadge' : ''}" style="background:${ic.coin ? 'transparent' : ic.manual ? groupColor(a.type) : 'var(--xfer)'}">${ic.html}</i>
-      <span class="hl1"><strong>${nm}</strong></span><span class="hr1">${esc(qty(b, a.cur))}</span>
+      <span class="hl1"><strong>${nm}</strong>${ok && a.cur !== HOME ? ` <small class="muted unitpx">${esc(unitPx(a))}</small>` : ''}</span><span class="hr1">${esc(qty(b, a.cur))}</span>
       <span class="hl2">${pnl}</span><span class="hr2">${ok ? `<b>${money(v)}</b>${home}` : '<small class="muted">no price</small>'}</span>`, kind: 'plain', cls: 'row acct hold hold2', act: 'acct', attr: { 'data-id': a.id } }); };
   const platActs = (ex) => `<div class="btnrow left oneline">${(() => { const B = (label, act, aria, o = {}) => button({ label, kind: o.kind || 'ghost', size: 'sm', act, data: 'ex', v: ex, aria, cls: o.cls || '' }), on = PICKED[ex] || [], earnOnly = on.length === 1 && on[0] === 'Earn';
         return earnOnly ? B('Transfer In/Out', 'inv-internal', `Transfer in or out of Earn on ${ex}`, { kind: 'primary' }) : B('Record', 'inv-add', `Record activity on ${ex}`, { kind: 'primary', cls: 'iv-rec' }) + B('Internal', 'inv-internal', `Internal transfer between wallets on ${ex}`); })()}</div>`;
@@ -319,29 +322,29 @@ export function investments(db) {
     const opens = accs.map((a) => ({ a, o: openCost(a, bal.get(a.id) || 0, book.pos.get(a.id), got) })), cost = opens.reduce((q, x) => q + x.o.cost, 0);
     const unrealP = opens.reduce((q, { a, o }) => { const px = homeFx(db, a.cur) || 0; return o.cost > 0 && px ? q + o.qty * px - o.cost : q; }, 0);
     const realP = book.realized.filter((x) => ids.has(x.acct)), realAll = realP.reduce((q, x) => q + x.gain, 0), realYr = realP.filter((x) => x.date.startsWith(yr)).reduce((q, x) => q + x.gain, 0);
-    const earnP = earnedTx.filter((t) => ids.has(earnAcctOf(t))), earnAll = earnP.reduce((q, t) => q + eVal(t), 0), pnl = unrealP + realAll + earnAll, pct = cost > 0 ? unrealP / cost * 100 : null;
+    const earnP = earnedTx.filter((t) => ids.has(earnAcctOf(t))), earnAll = earnP.reduce((q, t) => q + eVal(t), 0), pnl = unrealP + realAll, pct = cost > 0 ? unrealP / cost * 100 : null;
     const sgn = (v) => `${v >= 0 ? '+' : '−'}${money(Math.abs(v))}`;
     const RG = [['1M', 30], ['3M', 91], ['1Y', 365], ['All', 0]], full = valueSeries(db, (a) => ids.has(a.id)), days = (RG.find((r) => r[0] === INV.rg) || RG[3])[1], cut = days ? localDay(new Date(Date.now() - days * 864e5)) : '', sub = days ? full.filter((p) => p.d >= cut) : full, ser = (sub.length >= 2 ? sub : full.slice(-2)).map((p) => ({ l: p.d, v: p.v * invK }));
-    const graph = full.length >= 2 ? `<div class="seg sm small invrg" role="group" aria-label="Range">${RG.map(([l]) => button({ html: l, kind: 'plain', cls: l === INV.rg ? 'on' : '', pressed: l === INV.rg, act: 'inv-range', attr: { 'data-v': l } })).join('')}</div><div class="invline">${lineChart(ser, `${sel} value over time`, (n) => f2(n, invC), 320, false)}</div>
-      <p class="hint">${esc(ser[0].l)} to ${esc(ser[ser.length - 1].l)}. Touch and drag the line to read a day.</p>` : '<p class="hint">Not enough history yet. A point is saved each day something is recorded on this platform or a price changes.</p>';
+    const graph = full.length >= 2 ? `<div class="seg sm small invrg" role="group" aria-label="Range">${RG.map(([l]) => button({ html: l, kind: 'plain', cls: l === INV.rg ? 'on' : '', pressed: l === INV.rg, act: 'inv-range', attr: { 'data-v': l } })).join('')}</div><div class="invline">${lineChart(ser, `${sel} value over time`, (n) => f2(n, invC), 320, false, 150)}</div>
+      <p class="hint invspan">${esc(ser[0].l)} to ${esc(ser[ser.length - 1].l)}</p>` : '<p class="hint">Not enough history yet. A point is saved each day something is recorded on this platform or a price changes.</p>';
     const B = (label, act, aria, o = {}) => button({ label, kind: o.kind || 'ghost', size: 'sm', act, data: 'ex', v: sel, aria, cls: o.cls || '' });
     const coins = new Set(list.filter((a) => Math.abs(bal.get(a.id) || 0) > 1e-12).map((a) => a.cur)), wl = new Set(list.map((a) => walletOf(a) || 'Other'));
     const txN = db.txs.filter((t) => !t.deleted && (ids.has(t.acct) || ids.has(t.toAcct))).length;
-    return `<div class="platpage"><section class="t1-card ui-card plathero" style="--pc:${platColor(sel)}"><div class="phead">${platIcon(sel, 'xs')}<b>${esc(sel)}</b>${sel !== 'Wallets and other' ? button({ label: 'Settings', kind: 'link', act: 'plat-open', data: 'ex', v: sel, aria: `Settings for the platform ${sel}` }) : ''}</div>
+    return `<div class="platpage"><section class="t1-card ui-card plathero" style="--pc:${platColor(sel)}"><div class="phead">${platIcon(sel, 'xs')}<b>${esc(sel)}</b></div>
         <span class="pl-k">Total asset value</span><b class="pl-v">${money(tot)}</b>${eqLine(db, tot)}
-        <span class="pl-pnl ${cl(pnl)}">${sgn(pnl)}${pct === null ? '' : ` · ${pct >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(2)}% open`} <small class="muted">total profit and loss</small></span></section>
-      <section class="ui-card invcard"><h2 class="invh">Performance</h2>${graph}</section>
+        <span class="pl-pnl ${cl(pnl)}">${sgn(pnl)}${pct === null ? '' : ` · ${pct >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(2)}% open`} <small class="muted">trading profit and loss</small></span></section>
+      <section class="ui-card invcard perf"><h2 class="invh">Performance</h2>${graph}</section>
       <section class="ui-card invcard"><h2 class="invh">Profit and Loss</h2><ul class="calfacts">
         <li><span>Unrealized <small class="muted">still held</small></span><b class="${cl(unrealP)}">${sgn(unrealP)}</b></li>
         <li><span>Realized <small class="muted">sold</small></span><b class="${cl(realAll)}">${sgn(realAll)}</b></li>
         <li><span>Realized this year</span><b class="${cl(realYr)}">${sgn(realYr)}</b></li>
-        <li><span>Earned <small class="muted">interest and staking</small></span><b class="${cl(earnAll)}">${sgn(earnAll)}</b></li>
-        <li><span><b>Total profit and loss</b></span><b class="${cl(pnl)}">${sgn(pnl)}</b></li></ul>
+        <li><span><b>Trading profit and loss</b></span><b class="${cl(pnl)}">${sgn(pnl)}</b></li></ul>
+        <h3 class="subh">Interest and income <small class="muted">not part of profit and loss</small></h3><ul class="calfacts"><li><span>Earned <small class="muted">interest, staking</small></span><b class="${cl(earnAll)}">${sgn(earnAll)}</b></li></ul>
         <p class="hint">Average-cost method, after fees. Units held before using Sukli have no known cost and are left out.</p></section>
       <section class="ui-card invcard"><h2 class="invh">Other Metrics</h2><ul class="calfacts">
         <li><span>Cost of what you still hold</span><b>${cost > 0 ? money(cost) : '—'}</b></li>
         <li><span>Assets held</span><b>${coins.size}</b></li><li><span>Wallets</span><b>${wl.size}</b></li><li><span>Transactions</span><b>${txN}</b></li></ul></section>
-      <section class="ui-card invcard ivplat" style="--pc:${platColor(sel)}"><h2 class="invh">Holdings</h2>${sel !== 'Wallets and other' ? `<div class="platbar">${button({ label: 'Platform Settings', kind: 'link', act: 'plat-open', data: 'ex', v: sel, aria: `Settings for the platform ${sel}` })}</div>` : ''}${list.length ? walletBlocks(list, tot) : '<p class="hint">Nothing in this platform yet.</p>'}${(() => { const n = cryptoAll.filter((a) => platOf(a) === sel).length - list.length; return n > 0 || showEmpty ? `<p class="hint">${showEmpty ? 'Showing empty assets.' : `${n} empty asset${n === 1 ? '' : 's'} hidden.`} ${button({ label: showEmpty ? 'Hide them' : 'Show them', kind: 'link', act: 'inv-empty' })}</p>` : ''; })()}
+      <section class="ui-card invcard ivplat" style="--pc:${platColor(sel)}"><div class="holdhead"><h2 class="invh">Holdings</h2>${sel !== 'Wallets and other' ? button({ label: 'Platform Settings', kind: 'link', size: 'sm', cls: 'holdset', act: 'plat-open', data: 'ex', v: sel, aria: `Settings for the platform ${sel}` }) : ''}</div>${list.length ? walletBlocks(list, tot) : '<p class="hint">Nothing in this platform yet.</p>'}${(() => { const n = cryptoAll.filter((a) => platOf(a) === sel).length - list.length; return n > 0 || showEmpty ? `<p class="hint">${showEmpty ? 'Showing empty assets.' : `${n} empty asset${n === 1 ? '' : 's'} hidden.`} ${button({ label: showEmpty ? 'Hide them' : 'Show them', kind: 'link', act: 'inv-empty' })}</p>` : ''; })()}
         ${sel !== 'Wallets and other' ? platActs(sel) : ''}</section>
       <section class="ui-card invcard"><h2 class="invh">Transactions on ${esc(sel)}</h2>${txList(db, ids, sel)}</section></div>`;
   };
@@ -349,7 +352,7 @@ export function investments(db) {
   const accountsPage = () => {
     const c = CATS.find((x) => x[0] === INV.cat);
     if (!c) return `<h2 class="invh">Investment Categories</h2>${categoryCards(cats)}`;
-    const cards = c[0] === 'crypto' ? [...platMap.entries()].sort((x, y) => exSum(y[1]) - exSum(x[1])).map(([n, l]) => platformCard(n, money(exSum(l)), platIcon(n, 'xs'))) : catItems[c[0]].map((a) => productCard(a, money(exSum([a]))));
+    const cards = c[0] === 'crypto' ? [...platMap.entries()].sort((x, y) => exSum(y[1]) - exSum(x[1])).map(([n, l]) => platformCard(n, money(exSum(l)), platIcon(n, 'xs'), invC !== HOME ? `≈ ${f2(exSum(l), HOME)}` : '')) : catItems[c[0]].map((a) => productCard(a, money(exSum([a])), invC !== HOME ? `≈ ${f2(exSum([a]), HOME)}` : ''));
     return levelTwo(c, cards);
   };
   const overviewHtml = `<div class="btnrow left invact">${button({ label: 'Record activity', kind: 'primary', size: 'sm', act: 'inv-add', cls: 'iv-rec' })} ${button({ label: 'Add asset', kind: 'ghost', size: 'sm', act: 'inv-new', cls: 'iv-add' })} ${button({ label: 'Buying Check', kind: 'ghost', size: 'sm', act: 'buy-check' })}${pendingReview(db).length ? ` ${button({ label: `Review trades (${pendingReview(db).length})`, kind: 'ghost', size: 'sm', act: 'trade-review' })}` : ''} </div>
@@ -365,7 +368,8 @@ export function investments(db) {
   freshVisit = false;
   setTimeout(() => { if (ensureUsdt()) window.dispatchEvent(new Event('sukli-render')); }, 30);
   setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
-  return `<div class="invpage sec-${INV.sec}">${hdr('Investments', `${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`)}${secBody}</div>`;
+  const enter = INV.fresh; INV.fresh = false;
+  return `<div class="invpage sec-${INV.sec}${enter ? ' enter' : ''}">${(INV.sec === 'platform' ? backHdr : hdr)('Investments', `${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`)}${secBody}</div>`;
 }
 
 // manual tickers: any coin, token, stock or fund, on any platform or market (Tokyo, Korea, NASDAQ...), kept apart from real currencies
@@ -554,24 +558,25 @@ function tokenCard(db, book, items) {
   if (!rows.length) return '';
   const tot = rows.reduce((q, r) => q + r.gain, 0);
   return panel('i-tok', `Per-Token Performance <small class="muted gsum">${sgn(tot)}</small>`, `<div class="rows plain tokrows">${rows.map((r) => `${button({ html: `<span class="rmain"><strong>${esc(tokName(db, r.cur))}</strong><small>${r.value > 0 ? `Value now ${money(r.value)}` : 'Sold out'}</small>${r.platforms.length ? `<small class="tokpl">On ${esc(r.platforms.join(', '))}</small>` : ''}${r.avgCost != null ? `<small class="tokavg">Avg cost ${px(r.avgCost)} · Breakeven ${px(r.breakeven)}</small>` : ''}</span><span class="ramt ${tcl(r.gain)}"><b>${sgn(r.gain)}</b><small>${r.pct == null ? 'cost not known' : `${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%`}</small></span>`, kind: 'plain', cls: 'row tokrow', act: 'tok-open', attr: { 'data-cur': r.cur } })}`).join('')}</div>
-    <p class="hint">Return = profit on paper + profit from selling + what it earned (Earn interest and other income). Fees are shown inside the detail. Only units bought through Buy / sell, or a cost you typed, have a known cost.</p>`, '');
+    <p class="hint">Profit and loss = profit on paper + profit from selling, after fees. Interest and other income are shown separately in the detail and are not part of it. Only units bought through Buy / sell, or a cost you typed, have a known cost.</p>`, '');
 }
 const tokList = (r) => {
   const line = (k, v, c = '') => `<li><span>${k}</span><b class="${c}">${v}</b></li>`;
   return `<ul class="calfacts">${line('Holding now', `${money(r.value)}${r.qty > 0 ? ` · ${r.qty.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${esc(r.cur)}` : ''}`)}
     ${line('Cost of what you still hold', r.cost > 0 ? money(r.cost) : 'not known')}
     ${line('Average cost per unit', r.avgCost != null ? px(r.avgCost) : 'not known')}
-    ${line('Breakeven price per unit', r.breakeven != null ? px(r.breakeven) : 'not known')}
+    ${line(`Breakeven price per unit <small class="muted">after a ${(r.feeRate * 100).toFixed(2)}% selling fee</small>`, r.breakeven != null ? px(r.breakeven) : 'not known')}
     ${line('Profit on paper (unrealized)', r.cost > 0 ? sgn(r.unreal) : 'not known', r.cost > 0 ? tcl(r.unreal) : '')}
     ${line('Profit from selling (realized)', sgn(r.realized), tcl(r.realized))}
-    ${line('Earned (Earn interest)', sgn(r.earned), tcl(r.earned))}
-    ${line('Other income (staking, airdrops…)', sgn(r.income), tcl(r.income))}
-    ${line('Total return', `${sgn(r.gain)}${r.pct == null ? '' : ` (${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%)`}`, tcl(r.gain))}
+    ${line('<b>Trading profit and loss</b>', `${sgn(r.gain)}${r.pct == null ? '' : ` (${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%)`}`, tcl(r.gain))}
+    ${line('Earned (Earn interest), not in profit and loss', sgn(r.earned), tcl(r.earned))}
+    ${line('Other income (staking, airdrops…), not in profit and loss', sgn(r.income), tcl(r.income))}
+    ${line('Trading profit and loss plus interest and income', sgn(r.total), tcl(r.total))}
     ${line('Trading fees paid', money(r.fees))}
     ${line('Buys and sells', String(r.trades))}
     ${r.first ? line('First trade', esc(r.first.slice(0, 10))) : ''}</ul>`;
 };
-const TOK_HINT = 'Average cost = what you paid for the units you hold, divided by those units. Breakeven = the price at which your total return is zero: it also counts profit you already took by selling and what the token earned. Percent = total return divided by what was put in (cost of what you hold plus the cost of what you sold). Fees are not taken off twice: the fee on a sale is already inside the profit from selling. All amounts use the currency chosen in Investment Settings.';
+const TOK_HINT = 'Average cost = what you paid for the units you hold, divided by those units. Breakeven = the price at which selling everything you hold (after a selling fee, the average you paid on this token or 0.1%) brings your trading profit and loss to zero; profit you already took by selling counts, interest does not. Percent = trading profit and loss divided by what was put in (cost of what you hold plus the cost of what you sold). Fees are not taken off twice: the fee on a sale is already inside the profit from selling. All amounts use the currency chosen in Investment Settings.';
 ACT['tok-open'] = (el) => {
   const db = get(); setInvCur(db); const book = tradeBook(db.txs), r = tokenPerformance(db, book, live(db.accounts).filter(inInvest).filter(isAsset), HOME).find((x) => x.cur === el.dataset.cur); if (!r) return;
   sheet(`<p class="hint">Overall: every platform and wallet that holds ${esc(tokName(db, r.cur))}${r.platforms.length ? ` (${esc(r.platforms.join(', '))})` : ''}.</p>${tokList(r)}<p class="hint">${TOK_HINT}</p>`, { title: `${tokName(db, r.cur)} Performance` });

@@ -83,20 +83,20 @@ function pickerOptions(db) {
   return { accts, curs, groups };
 }
 
-export function lineChart(series, label, money = (n) => n.toLocaleString(), W = 320, base0 = true) {
+export function lineChart(series, label, money = (n) => n.toLocaleString(), W = 320, base0 = true, H = 110) {
   if (!series.length) return '<p class="empty">No data.</p>';
   const lo = Math.min(...series.map((x) => x.v), ...(base0 ? [0] : [])), hi = Math.max(...series.map((x) => x.v), base0 ? 0.0001 : -Infinity), sp = hi - lo || 1;
-  const X = (i) => 4 + i / Math.max(1, series.length - 1) * (W - 8), Y = (v) => 110 - 8 - (v - lo) / sp * 90;
+  const X = (i) => 4 + i / Math.max(1, series.length - 1) * (W - 8), Y = (v) => H - 8 - (v - lo) / sp * (H - 20);
   const pts = series.map((x, i) => [+X(i).toFixed(1), +Y(x.v).toFixed(1), x.l, money(x.v)]);
   const path = series.map((x, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(x.v).toFixed(1)}`).join('');
   if (look().design !== 'legacy') {   // Theme 1: the same rounded line, end marker and shadow as the Home card, with a stronger mountain fill
     const P2 = pts.map((q) => [q[0], q[1]]);
     let d = `M${P2[0][0]},${P2[0][1]}`;
-    for (let k = 0; k < P2.length - 1; k++) { const p0 = P2[k - 1] || P2[k], p1 = P2[k], p2 = P2[k + 1], p3 = P2[k + 2] || p2, c = (v) => Math.max(2, Math.min(108, v)); d += `C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${c(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${c(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0]},${p2[1]}`; }
+    for (let k = 0; k < P2.length - 1; k++) { const p0 = P2[k - 1] || P2[k], p1 = P2[k], p2 = P2[k + 1], p3 = P2[k + 2] || p2, c = (v) => Math.max(2, Math.min(H - 2, v)); d += `C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${c(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${c(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0]},${p2[1]}`; }
     const e = P2[P2.length - 1], gid = `ang${++ANG}`;
-    return `<svg class="chart scrub t1line" data-pts="${esc(JSON.stringify(pts))}" viewBox="0 0 ${W} 110" role="img" aria-label="${label}. Touch and drag to read."><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--line)" stop-opacity=".5"/><stop offset=".45" style="stop-color:var(--line)" stop-opacity=".2"/><stop offset="1" style="stop-color:var(--line)" stop-opacity="0"/></linearGradient></defs>${base0 ? `<line x1="0" x2="${W}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" class="t1base"/>` : ''}<path d="${d}L${e[0]},110L${P2[0][0]},110Z" fill="url(#${gid})" stroke="none"/><path d="${d}" class="t1l"/><circle cx="${e[0]}" cy="${e[1]}" r="5" class="t1dot"/></svg>`;
+    return `<svg class="chart scrub t1line" data-pts="${esc(JSON.stringify(pts))}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}. Touch and drag to read."><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--line)" stop-opacity=".5"/><stop offset=".45" style="stop-color:var(--line)" stop-opacity=".2"/><stop offset="1" style="stop-color:var(--line)" stop-opacity="0"/></linearGradient></defs>${base0 ? `<line x1="0" x2="${W}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" class="t1base"/>` : ''}<path d="${d}L${e[0]},${H}L${P2[0][0]},${H}Z" fill="url(#${gid})" stroke="none"/><path d="${d}" class="t1l"/><circle cx="${e[0]}" cy="${e[1]}" r="5" class="t1dot"/></svg>`;
   }
-  return `<svg class="chart scrub" data-pts="${esc(JSON.stringify(pts))}" viewBox="0 0 ${W} 110" role="img" aria-label="${label}. Touch and drag to read.">${base0 ? `<line x1="0" x2="${W}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="var(--rule)" stroke-dasharray="3 3"/>` : ''}<path d="${path}" fill="none" stroke="var(--line)" stroke-width="2.4" stroke-linejoin="round"/></svg>`;
+  return `<svg class="chart scrub" data-pts="${esc(JSON.stringify(pts))}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}. Touch and drag to read.">${base0 ? `<line x1="0" x2="${W}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="var(--rule)" stroke-dasharray="3 3"/>` : ''}<path d="${path}" fill="none" stroke="var(--line)" stroke-width="2.4" stroke-linejoin="round"/></svg>`;
 }
 
 let ANG = 0;
