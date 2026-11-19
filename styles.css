@@ -2181,3 +2181,22 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .invsum { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 0; padding: var(--card-pad, 14px 16px); border-radius: var(--card-r, 14px); background: var(--card-bg, var(--sheet)); border: 1px solid var(--card-bd, var(--rule)); box-shadow: var(--card-shadow, none); }
 .invsum > div { display: grid; gap: 2px; min-width: 0; } .invsum span { color: var(--ink2); font-size: calc(12.5px * var(--fs, 1)); } .invsum b { font-size: calc(18px * var(--fs, 1)); }
 .invpage { padding-bottom: 8px; }
+
+/* v16.7: Accounts tab. Assets and Liabilities are plain headings, not cards; the first cards are the categories (Banks, E-Wallets…). Colour tells the two apart. */
+.topgrp, :root[data-design="theme1"] body:not(.simple) .topgrp { margin: 22px 0 8px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.topgrp.assets, .topgrp.liabs, :root[data-design="theme1"] body:not(.simple) .topgrp.assets, :root[data-design="theme1"] body:not(.simple) .topgrp.liabs { background: none; border: 0; }
+.topgrp { --tg: var(--in); } .topgrp.liabs { --tg: var(--bad); }
+.tophead { padding: 0 4px 6px; border-bottom: 2px solid color-mix(in srgb, var(--tg) 55%, var(--rule)); margin-bottom: 4px; }
+.tophead h2 { color: var(--tg); }
+.topgrp > .hint { padding: 0 4px; }
+.topgrp > .coll { border-color: color-mix(in srgb, var(--tg) 38%, var(--rule)); }
+:root[data-design="theme1"] body:not(.simple) .topgrp > .coll { border: 1px solid var(--card-bd); border-radius: 22px; box-shadow: var(--card-shadow, 0 2px 8px rgba(20, 40, 90, .08)); background: linear-gradient(160deg, color-mix(in srgb, var(--tg) 17%, var(--sheet)) 0%, color-mix(in srgb, var(--tg) 7%, var(--sheet)) 55%, var(--sheet) 100%); }
+
+/* v16.7 (Theme 1): Investments Overview without the Performance card layers: heading, tabs, then the section's content straight down the page */
+.dashcard.flat { margin: 14px 0 6px; }
+.dashcard.flat > .invh { margin: 0 0 8px; font-size: calc(18px * var(--fs, 1)); }
+.dashcard.flat .dashbody.flat { margin: 12px 0 0; }
+.dashcard.flat .dsumh { margin: 0 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--rule); font-size: calc(15px * var(--fs, 1)); display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.dashcard.flat .perf { padding: 10px 0; border-bottom: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); }
+.dashcard.flat .perf:last-of-type { border-bottom: 0; }
+.dashcard.flat .calfacts { margin-top: 0; }

@@ -1,6 +1,7 @@
 // Investments tab: crypto grouped by exchange (every coin is its own balance with its own market value), plus investments and
 // other financial products such as MP2. First rough version: valuation and structure; buy/sell comes next.
 import { hiddenInvLink } from './platform.js';
+import { look } from './appearance.js';
 import { platIcon } from './platicons.js';
 import { inMarketTab, marketBar } from './market.js';
 import { isCoin, coinIcon, flagOf, assetIcon } from './curpicker.js';
@@ -12,7 +13,7 @@ import { hdr, coll, pieLabels, ui } from './screens.js';
 import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
 import { pendingReview } from './tradereview.js';
-import { tokenPerformance } from './tokenperf.js';
+import { tokenPerformance, earnedUnits, openCost } from './tokenperf.js';
 import { button, tabs, segChoice, textField } from './components.js';
 import { ensureUsdt, TRADING_WALLETS } from './tokens.js';
 import { INV, invTabs, CATS, categoryCards, levelTwo, platformCard, productCard, txList, invCalendar } from './invnav.js';
@@ -95,8 +96,11 @@ function dashTabs() {
   const list = Object.keys(DASH).map((id) => PANELS.find((x) => x.id === id) || { id, title: DASH[id], body: `<p class="hint">${EMPTY[id]}</p>` }); const any = PANELS.length > 0; PANELS = [];
   if (!any) return '';
   PANELS_LAST = list; const shown = dshown(list);
-  const inner = `<div class="segm" role="group" aria-label="Choose a section">${list.map((x) => segChoice({ label: DASH[x.id], on: shown.includes(x.id), act: 'inv-dsw', v: x.id })).join('')}</div>
-    ${list.filter((x) => shown.includes(x.id)).map((x) => `<div class="dashbody" data-sec="${x.id}">${coll('d-' + x.id, x.title, x.body)}</div>`).join('') || '<p class="hint">Choose a section to see it.</p>'}`;
+  const strip = `<div class="segm" role="group" aria-label="Choose a section">${list.map((x) => segChoice({ label: DASH[x.id], on: shown.includes(x.id), act: 'inv-dsw', v: x.id })).join('')}</div>`, chosen = list.filter((x) => shown.includes(x.id));
+  // Theme 1: no card around the tabs and no card inside them; the chosen section's title becomes a plain heading line and its content runs down the page
+  if (look().design === 'theme1') return `<div class="dashcard flat"><h2 class="invh">Investment Performance</h2>${strip}${chosen.map((x) => `<div class="dashbody flat" data-sec="${x.id}"><h3 class="dsumh">${x.title}</h3>${x.body}</div>`).join('') || '<p class="hint">Choose a section to see it.</p>'}</div>`;
+  const inner = `${strip}
+    ${chosen.map((x) => `<div class="dashbody" data-sec="${x.id}">${coll('d-' + x.id, x.title, x.body)}</div>`).join('') || '<p class="hint">Choose a section to see it.</p>'}`;
   return `<div class="dashcard">${coll('d-card', 'Investment Performance', inner)}</div>`;   // the whole card opens and closes
 }
 // an account type (Spot, Margin, Futures, Options, Earn...) can be switched off per platform in Edit Platform; its accounts then stay out of the Investments tab
@@ -250,11 +254,14 @@ export function investments(db) {
   const basis = (a) => { const p = book.pos.get(a.id), px = homeFx(db, a.cur) || 0; if (!p || !(p.qty > 0) || !(p.cost > 0) || !px) return ''; const un = p.qty * px - p.cost; return ` · cost ${money(p.cost)} · <span class="${un >= 0 ? 'cg' : 'cr'}">${un >= 0 ? '+' : '−'}${money(Math.abs(un))} (${(un / p.cost * 100).toFixed(2)}%)</span>`; };
   const yr = String(new Date().getFullYear()), thisYear = book.realized.filter((x) => x.date.startsWith(yr)).reduce((q, x) => q + x.gain, 0), nm = (id) => (db.accounts.find((a) => a.id === id) || { name: '?' }).name;
   // Unrealized profit (still held, on paper), Realized profit (locked in by selling) and Earned (interest paid by Earn products). Earned counts as realized income.
-  const earnedTx = db.txs.filter((t) => !t.deleted && t.earnDay && t.kind === 'income'), eVal = (t) => (t.amount || 0) * (t.fx || homeFx(db, t.cur) || 1);
+  // Earned = interest paid by Earn products (earnDay) plus income you recorded on an asset (dividends, staking, interest: invIncome).
+  // Valued in HOME at the rate saved with the entry (factorFor), the same way the earned chip and Token performance do. (Before v16.7 this multiplied by the raw rate, which is in PHP, so with another home currency the figure was wrong.)
+  const earnedTx = db.txs.filter((t) => !t.deleted && t.kind === 'income' && (t.earnDay || t.invIncome)), eVal = (t) => (t.amount || 0) * factorFor(db, t), earnAcctOf = (t) => t.earnAcct || (t.invIncome && t.invIncome.asset) || t.acct;
   const earned = earnedTx.reduce((q, t) => q + eVal(t), 0), earnedYr = earnedTx.filter((t) => String(t.date).startsWith(yr)).reduce((q, t) => q + eVal(t), 0);
-  const unreal = [...book.pos].reduce((q, [id, p]) => { const a = db.accounts.find((x) => x.id === id), px = a ? homeFx(db, a.cur) || 0 : 0; return p && p.qty > 0 && p.cost > 0 && px ? q + p.qty * px - p.cost : q; }, 0);
+  const got = earnedUnits(db), accIn = items.filter(isAsset);
+  const unreal = accIn.reduce((q, a) => { const px = homeFx(db, a.cur) || 0, o = openCost(a, bal.get(a.id) || 0, book.pos.get(a.id), got); return o.cost > 0 && px ? q + o.qty * px - o.cost : q; }, 0);
   const sg = (v) => `${v >= 0 ? '+' : '−'}${money(Math.abs(v))}`, cl = (v) => (v >= 0 ? 'cg' : 'cr'), realTotal = book.total + earned;
-  const recent = [...book.realized.map((x) => ({ date: x.date, label: nm(x.acct), v: x.gain })), ...earnedTx.map((t) => ({ date: t.date, label: `${nm(t.earnAcct || t.acct)} · interest${t.earnOpen ? ' (still adding up)' : ''}`, v: eVal(t) }))].sort((x, y) => (x.date < y.date ? 1 : -1)).slice(0, 8);
+  const recent = [...book.realized.map((x) => ({ date: x.date, label: nm(x.acct), v: x.gain })), ...earnedTx.map((t) => ({ date: t.date, label: `${nm(earnAcctOf(t))} · ${t.invIncome ? String(t.invIncome.type || 'income').toLowerCase() : 'interest'}${t.earnOpen ? ' (still adding up)' : ''}`, v: eVal(t) }))].sort((x, y) => (x.date < y.date ? 1 : -1)).slice(0, 8);
   const gains = book.realized.length || earnedTx.length || unreal ? panel('i-gain', `Realized Gains and Losses <small class="muted gsum">${sg(realTotal)}</small>`, `<ul class="calfacts"><li><span>Unrealized Profit <small class="muted">on paper, still held</small></span><b class="${cl(unreal)}">${sg(unreal)}</b></li><li><span>Realized Profit <small class="muted">locked in by selling</small></span><b class="${cl(book.total)}">${sg(book.total)}</b></li><li><span>Earned <small class="muted">interest from Earn</small></span><b class="${cl(earned)}">${sg(earned)}</b></li><li><span>Realized + Earned, this year</span><b class="${cl(thisYear + earnedYr)}">${sg(thisYear + earnedYr)}</b></li><li><span>Realized + Earned, all time</span><b class="${cl(realTotal)}">${sg(realTotal)}</b></li>
     ${recent.map((x) => `<li><span>${esc(String(x.date).slice(0, 10))} · ${esc(x.label)}</span><b class="${cl(x.v)}">${sg(x.v)}</b></li>`).join('')}</ul><p class="hint">Average-cost method, after fees. Units you held before using Sukli have no known cost and are left out of gains. Earned is the interest your Earn products paid, added up day by day.</p>`, '') : '';
   // inside a platform: its wallets (Spot, Futures, Margin, Earn…), each with its own assets, when there is more than one wallet or a wallet other than Spot
@@ -309,10 +316,10 @@ export function investments(db) {
   const platPage = () => {
     if (!sel) return '<p class="empty">No platform yet. Open Accounts, or give an account an exchange or platform in its settings.</p>';
     const list = platMap.get(sel) || [], accs = cryptoAcc.filter((a) => platOf(a) === sel), ids = new Set(accs.map((a) => a.id)), tot = exSum(list);
-    const pos = [...book.pos].filter(([id]) => ids.has(id)), cost = pos.reduce((q, [, p]) => q + (p && p.qty > 0 ? p.cost : 0), 0);
-    const unrealP = pos.reduce((q, [id, p]) => { const a = accs.find((x) => x.id === id), px = a ? homeFx(db, a.cur) || 0 : 0; return p && p.qty > 0 && p.cost > 0 && px ? q + p.qty * px - p.cost : q; }, 0);
+    const opens = accs.map((a) => ({ a, o: openCost(a, bal.get(a.id) || 0, book.pos.get(a.id), got) })), cost = opens.reduce((q, x) => q + x.o.cost, 0);
+    const unrealP = opens.reduce((q, { a, o }) => { const px = homeFx(db, a.cur) || 0; return o.cost > 0 && px ? q + o.qty * px - o.cost : q; }, 0);
     const realP = book.realized.filter((x) => ids.has(x.acct)), realAll = realP.reduce((q, x) => q + x.gain, 0), realYr = realP.filter((x) => x.date.startsWith(yr)).reduce((q, x) => q + x.gain, 0);
-    const earnP = earnedTx.filter((t) => ids.has(t.earnAcct || t.acct)), earnAll = earnP.reduce((q, t) => q + eVal(t), 0), pnl = unrealP + realAll + earnAll, pct = cost > 0 ? unrealP / cost * 100 : null;
+    const earnP = earnedTx.filter((t) => ids.has(earnAcctOf(t))), earnAll = earnP.reduce((q, t) => q + eVal(t), 0), pnl = unrealP + realAll + earnAll, pct = cost > 0 ? unrealP / cost * 100 : null;
     const sgn = (v) => `${v >= 0 ? '+' : '−'}${money(Math.abs(v))}`;
     const RG = [['1M', 30], ['3M', 91], ['1Y', 365], ['All', 0]], full = valueSeries(db, (a) => ids.has(a.id)), days = (RG.find((r) => r[0] === INV.rg) || RG[3])[1], cut = days ? localDay(new Date(Date.now() - days * 864e5)) : '', sub = days ? full.filter((p) => p.d >= cut) : full, ser = (sub.length >= 2 ? sub : full.slice(-2)).map((p) => ({ l: p.d, v: p.v * invK }));
     const graph = full.length >= 2 ? `<div class="seg sm small invrg" role="group" aria-label="Range">${RG.map(([l]) => button({ html: l, kind: 'plain', cls: l === INV.rg ? 'on' : '', pressed: l === INV.rg, act: 'inv-range', attr: { 'data-v': l } })).join('')}</div><div class="invline">${lineChart(ser, `${sel} value over time`, (n) => f2(n, invC), 320, false)}</div>
@@ -522,7 +529,9 @@ function feesCard(db, book) {
     <p class="hint">Each fee is saved with its trade and also counted as an expense. They appear here, not as losses in Entries.</p>`, '');
 }
 function performanceCard(db, bal, book, items) {
-  const rows = items.filter(isAsset).map((a) => { const p = book.pos.get(a.id), q = bal.get(a.id) || 0, v = val(db, a, q), cost = p && p.qty > 0 && p.cost > 0 ? p.cost : (a.costHome || 0); return { a, q, v, cost, own: !(p && p.qty > 0 && p.cost > 0) }; })
+  const got = earnedUnits(db);
+  // v is what the units with a known cost are worth now (units held before Sukli and interest units have no cost, so they are not compared with it)
+  const rows = items.filter(isAsset).map((a) => { const p = book.pos.get(a.id), q = bal.get(a.id) || 0, o = openCost(a, q, p, got), px = homeFx(db, a.cur) || 0; return { a, q, v: o.cost > 0 ? o.qty * px : val(db, a, q), cost: o.cost, own: !(p && p.qty > 0 && p.cost > 0) }; })
     .filter((r) => r.q > 0 && priced(db, r.a) && !['USD', 'USDT', 'USDC', 'DAI', 'FDUSD', HOME].includes(r.a.cur));   // cash-like balances have no gain to show
   if (!rows.length) return '';
   const known = rows.filter((r) => r.cost > 0), unk = rows.filter((r) => !(r.cost > 0)), tc = known.reduce((x, r) => x + r.cost, 0), tv = known.reduce((x, r) => x + r.v, 0), mx = Math.max(1, ...known.map((r) => Math.max(r.cost, r.v)));

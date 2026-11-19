@@ -1,6 +1,6 @@
 // Buy / sell / convert bookkeeping (average cost), kept free of the page so it can be tested.
 // A trade is a transfer between your cash account and a holding, marked with t.trade = { side, asset, asset2, qty, qty2, valueHome, feeHome }.
-//   buy      asset = holding bought, qty = units, valueHome = what it cost (home currency)
+//   buy      asset = holding bought, qty = units, valueHome = what it cost (home currency); the fee is added to the cost of the units
 //   sell     asset = holding sold,   qty = units, valueHome = proceeds
 //   convert  asset = coin given,     qty given;  asset2 = coin received, qty2 received; valueHome = worth of what was received
 // Only units bought through trades have a known cost; what you held before Sukli has none, so it never inflates a gain.
@@ -18,7 +18,7 @@ export function tradeBook(txs) {
   };
   for (const t of list) {
     const x = t.trade, fee = x.feeHome || 0;
-    if (x.side === 'buy') { const p = P(x.asset); p.qty += x.qty; p.cost += x.valueHome; addPaid(p, x.paidCur, x.paidAmt); }
+    if (x.side === 'buy') { const p = P(x.asset); p.qty += x.qty; p.cost += x.valueHome + fee; addPaid(p, x.paidCur, x.paidAmt); }   // the buying fee is part of what the units cost
     else if (x.side === 'sell') sellOut(t, x.asset, x.qty, x.valueHome, fee);
     else if (x.side === 'convert') { sellOut(t, x.asset, x.qty, x.valueHome, fee); const p = P(x.asset2); p.qty += x.qty2; p.cost += x.valueHome; addPaid(p, x.paidCur, x.paidAmt); }
   }

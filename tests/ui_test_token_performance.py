@@ -21,10 +21,10 @@ with sync_playwright() as p:
     R=pg.evaluate("""(async()=>{const c=await import('/js/core.js'),t=await import('/js/tokenperf.js'),b=await import('/js/tradecalc.js'),i=await import('/js/invest.js');const d=c.get();
       const r=t.tokenPerformance(d,b.tradeBook(d.txs),d.accounts.filter(a=>i.inInvest(a)&&(a.assetType||a.type==='crypto')),c.HOME);return r.map(x=>({cur:x.cur,value:x.value,cost:x.cost,unreal:x.unreal,realized:x.realized,earned:x.earned,fees:x.fees,gain:x.gain,pct:x.pct,pl:x.platforms}))})()""")
     A=[x for x in R if x['cur']=='ZZA'][0]; B=[x for x in R if x['cur']=='ZZB'][0]
-    ok('two platforms add up into one token %s'%A, A['pl']==['Binance','Bitget'] and abs(A['value']-226500)<1 and abs(A['cost']-190000)<1)
-    ok('paper profit 35000, sold profit 30000', abs(A['unreal']-35000)<1 and abs(A['realized']-30000)<1)
+    ok('two platforms add up into one token %s'%A, A['pl']==['Binance','Bitget'] and abs(A['value']-226500)<1 and abs(A['cost']-190250)<1)   # v16.7: the 250 buying fee is part of the cost
+    ok('paper profit 34750, sold profit 29750 (buying fee now in cost)', abs(A['unreal']-34750)<1 and abs(A['realized']-29750)<1)
     ok('earned counted (0.01 x 150000 = 1500), fee 500', abs(A['earned']-1500)<1 and abs(A['fees']-500)<1)
-    ok('total return and percent of what was put in (240000)', abs(A['gain']-66500)<1 and abs(A['pct']-66500/240000*100)<1e-6)
+    ok('total return and percent of what was put in (240500)', abs(A['gain']-66000)<1 and abs(A['pct']-66000/240500*100)<1e-6)
     ok('token with no known cost shows no percent and no made-up profit %s'%B, abs(B['value']-20)<1e-6 and B['pct'] is None and B['gain']==0)
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(600)
     if pg.locator('[data-act=tok-open]').count()==0 and pg.locator('.dashcard .segi:has-text("Per-Token Performance")').count():

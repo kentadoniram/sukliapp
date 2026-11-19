@@ -1,6 +1,6 @@
 // Borrowing: a planner that shows what a loan really costs before you take it, recording a loan with fees taken upfront,
 // charges and late fees on a debt, and the "financial losses" card for Home. Rough first version.
-import { homeFx as homeFxOf, get, commit, uid, stamp, nowStamp, rateFor, findOrAddCategory, catMap, accountMap, balances, shiftMonth, groupColor, thisMonth, monthOf } from './core.js';
+import { homeFx as homeFxOf, factorFor, get, commit, uid, stamp, nowStamp, rateFor, findOrAddCategory, catMap, accountMap, balances, shiftMonth, groupColor, thisMonth, monthOf } from './core.js';
 import { ACT, sheet, ic, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
 import { pickAll } from './picker.js';
@@ -108,10 +108,10 @@ export function lossCard(db, ym, coll, R) {
   const cm = catMap(db), tx = [...db.txs.filter((t) => !t.deleted && t.kind === 'expense' && (cm.get(t.cat) || {}).group === 'Financial loss'),
     ...db.txs.filter((t) => !t.deleted && t.kind === 'transfer' && t.fee > 0 && (cm.get(t.feeCat) || {}).group === 'Financial loss').map((t) => ({ date: t.date, cat: t.feeCat, amount: t.fee, fx: t.feeFx || t.fx }))];   // a fee kept on its loan or trade row counts too
   const taxes = db.txs.filter((t) => !t.deleted && t.auto && t.tax > 0);
-  const inM = (t) => t.date.startsWith(ym), sum = (l, f = (t) => t.amount * (t.fx || 1)) => l.reduce((a, t) => a + f(t), 0);
+  const inM = (t) => t.date.startsWith(ym), sum = (l, f = (t) => t.amount * factorFor(db, t)) => l.reduce((a, t) => a + f(t), 0);
   const from = shiftMonth(ym, -11), in12 = (t) => monthOf(t.date) >= from && monthOf(t.date) <= ym;
-  const by = new Map(); for (const t of tx.filter(in12)) { const n = (cm.get(t.cat) || {}).name || 'Other'; by.set(n, (by.get(n) || 0) + t.amount * (t.fx || 1)); }
-  const tm = sum(taxes.filter(inM), (t) => t.tax * (t.fx || 1)), t12 = sum(taxes.filter(in12), (t) => t.tax * (t.fx || 1));
+  const by = new Map(); for (const t of tx.filter(in12)) { const n = (cm.get(t.cat) || {}).name || 'Other'; by.set(n, (by.get(n) || 0) + t.amount * factorFor(db, t)); }
+  const tm = sum(taxes.filter(inM), (t) => t.tax * factorFor(db, t)), t12 = sum(taxes.filter(in12), (t) => t.tax * factorFor(db, t));
   const li = db.accounts.filter((a) => !a.deleted && a.loan).flatMap((a) => loanProgress(a.loan, loanPayments(db, a)).rows.map((x) => ({ date: x.date, v: x.interest * (homeFxOf(db, a.cur)) })));
   const intM = li.filter((x) => x.date.startsWith(ym)).reduce((q, x) => q + x.v, 0), int12 = li.filter((x) => monthOf(x.date) >= from && monthOf(x.date) <= ym).reduce((q, x) => q + x.v, 0);
   if (!tx.length && !taxes.length && !li.length) return '';

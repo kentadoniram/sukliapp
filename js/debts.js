@@ -1,7 +1,7 @@
 // Debts tab: every loan and card you owe on, its interest, terms and due date, and which one to pay first and how much.
 // Plain arithmetic on your own figures (no advice engine). Typed figures (monthly money for debts, a debt's rate or minimum) can always be changed or removed.
 import { button, textField } from './components.js';
-import { get, commit, stamp, balances, homeFx, fmt, HOME, nowStamp, thisMonth, shiftMonth, catMap } from './core.js';
+import { get, commit, stamp, balances, homeFx, factorFor, fmt, HOME, nowStamp, thisMonth, shiftMonth, catMap } from './core.js';
 import { classOf } from './budgetsetup.js';
 import { ACT, sheet, esc, toast, confirmDialog, ic } from './ui.js';
 import { hdr, coll } from './screens.js';
@@ -65,7 +65,7 @@ export function debtList(db) {
 export function budgetInfo(db) {
   const own = +db.settings.debtBudget > 0 ? +db.settings.debtBudget : null, force = !!db.settings.debtForce, cm = catMap(db);
   const tripIds = (() => { try { return tripEntryIds(db); } catch { return new Set(); } })();   // trips and events are not "usual spending"
-  const learned = learnMonths(live(db.txs).filter((t) => !tripIds.has(t.id)), (t) => t.amount * (t.fx || 1), thisMonth(), shiftMonth, (t) => { const c = cm.get(t.cat); return { name: c ? c.name : 'Other', cls: classOf(c) }; });
+  const learned = learnMonths(live(db.txs).filter((t) => !tripIds.has(t.id)), (t) => t.amount * factorFor(db, t), thisMonth(), shiftMonth, (t) => { const c = cm.get(t.cat); return { name: c ? c.name : 'Other', cls: classOf(c) }; });
   const typedInc = +db.settings.incomeTyped > 0 ? +db.settings.incomeTyped : null;
   const known = learned && learned.income > 0 ? learned : null, r = cashRoom({ income: known ? known.income : typedInc, spend: known ? known.spend : 0, typed: own, force });
   return { own, force, learned, known, fromTyped: !known && !!typedInc, ...r, value: r.use };

@@ -1,6 +1,6 @@
 // Reading and writing CSV in the same column layout as a Bluecoins export.
 import { isSukliCsv, importSukliCSV } from './sukliCsv.js';
-import { ensureCurrency, uid, stamp, findOrAddCategory, accountMap, catMap, balances, BASE, accLabel, platformOf } from './core.js';
+import { ensureCurrency, uid, stamp, findOrAddCategory, accountMap, catMap, balances, BASE, accLabel, platformOf, homeRate } from './core.js';
 import { addMissingUsdt } from './tokens.js';
 
 export function parseCSV(text) {
@@ -221,6 +221,8 @@ export function importBluecoins(db, text, opts = {}) {
     // the fee the export wrote as its own expense (same time, on one of the two accounts) is tied to the trade
     const fee = db.txs.slice(txStart).find((f) => f.kind === 'expense' && !f.tradeOf && f.date === tx.date && (f.acct === o.a.id || f.acct === i.a.id) && (f.notes === 'Transfer fee' || /^trading fee/i.test(f.name || '')));
     if (fee) { fee.tradeOf = tx.id; x.feeHome = Math.abs(fee.amount) * (fee.cur === BASE ? 1 : (fee.fx > 0 ? fee.fx : 0)); }
+    // values are saved in HOME (what Buy / Sell records), not in the base currency, so gains stay right when HOME is not PHP
+    { const hk = homeRate(db, tx.date) || 1; if (hk !== 1) { x.valueHome /= hk; if (x.feeHome) x.feeHome /= hk; } }
     tx.trade = x; stats.trades++;
   };
 

@@ -22,7 +22,7 @@ with sync_playwright() as p:
     ok('only the switched-on section is shown', pg.locator('.dashcard .dashbody').count()==1)
     pg.click('.dashcard .segi:has-text("Fees and Losses")'); pg.wait_for_timeout(400)
     print('DBG',pg.locator('.dashcard .dashbody').count(),'Trading fees' in pg.inner_text('.dashcard'),pg.locator('.dashcard .dashbody .coll').count())
-    ok('choosing Fees and Losses REPLACES the first section (only one shown, still collapsible)', pg.locator('.dashcard .dashbody').count()==1 and pg.locator('.dashcard .segi.on').count()==1 and 'Fees and Losses' in pg.inner_text('.dashcard .segi.on') and 'Trading fees' in pg.inner_text('.dashcard') and pg.locator('.dashcard .dashbody .coll').count()>=1)
+    ok('choosing Fees and Losses REPLACES the first section (only one shown; Theme 1 is flat since v16.7)', pg.locator('.dashcard .dashbody').count()==1 and pg.locator('.dashcard .segi.on').count()==1 and 'Fees and Losses' in pg.inner_text('.dashcard .segi.on') and 'Trading fees' in pg.inner_text('.dashcard') and pg.locator('.dashcard .dashbody').count()>=1)
     pg.reload(); pg.wait_for_selector('.dashcard'); pg.wait_for_timeout(400)
     ok('choice remembered', pg.locator('.dashcard .segi.on').count()==1 and 'Fees and Losses' in pg.inner_text('.dashcard .segi.on'))
     pg.click('.dashcard .segi.on'); pg.wait_for_timeout(300)

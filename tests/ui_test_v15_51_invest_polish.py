@@ -21,7 +21,7 @@ with sync_playwright() as p:
     go_invest(pg,'Binance',sec='overview'); bh=pg.evaluate("Math.max(...[...document.querySelectorAll('.invact .btn')].map(e=>e.getBoundingClientRect().height))")
     ok('top buttons small (%s px)'%bh, 0<bh<=32)
     xs=pg.evaluate("[...document.querySelectorAll('.collhead .chev')].filter(e=>e.getBoundingClientRect().width).map(e=>{const h=(e.closest('.collrow')||e.closest('.collhead')).getBoundingClientRect();return Math.round(h.right-e.getBoundingClientRect().right)})")
-    ok('chevrons at same far-right offset %s'%xs, len(xs)>0 and len(set(xs))==1 and xs[0]<=16)
+    ok('chevrons at same far-right offset (none in flat Theme 1) %s'%xs, len(xs)==0 or (len(set(xs))==1 and xs[0]<=16))
     pg.goto('http://localhost:8123/#/styleguide'); pg.wait_for_timeout(1200)
     n=pg.locator('.sgpx').count(); tx=pg.evaluate("document.body.textContent")
     ok('style guide has measured px tables (%d)'%n, n>=3 and 'px high' in tx and 'padding' in tx)

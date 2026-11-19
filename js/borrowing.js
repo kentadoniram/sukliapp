@@ -1,5 +1,5 @@
 // Borrowing report, income check and buying check. Plain sums of your own entries; nothing here tells you to buy or sell.
-import { get, commit, homeFx, fmt, HOME, thisMonth, shiftMonth, catMap, balances } from './core.js';
+import { get, commit, homeFx, factorFor, fmt, HOME, thisMonth, shiftMonth, catMap, balances } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { textField, button } from './components.js';
 import { learnMonths } from './debtplan.js';
@@ -21,7 +21,7 @@ export function borrowReport(db, months = 6, nowYm = thisMonth()) {
     const r = by.get(String(t.date).slice(0, 7)); if (!r) continue;
     if (t.kind === 'transfer' && t.debtBorrow) r.borrowed += t.amount * (homeFx(db, t.cur) || 1);
     else if (t.kind === 'transfer' && t.debtPay) r.paid += t.amount * (homeFx(db, t.cur) || 1);
-    else if (t.kind === 'expense') { const c = cm.get(t.cat); if (c && c.group === 'Financial loss' && /^Charged on /.test(t.notes || '')) r.interest += t.amount * (t.fx || 1); }
+    else if (t.kind === 'expense') { const c = cm.get(t.cat); if (c && c.group === 'Financial loss' && /^Charged on /.test(t.notes || '')) r.interest += t.amount * factorFor(db, t); }
   }
   // a month is flagged when you borrowed about as much as you paid back in the same month (the new loan may be paying the old one)
   for (const r of rows) r.flag = r.borrowed > 0 && r.paid > 0 && r.borrowed >= r.paid * 0.5;
@@ -77,7 +77,7 @@ export function buyCheck(db, amount, debtRows = []) {
   const bal = balances(db), amt = +amount > 0 ? +amount : 0, cm = catMap(db);
   let liquid = 0;
   for (const a of live(db.accounts)) if (!a.archived && a.include !== false && ['cash', 'bank', 'ewallet', 'ic'].includes(a.type)) { const b = bal.get(a.id) || 0; if (b > 0) liquid += b * (homeFx(db, a.cur) || 1); }
-  const L = learnMonths(live(db.txs), (t) => t.amount * (t.fx || 1), thisMonth(), shiftMonth, (t) => { const c = cm.get(t.cat); return { name: c ? c.name : 'Other', cls: 'want' }; });
+  const L = learnMonths(live(db.txs), (t) => t.amount * factorFor(db, t), thisMonth(), shiftMonth, (t) => { const c = cm.get(t.cat); return { name: c ? c.name : 'Other', cls: 'want' }; });
   const spend = L ? L.spend : null, income = L && L.income > 0 ? L.income : (+db.settings.incomeTyped > 0 ? +db.settings.incomeTyped : null);
   const items = [];
   // 1 emergency money: 3 months of usual spending should stay in cash after buying

@@ -3,16 +3,29 @@
 // and the total return. All in your home currency. Costs are only known for units bought through Buy / sell (or a figure you typed); the rest is left out, never guessed.
 import { balances, homeFx, factorFor } from './core.js';
 
+// Units an account received as interest or income (they have no purchase cost, and are counted as "earned", never as profit on paper).
+export function earnedUnits(db) {
+  const m = new Map();
+  for (const t of db.txs) if (!t.deleted && t.kind === 'income' && (t.earnDay || t.invIncome)) m.set(t.acct, (m.get(t.acct) || 0) + (t.amount || 0));
+  return m;
+}
+// What the units we know the cost of cost, and how many they are: units bought by trades, or else the cost typed on the account (minus interest units, which came free).
+export function openCost(a, q, p, got) {
+  if (p && p.qty > 0 && p.cost > 0) return { cost: p.cost, qty: p.qty };
+  if (a.costHome > 0 && q > 0) { const qq = Math.max(0, q - ((got && got.get(a.id)) || 0)); return qq > 0 ? { cost: a.costHome, qty: qq } : { cost: 0, qty: 0 }; }
+  return { cost: 0, qty: 0 };
+}
 const STABLE = new Set(['USD', 'USDT', 'USDC', 'DAI', 'FDUSD']);
 export function tokenPerformance(db, book, accts, home) {
   const bal = balances(db), by = new Map(), ids = new Map();   // cur -> row, account id -> cur
   const row = (cur) => { if (!by.has(cur)) by.set(cur, { cur, qty: 0, value: 0, cost: 0, costQty: 0, unreal: 0, realized: 0, soldCost: 0, earned: 0, income: 0, fees: 0, trades: 0, first: '', platforms: new Set(), accounts: [] }); return by.get(cur); };
+  const got = earnedUnits(db);
   for (const a of accts) {
     const r = row(a.cur), q = bal.get(a.id) || 0, px = a.cur === home ? 1 : homeFx(db, a.cur) || 0, p = book.pos.get(a.id);
     ids.set(a.id, a.cur); r.accounts.push(a.id); if (a.exchange) r.platforms.add(a.exchange);
     if (q > 0) { r.qty += q; r.value += q * px; }
-    const cost = p && p.qty > 0 && p.cost > 0 ? p.cost : (a.costHome > 0 && q > 0 ? a.costHome : 0), cq = p && p.qty > 0 && p.cost > 0 ? p.qty : (cost > 0 ? q : 0);
-    if (cost > 0 && px > 0) { r.cost += cost; r.costQty += cq; r.unreal += cq * px - cost; }
+    const o = openCost(a, q, p, got);
+    if (o.cost > 0 && px > 0) { r.cost += o.cost; r.costQty += o.qty; r.unreal += o.qty * px - o.cost; }
   }
   for (const x of book.realized) { const cur = ids.get(x.acct); if (!cur) continue; const r = row(cur); r.realized += x.gain; r.soldCost += x.cost; r.trades++; }
   const tradeTx = db.txs.filter((t) => !t.deleted && t.trade), tIds = new Map(tradeTx.map((t) => [t.id, t]));
