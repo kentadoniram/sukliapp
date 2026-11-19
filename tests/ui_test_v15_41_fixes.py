@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 from playwright.sync_api import sync_playwright
 def ok(n,c): print(('PASS ' if c else 'FAIL ')+n)
 with sync_playwright() as p:
@@ -14,7 +15,7 @@ with sync_playwright() as p:
     ok('version is past 37', int(v.split('.')[0])>=16 or int(v.split('.')[1])>=43)
     sw=pg.evaluate("fetch('/sw.js').then(r=>r.text())"); ok('sw cache name matches version', ("sukli-v%s.%s'"%(v.split('.')[0],v.split('.')[1])) in sw)
     # Spot tab contained
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(1200); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); pg.wait_for_timeout(300)
+    go_invest(pg,'Binance'); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); pg.wait_for_timeout(300)
     r=pg.evaluate("""[...document.querySelectorAll('.hold')].map(h=>{const rc=h.getBoundingClientRect(),a=h.querySelector('.hr2').getBoundingClientRect(),m=h.querySelector('.hl2');const pr=h.closest('.wblock').getBoundingClientRect();return {inside:a.right<=pr.right+1&&rc.right<=pr.right+1,clip:m.scrollWidth>m.clientWidth+1,wrap:getComputedStyle(m).whiteSpace}})""")
     print(r); ok('amounts stay inside the card', all(x['inside'] for x in r)); ok('detail lines are not clipped', all(not x['clip'] for x in r))
     ok('page does not scroll sideways', pg.evaluate("document.documentElement.scrollWidth<=innerWidth+1"))

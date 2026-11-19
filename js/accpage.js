@@ -521,7 +521,7 @@ export function openAccount(id, preset = {}) {
       apy: num(fd.get('apy')) > 0 ? num(fd.get('apy')) : 0,
       taxPct: Math.min(100, Math.max(0, num(fd.get('taxPct')) || 0)),
       interestTo: fd.get('exchange') && fd.get('interestTo') === 'spot' ? 'spot' : '',
-      exchange: canonPlatform(fd.get('exchange') || ''), wallet: fd.get('exchange') ? (fd.get('wallet') || 'Spot') : '', invtab: fd.has('invtab'),
+      exchange: canonPlatform(fd.get('exchange') || ''), noEx: !fd.get('exchange'), wallet: fd.get('exchange') ? (fd.get('wallet') || 'Spot') : '', invtab: fd.has('invtab'),
       interestFrom: fd.get('interestFrom') || today(),
       openDate: fd.get('openDate') || '',
       icon: ownImg || fd.get('icon') || '',

@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 # v15.48: platform icons, Buy/Sell/Convert tree laid out like the entry account list, custom logo per platform
 import base64
 from playwright.sync_api import sync_playwright
@@ -18,8 +19,8 @@ with sync_playwright() as p:
     pairs=[(x.split('|')[1],x.split('|')[2]) for x in sy]
     ok('every known platform has its own shape and colour pair', len(set(pairs))==len(pairs))
     ok('an unknown platform keeps the same symbol', pg.evaluate("(async()=>{const m=await import('/js/platicons.js');return JSON.stringify(m.platSymbol('Zeta Securities'))===JSON.stringify(m.platSymbol('zeta securities'))})()"))
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.exname'); pg.wait_for_timeout(500)
-    ok('Investments platform headers carry an icon', pg.locator('.exname .pbadge').count()>=3)
+    go_invest(pg,'Bybit',sec='accounts'); pg.evaluate("async()=>{const m=await import('/js/invnav.js');m.INV.cat='crypto';window.dispatchEvent(new Event('sukli-render'))}"); pg.wait_for_timeout(600)
+    ok('Investments platform cards carry an icon', pg.locator('.invplat .pbadge').count()>=3)
     bg=pg.evaluate("[...document.querySelectorAll('.exname .pbadge')].map(e=>e.style.background)")
     ok('icons differ per platform %s'%bg, len(set(bg))==len(bg))
     # tree

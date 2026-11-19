@@ -29,7 +29,7 @@ with sync_playwright() as p:
     ok('accounts page keeps investments in their own block', pg.locator('.invblock').count()==1)
     pg.goto('http://localhost:8123/index.html#/invest'); pg.wait_for_timeout(600)
     pkhelp.open_all(pg)
-    ok('exchange group shown (Investments tab)', 'bybit' in pg.inner_text('main, #app').lower())
+    ok('platform shown in the Investments tab bar or page', any(x in pg.inner_text('body').lower() for x in ('bybit','binance','bitget','kucoin','okx')))
     # custom account type (receivable) from Settings
     pg.goto('http://localhost:8123/index.html#/settings'); pg.wait_for_selector('#atype-new')
     pg.fill('#atype-new','Prepaid pot'); pg.click('[data-act=atype-add]'); pg.wait_for_timeout(400)

@@ -10,6 +10,8 @@ import { scheduleSync, onStatus } from './drive.js';
 import './feedback.js';
 import './borrowing.js';
 import { cloudSchedule, cloudInit, onCloudStatus, handleOAuthReturn } from './cloud.js';
+import { invTabs } from './invnav.js';
+import { currentPlatform } from './invest.js';
 import { home, ledger, review, accounts, reports, settings, bindLedger, bindSettings, openAccountSetup, ui, fillDeferred, tabIds, TAB_DEFS, setLookMode } from './screens.js';
 import { openEntry } from './entry.js';
 import { calendar, budget, cashflow, categories, outlook } from './views.js';
@@ -67,11 +69,11 @@ ACT['start-empty'] = () => { commit((d) => seedCategories(d)); ACT['acct-new']()
 
 function tabs(route) {
   const ids = tabIds(get()), half = Math.ceil(ids.length / 2);
-  const t = ids.map((id) => [id, TAB_DEFS[id][0], TAB_DEFS[id][1]]); t.splice(half, 0, null);
+  const t = route === 'invest' ? invTabs(currentPlatform(get())) : ids.map((id) => [id, TAB_DEFS[id][0], TAB_DEFS[id][1]]); if (route !== 'invest') t.splice(half, 0, null);
   const n = reviewCount(get());
   return t.map((x) => x === null
     ? `${(() => { const db = get(), c = addCfg(db), k = route === 'invest' ? null : startKind(db), m = k && KIND_META[k], lab = c.fab === 'type' && m; return button({ html: lab ? `${ic('plus')}<small>${m.label}</small>` : `${ic('plus')}`, kind: 'plain', cls: `fab${route === 'invest' ? ' inv' : ''}${lab ? ` fabk ${m.cls}` : ''}`, act: 'add', aria: lab ? `Add an entry. It opens as ${m.label}` : 'Add an entry' }); })()}`
-    : `<a href="#/${x[0]}" class="${route === x[0] ? 'on' : ''}" ${route === x[0] ? 'aria-current="page"' : ''}>${ic(x[2])}<span>${x[1]}</span>${x[0] === 'home' && n ? `<em class="dot" aria-label="${n} to check"></em>` : ''}</a>`).join('');
+    : typeof x === 'string' ? x : `<a href="#/${x[0]}" class="${route === x[0] ? 'on' : ''}" ${route === x[0] ? 'aria-current="page"' : ''}>${ic(x[2])}<span>${x[1]}</span>${x[0] === 'home' && n ? `<em class="dot" aria-label="${n} to check"></em>` : ''}</a>`).join('');
 }
 
 function render() {

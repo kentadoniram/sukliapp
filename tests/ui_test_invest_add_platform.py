@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 # v12am: add a platform alone, Price currency pick list, Yes/No on "Did you mean", Investments display currency
 from playwright.sync_api import sync_playwright
 from pkhelp import choose
@@ -13,6 +14,7 @@ with sync_playwright() as p:
     pg.click('[data-act=inv-new]'); pg.wait_for_selector('.sheet [data-k=plat]'); pg.click('.sheet [data-k=plat]')
     pg.wait_for_selector('input[name=v]'); pg.fill('input[name=v]','Zeta Securities'); pg.keyboard.press('Enter'); pg.wait_for_timeout(500)
     ok('platform saved on its own', 'Zeta Securities' in pg.evaluate("window.sukli.get().settings.platforms||[]"))
+    go_invest(pg,'Zeta Securities')
     ok('empty platform shows in Investments with Add-asset button', pg.locator('[data-act=plat-open][data-ex="Zeta Securities"]').count()>=1)
     pg.click('[data-act=plat-open][data-ex="Zeta Securities"]'); pg.wait_for_selector('.sheet [data-do=inv-coin]')
     ok('platform page has + Asset and Remove Platform', pg.locator('.sheet [data-do=inv-platdel]').count()==1)
@@ -43,7 +45,7 @@ with sync_playwright() as p:
     pg.goto(URL+'#/invest'); pg.wait_for_selector('[data-act=plat-open][data-ex="Zeta Securities"]'); pg.click('[data-act=plat-open][data-ex="Zeta Securities"]'); pg.wait_for_selector('.sheet [data-do=inv-platdel]'); pg.click('.sheet [data-do=inv-platdel]'); pg.wait_for_selector('.confirm-text'); pg.click('[data-yes]'); pg.wait_for_timeout(400)
     ok('empty platform removed', 'Zeta Securities' not in pg.evaluate("window.sukli.get().settings.platforms||[]"))
     # 4. own currency for the tab
-    h=pg.inner_text('.nwcard'); ok(f'default currency label: {h[:90]!r}', 'Market value in' in h)
+    go_invest(pg,None,sec='overview'); h=pg.inner_text('.nwcard'); ok(f'default currency label: {h[:90]!r}', 'Market value in' in h)
     pg.evaluate("(()=>{const g=window.sukli.get();})()")
     pg.click('[data-act=inv-cur]'); pg.wait_for_selector('.pk-list'); ok('currency list opens with home and USD', pg.locator('.pk-list button').count()>=2 and pg.locator('.pk-opt[data-v=USD]').count()==1)
     pg.click('.pk-opt[data-v=USD]'); pg.wait_for_timeout(500)

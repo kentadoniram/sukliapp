@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 # v13.47: Merchant + Branch on one row; Split/Count cancel goes back to its link; items layout and smart suggestions; Paid-for-others boxes; Investments show 2 decimals
 from playwright.sync_api import sync_playwright
 import re
@@ -38,7 +39,7 @@ with sync_playwright() as p:
     ok('Paid for Others boxes (Amount and Percentages) match each other and are compact %s'%[ha,hb,hc], abs(hb-hc)<3 and hb<=50)
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # investments: 2 decimals
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(800)
+    go_invest(pg,None); pg.wait_for_timeout(800)
     txt=pg.inner_text('#view') if pg.locator('#view').count() else pg.inner_text('body')
     amts=re.findall(r'[+−-]?[₱¥$€][\d,]+(?:\.\d+)?',txt); bad=[a for a in amts if not re.search(r'\.\d\d$',a)]
     ok('Investments money is always 2 decimals (%d amounts, odd: %s)'%(len(amts),bad[:4]), len(amts)>2 and not bad)

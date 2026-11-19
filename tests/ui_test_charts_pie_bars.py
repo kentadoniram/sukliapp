@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 # v12w: outside pie labels, in-place Bars/Pie switch, Change type shortcut, platform rename, category merge
 from playwright.sync_api import sync_playwright
 CSV='/home/claude/Transactions.csv'; res=[]
@@ -35,7 +36,7 @@ with sync_playwright() as p:
     ok('balance and name untouched', a['open']==0 and a['name']=='Bybit Spot')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # rename platform (Bybit and bybit are one platform)
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(800)
+    go_invest(pg,'Bybit')
     btn=pg.locator('[data-act=plat-open][data-ex=Bybit]')
     ok('platform card has Platform Settings (Rename Platform lives there)', btn.count()>=1)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")

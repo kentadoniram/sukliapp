@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 # Recent features, one browser and one imported CSV for all of them (merged from ui_test87 to ui_test97 so the suite stays short).
 from playwright.sync_api import sync_playwright
 import pkhelp; pkhelp.patch()
@@ -113,7 +114,7 @@ def part3(p,b,ctx,pg,errs):
     r=pg.evaluate("(async()=>{const m=await import('/js/internal.js');return [m.internalMove({platform:'Kx',cur:'USDT',from:'Spot',to:'Spot',amount:'1'}).ok,m.internalMove({platform:'Kx',cur:'USDT',from:'Spot',to:'Earn',amount:''}).ok]})()")
     ok('same wallet / empty amount refused %s'%r, r==[False,False])
     # 2 sheet opens from platform and has Internal button
-    pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(800)
+    from tests.invnavhelp import go_invest; go_invest(pg,'Kx')
     ok('platform has Internal button', pg.locator('[data-act=inv-internal][data-ex=Kx]').count()>=1)
     pg.evaluate("document.querySelector('[data-act=inv-internal][data-ex=Kx]').click()"); pg.wait_for_selector('#itf'); 
     ok('sheet: platform fixed to Kx, from/to wallets', pg.locator('#itf [name=plat]').count()==0 and 'Kx' in pg.inner_text('#itf') and pg.input_value('#itf [name=from]')=='Spot' and pg.locator('#itf [name=to] option').count()>=2)
@@ -189,9 +190,9 @@ def part6(p,b,ctx,pg,errs):
     ok('Reverse shows only the symbol', pg.inner_text('#it-rev').strip()=='⇄')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # exchange settings sheet
-    pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(800)
-    ok('exchange name is tappable', pg.locator('.exname[data-act=plat-open][data-ex=Wx]').count()==1)
-    pg.evaluate("document.querySelector('.exname[data-act=plat-open][data-ex=Wx]').click()"); pg.wait_for_selector('#pset'); t=pg.inner_text('#pset')
+    from tests.invnavhelp import go_invest; go_invest(pg,'Wx')
+    ok('platform settings are reachable', pg.locator('[data-act=plat-open][data-ex=Wx]').count()>=1)
+    pg.evaluate("document.querySelector('.plathero [data-act=plat-open][data-ex=Wx]').click()"); pg.wait_for_selector('#pset'); t=pg.inner_text('#pset')
     ok('settings for the whole exchange %s'%t[:60].replace('\\n',' '), 'Timezone of Wx' in t and 'Internal Transfer' in t and 'Earn Products' in t and 'Rename' in t)
     pg.select_option('#pset [data-p=tz]','9'); pg.wait_for_timeout(300); z=pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.get().settings.platformTz.Wx})()"); ok('timezone saved %s'%z, z==9)
     pg.click('#pset [data-p=done]'); pg.wait_for_timeout(300)
@@ -278,7 +279,7 @@ def part8(p,b,ctx,pg,errs):
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # earned in the realized card
     pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(900)
-    pg.evaluate("document.querySelector('[data-act=inv-dsw][data-v=i-gain]')&&document.querySelector('[data-act=inv-dsw][data-v=i-gain]').click()"); pg.wait_for_timeout(500)
+    go_invest(pg,None,sec='overview'); pg.evaluate("document.querySelector('[data-act=inv-dsw][data-v=i-gain]')&&document.querySelector('[data-act=inv-dsw][data-v=i-gain]').click()"); pg.wait_for_timeout(500)
     pg.evaluate("document.querySelectorAll('details').forEach(d=>d.open=true)"); pg.wait_for_timeout(300); t=pg.inner_text('body')
     ok('Unrealized Profit, Realized Profit, Earned shown', 'Unrealized Profit' in t and 'Realized Profit' in t and 'Earned' in t)
     ok('no errors %s'%errs, not errs)

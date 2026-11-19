@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 # v12an+: entry rows, platform headers, Spot/Earn, empty assets hidden, All button
 from playwright.sync_api import sync_playwright
 from pkhelp import choose
@@ -35,10 +36,8 @@ with sync_playwright() as p:
       d.accounts.push(c.stamp({id:'sp1',name:'Zeta XRP',wallet:'Spot',cur:'XRP',type:'crypto',assetType:'crypto',exchange:'Zeta',open:123.45678912,include:false,archived:false,invtab:true}));
       d.accounts.push(c.stamp({id:'sp2',name:'Zeta DOGE',wallet:'Spot',cur:'DOGE',type:'crypto',assetType:'crypto',exchange:'Zeta',open:0,include:false,archived:false,invtab:true}));
       d.settings.tickers=d.settings.tickers||{};});}""")
-    pg.goto(URL+'#/invest'); pg.wait_for_selector('.exname'); pg.wait_for_timeout(400)
-    ex=pg.evaluate("(()=>{const e=[...document.querySelectorAll('.exname')].find(x=>/zeta/i.test(x.textContent));return e?{t:getComputedStyle(e).textTransform,w:getComputedStyle(e).fontWeight,txt:e.innerText}:null})()")
-    ok(f'platform name is bold and uppercase {ex}', ex and ex['t']=='uppercase' and int(ex['w'])>=700 and ex['txt']=='ZETA')
-    sm=pg.inner_text('.gsum2 >> nth=0'); ok(f'platform total shows two currencies: {sm!r}', '≈' in sm)
+    go_invest(pg,'Zeta')  # v16.6: the platform tab replaces the old collapsible header (no .exname / uppercase name any more)
+    sm=pg.inner_text('.plathero'); ok(f'platform total shows two currencies: {sm!r}', '≈' in sm)
     body=pg.inner_text('#view')
     ok('asset with a balance is listed', 'XRP' in body)
     ok('empty asset (DOGE) is hidden', 'DOGE' not in body and 'empty asset' in body)

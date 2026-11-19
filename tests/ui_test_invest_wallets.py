@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 # v12z (remade in 15.32): Platform > wallet > asset; the transfer "To" list never loses an account; every trading account has USDT, so a search for a platform and wallet lists all of its lines
 from playwright.sync_api import sync_playwright
 CSV='/home/claude/Transactions.csv'; res=[]
@@ -9,7 +10,7 @@ with sync_playwright() as p:
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(700)
     pg.evaluate("""(async()=>{const m=await import('/js/core.js');m.commit(d=>{const A=(id,name,cur,wallet,open)=>d.accounts.push(m.stamp({id,name,cur,type:'crypto',open,include:false,archived:false,exchange:'KuCoin',wallet,invtab:true}));A('k1','USDT','USDT','Spot',500);A('k2','USDT','USDT','Earn',200);A('k3','KuCoin BTC','BTC','Spot',0.01);A('k4','SOL','SOL','Futures',3);d.settings.tickers=d.settings.tickers||{};d.settings.tickers.USDT={ticker:'USDT',assetType:'crypto',quote:'USD',price:56};})})()""")
     # Investments tab shows wallets under the platform
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(700)
+    go_invest(pg,'KuCoin')
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
     h=pg.evaluate("[...document.querySelectorAll('.segi')].map(e=>e.textContent.trim())")
     ok('platform card lists wallets (Spot, Futures, Earn)', {'Spot','Futures','Earn'}<=set(h))

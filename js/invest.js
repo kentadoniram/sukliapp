@@ -15,6 +15,8 @@ import { pendingReview } from './tradereview.js';
 import { tokenPerformance } from './tokenperf.js';
 import { button, tabs, segChoice, textField } from './components.js';
 import { ensureUsdt, TRADING_WALLETS } from './tokens.js';
+import { INV, invTabs, CATS, categoryCards, levelTwo, platformCard, productCard, txList, invCalendar } from './invnav.js';
+import { lineChart } from './analytics.js';
 
 const live = (l) => l.filter((x) => !x.deleted);
 // The Investments tab can show its values in its own currency (Settings: invCur), apart from the home currency used elsewhere.
@@ -26,7 +28,7 @@ export const inInvest = (a) => !a.archived && (a.type === 'crypto' || a.type ===
 const val = (db, a, v) => v * (homeFx(db, a.cur) || 0);
 const priced = (db, a) => a.cur === HOME || (homeFx(db, a.cur) || 0) > 0;
 const EXCH = /bybit|bitget|okx|binance|kucoin|mexc|gate\.io|coins\.ph|phantom|metamask|ledger|trust wallet/i;
-const rawEx = (a) => a.exchange || ((a.name.match(EXCH) || [''])[0] ? (a.name.match(EXCH)[0].replace(/^./, (c) => c.toUpperCase())) : '');
+const rawEx = (a) => a.exchange || (a.noEx ? '' : (a.name.match(EXCH) || [''])[0] ? (a.name.match(EXCH)[0].replace(/^./, (c) => c.toUpperCase())) : '');   // noEx: the user chose None, so the name is not used to guess a platform
 const sqp = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 // One spelling per platform: "binance", "Binance " and "BINANCE" are the same place. The known name wins, then the most used spelling.
 let _canonFor = null, _canon = new Map();
@@ -62,6 +64,17 @@ const MARKETS = ['NASDAQ', 'NYSE', 'TSE (Tokyo)', 'KRX (Korea)', 'PSE (Philippin
 const PLATFORMS = ['Binance', 'Bybit', 'Bitget', 'OKX', 'Coins.ph', 'Moomoo', 'Interactive Brokers', 'SBI Securities', 'Rakuten Securities', 'Webull', 'COL Financial', 'Kiwoom', 'Toss Securities'];
 const assetTypeOf = (a) => a.assetType || (a.type === 'crypto' ? 'crypto' : '');
 const isAsset = (a) => !!assetTypeOf(a);
+// which of the four Investments categories an account belongs to (crypto / stock market / government bonds / other)
+export const catOf = (a) => { const t = assetTypeOf(a); return t === 'crypto' ? 'crypto' : ['stock', 'etf', 'fund'].includes(t) ? 'stock' : t === 'other' ? 'other' : 'gov'; };
+const platOf = (a) => exchangeOf(a) || 'Wallets and other';
+// the platform shown in the second section: the one you opened last, otherwise the one holding the most
+export function currentPlatform(db) {
+  const b = balances(db), tot = new Map();
+  for (const a of live(db.accounts).filter(inInvest).filter((x) => !x.invHidden && catOf(x) === 'crypto')) tot.set(platOf(a), (tot.get(platOf(a)) || 0) + val(db, a, b.get(a.id) || 0));
+  for (const p of (db.settings.platforms || [])) { const e = canonPlatform(p); if (e && !tot.has(e)) tot.set(e, 0); }
+  if (INV.plat && tot.has(INV.plat)) return INV.plat;
+  return [...tot.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] || '';
+}
 const gmode = () => { try { const v = localStorage.getItem('sukli-invgroup'); return v === 'type' || v === 'risk' ? v : 'platform'; } catch { return 'platform'; } };
 // "By group": how risky or steady a holding is. Automatic by default; the user can set a group (or make a new one) for any ticker.
 export const RISK_GROUPS = ['Stablecoins', 'Major coins', 'High-volatility coins', 'Stocks and ETFs', 'Funds and bonds', 'Other'];
@@ -121,8 +134,8 @@ const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() +
 // One point per day on which something was recorded: an entry in an investment account, or a price (live, set by you, or from a trade).
 // Value = what you held at the end of that day x the last price recorded on or before that day, in your home currency
 // (quote currencies are converted at today's rate, the rate history is not kept). Nothing is estimated between the points.
-export function valueSeries(db) {
-  const items = live(db.accounts).filter(inInvest), tickers = db.settings.tickers || {}, ids = new Set(items.map((a) => a.id)), days = new Set([localDay()]);
+export function valueSeries(db, only) {
+  const items = live(db.accounts).filter(inInvest).filter((a) => !only || only(a)), tickers = db.settings.tickers || {}, ids = new Set(items.map((a) => a.id)), days = new Set([localDay()]);
   for (const t of db.txs) if (!t.deleted && (ids.has(t.acct) || ids.has(t.toAcct))) days.add(String(t.date).slice(0, 10));
   const hist = new Map();
   for (const a of items) { const h = ((tickers[a.cur] || {}).history || []).filter((p) => p && p.price > 0 && p.date).slice().sort((x, y) => (x.date + (x.ts || 0) < y.date + (y.ts || 0) ? -1 : 1)); hist.set(a.cur, h); for (const p of h) days.add(p.date); }
@@ -220,7 +233,7 @@ export function investments(db) {
   PANELS = []; PICKED = {};
   setInvCur(db);
   const bal = balances(db), items = live(db.accounts).filter(inInvest).filter((a) => !a.invHidden && !typeHidden(db, a)).filter((a) => inMarketTab(db, a)), book = tradeBook(db.txs);
-  const cryptoAll = items.filter(isAsset), other = items.filter((a) => !isAsset(a)), mode = gmode(), tickers = db.settings.tickers || {};
+  const cryptoAll = items.filter(isAsset), other = items.filter((a) => !isAsset(a)), mode = 'platform', tickers = db.settings.tickers || {};
   // assets with nothing in them are hidden (they come back as soon as they hold something, or with the "Show empty" link)
   const keepEmpty = (a) => a.cur === 'USDT' && a.exchange && TRADING_WALLETS.includes(walletOf(a));   // USDT is always listed in a trading wallet
   const showEmpty = emptyOn(), crypto = cryptoAll.filter((a) => showEmpty || keepEmpty(a) || Math.abs(bal.get(a.id) || 0) > 1e-12), hiddenN = cryptoAll.length - crypto.length;
@@ -275,29 +288,77 @@ export function investments(db) {
     return button({ html: `<i class="badge sm ${ic.coin ? 'coinbadge' : ''}" style="background:${ic.coin ? 'transparent' : ic.manual ? groupColor(a.type) : 'var(--xfer)'}">${ic.html}</i>
       <span class="hl1"><strong>${nm}</strong></span><span class="hr1">${esc(qty(b, a.cur))}</span>
       <span class="hl2">${pnl}</span><span class="hr2">${ok ? `<b>${money(v)}</b>${home}` : '<small class="muted">no price</small>'}</span>`, kind: 'plain', cls: 'row acct hold hold2', act: 'acct', attr: { 'data-id': a.id } }); };
+  const platActs = (ex) => `<div class="btnrow left oneline">${(() => { const B = (label, act, aria, o = {}) => button({ label, kind: o.kind || 'ghost', size: 'sm', act, data: 'ex', v: ex, aria, cls: o.cls || '' }), on = PICKED[ex] || [], earnOnly = on.length === 1 && on[0] === 'Earn';
+        return earnOnly ? B('Transfer In/Out', 'inv-internal', `Transfer in or out of Earn on ${ex}`, { kind: 'primary' }) : B('Record', 'inv-add', `Record activity on ${ex}`, { kind: 'primary', cls: 'iv-rec' }) + B('Internal', 'inv-internal', `Internal transfer between wallets on ${ex}`); })()}</div>`;
   const exHtml = [...byEx.entries()].sort((x, y) => mode === 'risk' ? (((RISK_GROUPS.indexOf(x[0]) + 1) || 99) - ((RISK_GROUPS.indexOf(y[0]) + 1) || 99)) || x[0].localeCompare(y[0]) : exSum(y[1]) - exSum(x[1])).map(([ex, list]) => {
     const t = exSum(list); return `<div class="ivplat" style="--pc:${platColor(ex)}">` + coll('ix-' + ex, `<span class="exname" ${ex === 'Wallets and other' ? '' : `data-act="plat-open" data-ex="${esc(ex)}" role="button" title="Settings for the whole exchange"`}>${platIcon(ex, 'xs')}${esc(ex)}</span> <span class="gsum2"><b>${money(t)}</b>${altOf(db, t) ? ` <small class="muted">≈ ${altOf(db, t)}</small>` : ''}</span>`,
       `${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="platbar">${button({ label: 'Platform Settings', kind: 'link', act: 'plat-open', data: 'ex', v: ex, aria: `Settings for the platform ${ex}` })}</div>` : ''}${list.length ? walletBlocks(list, t) : `<p class="hint">${cryptoAll.some((a) => (exchangeOf(a) || 'Wallets and other') === ex) ? 'Nothing with a balance here. Empty assets are hidden.' : 'No assets here yet.'}</p>`}
-       ${mode === 'platform' && ex !== 'Wallets and other' ? `<div class="btnrow left oneline">${(() => { const B = (label, act, aria, o = {}) => button({ label, kind: o.kind || 'ghost', size: 'sm', act, data: 'ex', v: ex, aria, cls: o.cls || '' }), on = PICKED[ex] || [], earnOnly = on.length === 1 && on[0] === 'Earn';
-        return earnOnly ? B('Transfer In/Out', 'inv-internal', `Transfer in or out of Earn on ${ex}`, { kind: 'primary' }) : B('Record', 'inv-add', `Record activity on ${ex}`, { kind: 'primary', cls: 'iv-rec' }) + B('Internal', 'inv-internal', `Internal transfer between wallets on ${ex}`); })()}</div>` : ''}`, '') + '</div>'; }).join('');
+       ${mode === 'platform' && ex !== 'Wallets and other' ? platActs(ex) : ''}`, '') + '</div>'; }).join('');
   // one header card for all the crypto platforms, so the other investments (bonds, government savings, funds) are not buried below a long list of exchanges
   if (crypto.length && ui.collapsed['i-crypto'] === undefined) ui.collapsed['i-crypto'] = byEx.size >= 3;
   const cryptoCard = crypto.length ? `<div class="ivgroup">${coll('i-crypto', `Crypto <small class="muted gsum">${money(exSum(crypto))} · ${byEx.size} ${byEx.size === 1 ? 'place' : 'places'}</small>`, exHtml)}</div>` : exHtml;
   const otherHtml = other.length ? coll('i-other', `Bonds, Savings, and Other Investments <small class="muted gsum">${money(exSum(other))}</small>`, `<div class="rows plain">${other.sort((a, b) => val(db, b, bal.get(b.id) || 0) - val(db, a, bal.get(a.id) || 0)).map((a) => { const b = bal.get(a.id) || 0;
     return `${button({ html: `<i class="badge sm" style="background:var(--line)">${esc((a.name || '?').slice(0, 1))}</i><span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(a.exchange || (a.type === 'invest' ? 'Investment' : 'Other product'))} · ${f2(b, a.cur)}</small></span><span class="ramt"><b>${priced(db, a) ? money(val(db, a, b)) : '<small class="muted">no rate</small>'}</b></span>`, kind: 'plain', cls: 'row acct', act: 'acct', attr: { 'data-id': a.id } })}`; }).join('')}</div>`, '') : '';
-  freshVisit = false;
-  setTimeout(() => { if (ensureUsdt()) window.dispatchEvent(new Event('sukli-render')); }, 30);
-  setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
-  return `<div class="invpage">${hdr('Investments', `${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`)}<div class="btnrow left invact">${button({ label: 'Record activity', kind: 'primary', size: 'sm', act: 'inv-add', cls: 'iv-rec' })} ${button({ label: 'Add asset', kind: 'ghost', size: 'sm', act: 'inv-new', cls: 'iv-add' })} ${button({ label: 'Buying Check', kind: 'ghost', size: 'sm', act: 'buy-check' })}${pendingReview(db).length ? ` ${button({ label: `Review trades (${pendingReview(db).length})`, kind: 'ghost', size: 'sm', act: 'trade-review' })}` : ''} </div>
-    <section class="nwcard one"><div class="nwmain nwsplit"><div class="nwl"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${byEx.size} ${mode === 'type' ? 'type' : mode === 'risk' ? 'group' : 'place'}${byEx.size === 1 ? '' : 's'} · ${other.length} other</small></div>${button({ html: `<span id="ivmini" class="ivmini"></span>`, kind: 'plain', cls: 'ivgraph', act: 'inv-graph', aria: 'Open the graph of your market value over time' })}<small class="updated">${updatedLine(db)}</small></div></section>
+  // ---------- the four sections: Overview, the chosen platform, Calendar, Accounts ----------
+  const cryptoAcc = items.filter((a) => catOf(a) === 'crypto'), catItems = { stock: [], gov: [], other: [] };
+  for (const a of items) if (catOf(a) !== 'crypto') catItems[catOf(a)].push(a);
+  const platMap = new Map();
+  for (const a of cryptoAcc) { const k = platOf(a); if (!platMap.has(k)) platMap.set(k, []); if (showEmpty || keepEmpty(a) || Math.abs(bal.get(a.id) || 0) > 1e-12) platMap.get(k).push(a); }
+  for (const p of (db.settings.platforms || [])) { const e = canonPlatform(p); if (e && !platMap.has(e)) platMap.set(e, []); }
+  const sel = currentPlatform(db), invIds = new Set(live(db.accounts).filter(inInvest).map((a) => a.id));
+  const platPage = () => {
+    if (!sel) return '<p class="empty">No platform yet. Open Accounts, or give an account an exchange or platform in its settings.</p>';
+    const list = platMap.get(sel) || [], accs = cryptoAcc.filter((a) => platOf(a) === sel), ids = new Set(accs.map((a) => a.id)), tot = exSum(list);
+    const pos = [...book.pos].filter(([id]) => ids.has(id)), cost = pos.reduce((q, [, p]) => q + (p && p.qty > 0 ? p.cost : 0), 0);
+    const unrealP = pos.reduce((q, [id, p]) => { const a = accs.find((x) => x.id === id), px = a ? homeFx(db, a.cur) || 0 : 0; return p && p.qty > 0 && p.cost > 0 && px ? q + p.qty * px - p.cost : q; }, 0);
+    const realP = book.realized.filter((x) => ids.has(x.acct)), realAll = realP.reduce((q, x) => q + x.gain, 0), realYr = realP.filter((x) => x.date.startsWith(yr)).reduce((q, x) => q + x.gain, 0);
+    const earnP = earnedTx.filter((t) => ids.has(t.earnAcct || t.acct)), earnAll = earnP.reduce((q, t) => q + eVal(t), 0), pnl = unrealP + realAll + earnAll, pct = cost > 0 ? unrealP / cost * 100 : null;
+    const sgn = (v) => `${v >= 0 ? '+' : '−'}${money(Math.abs(v))}`;
+    const RG = [['1M', 30], ['3M', 91], ['1Y', 365], ['All', 0]], full = valueSeries(db, (a) => ids.has(a.id)), days = (RG.find((r) => r[0] === INV.rg) || RG[3])[1], cut = days ? localDay(new Date(Date.now() - days * 864e5)) : '', sub = days ? full.filter((p) => p.d >= cut) : full, ser = (sub.length >= 2 ? sub : full.slice(-2)).map((p) => ({ l: p.d, v: p.v * invK }));
+    const graph = full.length >= 2 ? `<div class="seg sm small invrg" role="group" aria-label="Range">${RG.map(([l]) => button({ html: l, kind: 'plain', cls: l === INV.rg ? 'on' : '', pressed: l === INV.rg, act: 'inv-range', attr: { 'data-v': l } })).join('')}</div><div class="invline">${lineChart(ser, `${sel} value over time`, (n) => f2(n, invC), 320, false)}</div>
+      <p class="hint">${esc(ser[0].l)} to ${esc(ser[ser.length - 1].l)}. Touch and drag the line to read a day.</p>` : '<p class="hint">Not enough history yet. A point is saved each day something is recorded on this platform or a price changes.</p>';
+    const B = (label, act, aria, o = {}) => button({ label, kind: o.kind || 'ghost', size: 'sm', act, data: 'ex', v: sel, aria, cls: o.cls || '' });
+    const coins = new Set(list.filter((a) => Math.abs(bal.get(a.id) || 0) > 1e-12).map((a) => a.cur)), wl = new Set(list.map((a) => walletOf(a) || 'Other'));
+    const txN = db.txs.filter((t) => !t.deleted && (ids.has(t.acct) || ids.has(t.toAcct))).length;
+    return `<div class="platpage"><section class="t1-card ui-card plathero" style="--pc:${platColor(sel)}"><div class="phead">${platIcon(sel, 'xs')}<b>${esc(sel)}</b>${sel !== 'Wallets and other' ? button({ label: 'Settings', kind: 'link', act: 'plat-open', data: 'ex', v: sel, aria: `Settings for the platform ${sel}` }) : ''}</div>
+        <span class="pl-k">Total asset value</span><b class="pl-v">${money(tot)}</b>${eqLine(db, tot)}
+        <span class="pl-pnl ${cl(pnl)}">${sgn(pnl)}${pct === null ? '' : ` · ${pct >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(2)}% open`} <small class="muted">total profit and loss</small></span></section>
+      <section class="ui-card invcard"><h2 class="invh">Performance</h2>${graph}</section>
+      <section class="ui-card invcard"><h2 class="invh">Profit and Loss</h2><ul class="calfacts">
+        <li><span>Unrealized <small class="muted">still held</small></span><b class="${cl(unrealP)}">${sgn(unrealP)}</b></li>
+        <li><span>Realized <small class="muted">sold</small></span><b class="${cl(realAll)}">${sgn(realAll)}</b></li>
+        <li><span>Realized this year</span><b class="${cl(realYr)}">${sgn(realYr)}</b></li>
+        <li><span>Earned <small class="muted">interest and staking</small></span><b class="${cl(earnAll)}">${sgn(earnAll)}</b></li>
+        <li><span><b>Total profit and loss</b></span><b class="${cl(pnl)}">${sgn(pnl)}</b></li></ul>
+        <p class="hint">Average-cost method, after fees. Units held before using Sukli have no known cost and are left out.</p></section>
+      <section class="ui-card invcard"><h2 class="invh">Other Metrics</h2><ul class="calfacts">
+        <li><span>Cost of what you still hold</span><b>${cost > 0 ? money(cost) : '—'}</b></li>
+        <li><span>Assets held</span><b>${coins.size}</b></li><li><span>Wallets</span><b>${wl.size}</b></li><li><span>Transactions</span><b>${txN}</b></li></ul></section>
+      <section class="ui-card invcard ivplat" style="--pc:${platColor(sel)}"><h2 class="invh">Holdings</h2>${sel !== 'Wallets and other' ? `<div class="platbar">${button({ label: 'Platform Settings', kind: 'link', act: 'plat-open', data: 'ex', v: sel, aria: `Settings for the platform ${sel}` })}</div>` : ''}${list.length ? walletBlocks(list, tot) : '<p class="hint">Nothing in this platform yet.</p>'}${(() => { const n = cryptoAll.filter((a) => platOf(a) === sel).length - list.length; return n > 0 || showEmpty ? `<p class="hint">${showEmpty ? 'Showing empty assets.' : `${n} empty asset${n === 1 ? '' : 's'} hidden.`} ${button({ label: showEmpty ? 'Hide them' : 'Show them', kind: 'link', act: 'inv-empty' })}</p>` : ''; })()}
+        ${sel !== 'Wallets and other' ? platActs(sel) : ''}</section>
+      <section class="ui-card invcard"><h2 class="invh">Transactions on ${esc(sel)}</h2>${txList(db, ids, sel)}</section></div>`;
+  };
+  const cats = CATS.map(([id, title, subt]) => { const l = id === 'crypto' ? [...platMap.values()].flat() : catItems[id], count = id === 'crypto' ? platMap.size : l.length; return { id, title, sub: subt, count, total: money(exSum(l)), one: id === 'crypto' ? 'platform' : 'product', many: id === 'crypto' ? 'platforms' : 'products' }; });
+  const accountsPage = () => {
+    const c = CATS.find((x) => x[0] === INV.cat);
+    if (!c) return `<h2 class="invh">Investment Categories</h2>${categoryCards(cats)}`;
+    const cards = c[0] === 'crypto' ? [...platMap.entries()].sort((x, y) => exSum(y[1]) - exSum(x[1])).map(([n, l]) => platformCard(n, money(exSum(l)), platIcon(n, 'xs'))) : catItems[c[0]].map((a) => productCard(a, money(exSum([a]))));
+    return levelTwo(c, cards);
+  };
+  const overviewHtml = `<div class="btnrow left invact">${button({ label: 'Record activity', kind: 'primary', size: 'sm', act: 'inv-add', cls: 'iv-rec' })} ${button({ label: 'Add asset', kind: 'ghost', size: 'sm', act: 'inv-new', cls: 'iv-add' })} ${button({ label: 'Buying Check', kind: 'ghost', size: 'sm', act: 'buy-check' })}${pendingReview(db).length ? ` ${button({ label: `Review trades (${pendingReview(db).length})`, kind: 'ghost', size: 'sm', act: 'trade-review' })}` : ''} </div>
+    <section class="nwcard one"><div class="nwmain nwsplit"><div class="nwl"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${platMap.size} place${platMap.size === 1 ? '' : 's'} · ${other.length} other</small></div>${button({ html: `<span id="ivmini" class="ivmini"></span>`, kind: 'plain', cls: 'ivgraph', act: 'inv-graph', aria: 'Open the graph of your market value over time' })}<small class="updated">${updatedLine(db)}</small></div></section>
     ${marketBar(db)}${hiddenInvLink(db)}
     ${(() => { const odd = items.map((x) => x.cur).filter((c, i, l) => l.indexOf(c) === i && tickers[c] && oddPrices(tickers[c].history || []).size); return odd.length ? `<p class="hint warnline">A saved price looks wrong for ${odd.map((c) => `${button({ label: tickers[c].ticker || c, kind: 'link', act: 'inv-ticker', data: 'sym', v: c })}`).join(', ')}. Open it and delete the price marked “looks off”; the value and the graph then use the price before it.</p>` : ''; })()}
     ${unpriced.length ? `<p class="hint">No price yet for ${unpriced.map((a) => esc(a.cur)).join(', ')}, so ${unpriced.length === 1 ? 'it is' : 'they are'} left out of the total. Prices load when you are online, or set one in Settings, Exchange rates.</p>` : ''}
-    ${items.length ? `<div class="grprow">${crypto.length ? `<div class="seg sm small" role="group" aria-label="Group by">${[['platform', 'By platform'], ['type', 'By asset type'], ['risk', 'By group']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${mode === v ? 'on' : ''}`, act: 'inv-group', pressed: mode === v, attr: { 'data-v': v } })}`).join('')}</div>` : ''}${button({ html: `${ic('pie')}`, kind: 'plain', cls: 'piebtn', act: 'inv-pie', aria: 'Pie chart of where your money is', title: 'Pie chart' })}</div>${crypto.length && mode === 'risk' ? '<p class="hint">Groups: stablecoins (steady value), major coins, high-volatility coins, stocks, funds. Open a ticker below to move it to another group or make your own.</p>' : ''}` : ''}
-    ${cryptoAll.length && (hiddenN || showEmpty) ? `<p class="hint emptylink">${showEmpty ? 'Showing empty assets too.' : `${hiddenN} empty asset${hiddenN === 1 ? ' is' : 's are'} hidden.`} ${button({ label: showEmpty ? 'Hide empty assets' : 'Show them', kind: 'link', act: 'inv-empty' })}</p>` : ''}
-    ${performanceCard(db, bal, book, items)}${tokenCard(db, book, items)}${feesCard(db, book)}${predictCard(db)}${gains}${dashTabs()}${incomeCard(db)}${cryptoCard}${otherHtml}${tickerCard(db, tickers)}
+    ${items.length ? `<div class="grprow">${button({ html: `${ic('pie')}`, kind: 'plain', cls: 'piebtn', act: 'inv-pie', aria: 'Pie chart of where your money is', title: 'Pie chart' })}</div>` : ''}
+    ${performanceCard(db, bal, book, items)}${tokenCard(db, book, items)}${feesCard(db, book)}${predictCard(db)}${gains}${dashTabs()}${incomeCard(db)}${tickerCard(db, tickers)}
     ${items.length ? '' : '<p class="empty">Nothing here yet. Add an exchange coin, an investment, or any account marked “Show in Investments” (for example MP2).</p>'}
-    <p class="hint">Each coin or share is its own balance at its platform (for example USDT, BNB and NVDA). The line under it shows the amount, what you paid, and today’s price; the right side is the value in ${invC}. ${button({ label: 'Words explained', kind: 'link', act: 'glossary' })}</p></div>`;
+    <p class="hint">Each coin or share is its own balance at its platform (for example USDT, BNB and NVDA). Open Accounts to browse by category and platform. ${button({ label: 'Words explained', kind: 'link', act: 'glossary' })}</p>`;
+  const secBody = INV.sec === 'platform' ? platPage() : INV.sec === 'calendar' ? invCalendar(db, invIds, money) : INV.sec === 'accounts' ? accountsPage() : overviewHtml;
+  freshVisit = false;
+  setTimeout(() => { if (ensureUsdt()) window.dispatchEvent(new Event('sukli-render')); }, 30);
+  setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
+  return `<div class="invpage sec-${INV.sec}">${hdr('Investments', `${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`)}${secBody}</div>`;
 }
 
 // manual tickers: any coin, token, stock or fund, on any platform or market (Tokyo, Korea, NASDAQ...), kept apart from real currencies

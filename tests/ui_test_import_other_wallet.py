@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 # v15.21: Bluecoins import: unmatched investment accounts become wallet "Other" (never guessed Spot), with an empty USDT line
 from playwright.sync_api import sync_playwright
 CSV='/home/claude/Transactions.csv'; res=[]
@@ -20,7 +21,7 @@ with sync_playwright() as p:
     ok('Bybit accounts keep their names and are Other %s'%R['bybit'], len(R['bybit'])>=1 and all(x.endswith('|Other') for x in R['bybit']))
     ok('each platform with an Other wallet has a USDT line %s'%R['usdtOther'], 'Bybit' in R['usdtOther'] and 'OKX' in R['usdtOther'])
     ok('all entries still belong to an account (%s txs)'%R['txs'], R['orphans']==0 and R['txs']>1000)
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(600); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
+    go_invest(pg,'Bybit'); pg.wait_for_timeout(600); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
     ok('Other tab is shown on Investments', pg.locator('.segi:has-text("Other")').count()>=1)
     ok('no errors %s'%errs, not errs)
 print('fails',res.count(False))

@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 # v13.52: category pictures + library, clock first, item buttons/calculator/placeholder, Internal option, coin icons in Investments
 import re
 from playwright.sync_api import sync_playwright
@@ -36,7 +37,7 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelector('#catform').requestSubmit()"); pg.wait_for_timeout(500)
     ok('chosen picture saved on the category', J("return c.get().categories.find(x=>x.id==='%s').icon"%cid)=='paw' if False else pg.evaluate("(async()=>{const c=await import('/js/core.js');return c.get().categories.find(x=>x.id==='%s').icon})()"%cid)=='paw')
     # Investments: coin badge
-    pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(900)
+    go_invest(pg,None); pg.click('.segi:has-text("Spot")'); pg.wait_for_timeout(500)
     ok('Investments rows show the coin badge', pg.locator('.row.acct .coin').count()>=1)
     # clock is visible without scrolling
     pg.evaluate("location.hash='#/'"); pg.wait_for_timeout(300)

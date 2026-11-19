@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 # v15.26/15.28: an account cannot be changed to Earn (edit form and wallet-move); Earn has Transfer In/Out in place of Record; Rename Platform lives in Platform Settings
 from playwright.sync_api import sync_playwright
 CSV='/home/claude/Transactions.csv'; res=[]
@@ -10,7 +11,7 @@ with sync_playwright() as p:
     pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{
       const A=(id,name,wallet,open)=>d.accounts.push(c.stamp({id,name,cur:'USDT',type:'crypto',open,include:false,archived:false,exchange:'ZzEx',wallet,invtab:true}));
       A('zs','ZzEx Spot USDT','Spot',100);A('ze','ZzEx Earn USDT','Earn',50);A('zm','ZzEx Margin USDT','Margin',20);})})()""")
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(500)
+    go_invest(pg,'ZzEx'); pg.wait_for_timeout(500)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
     box=pg.locator('.ivplat:has(.segi:has-text("Earn"))').first
     ok('Spot selected: no Earn transfer button; bottom row has Record and Internal, and no + Asset', box.locator('[data-act=inv-add]').count()==1 and box.locator('[data-act=inv-coin]').count()==0 and box.locator('[data-act=inv-internal]').count()==1)

@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 from playwright.sync_api import sync_playwright
 def ok(n,c): print(('PASS ' if c else 'FAIL ')+n)
 with sync_playwright() as p:
@@ -10,7 +11,7 @@ with sync_playwright() as p:
       const A=(id,name,cur,ex,w,amt)=>{d.accounts.push(c.stamp({id,name,type:'crypto',cur,exchange:ex,wallet:w,include:true,invtab:true}));d.txs.push(c.stamp({id:'t'+id,kind:'income',date:c.nowStamp(),acct:id,cur,fx:1,amount:amt,name:'dep',cat:'',items:[],toAcct:'',toAmount:null,fee:0,notes:'',labels:'',flag:null,createdAt:Date.now()}))};
       A('b1','Binance BTC','BTC','Binance','Spot',1);A('b2','Binance USDT','USDT','Binance','Spot',500);A('b3','Binance BTC Earn','BTC','Binance','Earn',2);
       A('y1','Bybit BTC','BTC','Bybit','Spot',0.5);A('y2','Bybit USDT','USDT','Bybit','Spot',300);A('y3','Bybit ETH','ETH','Bybit','Spot',4)})""")
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(1200)
+    go_invest(pg,'Binance')
     # per-platform Overview tab (not in the group bar)
     t=pg.inner_text('#view')
     ok('no Overview in group bar', pg.locator('[data-act=inv-group]').filter(has_text='Overview').count()==0)

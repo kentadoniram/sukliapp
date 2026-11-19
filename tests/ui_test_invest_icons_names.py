@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 # v15.10: investment asset icons (manual pictures kept, renamed imports, unknown coins) and "Platform (Wallet) Asset" names
 from playwright.sync_api import sync_playwright
 import pkhelp; pkhelp.patch()
@@ -24,7 +25,7 @@ with sync_playwright() as p:
     ok('renamed Bitget USD is not a US flag', '🇺🇸' not in r['usd']['html'] and r['usd']['coin'])
     ok('USDGO shows a coin badge, not a flag or flag letter', r['usdgo']['coin'] and 'usdlike' in r['usdgo']['html'])
     ok('a picture you chose is kept over the BTC logo and the code', r['manualBtc'].get('manual') and 'btc.svg' not in r['manualBtc']['html'] and r['manual'].get('manual'))
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.hold',state='attached',timeout=8000); pg.wait_for_timeout(500)
+    go_invest(pg,'Bitget'); pg.wait_for_selector('.hold',state='attached',timeout=8000); pg.wait_for_timeout(500)
     rows=pg.evaluate("[...document.querySelectorAll('.hold')].map(r=>[r.querySelector('strong').innerText.trim(), r.querySelector('.badge').innerHTML.includes('<img')?'img':r.querySelector('.badge').innerHTML.includes('<svg')?'svg':r.querySelector('.badge').innerText.trim()])")
     print(rows[:12])
     ok('Bitget rows show no US flag', not any('🇺🇸' in x[1] and 'Bitget' in x[0] for x in rows))

@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 # v15.30: segmented controls select ONE option; one Transfer In/Out in Earn; + Asset only in Platform Settings and it reaches every trading account
 from playwright.sync_api import sync_playwright
 CSV='/home/claude/Transactions.csv'; res=[]
@@ -10,7 +11,7 @@ with sync_playwright() as p:
     pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{
       const A=(id,name,wallet,open)=>d.accounts.push(c.stamp({id,name,cur:'USDT',type:'crypto',open,include:false,archived:false,exchange:'ZzEx',wallet,invtab:true}));
       A('zs','ZzEx Spot USDT','Spot',100);A('ze','ZzEx Earn USDT','Earn',50);A('zm','ZzEx Margin USDT','Margin',20);})})()""")
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(500)
+    go_invest(pg,'ZzEx'); pg.wait_for_timeout(500)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
     box=pg.locator('.ivplat:has(.segi:has-text("Earn"))').first
     ok('exchange card: exactly one segment selected', box.locator('.segi.on').count()==1)
@@ -29,7 +30,7 @@ with sync_playwright() as p:
     ok('BONK exists in Spot, Earn and Margin and every other trading account (%s)'%w, {'Spot','Earn','Margin'}<=set(w) and len(w)==len(set(w)))
     pg.evaluate("(async()=>{const m=await import('/js/platform.js');m.openPlatform('ZzEx')})()"); pg.wait_for_selector('.platset'); 
     ok('Platform Settings has + Asset (Add Asset) and Rename Platform stays here', pg.locator('.platset [data-do=inv-coin]').count()==1 and pg.locator('.platset [data-do=inv-rename]').count()==1)
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.dashcard',timeout=8000); pg.wait_for_timeout(300)
+    go_invest(pg,'ZzEx',sec='overview'); pg.wait_for_selector('.dashcard',timeout=8000); pg.wait_for_timeout(300)
     labs=pg.locator('.dashcard .segi').all_inner_texts()
     ok('all five dashboard sections are always listed %s'%labs, {'Performance','Per-Token Performance','Fees and Losses','Prediction','Realized Gains'}<=set(labs))
     pg.click('.dashcard .segi:has-text("Realized Gains")'); pg.wait_for_timeout(300)

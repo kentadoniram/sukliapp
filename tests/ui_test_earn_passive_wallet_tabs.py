@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 # v15.19: Earn is passive (no trade/hand-made entries/form transfers; Internal Transfer + Interest only); Investments shows one wallet at a time as tabs
 from playwright.sync_api import sync_playwright
 CSV='/home/claude/Transactions.csv'; res=[]
@@ -10,7 +11,7 @@ with sync_playwright() as p:
     pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.invOpen='last';
       const A=(id,name,wallet,open)=>d.accounts.push(c.stamp({id,name,cur:'USDT',type:'crypto',open,include:false,archived:false,exchange:'ZzEx',wallet,invtab:true}));
       A('zs','ZzEx Spot USDT','Spot',100);A('ze','ZzEx Earn USDT','Earn',50);A('zf','ZzEx Fut USDT','Futures',30);A('zm','ZzEx Margin USDT','Margin',20);})})()""")
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(500)
+    go_invest(pg,'ZzEx'); pg.wait_for_timeout(500)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
     box=pg.locator('.ivplat:has(.segi:has-text("Earn"))').first
     tabs=box.locator('.segi').all_inner_texts()
@@ -19,7 +20,7 @@ with sync_playwright() as p:
     box.locator('.segi:has-text("Earn")').click(); pg.wait_for_timeout(500)
     box=pg.locator('.ivplat:has(.segi:has-text("Earn"))').first
     ok('Earn selected (replaces Spot): only the Earn block shows, with its own asset and the passive note', box.locator('.wblock').count()==1 and box.locator('.wblock[data-w=Earn] .hold').count()==1 and 'Earn only collects interest' in box.locator('.wblock[data-w=Earn]').text_content())
-    pg.reload(); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(500); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
+    pg.reload(); pg.wait_for_selector('.ivplat'); pg.wait_for_timeout(500); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
     ok('choice remembered (only Earn is selected)', pg.locator('.ivplat:has(.segi:has-text("Earn")) .segi.on').all_inner_texts()==['Earn'])
     # form refuses entries on Earn
     R=pg.evaluate("""(async()=>{const m=await import('/js/entry.js');m.openEntry({preset:{kind:'expense',acct:'ze'}});return 1})()""")

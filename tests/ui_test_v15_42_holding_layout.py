@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 from playwright.sync_api import sync_playwright
 def ok(n,c): print(('PASS ' if c else 'FAIL ')+n)
 with sync_playwright() as p:
@@ -9,7 +10,7 @@ with sync_playwright() as p:
     J("""c.commit(d=>{d.settings.mode='advanced';d.settings.invOpen='spot';d.settings.invCur='USD';d.settings.rates={USD:56,BTC:5600000,USDT:56,SHIB:0.0014};
       const A=(id,name,cur,ex,w,amt)=>{d.accounts.push(c.stamp({id,name,type:'crypto',cur,exchange:ex,wallet:w,include:true,invtab:true}));d.txs.push(c.stamp({id:'t'+id,kind:'income',date:c.nowStamp(),acct:id,cur,fx:1,amount:amt,name:'dep',cat:'',items:[],toAcct:'',toAmount:null,fee:0,notes:'',labels:'',flag:null,createdAt:Date.now()}))};
       A('b1','Binance BTC','BTC','Binance','Spot',0.005);A('b2','Binance USDT','USDT','Binance','Spot',123456.789);A('b3','Binance BTC Earn','BTC','Binance','Earn',2);A('b4','Binance SHIB','SHIB','Binance','Spot',987654321.12345);d.txs.find(t=>t.id==='tb1').trade={side:'buy',asset:'b1',qty:0.005,valueHome:30000,feeHome:0}})""")
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(1200); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); pg.wait_for_timeout(300)
+    go_invest(pg,'Binance'); pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); pg.wait_for_timeout(300)
     pg.screenshot(path='/tmp/h2.png',full_page=True)
     r=pg.evaluate("""[...document.querySelectorAll('.hold2')].map(h=>{const g=s=>h.querySelector(s).getBoundingClientRect(),c=h.closest('.wblock').getBoundingClientRect();
       return {name:h.querySelector('.hl1').innerText,qty:h.querySelector('.hr1').innerText,pnl:h.querySelector('.hl2').innerText,val:h.querySelector('.hr2').innerText.replace(/\\n/g,' '),

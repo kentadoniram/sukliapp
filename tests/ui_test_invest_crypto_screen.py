@@ -1,3 +1,4 @@
+from tests.invnavhelp import go_invest
 from playwright.sync_api import sync_playwright
 import pkhelp; pkhelp.patch()
 CSV='/home/claude/Transactions.csv'
@@ -11,19 +12,20 @@ with sync_playwright() as p:
     pg.goto(U); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
     pg.goto(U+'#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(300)
-    pkhelp.open_all(pg); t=pg.inner_text('#view'); ok('investments screen from imported crypto', 'Market value' in t and ('bybit' in t.lower() or 'binance' in t.lower() or 'bitget' in t.lower()))
+    pkhelp.open_all(pg); t=pg.inner_text('#view'); ok('investments screen from imported crypto', 'Market value' in t and any(x in pg.inner_text('.tabs').lower() for x in ('bybit','binance','bitget','kucoin','okx')))
     print(t[:400].replace('\n',' | '))
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic')
     pg.fill('#ic [name=ex]','Binance'); pg.fill('#ic [name=coin]','sol'); pg.fill('#ic [name=amt]','2.5'); pg.click('#ic .btn:not(.ghost)'); pg.wait_for_timeout(600)
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic')
     pg.fill('#ic [name=ex]','Binance'); pg.fill('#ic [name=coin]','btc'); pg.fill('#ic [name=amt]','0.01'); pg.click('#ic .btn:not(.ghost)'); pg.wait_for_timeout(600)
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)"); pg.wait_for_timeout(200)
-    t=pg.inner_text('#view'); ok('both coins listed under Binance', 'SOL' in t and 'BTC' in t and 'binance' in t.lower())
+    go_invest(pg,'Binance'); t=pg.inner_text('#view'); ok('both coins listed under Binance', 'SOL' in t and 'BTC' in t and 'binance' in t.lower())
     ok('coin balance shown', '2.5' in t)
-    pg.click('[data-act=inv-new]'); pg.click('[data-k=acct]'); pg.wait_for_selector('#acct-form'); pg.fill('[name=name]','MP2 Pag-IBIG'); pg.fill('[name=open]','50000')
+    go_invest(pg,None,sec='overview'); pg.click('[data-act=inv-new]'); pg.click('[data-k=acct]'); pg.wait_for_selector('#acct-form'); pg.fill('[name=name]','MP2 Pag-IBIG'); pg.fill('[name=open]','50000')
     ok('invtab ticked for investment type', pg.is_checked('[name=invtab]'))
     pg.click('#acct-form button:text-is("Save")'); pg.wait_for_timeout(700)
-    t=pg.inner_text('#view'); ok('MP2 in other products', 'MP2 Pag-IBIG' in t and 'Bonds, Savings, and Other Investments' in t)
+    pg.evaluate("async()=>{const m=await import('/js/invnav.js');m.INV.sec='accounts';m.INV.cat='gov';window.dispatchEvent(new Event('sukli-render'))}"); pg.wait_for_timeout(400)
+    t=pg.inner_text('#view'); ok('MP2 in Government Bonds (Accounts, level 2)', 'MP2 Pag-IBIG' in t)
     pg.goto(U+'#/settings'); pg.wait_for_timeout(500)   # 13.54: Invest is already one of the five default bottom tabs
     ok('Invest tab can be put in the bar', 'Invest' in pg.inner_text('#tabs'))
     ok('no errors', not errs); print(errs[:5])
