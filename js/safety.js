@@ -1,5 +1,5 @@
 // Spending safety: before an expense is saved, compare it with income, real cash, card bills and budgets.
-import { monthParts, balances, rateFor, catMap, fmt } from './core.js';
+import { monthParts, balances, homeFx, catMap, fmt, HOME } from './core.js';
 import { cardInfo, today } from './finance.js';
 
 export const SAFE_DEFAULT = { period: 'month', warnAt: 80, cardPct: 50, reserve: 0 };
@@ -12,7 +12,7 @@ export function safetyCheck(db, p) {
   const cfg = safeCfg(db), t0 = today(), [y, m, d] = t0.split('-').map(Number);
   const a = db.accounts.find((x) => x.id === p.acct);
   if (!a || !(p.amount > 0)) return [];
-  const rate = rateFor(db, a.cur) || 1, x = p.amount * rate, money = (v) => fmt(v);
+  const x = p.amount * (homeFx(db, a.cur) || 0), money = (v) => fmt(v, HOME);
   const pad = (n) => String(n).padStart(2, '0'), ymd = (dt) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
   const start = cfg.period === 'rolling30' ? ymd(new Date(y, m - 1, d - 29)) : `${y}-${pad(m)}-01`;
   const months = [...new Set([start.slice(0, 7), t0.slice(0, 7)])];
@@ -20,10 +20,10 @@ export function safetyCheck(db, p) {
   const income = sum(parts.filter((q) => q.kind === 'income').map((q) => q.v));
   const spent = sum(parts.filter((q) => q.kind !== 'income').map((q) => q.v));
   const bal = balances(db), live = db.accounts.filter((z) => !z.deleted && !z.archived);
-  const cash = sum(live.filter((z) => z.include && !NOT_CASH.includes(z.type)).map((z) => (bal.get(z.id) || 0) * (rateFor(db, z.cur) || 1)));
+  const cash = sum(live.filter((z) => z.include && !NOT_CASH.includes(z.type)).map((z) => (bal.get(z.id) || 0) * (homeFx(db, z.cur) || 0)));
   let cardOwed = 0, dueSoon = 0;
   for (const z of live.filter((c) => c.type === 'card')) {
-    const c = cardInfo(db, z, bal.get(z.id)), r = rateFor(db, z.cur) || 1;
+    const c = cardInfo(db, z, bal.get(z.id)), r = homeFx(db, z.cur) || 0;
     cardOwed += c.owed * r;
     if (c.cycle) { if (c.cycle.days <= 30) dueSoon += c.cycle.amountDue * r; } else if (c.due && c.days <= 30) dueSoon += c.owed * r;
   }

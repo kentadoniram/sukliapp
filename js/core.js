@@ -77,6 +77,8 @@ export const priv = {
 export const UNIT_DEC = { BTC: 8, LTC: 8, SOL: 9, USDT: 6, USDC: 6, FDUSD: 6, DAI: 9, ETH: 9, BNB: 9, XRP: 6, TRX: 6, TON: 9, DOGE: 8, ADA: 6, MATIC: 9 };
 export const unitDec = (cur) => (UNIT_DEC[cur] != null ? UNIT_DEC[cur] : CRYPTO.includes(cur) ? 9 : 6);
 export const r9 = (x) => { const v = Number((+x || 0).toFixed(9)); return Object.is(v, -0) ? 0 : v; };
+export const toRaw = (x, cur) => Math.round(r9(x) * Math.pow(10, unitDec(cur)));            // integer raw units
+export const fromRaw = (n, cur) => r9(n / Math.pow(10, unitDec(cur)));
 export const qtyR = (x) => r9(x);   // saved amounts keep all 9 decimals whatever the coin, so "All" can never leave dust behind (older balances may have more digits than the coin's own unit)
 export const exactAmt = (n) => { const t = Math.abs(n) < 5e-10 ? '0' : (+n).toFixed(9); return t.includes('.') ? t.replace(/\.?0+$/, '') : t; };
 export function fmt(n, cur = BASE, opts = {}) {

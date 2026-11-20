@@ -35,7 +35,7 @@ export function binRows(db) {
     } else if (it.kind === 'account') rows.push({ type: 'Account', title: r.name, sub: `${r.cur} · its entries stay saved`, at: it.at, ids: [[it.coll, r.id]] });
     else if (it.kind === 'goal') rows.push({ type: 'Savings Goal', title: r.name, sub: `Target ${fmt(r.target || 0, HOME)}`, at: it.at, ids: [[it.coll, r.id]] });
     else if (it.kind === 'category') rows.push({ type: 'Category', title: r.name, sub: r.group || '', at: it.at, ids: [[it.coll, r.id]] });
-    else rows.push({ type: 'Budget', title: r.group || 'Budget', sub: r.amount ? fmt(r.amount, 'PHP') : '', at: it.at, ids: [[it.coll, r.id]] });
+    else rows.push({ type: 'Budget', title: r.group || 'Budget', sub: r.amount ? fmt(r.amount, HOME) : '', at: it.at, ids: [[it.coll, r.id]] });
   }
   return rows.sort((a, b) => b.at - a.at);
 }

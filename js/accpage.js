@@ -212,7 +212,7 @@ function openNetWorth() {
   for (let i = 11; i >= 0; i--) {
     const ym = shiftMonth(thisMonth(), -i), last = i === 0 ? '9999-12-31' : ym + '-31 23:59:59';
     const b = balances(db, last);
-    let v = 0; for (const a of live(db.accounts)) v += (b.get(a.id) || 0) * (rateFor(db, a.cur) || 0);
+    let v = 0; for (const a of live(db.accounts)) v += (b.get(a.id) || 0) * (homeFx(db, a.cur) || 0);
     pts.push({ ym, v });
   }
   const mx = Math.max(1, ...pts.map((p) => Math.abs(p.v))), W = 320, H = 110, bw = W / pts.length, mid = pts.some((p) => p.v < 0) ? 70 : H - 18;
@@ -226,7 +226,7 @@ function openNetWorth() {
     <span class="rmain"><strong>${esc(i.a.name)}</strong><small>${esc(typeNames[i.a.type] || i.a.type)}</small></span>
     <span class="ramt"><b class="${i.base < 0 ? 'neg' : ''}">${money(i.base)}</b>${i.a.cur !== HOME ? `<small>${money(i.v, i.a.cur)}</small>` : ''}</span>`, kind: 'plain', cls: 'row acct', act: 'acct', attr: { 'data-id': i.a.id } })}`;
   s.el.querySelector('#nw').innerHTML = `
-    <div class="gdhead"><b class="big ${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b><span class="muted">Assets ${money(nw.assets)} − debts ${money(nw.debts)}, in ${BASE} at your current rates.</span></div>
+    <div class="gdhead"><b class="big ${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b><span class="muted">Assets ${money(nw.assets)} − debts ${money(nw.debts)}, in ${HOME} at your current rates.</span></div>
     <h3>Last 12 months <small class="muted">(today’s rates · tap a bar)</small></h3>
     <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Net worth at each month end"><line x1="0" x2="${W}" y1="${mid}" y2="${mid}" stroke="var(--rule)"/>${bars}</svg>
     <h3>By Kind</h3>${types.map(([k, v]) => `<div class="gbar" data-tip="${esc(`${typeNames[k] || k}: ${money(v)}`)}"><i class="badge sm" style="background:${groupColor(k)}">${groupLetter(typeNames[k] || k)}</i>

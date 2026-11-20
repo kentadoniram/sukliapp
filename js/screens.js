@@ -214,8 +214,9 @@ ACT.sumflip = (el) => {
   c.querySelector('.sc-front').toggleAttribute('inert', FACE.worth); c.querySelector('.sc-front').setAttribute('aria-hidden', String(FACE.worth));
   c.querySelector('.sc-back').toggleAttribute('inert', !FACE.worth); c.querySelector('.sc-back').setAttribute('aria-hidden', String(!FACE.worth));
 };
+export const summaryCard = mainHomeCard;
 
-function spendable(db) {
+export function spendable(db) {
   const bal = balances(db);
   const by = new Map(); let total = 0, missing = [];
   for (const a of db.accounts) {
@@ -223,7 +224,7 @@ function spendable(db) {
     const v = bal.get(a.id) || 0;
     by.set(a.cur, (by.get(a.cur) || 0) + v);
   }
-  for (const [cur, v] of by) { const r = rateFor(db, cur); if (r > 0) total += v * r; else if (Math.abs(v) > 0.005) missing.push(cur); }
+  for (const [cur, v] of by) { const r = homeFx(db, cur); if (r > 0) total += v * r; else if (Math.abs(v) > 0.005) missing.push(cur); }
   return { by, total, missing };
 }
 

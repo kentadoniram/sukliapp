@@ -98,6 +98,24 @@ function turn(bmp, deg) {
   const g = c.getContext('2d'); g.translate(c.width / 2, c.height / 2); g.rotate((deg * Math.PI) / 180); g.drawImage(bmp, -bmp.width / 2, -bmp.height / 2);
   return c;
 }
+// do the text lines run across the picture ('h', upright or upside down) or up and down ('v', a sideways photo)? Lines of text make the ink
+// bunch up in rows; the direction with the stronger bunching is the direction of the lines.
+export async function textAxis(file) {
+  const bmp = await loadSource(file, { cap: 1000 });
+  const s0 = Math.min(1, 700 / Math.max(bmp.width, bmp.height)), w = Math.round(bmp.width * s0), h = Math.round(bmp.height * s0);
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(bmp, 0, 0, w, h);
+  const d = g.getImageData(0, 0, w, h).data, lum = new Uint8Array(w * h);
+  for (let i = 0; i < lum.length; i++) lum[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0;
+  const box = paperBox(lum, w, h), x0 = Math.floor(box.x), y0 = Math.floor(box.y), bw = Math.floor(box.w), bh = Math.floor(box.h);
+  const ink = binarise(lum, w, h, Math.max(15, Math.round(w / 25)) | 1, 0.8);
+  const rows = new Float64Array(bh), cols = new Float64Array(bw);
+  for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) if (ink[(y0 + y) * w + x0 + x] === 0) { rows[y]++; cols[x]++; }
+  // strength = how much neighbouring lines differ (text rows alternate ink and gap), normalised by the mean
+  const rough = (a) => { let m = 0, v = 0; for (const x of a) m += x; m /= a.length || 1; for (let i = 1; i < a.length; i++) v += Math.abs(a[i] - a[i - 1]); return m ? v / a.length / m : 0; };
+  const rr = rough(rows), rc = rough(cols);
+  releaseSource(bmp); c.width = 0; c.height = 0;
+  return { axis: rr >= rc ? 'h' : 'v', rows: rr, cols: rc };
+}
 // `file` may be a photo file or a picture already loaded with loadSource() (then it is left open for the next step).
 export async function prepareReceipt(file, { target = 1500, k = 0.86, crop = true, binarise: bin = true, rot = 0, deskew = (typeof window === 'undefined' || window.__deskew !== false) } = {}) {
   const own = file instanceof Blob, bmp0 = await loadSource(file), turned = turn(bmp0, rot), mine = [];

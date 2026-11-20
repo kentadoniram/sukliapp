@@ -1,6 +1,7 @@
 // Live exchange rates from a free, keyless source (open.er-api.com, updated daily; crypto prices from CoinGecko).
 // Rates are only ever used for NEW entries and for today's balances: every saved entry keeps the rate it was made with.
-import { get, commitQuiet, allCurrencies, CRYPTO, today } from './core.js';
+import { get, commitQuiet, allCurrencies, CRYPTO } from './core.js';
+import { dayIn, UTC } from './timezone.js';
 
 const FIAT_URL = 'https://open.er-api.com/v6/latest/USD';
 const COINS = { BTC: 'bitcoin', ETH: 'ethereum', BNB: 'binancecoin', SOL: 'solana', XRP: 'ripple', DOGE: 'dogecoin', TON: 'the-open-network', TRX: 'tron', ADA: 'cardano', LTC: 'litecoin', MATIC: 'matic-network', BGB: 'bitget-token' };
@@ -35,7 +36,7 @@ export async function fetchRates({ quiet = false } = {}) {
   commitQuiet((d) => {
     d.settings.live = { ts: Date.now(), usd };
     // keep a daily price history for coins you hold, so Investments can show how a price moved from one update to the next
-    const day = today(); d.settings.tickers = d.settings.tickers || {};
+    const day = dayIn(Date.now(), UTC); d.settings.tickers = d.settings.tickers || {};
     for (const a of d.accounts) { if (a.deleted || a.type !== 'crypto' || !(usd[a.cur] > 0) || a.cur === 'USDT' || a.cur === 'USDC') continue;
       const tk = d.settings.tickers[a.cur] || (d.settings.tickers[a.cur] = { ticker: a.cur, name: '', assetType: 'crypto', quote: 'USD', live: true }); tk.live = true; tk.quote = tk.quote || 'USD';
       const px = +(1 / usd[a.cur]).toPrecision(8), h = tk.history = tk.history || [];

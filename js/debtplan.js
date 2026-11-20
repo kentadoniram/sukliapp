@@ -74,6 +74,7 @@ export function learnMonths(txs, toHome, thisMonth, shiftMonth, classify = () =>
     cats: [...cats.values()].map((c) => ({ name: c.name, cls: c.cls, avg: c.total / rows.length })).sort((a, b) => b.avg - a.avg) };
 }
 // kept for older callers
+export const learnBudget = (txs, toHome, thisMonth, shiftMonth) => { const m = learnMonths(txs, toHome, thisMonth, shiftMonth); return m && { months: m.months, income: m.income, spend: m.spend, free: m.free }; };
 
 // How much can go to debts this month. safe = income minus usual living costs; a cushion of 10% of income is kept back, and the share cap keeps the suggestion from eating the whole income.
 // A figure you typed is respected up to that room, or fully when force is on.

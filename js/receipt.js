@@ -388,6 +388,11 @@ export function parseBoth(a, b, opts = {}) {
   return settle(out);
 }
 
+// kept for older callers
+export function bestLines(a, b, opts = {}) {
+  const score = (lines) => { const r = parseReceipt(lines, opts); return (r.total ? 2 * r.total.conf : 0) + (r.date ? r.date.conf : 0) + (r.merchant ? r.merchant.conf : 0) + (r.check && r.check.ok ? 0.5 : 0) + (r.check && r.check.ok === false ? -0.3 : 0); };
+  return score(b) > score(a) ? b : a;
+}
 
 // Two photos of one long receipt, top part then next part, overlapping by a few lines: drop the lines that are read twice.
 export function joinLines(A, B, maxOverlap = 18) {

@@ -70,6 +70,7 @@ ACT['income-set'] = () => {
   s.el.querySelector('form').onsubmit = (e) => { e.preventDefault(); const n = num(e.target.v.value); s.close(); commit((d) => { if (n > 0) d.settings.incomeTyped = n; else delete d.settings.incomeTyped; }); toast(n > 0 ? 'Saved.' : 'Removed.'); };
 };
 ACT['income-clear'] = async () => { if (!(await confirmDialog('Remove the income you typed? Sukli will use your entries only.', 'Remove', true))) return; commit((d) => { delete d.settings.incomeTyped; }); toast('Removed.'); };
+export const learnedFor = (db, txs, toHome, classify) => learnMonths(txs, toHome, thisMonth(), shiftMonth, classify);
 
 // ---------- buying check: looks at YOU, never says buy or sell ----------
 export function buyCheck(db, amount, debtRows = []) {

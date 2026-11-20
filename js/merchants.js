@@ -27,6 +27,7 @@ export function merchantKey(name) {
   s = s.replace(PLACES, ' ').replace(/[#\d()\[\]*_\-\/.,:;'"’]+/g, ' ').replace(/\s+/g, ' ').trim();
   return s || String(name).toLowerCase().trim();   // branch words and digits are gone; different shops stay different
 }
+export function sameMerchant(a, b) { const x = merchantKey(a), y = merchantKey(b); return !!x && x === y; }
 
 // Names already in your history that look like a new one but are not yet decided: "starbucks antipolo" vs "starbucks tagaytay",
 // or "tennis socks" vs "tennis". Never merged automatically: you decide.

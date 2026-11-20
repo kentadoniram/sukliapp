@@ -16,6 +16,7 @@ export const TOP_TOKENS = [
   ['OP', 'Optimism', 'optimism'], ['CRO', 'Cronos', 'crypto-com-chain'], ['USDE', 'Ethena USDe', 'ethena-usde'], ['FDUSD', 'First Digital USD', 'first-digital-usd'], ['WLD', 'Worldcoin', 'worldcoin-wld'],
   ['SEI', 'Sei', 'sei-network'], ['JUP', 'Jupiter', 'jupiter-exchange-solana'], ['BONK', 'Bonk', 'bonk'], ['FET', 'Artificial Superintelligence Alliance', 'artificial-superintelligence-alliance'], ['TIA', 'Celestia', 'celestia'],
 ].map(([c, n, cg]) => ({ c, n, cg }));
+export const TOP_SET = new Set(TOP_TOKENS.map((t) => t.c));
 
 // the kinds of account each exchange offers (they differ by exchange); anything else you already use is added to the list
 const DEFAULT_ACCTS = ['Spot', 'Margin', 'Futures', 'Options', 'Earn', 'Funding', 'ETF', 'TradFi'];

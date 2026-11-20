@@ -20,6 +20,7 @@ const niceDate = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').ma
 const monthYear = (dn) => new Date(dn * 864e5 + 12 * 36e5).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 const MONTH = 30.4375;
 
+export const GOAL_ICONS = ['plane', 'laptop', 'house', 'shield', 'gift', 'car', 'bike', 'phone', 'camera', 'book', 'heart', 'star'];
 export const IDEAS = [['Travel Fund', 'plane'], ['Laptop', 'laptop'], ['House', 'house'], ['Emergency Fund', 'shield'], ['Gift', 'gift'], ['Gadget', 'phone'], ['Wedding', 'heart'], ['Leisure', 'star']];
 const autoIcon = (name) => { const t = String(name || '').toLowerCase(); for (const [re, k] of [[/travel|trip|japan|flight|vacation|holiday|tour/, 'plane'], [/laptop|computer|pc\b|macbook/, 'laptop'], [/house|home|condo|lot\b|rent/, 'house'], [/emergency|rainy|safety/, 'shield'], [/gift|birthday|christmas/, 'gift'], [/car\b|motor|vehicle/, 'car'], [/bike|bicycle/, 'bike'], [/phone|iphone|gadget|tablet|ipad/, 'phone'], [/camera/, 'camera'], [/study|school|course|book/, 'book'], [/wedding|date|anniversary/, 'heart']]) if (re.test(t)) return k; return 'star'; };
 

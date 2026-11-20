@@ -9,6 +9,7 @@ import { enhanceSelect, pickAll, pickerList } from './picker.js';
 import { tipBtn } from './interest.js';
 import { addDays } from './rolling.js';
 import { INV_RANGES } from './config.js';
+import { priceDay, platformDay, zoneFor, zoneLabel } from './timezone.js';
 import { groupColor, compact, WALLETS, WALLET_INFO, walletOf, accLabel, get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, today, findOrAddCategory, factorFor, allCurrencies, ensureCurrency } from './core.js';
 import { ACT, sheet, ic, esc, toast, promptDialog, confirmDialog } from './ui.js';
 import { hdr, backHdr, coll, pieLabels, ui } from './screens.js';
@@ -386,7 +387,7 @@ ACT['inv-price'] = async (el) => {
   const k = el.dataset.sym, t = (get().settings.tickers || {})[k]; if (!t) return;
   const v = await promptDialog(`Price of 1 ${t.ticker || k} in ${t.quote || 'USD'}`, t.price > 0 ? String(t.price) : '', { type: 'number' });
   if (v == null) return; const n = parseFloat(v); if (!(n > 0)) return;
-  commit((d) => { d.settings.tickers[k].price = n; d.settings.tickers[k].priceDate = today(); pushHistory(d.settings.tickers[k], n, d.settings.tickers[k].quote, 'manual'); });
+  commit((d) => { d.settings.tickers[k].price = n; const ac = d.accounts.find((x) => !x.deleted && x.cur === k); d.settings.tickers[k].priceDate = priceDay(d, d.settings.tickers[k], ac); pushHistory(d.settings.tickers[k], n, d.settings.tickers[k].quote, 'manual', ac); });
 };
 // every currency and coin for the Price currency list: the usual ones first, then what you already use, then the rest
 function quoteOptions(sel) {
@@ -462,7 +463,7 @@ export function addAsset(pre = {}) {
     commit((d) => {
       d.settings.tickers = d.settings.tickers || {}; const old = d.settings.tickers[sym] || {};
       d.settings.tickers[sym] = { ...old, ticker: raw, name: f.name.value.trim() || old.name || '', assetType: type, market: market || old.market || '', quote: price > 0 || !old.quote ? quote : old.quote, ...(f.cg.value.trim() || KNOWN_CG[sym] ? { cgId: f.cg.value.trim().toLowerCase() || KNOWN_CG[sym] } : {}), ...(price > 0 ? { price, priceDate: today() } : {}) };
-      if (price > 0) pushHistory(d.settings.tickers[sym], price, quote, 'manual');
+      if (price > 0) pushHistory(d.settings.tickers[sym], price, quote, 'manual', d.accounts.find((x) => !x.deleted && x.cur === sym));
       if (!CRYPTO.includes(sym)) { d.settings.curDec = d.settings.curDec || {}; if (!d.settings.curDec[sym]) { d.settings.curDec[sym] = dec; CUR[sym].dec = dec; } }
       if (!have0) d.accounts.push(stamp({ id: nid, name: `${exn}${wal === 'Spot' ? '' : ' ' + wal} ${raw}`, wallet: wal, cur: sym, type: type === 'crypto' ? 'crypto' : 'invest', assetType: type, market, exchange: exn, open: amt, include: false, archived: false, invtab: true }));
       if (type === 'crypto') { d.settings.platAssets = d.settings.platAssets || {}; const k = Object.keys(d.settings.platAssets).find((x) => x.toLowerCase() === exn.toLowerCase()) || exn; d.settings.platAssets[k] = [...new Set([...(d.settings.platAssets[k] || []), sym])]; } });
@@ -498,8 +499,9 @@ ACT['inv-new'] = () => {
 export const KNOWN_CG = { BTC: 'bitcoin', ETH: 'ethereum', BNB: 'binancecoin', SOL: 'solana', XRP: 'ripple', DOGE: 'dogecoin', TON: 'the-open-network', TRX: 'tron', ADA: 'cardano', LTC: 'litecoin', MATIC: 'matic-network', USDT: 'tether', USDC: 'usd-coin', DAI: 'dai', FDUSD: 'first-digital-usd', BGB: 'bitget-token', MNT: 'mantle', OKB: 'okb', KCS: 'kucoin-shares', HYPE: 'hyperliquid', SUI: 'sui', AVAX: 'avalanche-2', DOT: 'polkadot', LINK: 'chainlink', NEAR: 'near', ARB: 'arbitrum', OP: 'optimism', SHIB: 'shiba-inu', UNI: 'uniswap', ATOM: 'cosmos', XLM: 'stellar', ETC: 'ethereum-classic', BCH: 'bitcoin-cash', FIL: 'filecoin', APT: 'aptos', PEPE: 'pepe', TIA: 'celestia', INJ: 'injective-protocol', SEI: 'sei-network', WLD: 'worldcoin-wld', XMR: 'monero', ALGO: 'algorand', VET: 'vechain', ICP: 'internet-computer', AAVE: 'aave', MKR: 'maker', GRT: 'the-graph', RENDER: 'render-token', WBTC: 'wrapped-bitcoin', STETH: 'staked-ether', PAXG: 'pax-gold' };
 // the CoinGecko id for a ticker, when it is one Sukli knows (suggestion only; the person can change it)
 export const suggestCg = (sym) => KNOWN_CG[String(sym || '').toUpperCase().replace(/[^A-Z0-9]/g, '')] || '';
-export function pushHistory(tk, price, quote, src) {
-  if (!tk || !(price > 0)) return; const h = tk.history = tk.history || [], last = h[h.length - 1], day = today();
+// day: a manual update is stamped with the day on the asset's market or its platform's clock (timezone.js); the automatic feed is a UTC day
+export function pushHistory(tk, price, quote, src, acct, ms = Date.now()) {
+  if (!tk || !(price > 0)) return; const h = tk.history = tk.history || [], last = h[h.length - 1], day = src === 'live' ? priceDay(null, null, null, ms) : priceDay(get(), tk, acct, ms);
   // every manual update or trade is its own record (never overwritten); the automatic daily price keeps one record per day, the last one of the day
   if (src === 'live' && last && last.date === day && last.src === 'live') { last.price = price; last.quote = quote; last.ts = Date.now(); } else h.push({ date: day, ts: Date.now(), price, quote, src });
   if (h.length > 400) h.splice(0, h.length - 400);
@@ -640,14 +642,17 @@ export function openIncome(pre = {}) {
     f.cash.innerHTML = (on.length ? `<optgroup label="On ${esc(p)}">${o(on)}</optgroup>` : '') + (off.length ? `<optgroup label="${on.length ? 'Other platforms and accounts' : 'Accounts'}">${o(off)}</optgroup>` : ''); };
   fillCash();
   enhanceSelect(f.asset, { title: 'Income From' }); enhanceSelect(f.type, { title: 'Kind', addLabel: 'Add a new kind', onAdd: async () => { const k = (await promptDialog('New kind of income', '', { okLabel: 'Add', hint: 'For example: Lending interest, Referral bonus, Cashback reward' }))?.trim(); if (!k) return; const known = [...INCOME_TYPES, ...(get().settings.incomeKinds || [])].find((x) => x.toLowerCase() === k.toLowerCase()); const name = known || k; if (!known) commit((d) => { d.settings.incomeKinds = [...(d.settings.incomeKinds || []), k]; }); f.type.innerHTML = kindOptions(get(), incCats, 'inv:' + name); f.type.value = 'inv:' + name; } }); enhanceSelect(f.as); enhanceSelect(f.cash, { title: 'Paid Into', onAdd: () => { const a = db.accounts.find((x) => x.id === f.asset.value); s.close(); openAccount(null, { exchange: a ? exchangeOf(a) : '' }); }, addLabel: 'Add a new account or platform' });
-  f.asset.addEventListener('change', fillCash);
+  // the date starts as today on the clock of the platform the money lands on, until the person picks another day
+  let dateTouched = false; f.date.addEventListener('input', () => { dateTouched = true; });
+  const dayFromPlatform = () => { if (dateTouched) return; const a = db.accounts.find((x) => x.id === f.asset.value), dest = f.as.value === 'cash' ? db.accounts.find((x) => x.id === f.cash.value) : a; if (dest) f.date.value = platformDay(db, dest.exchange); };
+  f.asset.addEventListener('change', () => { fillCash(); dayFromPlatform(); }); f.as.addEventListener('change', dayFromPlatform); f.cash.addEventListener('change', dayFromPlatform); dayFromPlatform();
   f.as.onchange = () => { s.el.querySelector('#ii-c').hidden = f.as.value !== 'cash'; };
   s.el.querySelector('[data-x]').onclick = () => s.close();
   f.onsubmit = (e) => { e.preventDefault(); const amt = parseFloat(String(f.amt.value).replace(/,/g, '')) || 0; if (!(amt > 0)) return;
     const a = db.accounts.find((x) => x.id === f.asset.value), dest = f.as.value === 'cash' ? db.accounts.find((x) => x.id === f.cash.value) : a, isInv = f.type.value.startsWith('inv:'), type = isInv ? f.type.value.slice(4) : ((db.categories.find((c) => 'cat:' + c.id === f.type.value) || {}).name || 'Income');
     if (!dest) { toast('Choose where it was paid into.'); return; }
     commit((d) => { const cat = isInv ? findOrAddCategory(d, 'Earn', type, 'income') : d.categories.find((c) => 'cat:' + c.id === f.type.value);
-      d.txs.push(stamp({ id: uid(), kind: 'income', amount: amt, cur: dest.cur, fx: rateFor(d, dest.cur) || 1, date: `${f.date.value || today()} 12:00:00`, name: `${type}: ${((d.settings.tickers || {})[a.cur] || {}).ticker || a.cur}`, cat: cat.id, acct: dest.id, ...(isInv ? { invIncome: { asset: a.id, type } } : { notes: `From ${((d.settings.tickers || {})[a.cur] || {}).ticker || a.cur}` }) })); });
+      d.txs.push(stamp({ id: uid(), kind: 'income', amount: amt, cur: dest.cur, fx: rateFor(d, dest.cur) || 1, date: `${f.date.value || platformDay(d, dest.exchange)} 12:00:00`, name: `${type}: ${((d.settings.tickers || {})[a.cur] || {}).ticker || a.cur}`, cat: cat.id, acct: dest.id, ...(isInv ? { invIncome: { asset: a.id, type } } : { notes: `From ${((d.settings.tickers || {})[a.cur] || {}).ticker || a.cur}` }) })); });
     s.close(); toast(`${type} saved.`); };
 }
 const isLiabilityType = (a) => a.type === 'card' || a.type === 'loan';

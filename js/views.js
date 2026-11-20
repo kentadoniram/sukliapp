@@ -209,7 +209,7 @@ export function calendar(db) {
         <li><span>Entries this month</span><b>${entries}</b></li></ul>
       <h3 class="subh">Spending by Week</h3>
       <div class="wkbars">${weeks.map((w) => `<div class="wk"><span>${w.from}–${w.to}</span><i style="width:${Math.max(w.out ? 3 : 0, (w.out / maxW) * 100).toFixed(0)}%"></i><b>${w.out ? R(w.out) : '—'}</b></div>`).join('')}</div></section>
-    <p class="hint">Tap a day to see its entries or add one. Amounts are in ${BASE}, shortened (12k = 12,000).</p>`;
+    <p class="hint">Tap a day to see its entries or add one. Amounts are in ${HOME}, shortened (12k = 12,000).</p>`;
 }
 ACT['cal-today'] = () => { ui.month = thisMonth(); render(); };
 ACT.day = (el) => openDay(el.dataset.d);

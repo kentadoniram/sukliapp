@@ -7,6 +7,8 @@ import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
 import { inInvest, pushHistory, exchangeOf, addAsset } from './invest.js';
 import { enhanceSelect } from './picker.js';
+import { localMs } from './earn.js';
+import { priceDay } from './timezone.js';
 import { TOP_TOKENS, ensureAsset, ensureUsdt } from './tokens.js';
 import { openDatePicker } from './datepicker.js';
 
@@ -160,7 +162,7 @@ export function openTrade(pre = {}) {
     if (oa && fee > 0) { const hv = balances(db).get(oa.id) || 0; if (hv < fee - 1e-9 && !(await confirmDialog(`${oa.name} only has ${money(hv, oa.cur)} to pay the ${money(fee, oa.cur)} fee. Record it anyway?`, 'Record anyway'))) return; }
     commit((d) => {
       if (exchangeOf(a)) d.settings.lastPlat = exchangeOf(a);
-      const tk = !old && d.settings.tickers && side !== 'convert' && d.settings.tickers[a.cur]; if (tk && q > 0 && t > 0) { tk.price = +(t / q).toPrecision(8); tk.quote = c.cur; tk.priceDate = when.slice(0, 10); pushHistory(tk, tk.price, c.cur, 'trade'); }   // a ticker you added is priced by its last trade
+      const tk = !old && d.settings.tickers && side !== 'convert' && d.settings.tickers[a.cur]; if (tk && q > 0 && t > 0) { tk.price = +(t / q).toPrecision(8); tk.quote = c.cur; const ms = localMs(when) || Date.now(); tk.priceDate = priceDay(d, tk, a, ms); pushHistory(tk, tk.price, c.cur, 'trade', a, ms); }   // a ticker you added is priced by its last trade
       // the fee stays on the trade itself (like a transfer fee), so one row shows what happened and balances include it; only a fee paid from a third account is its own entry
       const onTrade = fee > 0 && (feeAcct.id === rec.acct || feeAcct.id === rec.toAcct), fcat = fee > 0 ? findOrAddCategory(d, 'Fees', 'Trading fee', 'expense') : null;
       const full = { kind: 'transfer', date: when, name, cat: '', notes: num(f.price.value) > 0 ? `Price ${r6(num(f.price.value))} ${c.cur}` : '', trade, ...rec,
