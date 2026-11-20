@@ -60,7 +60,9 @@ export function tabs({ items = [], value, act, aria = '', attrOf } = {}) {
 }
 
 // the one reusable card: every card-like box takes its look from the shared card tokens (see DESIGN SYSTEM in styles.css), so a theme changes the tokens, not each screen
-export function card({ body = '', cls = '', tone = '', tag = 'section', attr = {} } = {}) {
+// design: '' (the theme's own card), 'flat', 'raised' or 'tint'. Each is only a set of card tokens in design.css, so no screen restyles a card.
+export const CARD_DESIGNS = ['flat', 'raised', 'tint'];
+export function card({ body = '', cls = '', tone = '', design = '', tag = 'section', attr = {} } = {}) {
   const a = Object.entries(attr).map(([k, v]) => ` ${k}="${String(v).replace(/"/g, '&quot;')}"`).join('');
-  return `<${tag} class="ui-card${tone ? ' ui-card--' + tone : ''}${cls ? ' ' + cls : ''}"${a}>${body}</${tag}>`;
+  return `<${tag} class="ui-card${tone ? ' ui-card--' + tone : ''}${CARD_DESIGNS.includes(design) ? ' ui-card--' + design : ''}${cls ? ' ' + cls : ''}"${a}>${body}</${tag}>`;
 }

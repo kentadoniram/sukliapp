@@ -5,8 +5,9 @@ res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 BUTTONS_BASELINE=64      # hand-written <button in js/*.js outside components.js
 FIELDS_BASELINE=107      # hand-written <label class="field in js/*.js outside components.js (use textField / selectField / field)
-HEX_BASELINE=67           # raw hex colours in styles.css outside :root blocks
-css=open('styles.css').read()
+HEX_BASELINE=21           # raw hex colours in styles.css outside :root blocks
+css=open('design.css').read()+open('styles.css').read()   # v16.11: the design layer (design.css) defines the tokens, styles.css uses them
+styles_only=open('styles.css').read()
 js={f:open(f).read() for f in glob.glob('js/*.js')}
 # 1. every var(--x) used in the CSS exists (set in CSS or by the app at run time)
 SET_AT_RUNTIME={'--fs','--vvh','--vvt','--coin','--d','--heat','--pc'}
@@ -21,6 +22,13 @@ ok('hand-written field labels %d (limit %d)'%(nfl,FIELDS_BASELINE), nfl<=FIELDS_
 noroot=re.sub(r'/\*.*?\*/','',re.sub(r':root[^{]*\{[^}]*\}','',css),flags=re.S)
 nh=len(re.findall(r'#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b',noroot))
 ok('raw hex colours outside :root %d (limit %d)'%(nh,HEX_BASELINE), nh<=HEX_BASELINE)
+# v16.11 ratchets: sizes, radii and gaps come from the design layer, not from numbers typed into styles.css
+raw_fs=len(re.findall(r'(?<![-\w])font-size:\s*calc\([\d.]+px \* var\(--fs',styles_only))
+ok('no raw font-size calc() in styles.css, use var(--fz-N) from design.css (%d)'%raw_fs, raw_fs==0)
+raw_r=len(re.findall(r'border-radius:\s*(?:6|8|10|12|14|16|18|22|99|999)px\s*(?:;|}|!)',styles_only))
+ok('no raw 6/8/10/12/14/16/18/22/999px radius in styles.css, use the radius scale (%d)'%raw_r, raw_r==0)
+raw_g=len(re.findall(r'(?<![-\w])gap:\s*(?:2|4|6|8|10|12)px\s*;',styles_only))
+ok('no raw single gap of 2/4/6/8/10/12px, use the spacing scale (%d)'%raw_g, raw_g==0)
 # 3. the helpers produce the classes the CSS expects
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_context(service_workers='block').new_page(); errs=[]
