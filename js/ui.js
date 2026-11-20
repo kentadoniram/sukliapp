@@ -3,7 +3,6 @@ import { button } from './components.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const $ = (sel, el = document) => el.querySelector(sel);
-export const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 
 const P = {
   undo: 'M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 010 11H11', redo: 'M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 000 11H13',

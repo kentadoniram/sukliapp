@@ -36,7 +36,6 @@ export function reimbData(db) {
   const all = list.flatMap((g) => g.pending);
   return { list, total: all.reduce((q, r) => q + r.home, 0), n: all.length, oldest: all.length ? Math.max(...all.map((r) => r.age)) : 0 };
 }
-export const pendingCount = (db) => reimbData(db).n;
 
 // "¥1,200 + $5.00 ≈ ₱x": the amounts in the currencies they were spent in, then what they come to in the home currency
 const origText = (rows) => { const m = new Map(); for (const x of rows) m.set(x.t.cur, (m.get(x.t.cur) || 0) + x.t.amount); return [...m.entries()].map(([c, a]) => fmt(a, c)).join(' + '); };

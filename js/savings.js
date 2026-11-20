@@ -3,7 +3,7 @@
 //   - a linked account (progress = that account's balance, in your home currency), or
 //   - money you add or take out by hand (the goal keeps its own small list of deposits).
 // Everything is in your home currency. A goal never moves money by itself and never changes your totals.
-import { get, commit, stamp, balances, softDelete, fmt, HOME, uid, homeFx, nowStamp, groupColor, factorFor } from './core.js';
+import { get, commit, stamp, balances, softDelete, fmt, HOME, uid, homeFx, nowStamp, groupColor, factorFor, today as todayStr } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { hdr, coll } from './screens.js';
 import { button, textField, selectField } from './components.js';
@@ -15,13 +15,11 @@ import { goalTxTotal, goalTxs } from './goaltx.js';
 const live = (l) => (l || []).filter((x) => !x.deleted);
 const money = (n) => fmt(n, HOME);
 const num = (v) => { const x = parseFloat(String(v ?? '').replace(/,/g, '')); return Number.isFinite(x) ? x : 0; };
-const todayStr = () => nowStamp().slice(0, 10);
 const dayNum = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return Math.round(new Date(y, m - 1, d).getTime() / 864e5); };
 const niceDate = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); };
 const monthYear = (dn) => new Date(dn * 864e5 + 12 * 36e5).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 const MONTH = 30.4375;
 
-export const GOAL_ICONS = ['plane', 'laptop', 'house', 'shield', 'gift', 'car', 'bike', 'phone', 'camera', 'book', 'heart', 'star'];
 export const IDEAS = [['Travel Fund', 'plane'], ['Laptop', 'laptop'], ['House', 'house'], ['Emergency Fund', 'shield'], ['Gift', 'gift'], ['Gadget', 'phone'], ['Wedding', 'heart'], ['Leisure', 'star']];
 const autoIcon = (name) => { const t = String(name || '').toLowerCase(); for (const [re, k] of [[/travel|trip|japan|flight|vacation|holiday|tour/, 'plane'], [/laptop|computer|pc\b|macbook/, 'laptop'], [/house|home|condo|lot\b|rent/, 'house'], [/emergency|rainy|safety/, 'shield'], [/gift|birthday|christmas/, 'gift'], [/car\b|motor|vehicle/, 'car'], [/bike|bicycle/, 'bike'], [/phone|iphone|gadget|tablet|ipad/, 'phone'], [/camera/, 'camera'], [/study|school|course|book/, 'book'], [/wedding|date|anniversary/, 'heart']]) if (re.test(t)) return k; return 'star'; };
 

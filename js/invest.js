@@ -7,7 +7,9 @@ import { inMarketTab, marketBar } from './market.js';
 import { isCoin, coinIcon, flagOf, assetIcon } from './curpicker.js';
 import { enhanceSelect, pickAll, pickerList } from './picker.js';
 import { tipBtn } from './interest.js';
-import { groupColor, compact, WALLETS, WALLET_INFO, walletOf, accLabel, get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, findOrAddCategory, factorFor, allCurrencies, ensureCurrency } from './core.js';
+import { addDays } from './rolling.js';
+import { INV_RANGES } from './config.js';
+import { groupColor, compact, WALLETS, WALLET_INFO, walletOf, accLabel, get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, today, findOrAddCategory, factorFor, allCurrencies, ensureCurrency } from './core.js';
 import { ACT, sheet, ic, esc, toast, promptDialog, confirmDialog } from './ui.js';
 import { hdr, backHdr, coll, pieLabels, ui } from './screens.js';
 import { openAccountDetail, openAccount } from './accpage.js';
@@ -162,7 +164,7 @@ function miniSvg(pts) {
   const line = pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('');
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${line}L${X(pts.length - 1).toFixed(1)} ${H}L${X(0).toFixed(1)} ${H}Z" fill="var(--iv-rec)" opacity=".14"/><path d="${line}" fill="none" stroke="var(--iv-rec)" stroke-width="2.4" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
 }
-const RANGES = [['1M', 30], ['3M', 91], ['1Y', 365], ['All', 0]];
+const RANGES = INV_RANGES;
 ACT['inv-graph'] = () => {
   const db = get(); setInvCur(db); const all = valueSeries(db);
   const W = 320, H = 190, PL = 8, PR = 8, PT = 14, PB = 22;
@@ -324,7 +326,7 @@ export function investments(db) {
     const realP = book.realized.filter((x) => ids.has(x.acct)), realAll = realP.reduce((q, x) => q + x.gain, 0), realYr = realP.filter((x) => x.date.startsWith(yr)).reduce((q, x) => q + x.gain, 0);
     const earnP = earnedTx.filter((t) => ids.has(earnAcctOf(t))), earnAll = earnP.reduce((q, t) => q + eVal(t), 0), pnl = unrealP + realAll, pct = cost > 0 ? unrealP / cost * 100 : null;
     const sgn = (v) => `${v >= 0 ? '+' : '−'}${money(Math.abs(v))}`;
-    const RG = [['1M', 30], ['3M', 91], ['1Y', 365], ['All', 0]], full = valueSeries(db, (a) => ids.has(a.id)), days = (RG.find((r) => r[0] === INV.rg) || RG[3])[1], cut = days ? localDay(new Date(Date.now() - days * 864e5)) : '', sub = days ? full.filter((p) => p.d >= cut) : full, ser = (sub.length >= 2 ? sub : full.slice(-2)).map((p) => ({ l: p.d, v: p.v * invK }));
+    const RG = INV_RANGES, full = valueSeries(db, (a) => ids.has(a.id)), days = (RG.find((r) => r[0] === INV.rg) || RG[3])[1], cut = days ? localDay(new Date(Date.now() - days * 864e5)) : '', sub = days ? full.filter((p) => p.d >= cut) : full, ser = (sub.length >= 2 ? sub : full.slice(-2)).map((p) => ({ l: p.d, v: p.v * invK }));
     const graph = full.length >= 2 ? `<div class="seg sm small invrg" role="group" aria-label="Range">${RG.map(([l]) => button({ html: l, kind: 'plain', cls: l === INV.rg ? 'on' : '', pressed: l === INV.rg, act: 'inv-range', attr: { 'data-v': l } })).join('')}</div><div class="invline">${lineChart(ser, `${sel} value over time`, (n) => f2(n, invC), 320, false, 150)}</div>
       <p class="hint invspan">${esc(ser[0].l)} to ${esc(ser[ser.length - 1].l)}</p>` : '<p class="hint">Not enough history yet. A point is saved each day something is recorded on this platform or a price changes.</p>';
     const B = (label, act, aria, o = {}) => button({ label, kind: o.kind || 'ghost', size: 'sm', act, data: 'ex', v: sel, aria, cls: o.cls || '' });
@@ -384,7 +386,7 @@ ACT['inv-price'] = async (el) => {
   const k = el.dataset.sym, t = (get().settings.tickers || {})[k]; if (!t) return;
   const v = await promptDialog(`Price of 1 ${t.ticker || k} in ${t.quote || 'USD'}`, t.price > 0 ? String(t.price) : '', { type: 'number' });
   if (v == null) return; const n = parseFloat(v); if (!(n > 0)) return;
-  commit((d) => { d.settings.tickers[k].price = n; d.settings.tickers[k].priceDate = new Date().toISOString().slice(0, 10); pushHistory(d.settings.tickers[k], n, d.settings.tickers[k].quote, 'manual'); });
+  commit((d) => { d.settings.tickers[k].price = n; d.settings.tickers[k].priceDate = today(); pushHistory(d.settings.tickers[k], n, d.settings.tickers[k].quote, 'manual'); });
 };
 // every currency and coin for the Price currency list: the usual ones first, then what you already use, then the rest
 function quoteOptions(sel) {
@@ -459,7 +461,7 @@ export function addAsset(pre = {}) {
     const nid = have0 ? have0.id : uid();
     commit((d) => {
       d.settings.tickers = d.settings.tickers || {}; const old = d.settings.tickers[sym] || {};
-      d.settings.tickers[sym] = { ...old, ticker: raw, name: f.name.value.trim() || old.name || '', assetType: type, market: market || old.market || '', quote: price > 0 || !old.quote ? quote : old.quote, ...(f.cg.value.trim() || KNOWN_CG[sym] ? { cgId: f.cg.value.trim().toLowerCase() || KNOWN_CG[sym] } : {}), ...(price > 0 ? { price, priceDate: new Date().toISOString().slice(0, 10) } : {}) };
+      d.settings.tickers[sym] = { ...old, ticker: raw, name: f.name.value.trim() || old.name || '', assetType: type, market: market || old.market || '', quote: price > 0 || !old.quote ? quote : old.quote, ...(f.cg.value.trim() || KNOWN_CG[sym] ? { cgId: f.cg.value.trim().toLowerCase() || KNOWN_CG[sym] } : {}), ...(price > 0 ? { price, priceDate: today() } : {}) };
       if (price > 0) pushHistory(d.settings.tickers[sym], price, quote, 'manual');
       if (!CRYPTO.includes(sym)) { d.settings.curDec = d.settings.curDec || {}; if (!d.settings.curDec[sym]) { d.settings.curDec[sym] = dec; CUR[sym].dec = dec; } }
       if (!have0) d.accounts.push(stamp({ id: nid, name: `${exn}${wal === 'Spot' ? '' : ' ' + wal} ${raw}`, wallet: wal, cur: sym, type: type === 'crypto' ? 'crypto' : 'invest', assetType: type, market, exchange: exn, open: amt, include: false, archived: false, invtab: true }));
@@ -496,7 +498,6 @@ ACT['inv-new'] = () => {
 export const KNOWN_CG = { BTC: 'bitcoin', ETH: 'ethereum', BNB: 'binancecoin', SOL: 'solana', XRP: 'ripple', DOGE: 'dogecoin', TON: 'the-open-network', TRX: 'tron', ADA: 'cardano', LTC: 'litecoin', MATIC: 'matic-network', USDT: 'tether', USDC: 'usd-coin', DAI: 'dai', FDUSD: 'first-digital-usd', BGB: 'bitget-token', MNT: 'mantle', OKB: 'okb', KCS: 'kucoin-shares', HYPE: 'hyperliquid', SUI: 'sui', AVAX: 'avalanche-2', DOT: 'polkadot', LINK: 'chainlink', NEAR: 'near', ARB: 'arbitrum', OP: 'optimism', SHIB: 'shiba-inu', UNI: 'uniswap', ATOM: 'cosmos', XLM: 'stellar', ETC: 'ethereum-classic', BCH: 'bitcoin-cash', FIL: 'filecoin', APT: 'aptos', PEPE: 'pepe', TIA: 'celestia', INJ: 'injective-protocol', SEI: 'sei-network', WLD: 'worldcoin-wld', XMR: 'monero', ALGO: 'algorand', VET: 'vechain', ICP: 'internet-computer', AAVE: 'aave', MKR: 'maker', GRT: 'the-graph', RENDER: 'render-token', WBTC: 'wrapped-bitcoin', STETH: 'staked-ether', PAXG: 'pax-gold' };
 // the CoinGecko id for a ticker, when it is one Sukli knows (suggestion only; the person can change it)
 export const suggestCg = (sym) => KNOWN_CG[String(sym || '').toUpperCase().replace(/[^A-Z0-9]/g, '')] || '';
-const today = () => new Date().toISOString().slice(0, 10);
 export function pushHistory(tk, price, quote, src) {
   if (!tk || !(price > 0)) return; const h = tk.history = tk.history || [], last = h[h.length - 1], day = today();
   // every manual update or trade is its own record (never overwritten); the automatic daily price keeps one record per day, the last one of the day
@@ -667,7 +668,7 @@ function openPredict(pre = {}) {
   if (!uniq.length) { toast('Add an asset first.'); return; }
   const s = sheet(`<form id="ip"><label class="field"><span>Asset</span><select name="asset">${uniq.map((a) => `<option value="${esc(a.cur)}" ${a.cur === pre.sym ? 'selected' : ''}>${esc(((db.settings.tickers || {})[a.cur] || {}).ticker || a.cur)} ${esc(curName(a.cur) || '')}</option>`).join('')}</select></label>
     <div class="two">${textField({ label: 'Your estimate (price per unit)', name: 'price', inputmode: 'decimal', attr: { 'required': true } })}${textField({ label: 'Currency', name: 'quote', value: 'USD', attr: { 'style': 'text-transform:uppercase' } })}</div>
-    ${textField({ label: 'By when', name: 'by', type: 'date', value: new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10) })}
+    ${textField({ label: 'By when', name: 'by', type: 'date', value: addDays(today(), 90) })}
     ${textField({ label: 'Why (optional)', name: 'note' })}
     <p class="hint">This is your own guess. It is never used as the price of the asset.</p>
     <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-x': true } })}${button({ label: 'Save estimate', kind: 'primary', submit: true })}</div></form>`, { title: 'Add a Prediction' });

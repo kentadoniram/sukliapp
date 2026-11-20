@@ -3,16 +3,15 @@
 import {
   BASE, HOME, homeFx, CUR, accountMap, balances, openDates, catMap, deltaFor, feeOf, findOrAddCategory, live, monthParts, partsBetween,
   nowStamp, rateFor, shiftMonth, stamp, thisMonth, daysInMonth, fmt,
-} from './core.js';
+  today, lastDay, p2 } from './core.js';
 import { totals, baselineMonths } from './insights.js';
 import { sum as ssum, median, mad, robustZ, trend, forecastSeries, quantile } from './stats.js';
 import { merchantKey } from './merchants.js';
 import { payDest } from './earn.js';
 import { hasRate, rateAt, activePromos, isPeriodEnd, nominalFromEar, COMP_LABEL } from './interest.js';
 
-const p2 = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
-export const today = () => nowStamp().slice(0, 10);
+export { today };
 const addDays = (s, n) => { const [y, m, d] = s.split('-').map(Number); return ymd(new Date(y, m - 1, d + n)); };
 const sum = (a) => a.reduce((s, x) => s + x, 0);
 
@@ -263,7 +262,6 @@ export function retaxInterest(db, acctId, pct) {
 // a.limit (credit limit), a.stmtDay (statement closes), a.dueDay (payment due).
 // Buying with a card is an expense when it happens. Paying the card is a transfer INTO the card account, so it lowers
 // what is owed without counting as spending a second time.
-const lastDay = (y, m) => new Date(y, m, 0).getDate();
 const dstr = (y, m, d) => `${y}-${p2(m)}-${p2(Math.min(d, lastDay(y, m)))}`;
 export function cardBilling(db, a, bal0, asOf = today()) {
   const bal = bal0 != null ? bal0 : (balances(db).get(a.id) || 0);

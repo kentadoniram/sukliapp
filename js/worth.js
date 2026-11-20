@@ -6,6 +6,7 @@
 //   kind: 'fact' (counted from your entries) | 'estimate' (counted, then reasoned from) | 'projection' (looks forward, can be wrong)
 //   impact, conf, rel: 0 to 1 (how much it could matter, how sure the numbers are, how personal it is). They decide the ranking.
 import { monthParts, partsBetween, shiftMonth, catMap, fmt, HOME, homeFx, balances, live, nowStamp } from './core.js';
+import { median } from './stats.js';
 import { classOf } from './budgetsetup.js';
 import { detectRecurring } from './finance.js';
 import { goalStats } from './savings.js';
@@ -14,7 +15,6 @@ import { merchantKey } from './merchants.js';
 
 const sum = (a) => a.reduce((s, x) => s + x, 0), mean = (a) => (a.length ? sum(a) / a.length : 0);
 const sd = (a) => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(sum(a.map((x) => (x - m) ** 2)) / (a.length - 1)); };
-const median = (a) => { const s = [...a].sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0; };
 const clamp = (x, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, x));
 const dayN = (d) => Math.floor(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 864e5);
 const isoOf = (n) => new Date(n * 864e5).toISOString().slice(0, 10);

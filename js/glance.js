@@ -1,6 +1,7 @@
 // Quick Glance: one short, useful thing when you open the app, so you do not have to dig for it.
 // Each finder returns a small card: a headline, one line of context, optional tiny chart, and where to go for more. Nothing leaves this device.
 import { get, commitQuiet, monthParts, partsBetween, shiftMonth, fmt, HOME, live, balances, nowStamp, dayLabel } from './core.js';
+import { median } from './stats.js';
 import { esc, sheet, ic } from './ui.js';
 import { button } from './components.js';
 import { pace, totals } from './insights.js';
@@ -14,7 +15,7 @@ const TOPIC_ICON = { spending: 'pie', bills: 'calendar', invest: 'chart', goals:
 export const DEFAULTS = { on: true, freq: 'daily', charts: true, topics: { spending: true, bills: true, invest: true, goals: true, trends: true }, mute: {}, log: {}, last: '' };
 export const cfg = (db) => { const g = (db.settings || {}).glance || {}; return { ...DEFAULTS, ...g, topics: { ...DEFAULTS.topics, ...(g.topics || {}) }, mute: g.mute || {}, log: g.log || {} }; };
 
-const sum = (a) => a.reduce((s, x) => s + x, 0), median = (a) => { const s = [...a].sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0; };
+const sum = (a) => a.reduce((s, x) => s + x, 0);
 const money = (n) => fmt(n, HOME, { round: true });
 const dayN = (d) => Math.floor(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 864e5);
 const isoOf = (n) => new Date(n * 864e5).toISOString().slice(0, 10);

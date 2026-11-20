@@ -2,6 +2,7 @@
 // what it cost, profit on paper (unrealized), profit locked in by selling (realized), what it paid you (Earn interest and other income), the fees it cost,
 // and the total return. All in your home currency. Costs are only known for units bought through Buy / sell (or a figure you typed); the rest is left out, never guessed.
 import { balances, homeFx, factorFor } from './core.js';
+import { DEFAULT_SELL_FEE, MAX_LEARNED_FEE } from './config.js';
 
 // Units an account received as interest or income (they have no purchase cost, and are counted as "earned", never as profit on paper).
 export function earnedUnits(db) {
@@ -40,14 +41,14 @@ export function tokenPerformance(db, book, accts, home) {
     if (t.tradeOf && tIds.has(t.tradeOf)) { const tr = tIds.get(t.tradeOf), cur = ids.get(tr.trade.asset) || ids.get(tr.trade.asset2); if (cur) row(cur).fees += t.amount * factorFor(db, t); }
     else if (t.kind === 'income' && (t.earnDay || t.invIncome)) { const cur = t.invIncome ? ids.get(t.invIncome.asset) : t.cur; if (!cur || !by.has(cur)) continue; const v = t.amount * factorFor(db, t); const r = row(cur); if (t.earnDay) r.earned += v; else r.income += v; }
   }
-  // the selling fee assumed for breakeven: what you really paid on this token's trades (fees / value traded), else 0.1%
+  // the selling fee assumed for breakeven: what you really paid on this token's trades (fees / value traded), else the default (config.js)
   const feeIn = new Map(), valIn = new Map();
   for (const t of tradeTx) { const cur = ids.get(t.trade.asset) || ids.get(t.trade.asset2); if (!cur || !(t.trade.valueHome > 0)) continue; const f = (t.trade.feeHome || 0); feeIn.set(cur, (feeIn.get(cur) || 0) + f); valIn.set(cur, (valIn.get(cur) || 0) + t.trade.valueHome); }
   return [...by.values()].filter((r) => r.value > 0 || r.realized || r.earned || r.income || r.fees || r.trades).map((r) => {
     // gain = trading profit and loss only (paper profit + profit from selling, fees already inside). Interest and other income are kept apart in earned / income; total = all of it.
     const gain = r.unreal + r.realized, total = gain + r.earned + r.income, invested = r.cost + r.soldCost;
     const avgCost = r.costQty > 0 && r.cost > 0 ? r.cost / r.costQty : null;
-    const feeRate = valIn.get(r.cur) > 0 ? Math.min(0.05, Math.max(0, feeIn.get(r.cur) / valIn.get(r.cur))) || 0.001 : 0.001;
+    const feeRate = valIn.get(r.cur) > 0 ? Math.min(MAX_LEARNED_FEE, Math.max(0, feeIn.get(r.cur) / valIn.get(r.cur))) || DEFAULT_SELL_FEE : DEFAULT_SELL_FEE;
     /* breakeven: the price per unit at which selling everything you hold (after the selling fee) brings your trading profit and loss to zero. Interest is not counted. */
     const breakeven = avgCost == null ? null : Math.max(0, (r.cost - r.realized) / (r.costQty * (1 - feeRate)));
     return { ...r, avgCost, breakeven, feeRate, platforms: [...r.platforms].sort(), gain, total, invested, pct: invested > 0 ? gain / invested * 100 : null, totalPct: invested > 0 ? total / invested * 100 : null, cashLike: STABLE.has(r.cur) || r.cur === home };

@@ -2,7 +2,7 @@
 // On an entry (Advanced mode) you count items per group: 3 drinks, 2 snacks. With many such receipts the app works out about what
 // each group costs (js/catsolve.js) and shows an "about" amount with a range. It never changes a saved total, a budget or a category.
 import { button } from './components.js';
-import { get, commit, fmt, HOME, homeFx, nowStamp, shiftMonth } from './core.js';
+import { get, commit, fmt, HOME, homeFx, nowStamp, shiftMonth, today } from './core.js';
 import { ACT, esc, ic, toast, confirmDialog } from './ui.js';
 import { hdr, ui } from './screens.js';
 import { openEntry } from './entry.js';
@@ -13,7 +13,6 @@ import { tripEntryIds } from './trips.js';
 
 const live = (l) => l.filter((x) => !x.deleted);
 const money = (n) => fmt(n, HOME, { round: true });
-const today = () => nowStamp().slice(0, 10);
 const UNIT_WORD = { pc: 'each', kg: 'per kg' };
 
 // the groups: { name: { price: usual price guess in yen, unit: 'pc' | 'kg' } }. Split by PRICE LEVEL (drinks and ready meals apart), not by type of food.

@@ -10,8 +10,8 @@
 //        ("food on the trip 18,000; at your usual rate 9,500; extra 8,500").
 // Everything explains itself (`why`) and is a suggestion: nothing here changes a saved entry.
 import { reimbKeep } from './reimbkeep.js';
+import { median } from './stats.js';
 
-const median = (a) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const mad = (a) => { const m = median(a); return median(a.map((v) => Math.abs(v - m))); };
 const dayNum = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); };
 const dayStr = (n) => new Date(n * 864e5).toISOString().slice(0, 10);

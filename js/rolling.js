@@ -1,11 +1,12 @@
 // Daily average as a ROLLING window: the spending of the last 7 consecutive calendar days (days with nothing count as 0) divided by 7.
 // It moves forward every day, whichever weekday it starts on. Also the same figure for every day of the last 12 months, to show what is typical.
-import { partsBetween, nowStamp } from './core.js';
+import { partsBetween, nowStamp, today } from './core.js';
+import { median } from './stats.js';
+export { today };
 
 const pad = (n) => String(n).padStart(2, '0');
 const fmtD = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 export const addDays = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10), 12); d.setDate(d.getDate() + n); return fmtD(d); };
-const median = (a) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const quant = (a, q) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.max(0, Math.round((s.length - 1) * q)))]; };
 
 // spending per calendar day, nDays long, ending on endStr; [dates, values]
@@ -22,7 +23,6 @@ export function rollingAvg(vals, w = 7) {
   for (let i = 0; i < vals.length; i++) { run += vals[i]; if (i >= w) run -= vals[i - w]; if (i >= w - 1) out[i] = run / w; }
   return out;
 }
-export const today = () => nowStamp().slice(0, 10);
 export function firstDate(db) { let m = ''; for (const t of db.txs) if (!t.deleted && !t.reval && t.date && (!m || t.date < m)) m = t.date; return m.slice(0, 10); }
 
 export function rollingSummary(db, endStr = today(), { days = 365, w = 7 } = {}) {

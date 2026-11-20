@@ -2,14 +2,15 @@
 //   need    "Is Groceries a need (something you must pay for)?"  Yes/No sets the category as need or want (used by Budget alerts)
 //   bill    "Rent about ¥80,000 came 3 months in a row. Is it a monthly bill?"  Yes adds it to Bills (counted in Safe to Spend)
 // "Not now" hides the question for a week. Answers are kept in your settings; nothing leaves your phone.
-import { get, commit, uid, stamp, nowStamp, monthParts, thisMonth, shiftMonth, fmt, HOME, factorFor } from './core.js';
+import { addDays as addDaysTo } from './rolling.js';
+import { get, commit, uid, stamp, nowStamp, today, monthParts, thisMonth, shiftMonth, fmt, HOME, factorFor } from './core.js';
 import { ACT, esc } from './ui.js';
 import { button } from './components.js';
 import { CLASSES } from './budgetsetup.js';
 
 const money = (n) => fmt(n, HOME, { round: true });
 const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9぀-ヿ一-鿿]+/g, ' ').trim();
-const addDays = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+const addDays = (n) => addDaysTo(today(), n);
 
 function needQuestion(db) {
   const ym = thisMonth(), spent = new Map();

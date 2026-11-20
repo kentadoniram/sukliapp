@@ -214,7 +214,6 @@ ACT.sumflip = (el) => {
   c.querySelector('.sc-front').toggleAttribute('inert', FACE.worth); c.querySelector('.sc-front').setAttribute('aria-hidden', String(FACE.worth));
   c.querySelector('.sc-back').toggleAttribute('inert', !FACE.worth); c.querySelector('.sc-back').setAttribute('aria-hidden', String(!FACE.worth));
 };
-export const summaryCard = mainHomeCard;
 
 function spendable(db) {
   const bal = balances(db);

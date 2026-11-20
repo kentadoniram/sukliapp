@@ -1,7 +1,7 @@
 // Debts tab: every loan and card you owe on, its interest, terms and due date, and which one to pay first and how much.
 // Plain arithmetic on your own figures (no advice engine). Typed figures (monthly money for debts, a debt's rate or minimum) can always be changed or removed.
 import { button, textField } from './components.js';
-import { get, commit, stamp, balances, homeFx, factorFor, fmt, HOME, nowStamp, thisMonth, shiftMonth, catMap } from './core.js';
+import { get, commit, stamp, balances, homeFx, factorFor, fmt, HOME, nowStamp, thisMonth, shiftMonth, catMap, lastDay, p2 } from './core.js';
 import { classOf } from './budgetsetup.js';
 import { ACT, sheet, esc, toast, confirmDialog, ic } from './ui.js';
 import { hdr, coll } from './screens.js';
@@ -17,8 +17,6 @@ import { orderDebts, simulate, learnMonths, cashRoom, habit, planMonth, suggestE
 const live = (l) => l.filter((x) => !x.deleted);
 const money = (n) => fmt(n, HOME);
 const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
-const p2 = (n) => String(n).padStart(2, '0');
-const lastDay = (y, m) => new Date(y, m, 0).getDate();
 const dstr = (y, m, d) => `${y}-${p2(m)}-${p2(Math.min(d, lastDay(y, m)))}`;
 const niceDate = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
 const addDay = (s, n) => { const [y, m, d] = s.split('-').map(Number), x = new Date(y, m - 1, d + n); return `${x.getFullYear()}-${p2(x.getMonth() + 1)}-${p2(x.getDate())}`; };

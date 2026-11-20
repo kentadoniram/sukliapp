@@ -1,7 +1,7 @@
 // Owed to you tab: people who owe you money (accounts of type "Money owed to me"), what is still owed, since when, and quick buttons.
 // Plain facts only: it shows how long you have waited and never says someone will not pay. Writing off is your own choice.
 import { button, textField } from './components.js';
-import { get, commit, stamp, balances, softDelete, undoLast, fmt, HOME, uid, homeFx, homeRate, BASE, findOrAddCategory, nowStamp } from './core.js';
+import { get, commit, stamp, balances, softDelete, undoLast, fmt, HOME, uid, homeFx, homeRate, BASE, findOrAddCategory, nowStamp, today as todayStr } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog, promptDialog } from './ui.js';
 import { hdr, coll } from './screens.js';
 import { openEntry } from './entry.js';
@@ -12,7 +12,6 @@ const live = (l) => l.filter((x) => !x.deleted);
 const money = (n) => fmt(n, HOME);
 const dayNum = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return Math.round(new Date(y, m - 1, d).getTime() / 864e5); };
 const niceDate = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
-const todayStr = () => nowStamp().slice(0, 10);
 const daysText = (n) => (n === 0 ? 'today' : `${n} day${n === 1 ? '' : 's'}`);
 
 export function owedList(db) {
