@@ -5,6 +5,7 @@ res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 BUTTONS_BASELINE=64      # hand-written <button in js/*.js outside components.js
 FIELDS_BASELINE=107      # hand-written <label class="field in js/*.js outside components.js (use textField / selectField / field)
+CARDRULE_BASELINE=36     # rules in styles.css with their own fill + outline + corner (not using the card-kind table)
 HEX_BASELINE=21           # raw hex colours in styles.css outside :root blocks
 css=open('design.css').read()+open('styles.css').read()   # v16.11: the design layer (design.css) defines the tokens, styles.css uses them
 styles_only=open('styles.css').read()
@@ -29,6 +30,9 @@ raw_r=len(re.findall(r'border-radius:\s*(?:6|8|10|12|14|16|18|22|99|999)px\s*(?:
 ok('no raw 6/8/10/12/14/16/18/22/999px radius in styles.css, use the radius scale (%d)'%raw_r, raw_r==0)
 raw_g=len(re.findall(r'(?<![-\w])gap:\s*(?:2|4|6|8|10|12)px\s*;',styles_only))
 ok('no raw single gap of 2/4/6/8/10/12px, use the spacing scale (%d)'%raw_g, raw_g==0)
+# v16.12: a card-like rule (fill + outline + corner) must take its look from the card-kind table in design.css (var(--cd-*)); controls are the ones left
+nc=len([1 for sel,body in re.findall(r'(?m)^([^\n{}@]+?)\s*\{([^{}]*)\}',styles_only) if re.search(r'(?<![-\w])border:\s*1px solid',body) and 'border-radius' in body and re.search(r'background:\s*var\(--(sheet|tint)\b',body) and 'var(--cd-' not in body])
+ok('rules that draw their own card look instead of a card kind: %d (limit %d, buttons/inputs/chips are not cards)'%(nc,CARDRULE_BASELINE), nc<=CARDRULE_BASELINE)
 # 3. the helpers produce the classes the CSS expects
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_context(service_workers='block').new_page(); errs=[]

@@ -116,7 +116,7 @@
 :root { --sp-0: 2px; --sp-1: 4px; --sp-2: 6px; --sp-3: 8px; --sp-4: 10px; --sp-5: 12px; }
 
 /* ---- 5. Shadows used by more than one component, and colours used by more than one component ---- */
-:root { --sh-float: 0 4px 14px rgba(0,0,0,.28); --sh-glow: 0 6px 18px rgba(30, 90, 160, .14); --sh-soft: 0 2px 8px rgba(20, 40, 90, .08);
+:root { --sh-float: 0 4px 14px rgba(0,0,0,.28); --sh-glow: 0 6px 18px rgba(30, 90, 160, .14); --sh-soft: 0 2px 8px rgba(20, 40, 90, .08); --sh-xs: 0 1px 2px rgba(0,0,0,.04); --sh-pop: 0 6px 20px rgba(0,0,0,.22); --sh-chip: 0 2px 8px rgba(22, 32, 42, .06);
   --on-color: #FFFFFF; --ok-ink: #1F6B38; --amber: #D49A1A; --amber-ink: #8A5F00; --bad-ink: #A02A1D; --ok-strong: #1A7F4B; --warn-ink: #9A5B00; --on-bright: #0E141A; --alert: #D64545; --teal-ink: #0F6E6E; --navy: #1D4E89; --amber-dark: #B36B00; --bad-fixed: #B3261E;
   /* near-duplicates kept apart on purpose until a designer decides (ambers: --amber-ink, --warn-ink, --amber-dark) */ }
 
@@ -130,3 +130,33 @@
 .ui-card--flat   { --card-bd: var(--rule); --card-shadow: none; --card-r: var(--r-m); }
 .ui-card--raised { --card-bd: transparent; --card-shadow: var(--sh-glow); --card-r: var(--r-xl); }
 .ui-card--tint   { --card-bg: var(--tint); --card-bd: transparent; --card-shadow: none; --card-r: var(--r-m); }
+
+/* ---- 7. Card kinds: the look of every kind of card, in ONE table ----
+   Every card kind in styles.css draws itself with five tokens (--cd-bg fill, --cd-bd outline colour, --cd-r corner, --cd-pad padding, --cd-shadow shadow)
+   and never states a value of its own. The values live here: first a FAMILY (a shared look), then the few kinds that differ from their family.
+   To restyle one kind, change its line. To restyle a whole family, change the family line. To add a card kind, add its class to a family
+   and use the five tokens in its rule. (The "follows the theme" kinds read --card-* from section 6, so Theme 1 / Legacy still decide them.) */
+/* family PLAIN: white card, thin outline, 12px corners */
+:is(.cardbox, .binrow, .tile, .outlook-card, .invopt) { --cd-bg: var(--sheet); --cd-bd: var(--rule); --cd-r: var(--r-m); --cd-pad: 10px 12px; --cd-shadow: none; }
+/* family TINT: tinted fill, for notes, reminders and summaries */
+:is(.rem, .fsum, .goalcheck, .reimbview) { --cd-bg: var(--tint); --cd-bd: var(--rule); --cd-r: var(--r-m); --cd-pad: 10px 12px; --cd-shadow: none; }
+/* family ROUND: white card with the larger 14px corner, for sections of a page */
+:is(.coll, .week, .nudge, .mscard, .sgroup) { --cd-bg: var(--sheet); --cd-bd: var(--rule); --cd-r: var(--r-card); --cd-pad: 10px 12px; --cd-shadow: none; }
+#sc-items .item.sci { --cd-bg: var(--sheet); --cd-bd: var(--rule); --cd-r: var(--r-card); --cd-pad: 10px; --cd-shadow: none; }
+/* family COMPACT: small notes inside forms (10px corners) */
+:is(.bssum, .tipbox) { --cd-bg: var(--sheet); --cd-bd: var(--rule); --cd-r: var(--r-ctl); --cd-pad: 8px 10px; --cd-shadow: none; }
+/* family FOLLOWS THE THEME: Theme 1 / Legacy decide these through --card-* (section 6) */
+:is(.invcat, .invsum, .nwcard.t1nw) { --cd-bg: var(--card-bg); --cd-bd: var(--card-bd); --cd-r: var(--card-r); --cd-pad: var(--card-pad); --cd-shadow: var(--card-shadow); }
+/* kinds that differ from their family */
+.outlook-card { --cd-pad: 10px 14px; }
+.invopt { --cd-pad: 12px 14px; }
+.fsum { --cd-pad: 8px 12px; }
+.tipbox { --cd-bg: var(--tint); }
+.goalcheck, .reimbview { --cd-bd: var(--line); }
+.reimbview { --cd-pad: 12px; }
+.coll { --cd-pad: 10px 12px 12px; --cd-shadow: var(--sh-xs); }
+.week { --cd-shadow: var(--card-shadow); }   /* Spent Each Day also carries .ui-card, so it follows the theme shadow */
+.nudge { --cd-shadow: var(--sh-pop); }
+.mscard { --cd-r: var(--r-l); --cd-pad: 6px 12px 6px 16px; --cd-shadow: var(--sh-chip); }
+.nwcard.t1nw { --cd-pad: 0; }
+.nwcard div.nwmain { --cd-bg: var(--sheet); --cd-bd: var(--rule); --cd-r: var(--r-card); --cd-pad: 12px 14px; --cd-shadow: none; }   /* ROUND family, written alone so its longer selector does not raise the family's specificity */

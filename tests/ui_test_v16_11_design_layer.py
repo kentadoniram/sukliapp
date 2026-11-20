@@ -23,3 +23,16 @@ with sync_playwright() as p:
     ok('type scale steps exist and follow the text-size setting %s'%a.strip()[:40], 'calc(13px' in a.replace('  ',' '))
     ok('no errors',not errs)
     b.close()
+# ---- v16.12: card kinds ----
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_context(service_workers='block',viewport={'width':390,'height':844}).new_page()
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
+    K=['cardbox','binrow','tile','outlook-card','rem','fsum','goalcheck','reimbview','week','bssum','tipbox','invcat','invsum']
+    pg.evaluate("(K)=>{const m=document.createElement('div');m.id='kp';m.innerHTML=K.map(k=>`<div class='${k}'>x</div>`).join('');document.body.appendChild(m)}",K); pg.wait_for_timeout(200)
+    g=lambda k,p_: pg.evaluate("([k,p])=>getComputedStyle(document.querySelector('#kp .'+k))[p]",[k,p_])
+    ok('plain family: cardbox, binrow and tile share the 12px corner', all(g(k,'borderTopLeftRadius')=='12px' for k in ['cardbox','binrow','tile']))
+    ok('tint family has the tinted fill; plain has the sheet fill', g('rem','backgroundColor')==g('fsum','backgroundColor')!=g('cardbox','backgroundColor'))
+    ok('every kind defines all five card tokens', all(pg.evaluate("([k,t])=>getComputedStyle(document.querySelector('#kp .'+k)).getPropertyValue(t).trim()",[k,t_])!='' for k in K for t_ in ['--cd-bg','--cd-bd','--cd-r','--cd-pad','--cd-shadow']))
+    pg.add_style_tag(content=".binrow{--cd-r:3px;--cd-shadow:0 2px 4px rgba(0,0,0,.3)}")
+    ok('editing one kind line changes only that kind (corner and shadow)', g('binrow','borderTopLeftRadius')=='3px' and g('binrow','boxShadow')!='none' and g('tile','borderTopLeftRadius')=='12px' and g('tile','boxShadow')=='none')
+    b.close()
