@@ -1,6 +1,6 @@
 // Debts tab: every loan and card you owe on, its interest, terms and due date, and which one to pay first and how much.
 // Plain arithmetic on your own figures (no advice engine). Typed figures (monthly money for debts, a debt's rate or minimum) can always be changed or removed.
-import { button, textField } from './components.js';
+import { button, textField, card as uiCard } from './components.js';
 import { get, commit, stamp, balances, homeFx, factorFor, fmt, HOME, nowStamp, thisMonth, shiftMonth, catMap, lastDay, p2 } from './core.js';
 import { classOf } from './budgetsetup.js';
 import { ACT, sheet, esc, toast, confirmDialog, ic } from './ui.js';
@@ -88,7 +88,7 @@ const LIGHT = { green: ['green', 'Looks okay', 'Your money for debts covers what
 
 export function debts(db) {
   const list = debtList(db), md = mode(db), b = budgetInfo(db), total = list.reduce((s, d) => s + d.owed, 0), minTotal = list.reduce((s, d) => s + d.min, 0);
-  if (!list.length) return `<div class="debtpage">${hdr('Debts')}<section class="cardbox"><h3>No Debts to Track</h3><p class="hint">Add a credit card or a loan in <a href="#/accounts">Accounts</a> (type: Credit card, or Loan or money owed) and put what you owe on it. It will show up here with the order to pay.</p></section></div>`;
+  if (!list.length) return `<div class="debtpage">${hdr('Debts')}${uiCard({ kind: 'cardbox', body: `<h3>No Debts to Track</h3><p class="hint">Add a credit card or a loan in <a href="#/accounts">Accounts</a> (type: Credit card, or Loan or money owed) and put what you owe on it. It will show up here with the order to pay.</p>` })}</div>`;
   const needAll = list.reduce((s, d) => s + Math.min(d.owed, Math.max(0, d.min - d.paid)), 0);
   let funds = b.value, dip = false;
   if (b.own == null && funds != null && b.safe != null && funds < needAll - 0.5 && b.safe > funds) { funds = Math.min(needAll, b.safe); dip = true; }   // what is due may use the safety cushion, extra money never does
@@ -178,9 +178,9 @@ export function debts(db) {
     <li><span>Small loans from lending companies (SEC)</span><b>For loans of ₱10,000 or less over up to 4 months, taken or renewed from April 1, 2026: interest at most 6% a month, all charges together at most 12% a month, late penalty at most 5% a month. Circular 14 of 2025.</b></li>
     <li><span>If you pay more than these</span><b>Ask the lender to explain the charges, and you can complain to the BSP (banks and cards) or the SEC (lending companies).</b></li></ul><p class="hint">These come from news reports and can change. Check with the BSP or SEC for the current rule.</p>`;
   return `<div class="debtpage">${hdr('Debts')}
-    <section class="cardbox"><h3>Your Month</h3>${month}${lightBox}${short}${cashFlag}</section>
+    ${uiCard({ kind: 'cardbox', body: `<h3>Your Month</h3>${month}${lightBox}${short}${cashFlag}` })}
     ${incomeCard(db, b.learned)}${borrowCard(db)}
-    <section class="cardbox"><h3>What to Pay Now</h3>${order}${extraBox}${plan ? `<h4 class="subh">If There Is Extra, Where It Goes</h4>${seg}` : ''}${planBox}<p class="hint">An estimate from your own entries. It pays what is due soonest first, keeps to how you usually pay, leaves money for living, and only suggests paying early when it is worth it. Real balances change with new charges and late fees.</p></section>
+    ${uiCard({ kind: 'cardbox', body: `<h3>What to Pay Now</h3>${order}${extraBox}${plan ? `<h4 class="subh">If There Is Extra, Where It Goes</h4>${seg}` : ''}${planBox}<p class="hint">An estimate from your own entries. It pays what is due soonest first, keeps to how you usually pay, leaves money for living, and only suggests paying early when it is worth it. Real balances change with new charges and late fees.</p>` })}
     ${warn}
     <h2 class="subh">Your debts (${list.length})</h2>${rows}
     ${coll('d-limits', 'Interest Limits in the Philippines', limits)}</div>`;

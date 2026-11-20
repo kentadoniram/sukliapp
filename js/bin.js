@@ -1,5 +1,5 @@
 // Recycle bin: review, restore or permanently delete accounts, expense groups, categories and entries.
-import { button } from './components.js';
+import { button, card as uiCard } from './components.js';
 import { undoHistory, undoSteps, redoLast, undoWipe, get, commit, fmt, HOME, restoreRec, purgeRec, binItems, purgeExpired, catMap, accountMap } from './core.js';
 import { esc, ic, ACT, toast, confirmDialog, sheet } from './ui.js';
 import { hdr } from './screens.js';
@@ -48,7 +48,7 @@ function history(nb) {
   return `${hdr('Undo History')}${binTabs(true, nb, h.undo.length)}
   <section class="card"><p class="hint">Your last changes to entries, accounts, categories and budgets, newest first. Tap <b>Undo to here</b> to go back to just before that change; you will see every change that gets undone before you confirm. History is kept when you close the app, up to 25 changes, and older ones drop off. It is cleared if your data was changed from another device or restored from a backup. Entries you added go to the Recycle bin.</p>
     ${h.redo.length ? `<div class="btnrow left">${button({ label: `Redo: ${h.redo[0].label}`, kind: 'ghost', size: 'sm', act: 'hist-redo' })}</div>` : ''}</section>
-  ${h.undo.length ? `<ul class="binlist">${h.undo.map((x, k) => `<li class="binrow"><div class="binmain"><b>${esc(x.label)}</b><small class="muted">${esc(stamp(x.at))} · ${esc(ago(x.at))}</small>${(x.detail || []).map((l) => `<small class="hdet">${esc(l)}</small>`).join('')}</div><div class="binbtn">${button({ html: `${k ? 'Undo to here' : 'Undo'}`, kind: 'primary', size: 'sm', cls: `${k ? 'ghost' : ''}`, act: 'hist-to', attr: { 'data-n': k + 1 } })}</div></li>`).join('')}</ul>
+  ${h.undo.length ? `<ul class="binlist">${h.undo.map((x, k) => `${uiCard({ kind: 'binrow', tag: 'li', body: `<div class="binmain"><b>${esc(x.label)}</b><small class="muted">${esc(stamp(x.at))} · ${esc(ago(x.at))}</small>${(x.detail || []).map((l) => `<small class="hdet">${esc(l)}</small>`).join('')}</div><div class="binbtn">${button({ html: `${k ? 'Undo to here' : 'Undo'}`, kind: 'primary', size: 'sm', cls: `${k ? 'ghost' : ''}`, act: 'hist-to', attr: { 'data-n': k + 1 } })}</div>` })}`).join('')}</ul>
   <div class="binhead"><small class="muted">${h.undo.length} of 25 changes kept · about ${Math.max(1, Math.round(kb / 1024))} MB</small>${button({ label: 'Clear history', kind: 'danger-ghost', size: 'sm', act: 'hist-clear' })}</div>` : '<p class="empty">No changes to undo yet.</p>'}`;
 }
 export function bin(db) {
@@ -60,9 +60,9 @@ export function bin(db) {
   <section class="card"><p class="hint">Deleted items wait here, so a slip is never final. Restore anything until its time runs out. After that it is removed for good (on every device).</p>
     <label class="field"><span>Keep deleted items for</span><select data-act-change="bin-days">${days.map((d) => `<option value="${d}" ${(+s.binDays || 0) === d ? 'selected' : ''}>${d ? d + ' days' : 'Until I delete them'}</option>`).join('')}</select></label></section>
   ${rows.length ? `<div class="binhead"><b>${rows.length} ${rows.length === 1 ? 'item' : 'items'}</b>${button({ label: 'Empty bin', kind: 'danger-ghost', size: 'sm', act: 'bin-empty' })}</div>
-  <ul class="binlist">${rows.map((r, i) => { const l = left(db, r.at); return `<li class="binrow"><div class="binmain"><span class="pill">${r.type}</span><b>${esc(r.title)}</b><small>${esc(r.sub)}</small>
+  <ul class="binlist">${rows.map((r, i) => { const l = left(db, r.at); return `${uiCard({ kind: 'binrow', tag: 'li', body: `<div class="binmain"><span class="pill">${r.type}</span><b>${esc(r.title)}</b><small>${esc(r.sub)}</small>
     <small class="${l.soon ? 'warnt' : 'muted'}">Deleted ${when(r.at)} · ${l.text}</small></div>
-    <div class="binbtn">${button({ label: 'Restore', kind: 'primary', size: 'sm', act: 'bin-restore', attr: { 'data-i': i } })}<button class="btn ghost danger sm" data-act="bin-purge" data-i="${i}">Delete forever</button></div></li>`; }).join('')}</ul>`
+    <div class="binbtn">${button({ label: 'Restore', kind: 'primary', size: 'sm', act: 'bin-restore', attr: { 'data-i': i } })}<button class="btn ghost danger sm" data-act="bin-purge" data-i="${i}">Delete forever</button></div>` })}`; }).join('')}</ul>`
   : `<p class="empty">The recycle bin is empty.</p>`}`;
 }
 

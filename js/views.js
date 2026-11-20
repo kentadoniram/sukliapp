@@ -1,5 +1,5 @@
 // The extra windows: menu drawer, Calendar, Budget (donut), Cash flow, Categories, and the detail sheets.
-import { button } from './components.js';
+import { button, card as uiCard } from './components.js';
 import { look } from './appearance.js';
 import { catIcon } from './caticons.js';
 import { commitQuiet, softDelete, scopeIds, scopeOptionsHtml, withScope, appMode } from './core.js';
@@ -411,8 +411,8 @@ export function outlookCard(db) {
   const f = forecastNext(db, thisMonth());
   if (!f.months.length) return '';
   const notes = behaviorNotes(db, thisMonth()).slice(0, 2);
-  return coll('h-outlook', 'Next Month Outlook', `<a class="outlook-card" href="#/outlook"><div><span class="muted">${esc(monthLabel(f.next))} forecast</span><b>${R(f.total)}</b>
-    <small class="muted">${f.incomeAvg ? `usual income ${R(f.incomeAvg)}` : 'no usual income yet'}</small></div>${ic('right')}</a>${notes.length ? notesList(notes) : ''}`);
+  return coll('h-outlook', 'Next Month Outlook', `${uiCard({ kind: 'outlook-card', tag: 'a', attr: { 'href': '#/outlook' }, body: `<div><span class="muted">${esc(monthLabel(f.next))} forecast</span><b>${R(f.total)}</b>
+    <small class="muted">${f.incomeAvg ? `usual income ${R(f.incomeAvg)}` : 'no usual income yet'}</small></div>${ic('right')}` })}${notes.length ? notesList(notes) : ''}`);
 }
 function safeCard(db) {
   const x = safeToSpend(db);

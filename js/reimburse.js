@@ -2,7 +2,7 @@
 // Not the same as "Owed to You" (a person who owes you). Here the money was spent for the company.
 // A flagged expense carries t.reimb = { co, st: 'pending' | 'paid', got, on, rid }. While it is pending it is not your spending (see reimbKeep in core.js);
 // when the company pays, an income entry flagged reimbBack records the money coming in (it is not income) and the flagged expenses become 'paid'.
-import { button } from './components.js';
+import { button, card as uiCard } from './components.js';
 import { get, commit, stamp, softDelete, fmt, HOME, uid, factorFor, homeFx, nowStamp, catMap } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { hdr, coll } from './screens.js';
@@ -47,28 +47,28 @@ let SEL = new Set();   // ticked lines on the page
 // ---------- the Home card ----------
 export function reimbCard(db) {
   const r = reimbData(db); if (!r.n) return '';
-  return `<section class="cardbox reimbcard" data-reimb-card><h3>Waiting for Reimbursement</h3>
+  return `${uiCard({ kind: 'cardbox', cls: 'reimbcard', attr: { 'data-reimb-card': '' }, body: `<h3>Waiting for Reimbursement</h3>
     <div class="debtsum"><div class="dsrow"><span>Your company will pay back</span><b>${totalText(r.list.flatMap((g) => g.pending))}</b></div><div class="dsrow"><span>Entries · oldest</span><b>${r.n} · ${ageText(r.oldest)}</b></div></div>
-    <p class="hint">Not counted as your spending while you wait.</p><div class="btnrow tight"><a class="btn sm" href="#/reimburse">Open</a></div></section>`;
+    <p class="hint">Not counted as your spending while you wait.</p><div class="btnrow tight"><a class="btn sm" href="#/reimburse">Open</a></div>` })}`;
 }
 
 // ---------- the page ----------
 export function reimburse(db) {
   const r = reimbData(db);
-  if (!r.list.length) return `<div class="debtpage reimbpage">${hdr('Reimbursement')}<section class="cardbox"><h3>Nothing to Be Reimbursed</h3>
+  if (!r.list.length) return `<div class="debtpage reimbpage">${hdr('Reimbursement')}${uiCard({ kind: 'cardbox', body: `<h3>Nothing to Be Reimbursed</h3>
     <p class="hint">Some spending your company pays back: train and bus fares, meals, supplies. When you add an expense (or read a Pasmo or Suica screenshot), turn on <b>Reimbursable</b>. It is kept here, and it is <b>not counted as your spending</b> until you decide what the company really paid.</p>
-    <p class="hint">This is different from <a href="#/owed">Owed to You</a>, which is for a person who borrowed money from you.</p></section></div>`;
+    <p class="hint">This is different from <a href="#/owed">Owed to You</a>, which is for a person who borrowed money from you.</p>` })}</div>`;
   const row = (x, group) => `<li class="rbrow"><label class="rbl"><input type="checkbox" data-rb="${x.t.id}" ${SEL.has(x.t.id) ? 'checked' : ''}><span class="rbt"><b>${esc(x.t.name || x.cat || 'Expense')}</b><small class="muted">${esc(nice(x.t.date))} · ${esc(x.cat || 'No category')} · ${ageText(x.age)}</small></span></label><span class="rbamt"><b>${fmt(x.t.amount, x.t.cur)}</b>${x.t.cur !== HOME ? `<small class="muted">≈ ${money(x.home)}</small>` : ''}${button({ label: 'Edit', kind: 'link', size: 'sm', act: 'reimb-edit', data: 'id', v: x.t.id })}</span></li>`;
   const paidRow = (x) => `<li class="rbrow done"><span class="rbt"><b>${esc(x.t.name || x.cat || 'Expense')}</b><small class="muted">${esc(nice(x.t.date))} · paid back ${esc(x.t.reimb.on ? nice(x.t.reimb.on) : '')}${(x.t.reimb.got || 0) + 0.004 < x.t.amount ? ` · the company paid ${fmt(x.t.reimb.got || 0, x.t.cur)} of ${fmt(x.t.amount, x.t.cur)}` : ''}</small></span>${button({ label: 'Undo', kind: 'link', size: 'sm', act: 'reimb-undo', data: 'id', v: x.t.id })}</li>`;
-  const cards = r.list.map((g) => `<section class="cardbox" data-co="${esc(g.co)}"><h3>${esc(g.co)}</h3>
+  const cards = r.list.map((g) => `${uiCard({ kind: 'cardbox', attr: { 'data-co': `${esc(g.co)}` }, body: `<h3>${esc(g.co)}</h3>
     ${g.pending.length ? `<div class="debtsum"><div class="dsrow"><span>Waiting</span><b>${totalText(g.pending)}</b></div><div class="dsrow"><span>Entries</span><b>${g.pending.length}</b></div></div>
       <ul class="rbl-list calfacts">${g.pending.map((x) => row(x)).join('')}</ul>
       <div class="btnrow tight">${button({ label: 'Mark Paid Back', kind: 'primary', size: 'sm', act: 'reimb-paid', data: 'co', v: g.co })}${button({ label: 'Copy the List', kind: 'secondary', size: 'sm', act: 'reimb-copy', data: 'co', v: g.co })}${button({ label: 'Tick All', kind: 'ghost', size: 'sm', act: 'reimb-all', data: 'co', v: g.co })}</div>
       <p class="hint">Tick the lines the company paid, then Mark Paid Back. With none ticked it applies to all of this company's waiting lines.</p>` : '<p class="hint">Nothing waiting for this company.</p>'}
-    ${g.paid.length ? coll('rb-paid-' + g.co, `Paid Back (${g.paid.length})`, `<ul class="calfacts">${g.paid.slice(0, 40).map(paidRow).join('')}</ul>`) : ''}</section>`).join('');
+    ${g.paid.length ? coll('rb-paid-' + g.co, `Paid Back (${g.paid.length})`, `<ul class="calfacts">${g.paid.slice(0, 40).map(paidRow).join('')}</ul>`) : ''}` })}`).join('');
   return `<div class="debtpage reimbpage">${hdr('Reimbursement')}
-    <section class="cardbox"><h3>Waiting for Reimbursement</h3><div class="debtsum"><div class="dsrow"><span>Total the company owes you</span><b>${totalText(r.list.flatMap((g) => g.pending))}</b></div><div class="dsrow"><span>Entries</span><b>${r.n}</b></div><div class="dsrow"><span>Oldest</span><b>${r.n ? ageText(r.oldest) : '-'}</b></div></div>
-      <p class="hint">This is money you spent for work. It is not counted as your spending while it waits, and it is separate from <a href="#/owed">Owed to You</a> (people who borrowed from you). When the company pays, Mark Paid Back records the money coming in; it is not income.</p></section>
+    ${uiCard({ kind: 'cardbox', body: `<h3>Waiting for Reimbursement</h3><div class="debtsum"><div class="dsrow"><span>Total the company owes you</span><b>${totalText(r.list.flatMap((g) => g.pending))}</b></div><div class="dsrow"><span>Entries</span><b>${r.n}</b></div><div class="dsrow"><span>Oldest</span><b>${r.n ? ageText(r.oldest) : '-'}</b></div></div>
+      <p class="hint">This is money you spent for work. It is not counted as your spending while it waits, and it is separate from <a href="#/owed">Owed to You</a> (people who borrowed from you). When the company pays, Mark Paid Back records the money coming in; it is not income.</p>` })}
     ${cards}</div>`;
 }
 const rowsOf = (co) => { const g = reimbData(get()).list.find((x) => x.co === co); return g ? g.pending : []; };

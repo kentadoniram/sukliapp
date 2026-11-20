@@ -2,7 +2,7 @@
 // A tab is { id, name, ids: [account ids] } kept in settings.marketTabs. An investment can be in more than one tab. "All" always shows everything.
 import { get, commit, uid } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog, promptDialog } from './ui.js';
-import { button, tabs } from './components.js';
+import { button, tabs, card as uiCard } from './components.js';
 export const tabList = (db) => (db.settings.marketTabs || []).filter((t) => t && t.id && t.name);
 export function curTab(db) { let v = 'all'; try { v = localStorage.getItem('sukli-mtab') || 'all'; } catch (e) { /* storage blocked */ } return v !== 'all' && tabList(db).some((t) => t.id === v) ? v : 'all'; }
 const setTab = (v) => { try { localStorage.setItem('sukli-mtab', v); } catch (e) { /* storage blocked */ } };
@@ -18,8 +18,8 @@ const inv = (db) => db.accounts.filter((a) => !a.deleted && !a.archived && (a.ty
 function manage() {
   const db = get(), l = tabList(db), accts = inv(db);
   const s = sheet(`<p class="hint">Make a tab for a kind of market, then tick what belongs in it. "All" always shows everything.</p>
-    ${l.map((t) => `<div class="cardbox mkt" data-id="${esc(t.id)}"><div class="othhead"><b>${esc(t.name)}</b><span>${button({ label: 'Rename', kind: 'ghost', size: 'sm', act: 'mkt-ren', v: t.id })}${button({ label: 'Delete', kind: 'danger-ghost', size: 'sm', act: 'mkt-del', v: t.id })}</span></div>
-      <div class="rows plain">${accts.map((a) => `<label class="check"><input type="checkbox" class="mkt-ck" data-t="${esc(t.id)}" data-a="${esc(a.id)}" ${(t.ids || []).includes(a.id) ? 'checked' : ''}> <span>${esc(a.name)}</span></label>`).join('') || '<p class="muted">No investments yet.</p>'}</div></div>`).join('')}
+    ${l.map((t) => `${uiCard({ kind: 'cardbox', tag: 'div', cls: 'mkt', attr: { 'data-id': `${esc(t.id)}` }, body: `<div class="othhead"><b>${esc(t.name)}</b><span>${button({ label: 'Rename', kind: 'ghost', size: 'sm', act: 'mkt-ren', v: t.id })}${button({ label: 'Delete', kind: 'danger-ghost', size: 'sm', act: 'mkt-del', v: t.id })}</span></div>
+      <div class="rows plain">${accts.map((a) => `<label class="check"><input type="checkbox" class="mkt-ck" data-t="${esc(t.id)}" data-a="${esc(a.id)}" ${(t.ids || []).includes(a.id) ? 'checked' : ''}> <span>${esc(a.name)}</span></label>`).join('') || '<p class="muted">No investments yet.</p>'}</div>` })}`).join('')}
     <div class="btnrow">${button({ label: '+ New Tab', kind: 'secondary', act: 'mkt-add' })}${button({ label: 'Done', kind: 'primary', attr: { 'data-done': true } })}</div>`, { title: 'Market Tabs', wide: true });
   s.el.querySelector('[data-done]').onclick = () => { s.close(); window.dispatchEvent(new Event('sukli-render')); };
   s.el.addEventListener('change', (e) => { const c = e.target.closest('.mkt-ck'); if (!c) return; commit((d) => { const t = (d.settings.marketTabs || []).find((x) => x.id === c.dataset.t); if (!t) return; const set = new Set(t.ids || []); if (c.checked) set.add(c.dataset.a); else set.delete(c.dataset.a); t.ids = [...set]; }); });

@@ -36,3 +36,22 @@ with sync_playwright() as p:
     pg.add_style_tag(content=".binrow{--cd-r:3px;--cd-shadow:0 2px 4px rgba(0,0,0,.3)}")
     ok('editing one kind line changes only that kind (corner and shadow)', g('binrow','borderTopLeftRadius')=='3px' and g('binrow','boxShadow')!='none' and g('tile','borderTopLeftRadius')=='12px' and g('tile','boxShadow')=='none')
     b.close()
+# ---- v16.13: card({kind}) and the control table ----
+import glob
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_context(service_workers='block',viewport={'width':390,'height':844}).new_page()
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
+    h=pg.evaluate("""(async()=>{const c=await import('/js/components.js');return [c.card({kind:'cardbox',body:'a'}),c.card({kind:'nope',body:'a'}),c.card({kind:'rem',tag:'div',cls:'x',attr:{'data-id':'7'},body:'a'}),c.CARD_KINDS]})()""")
+    ok('card({kind}) adds a known kind class, ignores an unknown one %s'%h[:3], 'ui-card cardbox' in h[0] and h[1]=='<section class="ui-card">a</section>' and h[2]=='<div class="ui-card rem x" data-id="7">a</div>')
+    css=open('design.css').read()
+    ok('every card kind in CARD_KINDS has a line in the card-kind table', all(re.search(r'\.%s\b'%re.escape(k),css.split('---- 7. Card kinds')[1].split('---- 8.')[0]) for k in h[3]))
+    # no screen writes a card-kind class by hand any more
+    hand=[(f,l.strip()[:80]) for f in glob.glob('js/*.js') if not f.endswith('components.js') for l in open(f).read().split('\n') if re.search(r'class="(?:cardbox|binrow|outlook-card|fsum|goalcheck|reimbview)[ "]',l)]
+    ok('screens use card({ kind }) for card kinds, hand-written class names left: %s'%hand, len(hand)<=2)
+    pg.evaluate("(()=>{const m=document.createElement('div');m.id='cp';m.innerHTML=\"<input class='search'><input><button class='curbtn'>x</button><div class='fabmenu'></div>\";document.body.appendChild(m)})()"); pg.wait_for_timeout(200)
+    g=lambda sel,p_: pg.evaluate("([s,p])=>getComputedStyle(document.querySelector('#cp '+s))[p]",[sel,p_])
+    ok('a class can still override an element rule: input.search keeps the 12px corner, a plain input has 10px', g('.search','borderTopLeftRadius')=='12px' and g('input:not(.search)','borderTopLeftRadius')=='10px')
+    ok('every control kind defines all five control tokens', all(pg.evaluate("([s,t])=>getComputedStyle(document.querySelector('#cp '+s)).getPropertyValue(t).trim()",[s_,t_])!='' for s_ in ['.search','.curbtn','.fabmenu'] for t_ in ['--ct-bg','--ct-bd','--ct-r','--ct-pad','--ct-shadow']))
+    pg.add_style_tag(content=".curbtn{--ct-r:4px;--ct-bg:#ff0000}")
+    ok('editing one control line changes only that control', g('.curbtn','borderTopLeftRadius')=='4px' and g('.curbtn','backgroundColor')=='rgb(255, 0, 0)' and g('.search','borderTopLeftRadius')=='12px')
+    b.close()

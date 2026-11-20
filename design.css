@@ -116,7 +116,7 @@
 :root { --sp-0: 2px; --sp-1: 4px; --sp-2: 6px; --sp-3: 8px; --sp-4: 10px; --sp-5: 12px; }
 
 /* ---- 5. Shadows used by more than one component, and colours used by more than one component ---- */
-:root { --sh-float: 0 4px 14px rgba(0,0,0,.28); --sh-glow: 0 6px 18px rgba(30, 90, 160, .14); --sh-soft: 0 2px 8px rgba(20, 40, 90, .08); --sh-xs: 0 1px 2px rgba(0,0,0,.04); --sh-pop: 0 6px 20px rgba(0,0,0,.22); --sh-chip: 0 2px 8px rgba(22, 32, 42, .06);
+:root { --sh-float: 0 4px 14px rgba(0,0,0,.28); --sh-glow: 0 6px 18px rgba(30, 90, 160, .14); --sh-soft: 0 2px 8px rgba(20, 40, 90, .08); --sh-xs: 0 1px 2px rgba(0,0,0,.04); --sh-pop: 0 6px 20px rgba(0,0,0,.22); --sh-chip: 0 2px 8px rgba(22, 32, 42, .06); --sh-fab: 0 4px 14px rgba(0,0,0,.2); --sh-menu: 0 6px 20px rgba(0,0,0,.28); --sh-panel: 0 12px 32px rgba(22, 32, 42, .18);
   --on-color: #FFFFFF; --ok-ink: #1F6B38; --amber: #D49A1A; --amber-ink: #8A5F00; --bad-ink: #A02A1D; --ok-strong: #1A7F4B; --warn-ink: #9A5B00; --on-bright: #0E141A; --alert: #D64545; --teal-ink: #0F6E6E; --navy: #1D4E89; --amber-dark: #B36B00; --bad-fixed: #B3261E;
   /* near-duplicates kept apart on purpose until a designer decides (ambers: --amber-ink, --warn-ink, --amber-dark) */ }
 
@@ -160,3 +160,43 @@
 .mscard { --cd-r: var(--r-l); --cd-pad: 6px 12px 6px 16px; --cd-shadow: var(--sh-chip); }
 .nwcard.t1nw { --cd-pad: 0; }
 .nwcard div.nwmain { --cd-bg: var(--sheet); --cd-bd: var(--rule); --cd-r: var(--r-card); --cd-pad: 12px 14px; --cd-shadow: none; }   /* ROUND family, written alone so its longer selector does not raise the family's specificity */
+
+/* ---- 8. Control kinds: the look of every field, button-like control and menu, in ONE table ----
+   Same idea as the card kinds (section 7). A control draws itself with five tokens: --ct-bg fill, --ct-bd outline colour, --ct-r corner, --ct-pad padding, --ct-shadow shadow.
+   styles.css never states these values; change a line here and every control of that kind follows. Lines with the same look are grouped in one :is() list.
+   A selector with more than one class (".amtwrap .allin") is written alone, because a long selector in an :is() list would raise the whole list's specificity. */
+/* FIELDS (text fields, selects, pickers: the thing you type or choose into) */
+.searchbar { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 0 12px; --ct-shadow: none; }
+.search { --ct-bg: var(--paper); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 0 12px; --ct-shadow: none; }
+input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 0 12px; --ct-shadow: none; }   /* element selectors on purpose: a class (.search) must be able to override them, as before */
+:is(.whenbtn, .pkbtn) { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 0 12px; --ct-shadow: none; }
+.amtwrap { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 0 14px; --ct-shadow: none; }
+.othrow .oth-n { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 0 14px; --ct-shadow: none; }
+.field.hasall .allbtn { --ct-bg: var(--tint); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 0 12px; --ct-shadow: none; }
+.amtwrap .allin { --ct-bg: var(--tint); --ct-bd: var(--line); --ct-r: 9px; --ct-pad: 0 11px; --ct-shadow: none; }
+.itx .itamt { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 0 8px 0 12px; --ct-shadow: none; }
+.items .item .qty { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 0 6px; --ct-shadow: none; }
+.sql { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 12px; --ct-shadow: none; }
+/* BUTTON-LIKE CONTROLS (chips, segmented controls, keypad, pickers, rows you tap) */
+.chip { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-pill); --ct-pad: 0 14px; --ct-shadow: none; }
+:is(.seg, .calcbtn, .fxrev) { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 0; --ct-shadow: none; }
+.segm { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-l); --ct-pad: 4px; --ct-shadow: none; }
+:is(.sugg, .swapbtn) { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 0; --ct-shadow: none; }
+.keypad button { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 0; --ct-shadow: none; }
+.curbtn { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 11px 14px; --ct-shadow: none; }
+.acctbtn { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 13px 14px; --ct-shadow: none; }
+.fdbtn { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 6px 12px; --ct-shadow: none; }
+.nwcard button { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-card); --ct-pad: 12px 14px; --ct-shadow: none; }
+.bscls button { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-s); --ct-pad: 0 8px; --ct-shadow: none; }
+.bsgrp { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 4px 10px; --ct-shadow: none; }
+.piebtn { --ct-bg: var(--sheet); --ct-bd: var(--iv-add); --ct-r: var(--r-m); --ct-pad: 0; --ct-shadow: none; }
+.picbtn { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 4px 10px; --ct-shadow: none; }
+.invpage .wtab { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-s); --ct-pad: 0 10px; --ct-shadow: none; }
+.cal-d { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-s); --ct-pad: 4px 3px 3px; --ct-shadow: none; }
+.icocell { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 6px 2px; --ct-shadow: none; }
+.selbar { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 8px 10px; --ct-shadow: none; }
+/* MENUS AND PANELS (floating) */
+.fabmenu { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: 50%; --ct-pad: 0; --ct-shadow: var(--sh-fab); }
+.adfab-menu { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 6px; --ct-shadow: var(--sh-menu); }
+.mspanel { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-xl); --ct-pad: 12px; --ct-shadow: var(--sh-panel); }
+.msm { --ct-bg: var(--paper); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 11px 0; --ct-shadow: none; }

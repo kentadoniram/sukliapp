@@ -1,7 +1,7 @@
 // The Earn schedule window of an Earn account: settings, subscriptions, today's hours and the daily history. Times follow each platform’s own clock.
 import { get, commit, commitQuiet, stamp, fmt, CUR, walletOf } from './core.js';
 import { esc, sheet, toast, ACT } from './ui.js';
-import { button, textField } from './components.js';
+import { button, textField, card as uiCard } from './components.js';
 import { syncEarnRates, apyHistOf, apyAt, dayHours, cfgOf, e8, e8Ms, e8Label, logOf, subscriptions, H, runEarn, tzOf, tzName, earnStartOf, defaultFrom } from './earn.js';
 const dec = (cur) => Math.max(2, Math.min(8, (CUR[cur] || { dec: 8 }).dec));
 const num = (n, cur) => fmt(n, cur);
@@ -16,10 +16,10 @@ export function openEarn(id, focus = '') {
     const h = apyHistOf(c), now = Date.now(), hours = [...log.hours.map((x) => [x.h, x.amt]), ...log.days.flatMap((d) => d.hours)];
     const rows = (h.length ? h : (c.apy > 0 ? [{ at: 0, apy: c.apy }] : [])).map((x, i, l) => { const end = i + 1 < l.length ? l[i + 1].at : null, earned = hours.filter(([t]) => t - H >= x.at && (end === null || t - H < end)).reduce((q, y) => q + y[1], 0);
       return { ...x, i, end, earned, n: hours.filter(([t]) => t - H >= x.at && (end === null || t - H < end)).length }; });
-    return `<div class="cardbox" id="aprhist"><b>APR History</b><p class="hint">Each rate with the exact time it took effect (${esc(tz)}). Earnings are worked out hour by hour with the rate that applied in that hour.</p>
+    return `${uiCard({ kind: 'cardbox', tag: 'div', attr: { 'id': 'aprhist' }, body: `<b>APR History</b><p class="hint">Each rate with the exact time it took effect (${esc(tz)}). Earnings are worked out hour by hour with the rate that applied in that hour.</p>
       ${rows.length ? `<ul class="calfacts aprlist">${rows.map((r) => `<li><span><b>${r.apy}%</b> APR<br><small class="muted">${r.at ? `From ${esc(e8Label(r.at, off))}` : 'From the start'} → ${r.end === null ? 'now' : esc(e8Label(r.end, off))} · ${r.at ? dur((r.end === null ? now : r.end) - r.at) : (r.end === null ? 'all along' : `until ${esc(e8Label(r.end, off))}`)}<br>Earned in this period: ${num(r.earned, cur)} (${r.n} hours)</small></span>
         <span class="aprbtns">${button({ label: 'Edit', kind: 'link', attr: { 'data-ew': 'aprEdit', 'data-v': r.i } })}${rows.length > 1 ? button({ label: 'Remove', kind: 'danger-link', attr: { 'data-ew': 'aprDel', 'data-v': r.i } }) : ''}</span></li>`).join('')}</ul>` : '<p class="muted">No rate yet. Type the current rate above, or add one here.</p>'}
-      <div class="btnrow left">${button({ label: 'Add an APR Change', kind: 'ghost', size: 'sm', attr: { 'data-ew': 'aprAdd' } })}</div></div>`;
+      <div class="btnrow left">${button({ label: 'Add an APR Change', kind: 'ghost', size: 'sm', attr: { 'data-ew': 'aprAdd' } })}</div>` })}`;
   };
   const aprSheet = (idx) => {
     const db = get(), a = db.accounts.find((x) => x.id === id), c = cfgOf(a), off = tzOf(db, a), hist = apyHistOf(c), cur0 = idx != null ? hist[idx] : null, first = !!(cur0 && !cur0.at), t0 = cur0 && cur0.at ? cur0.at : Date.now(), e0 = e8(t0, off);
@@ -30,7 +30,7 @@ export function openEarn(id, focus = '') {
       ${first ? '<p class="hint">This is the first rate. It applies from the start.</p>' : `<div class="field"><span>When Did the Rate Change? (${esc(tzName(off))})</span>
         <button type="button" class="btn ghost tbtn ahwhen" id="ah-when"></button>
         <div class="btnrow left tight">${button({ label: 'Now', kind: 'link', id: 'ah-now' })}${button({ label: 'Earlier Today', kind: 'link', id: 'ah-today' })}</div></div>
-      <div class="cardbox" id="ah-calc"></div>`}
+      ${uiCard({ kind: 'cardbox', tag: 'div', attr: { 'id': 'ah-calc' }, body: `` })}`}
       <p class="hint">Earnings are worked out again from the moment the rate changes. Hours before it keep their old rate. A change in the middle of an hour never pays for that part-hour at the new rate.</p>
       <div class="btnrow">${button({ label: 'Save', kind: 'primary', id: 'ah-save' })}</div>`, { title: idx != null ? 'Edit APR Change' : 'Add an APR Change' });
     const paint = () => {
@@ -75,10 +75,10 @@ export function openEarn(id, focus = '') {
       <label class="field"><span>When Does Earning Start?</span><select data-ew="startRule"><option value="nextHour" ${c.startRule !== 'midnight' ? 'selected' : ''}>At the next full hour</option><option value="midnight" ${c.startRule === 'midnight' ? 'selected' : ''}>At the next midnight (${tz})</option></select></label>
       <div class="two"><div class="field"><span>Deposit Time</span><button type="button" class="btn ghost sm tbtn" data-ew="pickdep">🕒 ${esc(depT)}</button></div>
       <label class="field"><span>First Accrual (Hours After Earning Starts)</span><input data-ew="firstLagH" inputmode="numeric" value="${c.firstLagH}"></label></div>
-      <div class="cardbox"><b>What These Mean</b>
+      ${uiCard({ kind: 'cardbox', tag: 'div', body: `<b>What These Mean</b>
         <p class="hint"><b>Deposit Time</b> is the clock time your coins really arrive in this Earn product at the exchange (in ${tz}). It is not when you tap here. The exchange never pays for the hour in progress, so earning starts later (next full hour, or the next midnight if you chose that).</p>
         <p class="hint"><b>First Accrual</b> is how many hours after earning starts the first payout is recorded. Most products record it 1 hour later, then every hour.</p>
-        <p class="hint">Example: deposited at <b>${esc(depT)}</b> → earning starts <b>${esc(hm(dstart))}</b> → first accrual <b>${esc(hm(dfirst))}</b>.</p></div>
+        <p class="hint">Example: deposited at <b>${esc(depT)}</b> → earning starts <b>${esc(hm(dstart))}</b> → first accrual <b>${esc(hm(dfirst))}</b>.</p>` })}
       <div class="subhead"><h3>Automatic Subscription</h3><div class="yn" role="group" aria-label="Automatic Subscription"><button type="button" class="chip ${c.subOn ? 'on' : ''}" data-ew="suby" aria-pressed="${!!c.subOn}">Yes</button><button type="button" class="chip ${!c.subOn ? 'on' : ''}" data-ew="subn" aria-pressed="${!c.subOn}">No</button></div></div>
       <p class="hint">${c.subOn ? 'At each time below, everything available in the account you move from is subscribed to Earn. No amount to set.' : 'Choose Yes to move all available coins into Earn on its own, at set times.'}</p>
       ${c.subOn ? `<label class="field"><span>Move From</span><select data-ew="from">${srcs.map((x) => `<option value="${x.id}" ${x.id === fromId ? 'selected' : ''}>${esc(x.name)} (${esc(walletOf(x))})</option>`).join('') || '<option value="">No other account with this coin on this platform</option>'}</select></label>
@@ -90,7 +90,7 @@ export function openEarn(id, focus = '') {
       <h3>Today So Far <small class="muted">${esc(today)}</small></h3>
       <p><b>${num(tsum, cur)}</b> in ${todayH.length} hours. It becomes one entry after midnight (${tz}).</p>${todayH.length ? hrs(todayH) : ''}
       <h3>Daily History</h3>
-      ${log.days.length ? log.days.slice(0, 60).map((d) => `<div class="cardbox"><button type="button" class="linkbtn" data-ew="day" data-v="${d.day}">${open.has(d.day) ? '▾' : '▸'} ${esc(d.day)} · ${num(d.amt, cur)} · ${d.hours.length} hours</button>${open.has(d.day) ? hrs(d.hours.slice().reverse(), d.z != null ? d.z : off) : ''}</div>`).join('') : '<p class="empty">No finished days yet.</p>'}` : ''}`;
+      ${log.days.length ? log.days.slice(0, 60).map((d) => `${uiCard({ kind: 'cardbox', tag: 'div', body: `<button type="button" class="linkbtn" data-ew="day" data-v="${d.day}">${open.has(d.day) ? '▾' : '▸'} ${esc(d.day)} · ${num(d.amt, cur)} · ${d.hours.length} hours</button>${open.has(d.day) ? hrs(d.hours.slice().reverse(), d.z != null ? d.z : off) : ''}` })}`).join('') : '<p class="empty">No finished days yet.</p>'}` : ''}`;
   };
   draw();
   if (focus === 'apr') setTimeout(() => { const t = root.querySelector('#aprhist'); if (t) t.scrollIntoView({ block: 'start' }); }, 60);

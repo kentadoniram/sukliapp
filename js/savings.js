@@ -6,7 +6,7 @@
 import { get, commit, stamp, balances, softDelete, fmt, HOME, uid, homeFx, nowStamp, groupColor, factorFor, today as todayStr } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { hdr, coll } from './screens.js';
-import { button, textField, selectField } from './components.js';
+import { button, textField, selectField, card as uiCard } from './components.js';
 import { openDatePicker } from './datepicker.js';
 import { picHtml, isImg } from './pictures.js';
 import { goalOutlook, goalReminders } from './goalcheck.js';
@@ -58,7 +58,7 @@ const card = (db, g) => {
   facts.push(`<li><span>Still to save</span><b>${M(s.left)}</b></li>`);
   const o = goalOutlook(db, g), tone = { ontrack: 'ok', early: 'info', behind: 'warn', risk: 'bad', late: 'bad' }[o.level];
   const head = { ontrack: 'On track', early: 'Too early to tell', behind: 'Behind, but you can catch up', risk: 'Not realistic yet', late: 'Target date passed' }[o.level];
-  const check = tone ? `<div class="goalcheck ${tone}" role="status"><b>${head}</b>${o.lines.map((l) => `<small>${esc(l)}</small>`).join('')}${o.needed != null && o.level !== 'late' ? `<small class="muted">Plan: ${M(o.needed)} a month · Actually saved: ${o.actual == null ? 'not enough history yet' : `${M(Math.max(0, o.actual))} a month`}</small>` : ''}</div>` : '';
+  const check = tone ? `${uiCard({ kind: 'goalcheck', tag: 'div', cls: `${tone}`, attr: { 'role': 'status' }, body: `<b>${head}</b>${o.lines.map((l) => `<small>${esc(l)}</small>`).join('')}${o.needed != null && o.level !== 'late' ? `<small class="muted">Plan: ${M(o.needed)} a month · Actually saved: ${o.actual == null ? 'not enough history yet' : `${M(Math.max(0, o.actual))} a month`}</small>` : ''}` })}` : '';
   return `<div class="debtrow goalcard ${s.reached ? 'reached' : ''}" data-goal="${g.id}"><div class="dr-head"><div class="goalhead"><i class="badge" style="background:${col}">${picHtml(g.icon, autoIcon(g.name))}</i>
     <div><b>${esc(g.name)}</b><small class="muted">${termOf(g) === 'long' ? 'Long-term' : 'Short-term'}${s.linked ? ` · follows ${esc(s.acct.name)}` : ''}</small></div></div>
     ${button({ label: 'Edit', kind: 'link', act: 'goal-edit', attr: { 'data-id': g.id } })}</div>
@@ -72,14 +72,14 @@ const card = (db, g) => {
 export function savings(db) {
   const all = live(db.goals), open = all.filter((g) => !g.reachedAck), done = all.filter((g) => g.reachedAck);
   const add = button({ label: 'Add a Goal', kind: 'primary', act: 'goal-new' });
-  if (!all.length) return `<div class="debtpage savingspage">${hdr('Savings')}<section class="cardbox"><h3>Save Toward Something</h3><p class="hint">A goal is something you are saving for: a trip, a laptop, a house, an emergency fund. Set a target amount, then watch your progress. You can follow an account's balance or add money by hand. A goal never moves money by itself.</p><div class="btnrow left">${add}</div>
-    <p class="hint">Ideas:</p><div class="chips">${IDEAS.map(([n]) => `${button({ label: n, kind: 'chip', act: 'goal-new', attr: { 'data-name': n } })}`).join('')}</div></section></div>`;
+  if (!all.length) return `<div class="debtpage savingspage">${hdr('Savings')}${uiCard({ kind: 'cardbox', body: `<h3>Save Toward Something</h3><p class="hint">A goal is something you are saving for: a trip, a laptop, a house, an emergency fund. Set a target amount, then watch your progress. You can follow an account's balance or add money by hand. A goal never moves money by itself.</p><div class="btnrow left">${add}</div>
+    <p class="hint">Ideas:</p><div class="chips">${IDEAS.map(([n]) => `${button({ label: n, kind: 'chip', act: 'goal-new', attr: { 'data-name': n } })}`).join('')}</div>` })}</div>`;
   const t = savingsTotals(db), short = open.filter((g) => termOf(g) === 'short'), long = open.filter((g) => termOf(g) === 'long');
   const sec = (title, l) => (l.length ? `<h2 class="subh">${title} (${l.length})</h2>${l.map((g) => card(db, g)).join('')}` : '');
   return `<div class="debtpage savingspage">${hdr('Savings')}
-    <section class="cardbox"><h3>All Goals</h3><div class="debtsum"><div class="dsrow"><span>Saved so far</span><b>${money(t.saved)}</b></div><div class="dsrow"><span>Total target</span><b>${money(t.target)}</b></div><div class="dsrow"><span>Goals</span><b>${t.n}</b></div></div>
+    ${uiCard({ kind: 'cardbox', body: `<h3>All Goals</h3><div class="debtsum"><div class="dsrow"><span>Saved so far</span><b>${money(t.saved)}</b></div><div class="dsrow"><span>Total target</span><b>${money(t.target)}</b></div><div class="dsrow"><span>Goals</span><b>${t.n}</b></div></div>
       <div class="goalbar"><i style="width:${t.target > 0 ? Math.min(100, (t.saved / t.target) * 100).toFixed(1) : 0}%"></i></div>
-      <div class="btnrow left">${add}</div></section>
+      <div class="btnrow left">${add}</div>` })}
     ${sec('Short-Term Goals', short)}${sec('Long-Term Goals', long)}
     ${done.length ? coll('g-done', `Done (${done.length})`, `<div class="rows plain">${done.map((g) => `<div class="orow done"><span class="rmain"><strong>${esc(g.name)}</strong><small>${money(g.target)} reached</small></span>${button({ label: 'Edit', kind: 'link', act: 'goal-edit', attr: { 'data-id': g.id } })}</div>`).join('')}</div>`) : ''}</div>`;
 }
@@ -168,7 +168,7 @@ ACT['goal-done'] = (el) => { commit((d) => { const x = d.goals.find((y) => y.id 
 // Home reminder: only goals that are really behind (see goalcheck.js); "Not now" hides one goal for a week
 export function goalBanner(db) {
   const list = goalReminders(db).slice(0, 2); if (!list.length) return '';
-  return `<section class="remind" aria-label="Savings goal reminders">${list.map(({ g, o }) => `<div class="rem ${o.level === 'behind' ? 'high' : 'urgent'}"><a class="remlink" href="#/savings"><span><strong>${esc(g.name)}: ${o.level === 'late' ? 'target date passed' : o.level === 'risk' ? 'may not reach the target' : 'falling behind'}</strong><small>${esc(o.lines[0] || '')}</small></span></a>${button({ label: 'Not now', kind: 'link', act: 'goal-snooze', attr: { 'data-id': g.id } })}</div>`).join('')}</section>`;
+  return `<section class="remind" aria-label="Savings goal reminders">${list.map(({ g, o }) => `${uiCard({ kind: 'rem', tag: 'div', cls: `${o.level === 'behind' ? 'high' : 'urgent'}`, body: `<a class="remlink" href="#/savings"><span><strong>${esc(g.name)}: ${o.level === 'late' ? 'target date passed' : o.level === 'risk' ? 'may not reach the target' : 'falling behind'}</strong><small>${esc(o.lines[0] || '')}</small></span></a>${button({ label: 'Not now', kind: 'link', act: 'goal-snooze', attr: { 'data-id': g.id } })}` })}`).join('')}</section>`;
 }
 ACT['goal-snooze'] = (el) => { const d = new Date(); d.setDate(d.getDate() + 7); const until = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; commit((x) => { x.settings.goalSnooze = { ...(x.settings.goalSnooze || {}), [el.dataset.id]: until }; }); toast('Okay, I will remind you again in a week.'); };
 

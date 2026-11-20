@@ -2,7 +2,7 @@
 import { get, commit, stamp, softDelete, fmt, HOME, homePer } from './core.js';
 import { esc, ACT, sheet, toast, confirmDialog } from './ui.js';
 import { splitOf, openSplit, deleteWithMates } from './splitbill.js';
-import { button } from './components.js';
+import { button, card as uiCard } from './components.js';
 
 const KIND = { expense: 'Spending', income: 'Income', transfer: 'Transfer' };
 const pretty = (d) => { const s = String(d || ''), dt = new Date(s.slice(0, 10) + 'T12:00:00'); return isNaN(dt) ? s : dt.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) + (s.length > 10 ? ' · ' + s.slice(11, 16) : ''); };
@@ -48,7 +48,7 @@ export function openEntryView(id) {
   const g = splitOf(db, id), hp = homePer(db, t), f = entryFacts(db, t), mineAmt = g ? Math.max(0, Math.round((g.total - g.people.reduce((q, x) => q + x.amt, 0)) * 100) / 100) : 0, big = `${t.kind === 'income' ? '+' : t.kind === 'expense' ? '−' : ''}${fmt(t.amount, t.cur)}`;
   const s = sheet(`<div class="evw"><div class="evtop"><h3>${esc(t.name || 'Untitled')}</h3><b class="ramt ${t.kind}">${esc(big)}</b></div>
     <ul class="calfacts">${f.rows.map(([k, v]) => `<li><span>${esc(k)}</span><b>${esc(v)}</b></li>`).join('')}</ul>
-    ${f.reimb ? `<div class="reimbview"><h4>Reimbursable <em class="pill reimbpill ${f.reimb.paid ? 'paid' : ''}">${f.reimb.paid ? 'Reimbursed' : 'Waiting'}</em></h4><ul class="calfacts">${f.reimb.rows.map(([k, v]) => `<li><span>${esc(k)}</span><b>${esc(v)}</b></li>`).join('')}</ul><p class="hint">Mark it as paid back from Reimbursement in the menu.</p></div>` : ''}
+    ${f.reimb ? `${uiCard({ kind: 'reimbview', tag: 'div', body: `<h4>Reimbursable <em class="pill reimbpill ${f.reimb.paid ? 'paid' : ''}">${f.reimb.paid ? 'Reimbursed' : 'Waiting'}</em></h4><ul class="calfacts">${f.reimb.rows.map(([k, v]) => `<li><span>${esc(k)}</span><b>${esc(v)}</b></li>`).join('')}</ul><p class="hint">Mark it as paid back from Reimbursement in the menu.</p>` })}` : ''}
     ${f.items.length ? `<h4>Items</h4><ul class="calfacts">${f.items.map((i) => `<li><span>${esc(i.n || 'Item')}${i.q > 1 ? ` × ${i.q}` : ''}</span><b>${esc(fmt(i.amt, t.cur))}</b></li>`).join('')}</ul>` : ''}
     ${g ? `<h4>Part of a Shared Bill</h4><ul class="calfacts">${billLine('Whole bill', g.total, g, hp)}${g.mine || mineAmt > 0.004 ? billLine('You', mineAmt, g, hp) : ''}${g.people.map((p) => billLine(p.who, p.amt, g, hp)).join('')}</ul>
       <p class="hint">This entry is one share of a single bill. Editing or deleting it changes the whole bill, all ${g.people.length + (g.mine ? 1 : 0)} entries together.</p>` : '<p class="hint">Read only. Tap Edit to change this entry.</p>'}

@@ -1,6 +1,6 @@
 // The five screens: Home, Ledger, Review, Accounts, Reports, and Settings.
 import { addCfg, startKind, KIND_META, START_CHOICES } from './addset.js';
-import { button, textField, seg } from './components.js';
+import { button, textField, seg, card as uiCard } from './components.js';
 import { catIcon } from './caticons.js';
 import { softDelete, appMode, reimbKeep } from './core.js';
 import { safetyCfg, balanceTrail, netWorth, cashFlowSeries, netWorthSeries } from './finance.js';
@@ -760,7 +760,7 @@ function filterSummary(db, list, hiddenFees, kidMap) {
   const title = [ui.tag ? `#${ui.tag}` : '', catName, range, ui.filter !== 'all' ? (ui.filter === 'review' ? 'Check' : ui.filter[0].toUpperCase() + ui.filter.slice(1)) : ''].filter(Boolean).join(' · ') || 'This selection';
   const line = (label, k) => { if (!cnt[k]) return ''; const cur = [...acc[k].entries()].map(([c, v]) => money(v, c)).join(' · '); return `<div class="sumrow"><span>${label} <small class="muted">${cnt[k]} ${cnt[k] === 1 ? 'entry' : 'entries'}</small></span><b>${money(hm[k])}</b>${acc[k].size > 1 || ![...acc[k].keys()].every((c) => c === HOME) ? `<small class="muted">${cur}</small>` : ''}</div>`; };
   const inner = line('Total spent', 'expense') + line('Income received', 'income') + line('Moved between accounts', 'transfer');
-  return `<div class="fsum" id="lsum"><b class="fsumtitle">${esc(title)}</b><small class="muted fsumrange">Dates covered: ${esc(period)}</small>${inner || '<span class="muted">Nothing matches.</span>'}</div>`;
+  return `${uiCard({ kind: 'fsum', tag: 'div', attr: { 'id': 'lsum' }, body: `<b class="fsumtitle">${esc(title)}</b><small class="muted fsumrange">Dates covered: ${esc(period)}</small>${inner || '<span class="muted">Nothing matches.</span>'}` })}`;
 }
 ACT.more = () => { ui.limit += 150; const el = document.getElementById('ledger-list'); if (el) el.innerHTML = ledgerRows(get()); };
 

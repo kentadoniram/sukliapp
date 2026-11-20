@@ -9,7 +9,7 @@ import { norm } from './merchants.js';
 import { fillCandidates, canonMerchant } from './merchantpick.js';
 import { commit, stamp } from './core.js';
 import { confirmDialog, toast } from './ui.js';
-import { button } from './components.js';
+import { button, card as uiCard } from './components.js';
 
 const A = { range: '30d', from: '', to: '', acct: '', cur: '', group: '', cat: '', by: 'group', prev: false };
 const money = (n, c = HOME) => fmt(n, c, { round: true });
@@ -120,7 +120,7 @@ export function analytics(db) {
   const tile = (k, label, v, d, cls = '') => `${button({ html: `<span>${label}</span><b class="${cls}">${money(v)}</b>${d}`, kind: 'plain', cls: 'tile', act: 'an-list', attr: { 'data-k': k } })}`;
   const rate = I > 0 ? Math.round((I - E) / I * 100) : null;
   const kpis = `<div class="tiles">${tile('inc', 'Income', I, delta(I, pI, true), 'in')}${tile('exp', 'Spending', E, delta(E, pE, false))}${tile('net', 'Net', I - E, delta(I - E, pI - pE, true), I - E < 0 ? 'neg' : 'in')}
-    <div class="tile static"><span>Saved</span><b>${rate == null ? '—' : rate + '%'}</b><small class="muted">of income</small></div></div>`;
+    ${uiCard({ kind: 'tile', tag: 'div', cls: 'static', body: `<span>Saved</span><b>${rate == null ? '—' : rate + '%'}</b><small class="muted">of income</small>` })}</div>`;
 
   // income vs expenses
   const bk = buckets(P.from, P.to > today() ? today() : P.to, P.days);

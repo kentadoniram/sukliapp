@@ -1,7 +1,7 @@
 // Borrowing report, income check and buying check. Plain sums of your own entries; nothing here tells you to buy or sell.
 import { get, commit, homeFx, factorFor, fmt, HOME, thisMonth, shiftMonth, catMap, balances } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
-import { textField, button } from './components.js';
+import { textField, button, card as uiCard } from './components.js';
 import { learnMonths } from './debtplan.js';
 import { tradeBook } from './tradecalc.js';
 import { tokenPerformance } from './tokenperf.js';
@@ -37,7 +37,7 @@ export function borrowCard(db) {
   const note = rep.repeated
     ? '<p class="lpwarn" data-borrow-flag>In 2 or more of the last 3 months you borrowed about as much as you paid back. That can mean new borrowing is covering old payments. It is only a pattern in your entries, not a judgement. If it is true, it may help to talk with your lender about easier terms.</p>'
     : '<p class="hint">Borrowed and paid are the entries you marked as Borrow and Pay debt. Interest is the charges you saved as Financial loss on a loan or card.</p>';
-  return `<section class="cardbox" data-borrow><h3>Borrowed, Paid and Interest</h3><ul class="calfacts">${body}</ul>${note}</section>`;
+  return `${uiCard({ kind: 'cardbox', attr: { 'data-borrow': '' }, body: `<h3>Borrowed, Paid and Interest</h3><ul class="calfacts">${body}</ul>${note}` })}`;
 }
 
 // ---------- income: typed vs what your entries show ----------
@@ -60,7 +60,7 @@ export function incomeCard(db, learned) {
     match: `You typed ${money(c.typed)} and your entries show about ${money(c.seen)}. They agree well.`,
     differs: `You typed ${money(c.typed)}, but your entries show about ${money(c.seen)} a month${c.thin ? ' (only a short history, so less sure)' : ''}. Sukli plans with what it sees in your entries. If your entries are missing some income, add it or change your figure.`,
   }[c.state];
-  return `<section class="cardbox" data-income><h3>Your Income</h3><p>${line}</p><div class="btnrow tight">${button({ label: c.typed ? 'Change' : 'Type Your Income', kind: 'secondary', size: 'sm', act: 'income-set' })}${c.typed ? button({ label: 'Remove', kind: 'secondary', size: 'sm', act: 'income-clear' }) : ''}</div></section>`;
+  return `${uiCard({ kind: 'cardbox', attr: { 'data-income': '' }, body: `<h3>Your Income</h3><p>${line}</p><div class="btnrow tight">${button({ label: c.typed ? 'Change' : 'Type Your Income', kind: 'secondary', size: 'sm', act: 'income-set' })}${c.typed ? button({ label: 'Remove', kind: 'secondary', size: 'sm', act: 'income-clear' }) : ''}</div>` })}`;
 }
 ACT['income-set'] = () => {
   const db = get(), cur = db.settings.incomeTyped || '';

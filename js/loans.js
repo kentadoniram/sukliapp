@@ -14,7 +14,7 @@ const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/,/
 const m2 = (n) => (Math.round(n * 100) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 import { tipBtn, calcHtml, bindCalc } from './interest.js';
-import { button, textField } from './components.js';
+import { button, textField, card as uiCard } from './components.js';
 export function openLoanPlanner(pre = {}) {
   const db = get(), live = db.accounts.filter((a) => !a.deleted && !a.archived);
   const recv = live.filter((a) => !isLiability(a)), debts = live.filter((a) => a.type === 'loan');
@@ -97,10 +97,10 @@ export function loanBox(db, a, money) {
   let status = '';
   if (dd && !paid) { const days = Math.round((new Date(today) - new Date(due)) / 86400000); if (days > 0) { const late = L && L.monthly && L.lateFee ? L.monthly * L.lateFee / 100 : 0; status = `<p class="lpwarn">${ic('spark')} Payment was due ${esc(due)} (${days} day${days === 1 ? '' : 's'} ago) and none is recorded this month.${late ? ` A late fee of about ${money(late, a.cur)} may apply.` : ''} Late payments can add penalties and hurt your credit record.</p>`; } else status = `<p class="hint">Next payment due ${esc(due)}${days === 0 ? ' (today)' : ` (in ${-days} day${days === -1 ? '' : 's'})`}.</p>`; }
   else if (dd && paid) status = '<p class="hint">This month’s payment is recorded.</p>';
-  return `<div class="cardbox"><h3>${L ? esc(LOAN_KINDS[L.kind] || 'Loan') : 'Payments'}</h3>
+  return `${uiCard({ kind: 'cardbox', tag: 'div', body: `<h3>${L ? esc(LOAN_KINDS[L.kind] || 'Loan') : 'Payments'}</h3>
     ${L ? `<ul class="calfacts"><li><span>Borrowed</span><b>${money(L.principal, a.cur)}</b></li><li><span>Received after fees</span><b>${money(L.net, a.cur)}</b></li><li><span>Monthly payment</span><b>${money(L.monthly, a.cur)}</b></li><li><span>Rate and length</span><b>${L.rate}% · ${L.months} months</b></li></ul>${(() => { const pr = loanProgress(L, loanPayments(db, a)); return pr.count ? `<h3 class="subh">Paid so far (${pr.count} ${pr.count === 1 ? 'payment' : 'payments'})</h3><ul class="calfacts"><li><span>Total paid</span><b>${money(pr.paid, a.cur)}</b></li><li><span>Of which interest (estimate)</span><b class="cr">${money(pr.interest, a.cur)}</b></li><li><span>Of which principal</span><b>${money(pr.principal, a.cur)}</b></li><li><span>Still owed (principal)</span><b>${money(pr.balance, a.cur)}</b></li><li><span>Payments left</span><b>about ${pr.paymentsLeft}</b></li></ul>` : '<p class="hint">Payments you record as transfers into this account are split into interest and principal here.</p>'; })()}` : ''}
     ${status}
-    <div class="btnrow tight">${button({ label: 'Add interest, late fee or penalty', kind: 'ghost', size: 'sm', act: 'loan-charge', attr: { 'data-id': a.id } })}</div></div>`;
+    <div class="btnrow tight">${button({ label: 'Add interest, late fee or penalty', kind: 'ghost', size: 'sm', act: 'loan-charge', attr: { 'data-id': a.id } })}</div>` })}`;
 }
 
 // Home card: money lost to fees, interest and penalties, plus tax taken from interest
