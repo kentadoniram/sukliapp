@@ -1,0 +1,38 @@
+from tests.invnavhelp import go_invest
+from playwright.sync_api import sync_playwright
+def ok(n,c): print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':402,'height':874})
+    errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('.welcome')
+    pg.click('[data-act=wz-old]'); pg.click('[data-act=start-empty]'); pg.wait_for_selector('#acct-form'); pg.fill('[name=name]','Wallet'); pg.click('#acct-form .btn'); pg.wait_for_timeout(800)
+    J=lambda js: pg.evaluate("(async()=>{const c=await import('/js/core.js');"+js+"})()")
+    J("""c.commit(d=>{d.settings.mode='advanced';
+      const A=(id,name,cur,ex,w,amt)=>{d.accounts.push(c.stamp({id,name,type:'crypto',cur,exchange:ex,wallet:w,include:true,invtab:true}));d.txs.push(c.stamp({id:'t'+id,kind:'income',date:c.nowStamp(),acct:id,cur,fx:1,amount:amt,name:'dep',cat:'',items:[],toAcct:'',toAmount:null,fee:0,notes:'',labels:'',flag:null,createdAt:Date.now()}))};
+      A('b1','Binance BTC','BTC','Binance','Spot',1);A('b2','Binance USDT','USDT','Binance','Spot',500);A('b3','Binance BTC Earn','BTC','Binance','Earn',2);
+      A('y1','Bybit BTC','BTC','Bybit','Spot',0.5);A('y2','Bybit USDT','USDT','Bybit','Spot',300);A('y3','Bybit ETH','ETH','Bybit','Spot',4)})""")
+    go_invest(pg,'Binance')
+    # per-platform Overview tab (not in the group bar)
+    t=pg.inner_text('#view')
+    ok('no Overview in group bar', pg.locator('[data-act=inv-group]').filter(has_text='Overview').count()==0)
+    pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
+    ok('platform opens on Overview by default', pg.evaluate("(document.querySelector('.wsw [data-w=__overview][data-ex=Binance]')||{}).className||''").find('on')>=0 or pg.locator('.wblock[data-w=Overview]').count()>=1)
+    ok('Binance has an Overview tab', pg.locator('.wsw [data-w=__overview]').count()>=1)
+    pg.evaluate("document.querySelector('.wsw [data-w=__overview][data-ex=Binance]').click()"); pg.wait_for_timeout(500)
+    pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
+    t=pg.inner_text('#view'); ok('Binance BTC consolidated (1+2 = 3 BTC)', '3.00 BTC' in t)
+    pg.evaluate("[...document.querySelectorAll('.ovrow')].find(r=>r.innerText.includes('BTC')).querySelector('button').click()"); pg.wait_for_timeout(300)
+    t=pg.inner_text('#view'); ok('wallets of BTC visible', 'Spot' in t and 'Earn' in t)
+    ok('Bybit BTC not mixed into Binance (no 3.5)', '3.5 BTC' not in t)
+    # trade picker
+    pg.evaluate("0"); pg.wait_for_timeout(500)
+    pg.evaluate("(async()=>{(await import('/js/trades.js')).openTrade({platform:'Binance'})})()"); pg.wait_for_selector('#tr'); pg.wait_for_timeout(400)
+    ok('Paid from defaults USDT', 'USDT' in pg.evaluate("document.querySelector('#tr select[name=cash]').selectedOptions[0].textContent") or pg.evaluate("document.querySelector('#tr select[name=cash]').selectedOptions[0].textContent.includes('USDT')"))
+    pg.evaluate("document.querySelector('#tr select[name=asset]').nextElementSibling.click()"); pg.wait_for_selector('.pk-gh')
+    ok('+ Entry at top', pg.evaluate("document.querySelector('.pk-add').textContent.includes('Entry')"))
+    pg.evaluate("document.querySelector('.pk-gh[data-g=Cryptocurrency]').click()"); pg.evaluate("document.querySelector('.pk-gh[data-g=\"Cryptocurrency › Bybit\"]').click()"); pg.evaluate("document.querySelector('.pk-gh[data-g=\"Cryptocurrency › Bybit › Spot\"]').click()"); pg.wait_for_timeout(200)
+    pg.evaluate("[...document.querySelectorAll('.pk-opt')].find(o=>o.offsetParent&&o.innerText.includes('ETH')).click()"); pg.wait_for_timeout(500)
+    ok('platform switched to Bybit', pg.evaluate("document.querySelector('#tr select[name=plat]').value")=='Bybit')
+    ok('paid from USDT on Bybit', pg.evaluate("document.querySelector('#tr select[name=cash]').selectedOptions[0].textContent.includes('Bybit')&&document.querySelector('#tr select[name=cash]').selectedOptions[0].textContent.includes('USDT')"))
+    ok('no errors %s'%errs, not errs)
+    b.close()
