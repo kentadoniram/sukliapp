@@ -17,7 +17,7 @@ import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
 import { pendingReview } from './tradereview.js';
 import { tokenPerformance, earnedUnits, openCost } from './tokenperf.js';
-import { button, tabs, segChoice, textField } from './components.js';
+import { button, tabs, segChoice, textField, areaSwitch } from './components.js';
 import { ensureUsdt, TRADING_WALLETS } from './tokens.js';
 import { INV, invTabs, CATS, categoryCards, levelTwo, platformCard, productCard, txList, invCalendar } from './invnav.js';
 import { lineChart } from './analytics.js';
@@ -28,7 +28,8 @@ let invC = HOME, invK = 1;
 const f2 = (n, cur, o = {}) => fmt(n, cur, { ...o, dp2: true });   // Investments cards: money always shows exactly 2 decimals
 const money = (n) => f2(n * invK, invC);
 function setInvCur(db) { const c = (db.settings && db.settings.invCur) || HOME, r = c === HOME ? 1 : homeFx(db, c); if (c !== HOME && r > 0) { invC = c; invK = 1 / r; } else { invC = HOME; invK = 1; } }
-export const inInvest = (a) => !a.archived && (a.type === 'crypto' || a.type === 'invest' || a.invtab);
+import { inInvest } from './finance.js';
+export { inInvest };
 const val = (db, a, v) => v * (homeFx(db, a.cur) || 0);
 const priced = (db, a) => a.cur === HOME || (homeFx(db, a.cur) || 0) > 0;
 const EXCH = /bybit|bitget|okx|binance|kucoin|mexc|gate\.io|coins\.ph|phantom|metamask|ledger|trust wallet/i;
@@ -333,20 +334,22 @@ export function investments(db) {
     const B = (label, act, aria, o = {}) => button({ label, kind: o.kind || 'ghost', size: 'sm', act, data: 'ex', v: sel, aria, cls: o.cls || '' });
     const coins = new Set(list.filter((a) => Math.abs(bal.get(a.id) || 0) > 1e-12).map((a) => a.cur)), wl = new Set(list.map((a) => walletOf(a) || 'Other'));
     const txN = db.txs.filter((t) => !t.deleted && (ids.has(t.acct) || ids.has(t.toAcct))).length;
-    return `<div class="platpage"><section class="t1-card ui-card plathero" style="--pc:${platColor(sel)}"><div class="phead">${platIcon(sel, 'xs')}<b>${esc(sel)}</b></div>
+    // Theme 1 shows a platform as ONE card (total, performance, profit and loss, metrics); Legacy keeps its separate cards
+    const one = look().design !== 'legacy', secO = (c) => (one ? `<div class="pc-sec${c ? ' ' + c : ''}">` : `<section class="ui-card invcard${c ? ' ' + c : ''}">`), secC = one ? '</div>' : '</section>';
+    return `<div class="platpage"><section class="t1-card ui-card plathero${one ? ' platcard' : ''}" style="--pc:${platColor(sel)}"><div class="phead">${platIcon(sel, 'xs')}<b>${esc(sel)}</b></div>
         <span class="pl-k">Total asset value</span><b class="pl-v">${money(tot)}</b>${eqLine(db, tot)}
-        <span class="pl-pnl ${cl(pnl)}">${sgn(pnl)}${pct === null ? '' : ` · ${pct >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(2)}% open`} <small class="muted">trading profit and loss</small></span></section>
-      <section class="ui-card invcard perf"><h2 class="invh">Performance</h2>${graph}</section>
-      <section class="ui-card invcard"><h2 class="invh">Profit and Loss</h2><ul class="calfacts">
+        <span class="pl-pnl ${cl(pnl)}">${sgn(pnl)}${pct === null ? '' : ` · ${pct >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(2)}% open`} <small class="muted">trading profit and loss</small></span>${one ? '' : '</section>'}
+        ${secO('perf')}<h2 class="invh">Performance</h2>${graph}${secC}
+        ${secO('')}<h2 class="invh">Profit and Loss</h2><ul class="calfacts">
         <li><span>Unrealized <small class="muted">still held</small></span><b class="${cl(unrealP)}">${sgn(unrealP)}</b></li>
         <li><span>Realized <small class="muted">sold</small></span><b class="${cl(realAll)}">${sgn(realAll)}</b></li>
         <li><span>Realized this year</span><b class="${cl(realYr)}">${sgn(realYr)}</b></li>
         <li><span><b>Trading profit and loss</b></span><b class="${cl(pnl)}">${sgn(pnl)}</b></li></ul>
         <h3 class="subh">Interest and income <small class="muted">not part of profit and loss</small></h3><ul class="calfacts"><li><span>Earned <small class="muted">interest, staking</small></span><b class="${cl(earnAll)}">${sgn(earnAll)}</b></li></ul>
-        <p class="hint">Average-cost method, after fees. Units held before using Sukli have no known cost and are left out.</p></section>
-      <section class="ui-card invcard"><h2 class="invh">Other Metrics</h2><ul class="calfacts">
+        <p class="hint">Average-cost method, after fees. Units held before using Sukli have no known cost and are left out.</p>${secC}
+        ${secO('')}<h2 class="invh">Other Metrics</h2><ul class="calfacts">
         <li><span>Cost of what you still hold</span><b>${cost > 0 ? money(cost) : '—'}</b></li>
-        <li><span>Assets held</span><b>${coins.size}</b></li><li><span>Wallets</span><b>${wl.size}</b></li><li><span>Transactions</span><b>${txN}</b></li></ul></section>
+        <li><span>Assets held</span><b>${coins.size}</b></li><li><span>Wallets</span><b>${wl.size}</b></li><li><span>Transactions</span><b>${txN}</b></li></ul>${secC}${one ? '</section>' : ''}
       <section class="ui-card invcard ivplat" style="--pc:${platColor(sel)}"><div class="holdhead"><h2 class="invh">Holdings</h2>${sel !== 'Wallets and other' ? button({ label: 'Platform Settings', kind: 'link', size: 'sm', cls: 'holdset', act: 'plat-open', data: 'ex', v: sel, aria: `Settings for the platform ${sel}` }) : ''}</div>${list.length ? walletBlocks(list, tot) : '<p class="hint">Nothing in this platform yet.</p>'}${(() => { const n = cryptoAll.filter((a) => platOf(a) === sel).length - list.length; return n > 0 || showEmpty ? `<p class="hint">${showEmpty ? 'Showing empty assets.' : `${n} empty asset${n === 1 ? '' : 's'} hidden.`} ${button({ label: showEmpty ? 'Hide them' : 'Show them', kind: 'link', act: 'inv-empty' })}</p>` : ''; })()}
         ${sel !== 'Wallets and other' ? platActs(sel) : ''}</section>
       <section class="ui-card invcard"><h2 class="invh">Transactions on ${esc(sel)}</h2>${txList(db, ids, sel)}</section></div>`;
@@ -355,7 +358,7 @@ export function investments(db) {
   const accountsPage = () => {
     const c = CATS.find((x) => x[0] === INV.cat);
     if (!c) return `<h2 class="invh">Investment Categories</h2>${categoryCards(cats)}`;
-    const cards = c[0] === 'crypto' ? [...platMap.entries()].sort((x, y) => exSum(y[1]) - exSum(x[1])).map(([n, l]) => platformCard(n, money(exSum(l)), platIcon(n, 'xs'), invC !== HOME ? `≈ ${f2(exSum(l), HOME)}` : '')) : catItems[c[0]].map((a) => productCard(a, money(exSum([a])), invC !== HOME ? `≈ ${f2(exSum([a]), HOME)}` : ''));
+    const cards = c[0] === 'crypto' ? [...platMap.entries()].sort((x, y) => exSum(y[1]) - exSum(x[1])).map(([n, l]) => platformCard(n, money(exSum(l)), platIcon(n, 'xs'), invC !== HOME ? `≈ ${f2(exSum(l), HOME)}` : '', look().design === 'legacy' ? '' : (() => { const k = new Set(l.filter((a) => Math.abs(bal.get(a.id) || 0) > 1e-12).map((a) => a.cur)).size, w = new Set(l.map((a) => walletOf(a) || 'Other')).size; return l.length ? `${k} asset${k === 1 ? '' : 's'} · ${w} wallet${w === 1 ? '' : 's'}` : 'Empty'; })())) : catItems[c[0]].map((a) => productCard(a, money(exSum([a])), invC !== HOME ? `≈ ${f2(exSum([a]), HOME)}` : ''));
     return levelTwo(c, cards);
   };
   const overviewHtml = `<div class="btnrow left invact">${button({ label: 'Record activity', kind: 'primary', size: 'sm', act: 'inv-add', cls: 'iv-rec' })} ${button({ label: 'Add asset', kind: 'ghost', size: 'sm', act: 'inv-new', cls: 'iv-add' })} ${button({ label: 'Buying Check', kind: 'ghost', size: 'sm', act: 'buy-check' })}${pendingReview(db).length ? ` ${button({ label: `Review trades (${pendingReview(db).length})`, kind: 'ghost', size: 'sm', act: 'trade-review' })}` : ''} </div>
@@ -372,7 +375,7 @@ export function investments(db) {
   setTimeout(() => { if (ensureUsdt()) window.dispatchEvent(new Event('sukli-render')); }, 30);
   setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
   const enter = INV.fresh; INV.fresh = false;
-  return `<div class="invpage sec-${INV.sec}${enter ? ' enter' : ''}">${(INV.sec === 'platform' ? backHdr : hdr)('Investments', `${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`)}${secBody}</div>`;
+  return `<div class="invpage sec-${INV.sec}${enter ? ' enter' : ''}">${(INV.sec === 'platform' ? backHdr : hdr)('Investments', `${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`)}${look().design !== 'legacy' ? areaSwitch('invest') : ''}${secBody}</div>`;
 }
 
 // manual tickers: any coin, token, stock or fund, on any platform or market (Tokyo, Korea, NASDAQ...), kept apart from real currencies

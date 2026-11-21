@@ -68,3 +68,8 @@ export function card({ body = '', cls = '', tone = '', design = '', kind = '', t
   const a = Object.entries(attr).map(([k, v]) => ` ${k}="${String(v).replace(/"/g, '&quot;')}"`).join('');
   return `<${tag} class="ui-card${tone ? ' ui-card--' + tone : ''}${CARD_DESIGNS.includes(design) ? ' ui-card--' + design : ''}${CARD_KINDS.includes(kind) ? ' ' + kind : ''}${cls ? ' ' + cls : ''}"${a}>${body}</${tag}>`;
 }
+
+// Home and Investments are two areas of the app. This is the one switch between them, shown at the top of both (Theme 1):
+// the area you are in is filled, the other one is a link. areaSwitch('home') or areaSwitch('invest').
+export const AREAS = [['home', 'Home', 'home'], ['invest', 'Investments', 'spark']];
+export const areaSwitch = (cur) => `<nav class="areasw" data-area-switch="${esc(cur)}" aria-label="Switch between Home and Investments">${AREAS.map(([r, l, i]) => `<a href="#/${r}" class="${cur === r ? 'on' : ''}" ${cur === r ? 'aria-current="page"' : ''}>${ic(i)}<span>${l}</span></a>`).join('')}</nav>`;

@@ -21,7 +21,7 @@ with sync_playwright() as p:
         tot=num(pg.evaluate("document.querySelector('.invcat .ic-v').textContent"))
         pg.click('.invcat:has-text("Crypto")'); pg.wait_for_timeout(600)
         cards=pg.evaluate("[...document.querySelectorAll('.invplat')].map(e=>({t:e.querySelector('.ic-t').textContent,v:e.querySelector('.ic-v').textContent,x:e.textContent.replace(/\\s+/g,' ').trim(),n:e.querySelectorAll('.ic-s').length}))")
-        ok(n+'platform cards show a name and a single total %s'%len(cards), len(cards)>=3 and all(c['x'].endswith(c['t']+c['v']) and c['n']==0 for c in cards))
+        ok(n+'platform cards show a name and a single total %s'%len(cards), len(cards)>=3 and all(c['n']==0 and (c['x'].endswith(c['t']+c['v']) if n.startswith('legacy') else (c['x'].startswith(c['t']) and c['x'].endswith(c['v']))) for c in cards))   # Theme 1 adds a line of assets and wallets under the name
         s=sum(num(c['v']) for c in cards); ok(n+'category total equals sum of platform cards (%.2f vs %.2f)'%(tot,s), abs(tot-s)<1)
         name=cards[0]['t']; pg.click('.invplat >> nth=0'); pg.wait_for_timeout(900)
         labs=pg.evaluate("[...document.querySelectorAll('.tabs a')].map(e=>e.textContent.trim())")

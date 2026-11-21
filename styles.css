@@ -2170,3 +2170,26 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .platpage .invcard .calfacts { margin: 0; }
 .platpage .invcard .calfacts li { padding: 8px 0; }
 .platpage .holdhead .invh { font-size: var(--fz-19); font-weight: 750; }
+
+/* ---- Home / Investments switch and the Investments area (Theme 1 only) ---- */
+.areasw { display: flex; gap: var(--sp-1); margin: var(--sp-2) 0 var(--sp-3); padding: var(--ct-pad); border-radius: var(--ct-r); border: 1px solid var(--ct-bd); background: var(--ct-bg); }
+.areasw a { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); min-height: var(--h-touch); border-radius: var(--r-pill); color: var(--ink2); font-size: var(--fz-14); font-weight: 600; text-decoration: none; }
+.areasw a svg { width: 18px; height: 18px; }
+.areasw a.on { background: var(--ink); color: var(--paper); cursor: default; }
+:root[data-design="theme1"] body[data-area="invest"] { background: var(--area-inv-soft); }
+:root[data-design="theme1"] body[data-area="invest"] .areasw a.on { background: var(--area-inv); color: var(--area-inv-ink); }
+:root[data-design="theme1"] body[data-area="invest"] .areasw { border-color: color-mix(in srgb, var(--area-inv) 40%, var(--rule)); }
+:root[data-design="theme1"] body[data-area="invest"] .tabs { background: var(--area-inv-soft); border-top: 3px solid var(--area-inv); }
+:root[data-design="theme1"] body[data-area="invest"] .tabs a.on { color: var(--area-inv); }
+:root[data-design="theme1"] body[data-area="invest"] #view .invpage > header.top h1::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: var(--sp-3); border-radius: 50%; background: var(--area-inv); vertical-align: middle; }
+:root[data-design="legacy"] .areasw { display: none; }
+:root[data-design="theme1"] body[data-area="invest"] .tabs a.on::before { background: var(--area-inv); }
+
+/* one card for a platform: its total, performance, profit and loss and metrics as sections inside it (Holdings and Transactions stay lists below) */
+.platcard { gap: var(--sp-0); }
+.platcard .pc-sec { margin-top: var(--sp-5); padding-top: var(--sp-5); border-top: 1px solid var(--rule); display: grid; gap: var(--sp-1); }
+.platcard .pc-sec .invh { font-size: var(--fz-15); }
+.invplat .pl-n { display: grid; gap: var(--sp-0); min-width: 0; text-align: left; } .invplat .ic-m { color: var(--ink2); font-size: var(--fz-12); }
+/* a person with more than one currency: the currencies sit inside one card */
+.personrow .curblock { margin: var(--sp-3) 0 0; padding: var(--sp-3) 0 0; border: 0; border-top: 1px solid var(--rule); border-radius: 0; background: none; box-shadow: none; }
+.personrow .curblock .dr-head { margin-bottom: var(--sp-1); }

@@ -18,6 +18,8 @@ const sum = (a) => a.reduce((s, x) => s + x, 0);
 export const ASSET_TYPES = new Set(['cash', 'bank', 'ewallet', 'ic', 'invest', 'crypto', 'other', 'asset', 'owed']);
 // money other people owe you (an asset). Never spendable; the Owed to you tab lists them.
 export const isOwed = (a) => !!a && a.type === 'owed';
+// an account that belongs in Investments (a coin, an investment, or any account marked "Show in Investments")
+export const inInvest = (a) => !a.archived && (a.type === 'crypto' || a.type === 'invest' || a.invtab);
 const LIAB = new Set(['card', 'loan']);
 export const setLiab = (keys) => { LIAB.clear(); for (const k of ['card', 'loan', ...keys]) LIAB.add(k); };
 export const isLiability = (a) => LIAB.has(a.type);

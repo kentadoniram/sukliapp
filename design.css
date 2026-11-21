@@ -180,6 +180,7 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 /* BUTTON-LIKE CONTROLS (chips, segmented controls, keypad, pickers, rows you tap) */
 .chip { --ct-bg: var(--rule); --ct-bd: var(--rule); --ct-r: var(--r-pill); --ct-pad: 0 16px; --ct-shadow: none; }
 :is(.seg, .calcbtn, .fxrev) { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 0; --ct-shadow: none; }
+.areasw { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-pill); --ct-pad: var(--sp-1); --ct-shadow: none; }
 .segm { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-l); --ct-pad: 4px; --ct-shadow: none; }
 :is(.sugg, .swapbtn) { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 0; --ct-shadow: none; }
 .keypad button { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 0; --ct-shadow: none; }
@@ -239,3 +240,10 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 :root[data-design="theme1"] #view[data-screen="invest"] .invpage .nwcard.one div.nwmain :is(span, small, .hint) { color: var(--hero-sub); }
 :root[data-design="theme1"] #view[data-screen="invest"] .invpage .nwcard.one div.nwmain b { color: var(--hero-ink); }
 :root[data-design="theme1"] #view[data-screen="invest"] .invpage .nwcard.one div.nwmain .ivgraph { background: var(--gchip); }
+
+/* ==== 11. Areas (Theme 1) ===============================================
+   Home and Investments are two areas. Investments has its own accent, a faint page tint, a coloured bottom bar edge and the
+   Home / Investments switch, so you can tell which one you are in at a glance. Change --area-inv to recolour it. */
+:root { --area-inv: #3A5BD0; --area-inv-ink: #FFFFFF; --area-inv-soft: color-mix(in srgb, var(--area-inv) 9%, var(--paper)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --area-inv: #8DA2F5; --area-inv-ink: #0E141A; } }
+:root[data-theme="dark"] { --area-inv: #8DA2F5; --area-inv-ink: #0E141A; }

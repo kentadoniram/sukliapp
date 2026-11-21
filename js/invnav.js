@@ -52,7 +52,8 @@ export function levelTwo(cat, items, back) {
 }
 // level 2 cards: logo and name on the left, the total (and, when Investments uses another currency, the total in your home currency) on the right; everything centred on one line
 const l2 = (left, total, conv, act, attr, aria) => button({ html: `<span class="pl-l">${left}</span><span class="pl-r"><b class="ic-v">${esc(total)}</b>${conv ? `<small class="ic-c">${esc(conv)}</small>` : ''}</span>${ic('right', 'chev')}`, kind: 'plain', cls: 'invcat invplat ui-card', act, attr, aria });
-export const platformCard = (name, total, icon, conv = '') => l2(`${icon}<span class="ic-t">${esc(name)}</span>`, total, conv, 'inv-plat', { 'data-ex': name }, `${name}, ${total}`);
+// meta = a short line under the name (for example "3 assets · 2 wallets"): the platform's facts sit in this one card
+export const platformCard = (name, total, icon, conv = '', meta = '') => l2(`${icon}<span class="pl-n"><span class="ic-t">${esc(name)}</span>${meta ? `<small class="ic-m">${esc(meta)}</small>` : ''}</span>`, total, conv, 'inv-plat', { 'data-ex': name }, `${name}, ${total}${meta ? `, ${meta}` : ''}`);
 export const productCard = (a, total, conv = '') => l2(`<span class="ic-t">${esc(a.name)}</span>`, total, conv, 'acct', { 'data-id': a.id }, `${a.name}, ${total}`);
 
 // an investment transaction = one that touches an investment account. Regular income and spending never do.

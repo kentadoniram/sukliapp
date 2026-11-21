@@ -92,6 +92,7 @@ function render() {
   const ae = document.activeElement;
   if (route === lastRoute && route === 'settings' && ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && document.getElementById('view').contains(ae)) return;
   document.getElementById('view').dataset.screen = route;
+  document.body.dataset.area = route === 'invest' ? 'invest' : 'main';   // Theme 1 tints the Investments area so you can tell it from Home
   document.getElementById('view').innerHTML = empty && route !== 'settings' ? firstRun() : fn(db);
   document.getElementById('tabs').innerHTML = tabs(route);
   document.getElementById('tabs').hidden = empty && route !== 'settings';

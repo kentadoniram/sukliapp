@@ -1,9 +1,9 @@
 // The five screens: Home, Ledger, Review, Accounts, Reports, and Settings.
 import { addCfg, startKind, KIND_META, START_CHOICES } from './addset.js';
-import { button, textField, seg, card as uiCard } from './components.js';
+import { button, textField, seg, areaSwitch, card as uiCard } from './components.js';
 import { catIcon } from './caticons.js';
 import { softDelete, appMode, reimbKeep } from './core.js';
-import { safetyCfg, balanceTrail, netWorth, cashFlowSeries, netWorthSeries } from './finance.js';
+import { safetyCfg, balanceTrail, netWorth, cashFlowSeries, netWorthSeries, inInvest } from './finance.js';
 import {
   partsBetween, daysInMonth, get, commit, commitQuiet, stamp, uid, fmt, BASE, HOME, homeFx, homeRate, CUR, balances, sortedTxs, accountMap, catMap, monthStats, monthsPresent,
   compact, monthLabel, shiftMonth, thisMonth, dayLabel, rateFor, reviewCount, groupColor, groupLetter, adjustmentCategory, nowStamp,
@@ -308,6 +308,8 @@ const sum = (a) => a.reduce((x, y) => x + y, 0);
 const R = (n) => fmt(n, HOME, { round: true });
 
 const homeTitles = (h) => h.replace(/(<button class="collhead"[^>]*><h2>)([^<]*)(<\/h2>)/g, (m, a, t, c) => a + titleCase(t) + c).replace(/(<h3 class="subh">)([^<]*)/g, (m, a, t) => a + titleCase(t));
+// the Home / Investments switch is for people who use Investments: they have an investment account, or the Investments tab is on their tab bar and they have started recording (a first-run Home stays short)
+const showAreaSwitch = (db) => db.accounts.some((a) => !a.deleted && inInvest(a)) || (tabIds(db).includes('invest') && db.txs.some((t) => !t.deleted));
 export function home(db) {
   const st = monthStats(db, ui.month);
   const lay = homeLayout(db);
@@ -319,7 +321,7 @@ export function home(db) {
   const body = (calm ? shown.filter((id) => CORE.includes(id)) : shown).map(mk).join('');
   const more = calm ? `<details class="homemore"><summary>More on Home${rest.length ? ` <small>${rest.length + 1}</small>` : ''}</summary>${weekBars(db)}${rest.map(mk).join('')}</details>` : '';
   const firstEntry = !db.txs.some((t) => !t.deleted) ? `<section class="nextstep"><b>Next step: write down your first spending.</b> ${tipBtn('firstentry')}</section>` : '';
-  return `${monthNav(undefined, { bell: true })}
+  return `${monthNav(undefined, { bell: true })}${t1 && showAreaSwitch(db) ? areaSwitch('home') : ''}
     ${firstEntry}${t1 ? mainHomeCard(st, db) : strip(st)}${homeTitles(calm ? body + more : weekBars(db) + body)}`;
 }
 // what was spent on each of the last 7 days: plain HTML (not SVG) so the day, the bar and the amount never overlap and the text stays readable.

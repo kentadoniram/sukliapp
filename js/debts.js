@@ -12,6 +12,7 @@ import { cardBilling, isLiability, lockInfo, interestTaxPct, today as todayStr }
 import { rateAt, hasRate } from './interest.js';
 import { loanProgress } from './loancalc.js';
 import { loanPayments, LOAN_KINDS } from './loans.js';
+import { personName, personKey, addCurrencyFor } from './people.js';
 import { orderDebts, simulate, learnMonths, cashRoom, habit, planMonth, suggestExtra, parkIdea, suggestCuts, DEBT_SHARE, rankRate } from './debtplan.js';
 
 const live = (l) => l.filter((x) => !x.deleted);
@@ -54,7 +55,7 @@ export function debtList(db) {
     const pays = db.txs.filter((t) => !t.deleted && t.kind === 'transfer' && t.toAcct === a.id && !t.loan).map((t) => ({ date: t.date, amount: (t.toAmount != null ? t.toAmount : t.amount) * fx })), hb = habit(pays, today);
     const paid = (a.type === 'card' || a.stmtDay > 0) ? (cardPaid * fx) : pays.filter((x) => x.date.slice(0, 7) === today.slice(0, 7)).reduce((q, x) => q + x.amount, 0);
     let left = null; if (L && L.months) { const pr = loanProgress(L, loanPayments(db, a)); left = pr.paymentsLeft || null; }
-    out.push({ id: a.id, name: a.name, type: a.type, kind: L ? (LOAN_KINDS[L.kind] || 'Loan') : (a.type === 'card' ? 'Credit card' : 'Loan or money owed'), cur: a.cur, owedCur: ownedCur, owed, rate, rateKnown: rate != null, addon, addonMonthly, src, min, minEst, minTyped: dm.min > 0, due, days, overdue, dueAmount, left, paid, usual: hb.usual, payN: hb.n, payMonths: hb.months, lateFee: !!(L && +L.lateFee > 0), months: L ? L.months : null, flex, flexSet: dm.flex != null, earlyPct: +dm.early > 0 ? +dm.early : 0, loanLike: !!(L || D.on) });
+    out.push({ id: a.id, name: a.name, person: personName(a), key: personKey(a), personal: a.type === 'loan' && !L, type: a.type, kind: L ? (LOAN_KINDS[L.kind] || 'Loan') : (a.type === 'card' ? 'Credit card' : 'Loan or money owed'), cur: a.cur, owedCur: ownedCur, owed, rate, rateKnown: rate != null, addon, addonMonthly, src, min, minEst, minTyped: dm.min > 0, due, days, overdue, dueAmount, left, paid, usual: hb.usual, payN: hb.n, payMonths: hb.months, lateFee: !!(L && +L.lateFee > 0), months: L ? L.months : null, flex, flexSet: dm.flex != null, earlyPct: +dm.early > 0 ? +dm.early : 0, loanLike: !!(L || D.on) });
   }
   return out;
 }
@@ -169,9 +170,9 @@ export function debts(db) {
   const rateText = (d) => (!d.rateKnown ? '<b class="cr">Not set</b>' : d.addon ? `<b>${d.rate}% add-on</b>` : `<b>${(+d.rate).toFixed(2).replace(/\.?0+$/, '')}% a year</b> <small class="muted">(${(((Math.pow(1 + d.rate / 100, 1 / 12) - 1)) * 100).toFixed(2).replace(/\.?0+$/, '')}% a month)</small>`);
   const dueText = (d) => (d.due ? `<b class="${d.overdue ? 'cr' : ''}">${d.overdue ? 'Overdue since ' + niceDate(d.due) : niceDate(d.due) + (d.days != null ? (d.days === 0 ? ' (today)' : ` (${d.days} day${d.days === 1 ? '' : 's'})`) : '')}</b>` : '<span class="muted">not set</span>');
   const hist = (d) => (d.payN ? `<li><span>Your payments</span><b>${d.payN} in the last 6 months${d.usual > 0 ? `, usually ${money(d.usual)}` : ''}</b></li>` : '<li><span>Your payments</span><span class="muted">none recorded in the last 6 months</span></li>');
-  const rows = orderDebts(list, md).map((d) => `<div class="debtrow ${d.overdue ? 'od' : ''}"><div class="dr-head"><div><b>${esc(d.name)}</b><small class="muted">${esc(d.kind)}${d.cur !== HOME ? ` · ${fmt(d.owedCur, d.cur)}` : ''}</small></div><b class="dr-owed">${money(d.owed)}</b></div>
+  const rows = orderDebts(list, md).map((d) => `<div class="debtrow ${d.overdue ? 'od' : ''}"><div class="dr-head"><div><b>${esc(d.name)}</b><small class="muted">${esc(d.kind)}${d.cur !== HOME ? ` · ${fmt(d.owedCur, d.cur)}` : ''}${(() => { const g = d.personal ? list.filter((x) => x.personal && x.key === d.key) : []; return g.length > 1 ? ` · ${esc(d.person)} in all: ${money(g.reduce((q, x) => q + x.owed, 0))} (${g.length} currencies)` : ''; })()}</small></div><b class="dr-owed">${money(d.owed)}</b></div>
     <ul class="calfacts"><li><span>Interest</span>${rateText(d)}</li><li><span>Term</span><b>${d.left ? `${d.left} payment${d.left > 1 ? 's' : ''} left` : (d.months ? `${d.months} months` : 'No fixed end')}</b></li><li><span>Next payment due</span>${dueText(d)}</li>${d.type === 'card' && d.dueAmount != null && d.dueAmount > 0 ? `<li><span>Statement amount due</span><b>${money(d.dueAmount)}</b></li>` : ''}<li><span>Minimum payment</span><b>${money(d.min)}</b>${d.minEst ? ' <small class="muted">(estimate: 5%)</small>' : ''}</li>${hist(d)}</ul>
-    <div class="btnrow tight">${button({ label: 'Pay this debt', kind: 'primary', size: 'sm', act: 'debt-pay', attr: { 'data-id': d.id } })}${button({ html: `${d.rateKnown && d.src !== 'yours' && !d.minTyped ? 'Check or change figures' : 'Change figures'}`, kind: 'ghost', size: 'sm', act: 'debt-edit', attr: { 'data-id': d.id } })}</div></div>`).join('');
+    <div class="btnrow tight">${button({ label: 'Pay this debt', kind: 'primary', size: 'sm', act: 'debt-pay', attr: { 'data-id': d.id } })}${d.personal ? button({ label: 'Add currency', kind: 'ghost', size: 'sm', act: 'debt-cur', attr: { 'data-id': d.id } }) : ''}${button({ html: `${d.rateKnown && d.src !== 'yours' && !d.minTyped ? 'Check or change figures' : 'Change figures'}`, kind: 'ghost', size: 'sm', act: 'debt-edit', attr: { 'data-id': d.id } })}</div></div>`).join('');
   const warn = `${unknownRate.length ? `<p class="lpwarn">${ic('spark')} No interest rate is set for ${unknownRate.map((d) => esc(d.name)).join(', ')}. The plan counts it as 0% until you set it, so the order of extra money may be wrong.</p>` : ''}${list.some((d) => d.minEst) ? '<p class="hint">Some minimums are estimates (5% of what you owe). Set the real ones from your statements so the due amounts are right.</p>' : ''}${addons.length ? `<p class="hint">${addons.map((d) => esc(d.name)).join(', ')} uses add-on interest: a fixed charge on the original amount. Paying it off early may save little or nothing, so ask the lender what an early payoff costs.</p>` : ''}`;
   const limits = `<ul class="calfacts limits">
     <li><span>Credit cards (BSP)</span><b>Interest on an unpaid balance: at most 3% a month (36% a year). Cash advance fee: at most ₱200 each. The BSP kept these limits in August 2023 and said it would review them.</b></li>
@@ -186,6 +187,7 @@ export function debts(db) {
     ${coll('d-limits', 'Interest Limits in the Philippines', limits)}</div>`;
 }
 
+ACT['debt-cur'] = (el) => addCurrencyFor(el.dataset.id);
 ACT['debt-pay'] = (el) => openEntry({ preset: { kind: 'transfer', debt: true, toAcct: el.dataset.id } });
 ACT['debt-mode'] = (el) => commit((d) => { d.settings.debtMode = el.dataset.m === 'snowball' ? 'snowball' : 'avalanche'; });
 ACT['debt-budget'] = () => {
