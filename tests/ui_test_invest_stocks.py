@@ -24,7 +24,7 @@ with sync_playwright() as p:
     ok('tickers shown as products in Stock Market (v16.6: stocks have no platform tab)', '005930' in t or 'kiwoom' in t.lower())
     # buy 2 NVDA at 7000 paying from first account
     go_invest(pg,None,sec='overview'); open_menu(pg,'trade'); pg.wait_for_selector('#tr'); pg.wait_for_timeout(500); pg.evaluate("document.querySelectorAll('.scrim').forEach((e,i,a)=>{if(i<a.length-1)e.remove()})"); choose(pg,'#tr [name=plat]',text='Moomoo'); choose(pg,'#tr [name=asset]',text='NVDA')
-    pg.fill('#tr [name=qty]','2'); pg.fill('#tr [name=price]','7000'); pg.click('#tr [data-fm=fixed]'); pg.fill('#tr [name=fee]','50'); pg.click('#tr button:text-is("Record")'); pg.wait_for_timeout(500)
+    pg.fill('#tr [name=qty]','2'); pg.fill('#tr [name=price]','7000'); pg.click('#tr [data-fm=fixed]'); pg.fill('#tr [name=fee]','50'); pg.click('#tr [type=submit]'); pg.wait_for_timeout(500)
     if pg.locator('[data-yes]').count(): pg.click('[data-yes]'); pg.wait_for_timeout(500)
     pg.wait_for_timeout(500)
     go_invest(pg,None,sec='overview'); pg.evaluate("async(c)=>{const m=await import('/js/invnav.js');m.INV.sec='accounts';m.INV.cat=c;window.dispatchEvent(new Event('sukli-render'))}",'stock'); pg.wait_for_timeout(500); t=pg.inner_text('#view')

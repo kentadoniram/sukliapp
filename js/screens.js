@@ -30,6 +30,7 @@ import { undoSection } from './undoui.js';
 import { locSection } from './loc.js';
 import { splitGroups, splitExtra, openSplit, deleteWithMates, withMates } from './splitbill.js';
 import { openEntryView } from './entryview.js';
+import { tradeLine } from './tradefacts.js';
 import { latestTripCard, usualCard, awayCheck } from './trips.js';
 import { unusualCard } from './unusual.js';
 import { yearlyCard, yearlySection } from './yearly.js';
@@ -109,8 +110,8 @@ try { document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && MS
 export function monthNav(title, o = {}) {
   syncMonth();
   const isNow = ui.month === thisMonth(), label = esc(title || monthLabel(ui.month));
-  if (look().design !== 'legacy') return `<header class="top t1top"><div class="hl">${burger()}</div>
-    <div class="hact">${helpBtn()}${o.bell && get() ? bellBtn(get()) : ''}${eyeBtn()}<div class="monthsel">${button({ html: `<h1>${label}</h1>${ic('down', 'chev')}`, kind: 'plain', cls: 'mscard', act: 'msel', aria: 'Choose month', attr: { 'aria-expanded': String(MS.open), 'aria-controls': 'mspanel' } })}</div></div></header>
+  if (look().design !== 'legacy') return `<header class="top t1top two"><div class="hl">${burger()}${o.label ? `<span class="areatitle">${esc(o.label)}</span>` : ''}</div><div class="hact hhelp">${helpBtn()}</div>
+    <div class="hact hbar">${o.bell && get() ? bellBtn(get()) : ''}${eyeBtn()}<div class="monthsel">${button({ html: `<h1>${label}</h1>${ic('down', 'chev')}`, kind: 'plain', cls: 'mscard', act: 'msel', aria: 'Choose month', attr: { 'aria-expanded': String(MS.open), 'aria-controls': 'mspanel' } })}</div></div></header>
     <div class="mspanel" id="mspanel" role="group" aria-label="Choose month" ${MS.open ? '' : 'hidden'}>${MS.open ? monthPanel() : ''}</div>`;
   return `<header class="top"><div class="hl">${burger()}<div class="monthbox">${button({ html: `${ic('left')}`, kind: 'plain', cls: 'iconbtn', act: 'month', aria: 'Previous month', attr: { 'data-d': '-1' } })}
     <h1>${label}</h1>
@@ -118,7 +119,9 @@ export function monthNav(title, o = {}) {
     <div class="hact">${helpBtn()}${eyeBtn()}</div></header>`;
 }
 const burger = () => { const n = reviewCount(get()); return `${button({ html: `${ic('menu')}${n ? '<em class="dot" aria-label="items to check"></em>' : ''}`, kind: 'plain', cls: 'iconbtn burger', act: 'menu', aria: 'Open menu' })}`; };
-export const hdr = (title, right = '', o = {}) => o.below
+export const hdr = (title, right = '', o = {}) => o.bar
+  ? `<header class="top t1top two"><div class="hl">${burger()}<span class="areatitle">${esc(title)}</span></div><div class="hact hhelp">${helpBtn()}</div><div class="hact hbar">${right}${eyeBtn()}</div></header>`
+  : o.below
   ? `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${helpBtn()}${eyeBtn()}</div></header><div class="btnrow actrow">${right}</div>`
   : `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${right}${helpBtn()}${eyeBtn()}</div></header>`;
 // Theme 1: a left arrow replaces the burger on pages you open from somewhere else (Review, Outlook, Analytics); Legacy keeps the normal header
@@ -248,7 +251,7 @@ export function effectLine(t, accts) {
   if (t._feeOf) return `Fee of “${esc(t._feeOf)}”, saved with it. Tap to open the whole entry`;
   if (parentOf.has(t.id)) return `Fee of “${esc(parentOf.get(t.id).name)}” recorded as an expense`;
   if (t.loanNet) return `Loan: borrowed ${m2(t.loanNet.principal, t.cur)}${t.loanNet.fees > 0 ? `, fees ${m2(t.loanNet.fees, t.cur)} deducted` : ''}, received ${m2(t.loanNet.net, t.cur)}`;
-  if (t.trade) return `Trade, not counted as spending${feeTxt}`;
+  if (t.trade) return `${tradeLine(db, t)}${feeTxt}`;
   if (t.debtPay) return `Debt payment: lowers what you owe, not counted as spending${feeTxt}`;
   if (t.debtBorrow) return 'Borrowed money: adds to what you owe, not counted as income';
   if (t.lent) return 'Money you lent: not counted as spending';
@@ -321,7 +324,7 @@ export function home(db) {
   const body = (calm ? shown.filter((id) => CORE.includes(id)) : shown).map(mk).join('');
   const more = calm ? `<details class="homemore"><summary>More on Home${rest.length ? ` <small>${rest.length + 1}</small>` : ''}</summary>${weekBars(db)}${rest.map(mk).join('')}</details>` : '';
   const firstEntry = !db.txs.some((t) => !t.deleted) ? `<section class="nextstep"><b>Next step: write down your first spending.</b> ${tipBtn('firstentry')}</section>` : '';
-  return `${monthNav(undefined, { bell: true })}${t1 && showAreaSwitch(db) ? areaSwitch('home') : ''}
+  return `${monthNav(undefined, { bell: true, label: 'Home' })}${t1 && showAreaSwitch(db) ? areaSwitch('home') : ''}
     ${firstEntry}${t1 ? mainHomeCard(st, db) : strip(st)}${homeTitles(calm ? body + more : weekBars(db) + body)}`;
 }
 // what was spent on each of the last 7 days: plain HTML (not SVG) so the day, the bar and the amount never overlap and the text stays readable.

@@ -25,7 +25,7 @@ with sync_playwright() as p:
     ok('icons differ per platform %s'%bg, len(set(bg))==len(bg))
     # tree
     pg.evaluate("(async()=>{const m=await import('/js/trades.js');m.openTrade({side:'buy'})})()"); pg.wait_for_selector('#tr'); pg.wait_for_timeout(400)
-    pg.locator('.sheet .pkbtn').nth(1).click(); pg.wait_for_selector('.pk-list'); pg.wait_for_timeout(200)
+    pg.evaluate("document.querySelector('#tr [name=asset]')._pk.open()"); pg.wait_for_selector('.pk-list'); pg.wait_for_timeout(200)
     ok('tree starts closed', pg.locator('.pk-opt').filter(visible=True).count()==0)
     pg.locator('.pk-gh.pkh0').first.click(); pg.wait_for_timeout(150)
     ok('platform headers in the tree have icons', pg.locator('.pk-gh.pkh1 .pbadge').count()>=2)

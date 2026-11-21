@@ -2193,3 +2193,88 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 /* a person with more than one currency: the currencies sit inside one card */
 .personrow .curblock { margin: var(--sp-3) 0 0; padding: var(--sp-3) 0 0; border: 0; border-top: 1px solid var(--rule); border-radius: 0; background: none; box-shadow: none; }
 .personrow .curblock .dr-head { margin-bottom: var(--sp-1); }
+
+/* label / value rows: the label may carry a small second line, the value (and its small line) stays on one line and lines up on the right */
+.tokfacts li, .tradefacts li { align-items: flex-start; }
+.tokfacts .kl, .tradefacts > li > span { display: grid; gap: var(--sp-0); min-width: 0; }
+.tokfacts .kl small { font-size: var(--fz-12); color: var(--ink2); line-height: 1.25; }
+.kv { display: grid; justify-items: end; text-align: right; white-space: nowrap; flex: none; max-width: none; font-variant-numeric: tabular-nums; }
+.kv small { color: var(--ink2); font-size: var(--fz-12); font-weight: 400; white-space: normal; text-align: right; }
+.tradefacts .kv { white-space: normal; overflow-wrap: anywhere; }
+
+/* long decimals (BTC and the like): the number itself never breaks across lines; the title column shrinks instead */
+.row.acct { grid-template-columns: 28px minmax(0, 1fr) auto; }
+.row.acct .ramt b, .row.acct .ramt small { white-space: nowrap; overflow-wrap: normal; word-break: normal; font-variant-numeric: tabular-nums; }
+.row.acct .ramt { max-width: 60vw; }
+.row.acct .ramt small { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.tokfacts li > .kl, .tradefacts li > span:first-child { flex: 1 1 auto; }
+
+/* Home / Investments header: small title beside the menu, the tools (bell, eye, month) on the row below */
+.areatitle { font-size: var(--fz-16); font-weight: 700; margin-left: var(--sp-2); color: var(--ink); }
+.t1top.two { display: flex; flex-wrap: wrap; row-gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.t1top.two .hl { display: flex; align-items: center; flex: 1 1 auto; }
+.t1top.two .hhelp { flex: 0 0 auto; margin-left: 0; }
+.t1top.two .hbar { flex: 1 0 100%; justify-content: flex-end; gap: var(--sp-2); }
+.t1top.two .hbar .monthsel { margin-left: var(--sp-2); }
+.t1top.two .mspanel { right: 0; }
+:root[data-design="legacy"] header.top h1 { font-size: var(--fz-19); }
+:root[data-design="theme1"] body[data-area="invest"] #view .invpage > header.top .areatitle::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: var(--sp-3); border-radius: 50%; background: var(--area-inv); vertical-align: middle; }
+
+/* ---- Trade form, Theme 1 (the design from the Trade mockup) ---- */
+.trade2 { display: grid; gap: var(--sp-5); }
+.trade2 .tr-hide { display: none; }
+.trade2[data-side="convert"] #lab-cash { display: grid; }
+.trade2 > .seg { display: flex; padding: var(--sp-1); gap: var(--sp-1); border-radius: var(--ct-r); background: var(--ct-bg); border: 1px solid var(--ct-bd); }
+.trade2 > .seg button { flex: 1; min-height: var(--h-44); border-radius: var(--r-pill); border: 0; background: transparent; color: var(--ink2); font-size: var(--fz-15); font-weight: 600; }
+.trade2[data-side="buy"] > .seg button.on { background: var(--in); color: var(--paper); }
+.trade2[data-side="sell"] > .seg button.on { background: var(--bad); color: var(--paper); }
+.trade2[data-side="convert"] > .seg button.on { background: var(--trade-blue); color: var(--paper); }
+.tr-plat { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: var(--sp-4); min-height: var(--h-48); padding: 0 14px; border-radius: var(--r-l); border: 1px solid var(--trade-blue-bd); background: var(--trade-blue-soft); color: var(--trade-blue); font-size: var(--fz-15); }
+.tr-plat .tr-pn { flex: 1; min-width: 0; } .tr-plat .tr-pn span { color: var(--ink2); } .tr-plat em { font-style: normal; font-size: var(--fz-13); font-weight: 600; }
+.tr-pico { width: 26px; height: 26px; border-radius: var(--r-s); background: var(--trade-blue); color: var(--paper); display: inline-flex; align-items: center; justify-content: center; font-size: var(--fz-13); font-weight: 700; flex: none; }
+.tr-card { background: var(--cd-bg); border: 1px solid var(--cd-bd); border-radius: var(--cd-r); padding: var(--cd-pad); box-shadow: var(--cd-shadow); display: grid; gap: var(--sp-4); }
+.tr-raised { gap: var(--sp-1); }
+.tr-slot { display: grid; gap: var(--sp-1); } .tr-slot[hidden] { display: none; }
+.tr-cap { font-size: var(--fz-12); color: var(--ink2); letter-spacing: .04em; font-weight: 600; }
+.tr-tile { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: var(--sp-4); min-height: var(--h-56); padding: 0 12px; border-radius: var(--r-l); border: 1px solid var(--rule); background: var(--paper); }
+.tr-tile:focus-visible, .tr-prow:focus-visible, .tr-row:focus-visible, .tr-plat:focus-visible, .tr-chip:focus-visible, .tr-other:focus-visible { outline: 2px solid var(--trade-blue); outline-offset: 2px; }
+.tr-tt { flex: 1; min-width: 0; display: grid; text-align: left; } .tr-tt b { font-size: var(--fz-16); } .tr-tt small { font-size: var(--fz-12); color: var(--ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-tile .car { color: var(--ink2); }
+.tr-coin { width: 34px; height: 34px; border-radius: 50%; color: var(--paper); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.tr-know { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); font-size: var(--fz-13); color: var(--ink2); }
+.tr-know[hidden] { display: none; }
+.tr-know .seg { display: flex; padding: var(--sp-1); gap: var(--sp-1); border-radius: var(--r-pill); background: var(--paper); border: 1px solid var(--rule); }
+.tr-know .seg button { min-height: var(--h-chip); padding: 0 14px; border-radius: var(--r-pill); border: 0; background: transparent; color: var(--ink2); font-size: var(--fz-13); font-weight: 600; }
+.tr-know .seg button.on { background: var(--trade-blue); color: var(--paper); }
+.tr-amt { display: flex; flex-direction: column; }
+.tr-amt .two { display: contents; }
+.tr-amt .field { margin: 0; order: 2; } .tr-amt #f-conv2 { order: 5; display: flex; gap: var(--sp-4); } .tr-amt #f-conv2[hidden] { display: none; }
+.tr-amt .two > label:first-child { order: 1; } .tr-amt #f-total { order: 3; }
+.trade2[data-know="total"] .tr-amt #f-total { order: 1; } .trade2[data-know="total"] .tr-amt .two > label:first-child { order: 3; }
+.tr-amt .field.derived input { background: var(--paper); font-weight: 600; }
+.tr-amt .allbtn { border-radius: var(--r-pill); color: var(--trade-blue); }
+.tr-rows { display: grid; background: var(--cd-bg); border: 1px solid var(--cd-bd); border-radius: var(--cd-r); overflow: hidden; }
+.tr-row { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: var(--sp-4); min-height: var(--h-52); padding: 0 14px; border-bottom: 1px solid var(--rule); font-size: var(--fz-14); }
+.tr-rows > .tr-row:last-child { border-bottom: 0; }
+.tr-row .k { flex: 1; color: var(--ink2); } .tr-row .v { font-weight: 600; } .tr-row em { font-style: normal; color: var(--trade-blue); font-size: var(--fz-13); font-weight: 600; }
+.tr-panel { padding: 14px; display: grid; gap: var(--sp-4); border-bottom: 1px solid var(--rule); background: var(--sheet); } .tr-panel[hidden] { display: none; }
+.tr-panel .feelab { display: none; }
+.tr-panel .seg button.on { background: var(--trade-blue); color: var(--paper); }
+.tr-foot { position: sticky; bottom: 0; margin: 0 calc(-1 * var(--sp-5)); padding: 12px var(--sp-5) 16px; background: var(--paper); border-top: 1px solid var(--rule); display: grid; gap: var(--sp-3); }
+.tr-sumline { font-size: var(--fz-13); color: var(--ink2); text-align: center; min-height: 1.2em; }
+.tr-go { min-height: var(--h-56); border-radius: var(--r-pill); font-size: var(--fz-17); font-weight: 700; width: 100%; }
+.trade2[data-side="buy"] .tr-go { background: var(--in); } .trade2[data-side="sell"] .tr-go { background: var(--bad); } .trade2[data-side="convert"] .tr-go { background: var(--trade-blue); }
+/* the asset picker */
+.tr-pick { gap: var(--sp-5); }
+.tr-search { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--h-48); padding: var(--ct-pad); border-radius: var(--ct-r); border: 1px solid var(--ct-bd); background: var(--ct-bg); color: var(--ink2); }
+.tr-search input { all: unset; flex: 1; font-size: var(--fz-15); color: var(--ink); min-width: 0; }
+.tr-psec { display: grid; gap: var(--sp-3); } .tr-ph { display: flex; align-items: center; gap: var(--sp-3); font-size: var(--fz-15); } .tr-ph span:last-child { color: var(--ink2); font-size: var(--fz-13); }
+.tr-prow { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: var(--sp-4); width: 100%; min-height: var(--h-60); padding: 0 14px; border-radius: var(--r-pill); }
+.tr-prow[hidden], .tr-chip[hidden] { display: none; }
+.tr-prow.on { background: var(--trade-blue-soft); }
+.tr-bal { display: grid; text-align: right; white-space: nowrap; } .tr-bal b { font-size: var(--fz-15); } .tr-bal small { font-size: var(--fz-12); color: var(--ink2); }
+.tr-pcap { margin: 0; font-size: var(--fz-13); color: var(--ink2); font-weight: 600; }
+.tr-chips { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.tr-chip { all: unset; cursor: pointer; box-sizing: border-box; min-height: var(--h-chip); padding: var(--ct-pad); border-radius: var(--ct-r); border: 1px solid var(--ct-bd); background: var(--ct-bg); font-size: var(--fz-13); font-weight: 600; display: inline-flex; align-items: center; }
+.tr-other { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: var(--sp-4); min-height: var(--h-52); padding: 0 14px; border-radius: var(--r-l); border: 1px dashed var(--rule); color: var(--ink2); font-size: var(--fz-14); }
+.tr-other span:first-child { flex: 1; } .tr-note { margin: 0; padding: 0 4px; font-size: var(--fz-12); color: var(--ink2); }

@@ -52,6 +52,11 @@ export const GLOSSARY = [
   ['Japanese receipts', '税抜 (zeinuki) · Before tax', 'The price does not yet contain tax.'],
   ['Japanese receipts', '消費税 (shōhizei) · Consumption tax', 'Japan’s sales tax: 8% for most food, 10% otherwise.'],
   ['Japanese receipts', '軽減税率 (keigen zeiritsu) · Reduced tax rate', 'The 8% rate, marked with * or ※ on receipts.'],
+  ['Investments', 'Average cost', 'What you paid for the units you hold, divided by those units.'],
+  ['Investments', 'Breakeven price', 'The price at which selling everything you hold, after a selling fee, brings your trading profit and loss to zero. The fee is the average you really paid on that coin, or 0.1% when there is no history yet. Profit you already took by selling counts; interest does not.'],
+  ['Investments', 'Trading profit and loss (percent)', 'Trading profit and loss divided by what was put in: the cost of what you hold plus the cost of what you sold.'],
+  ['Investments', 'Fees and profit', 'Fees are not taken off twice: the fee on a sale is already inside the profit from selling.'],
+  ['Investments', 'Only this account', 'The figures on an asset window use that one account only (for example Bitget Spot). All amounts use the currency chosen in Investment Settings.'],
   ['Japanese receipts', '領収書 (ryōshūsho) · Receipt', 'A formal receipt, often handwritten on request.'],
   ['Japanese receipts', 'お釣り (otsuri) · Change', 'The money you get back after paying.'],
   ['Japanese receipts', '割引 (waribiki) · Discount', 'An amount taken off, shown with a minus sign.'],
@@ -59,7 +64,7 @@ export const GLOSSARY = [
   ['Japanese receipts', 'レジ袋 (rejibukuro) · Plastic bag', 'A small paid bag, usually 2 to 5 yen.'],
 ];
 
-ACT.glossary = () => {
+ACT.glossary = (el) => {
   const s = sheet(`${textField({ label: 'Search', id: 'gl-q', type: 'search', placeholder: 'Type a word, for example statement' })}<div id="gl-list"></div><div class="btnrow">${button({ label: 'Close', kind: 'primary', attr: { 'data-x': true } })}</div>`, { title: 'Glossary', wide: true });
   const list = s.el.querySelector('#gl-list'), q = s.el.querySelector('#gl-q');
   const draw = () => {
@@ -67,5 +72,5 @@ ACT.glossary = () => {
     const groups = [...new Set(rows.map((r) => r[0]))];
     list.innerHTML = groups.length ? groups.map((g) => `<h3>${esc(g)}</h3><dl class="gloss">${rows.filter((r) => r[0] === g).map(([, w, d]) => `<dt>${esc(w)}</dt><dd>${esc(d)}</dd>`).join('')}</dl>`).join('') : '<p class="empty">No word like that yet.</p>';
   };
-  q.addEventListener('input', draw); draw(); s.el.querySelector('[data-x]').onclick = () => s.close();
+  q.addEventListener('input', draw); if (el && el.dataset && el.dataset.q) q.value = el.dataset.q; draw(); s.el.querySelector('[data-x]').onclick = () => s.close();
 };

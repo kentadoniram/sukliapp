@@ -375,7 +375,7 @@ export function investments(db) {
   setTimeout(() => { if (ensureUsdt()) window.dispatchEvent(new Event('sukli-render')); }, 30);
   setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
   const enter = INV.fresh; INV.fresh = false;
-  return `<div class="invpage sec-${INV.sec}${enter ? ' enter' : ''}">${(INV.sec === 'platform' ? backHdr : hdr)('Investments', `${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`)}${look().design !== 'legacy' ? areaSwitch('invest') : ''}${secBody}</div>`;
+  return `<div class="invpage sec-${INV.sec}${enter ? ' enter' : ''}">${(INV.sec === 'platform' ? backHdr : hdr)('Investments', `${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`, { bar: look().design !== 'legacy' && INV.sec !== 'platform' })}${look().design !== 'legacy' ? areaSwitch('invest') : ''}${secBody}</div>`;
 }
 
 // manual tickers: any coin, token, stock or fund, on any platform or market (Tokyo, Korea, NASDAQ...), kept apart from real currencies
@@ -567,25 +567,27 @@ function tokenCard(db, book, items) {
     <p class="hint">Profit and loss = profit on paper + profit from selling, after fees. Interest and other income are shown separately in the detail and are not part of it. Only units bought through Buy / sell, or a cost you typed, have a known cost.</p>`, '');
 }
 const tokList = (r) => {
-  const line = (k, v, c = '') => `<li><span>${k}</span><b class="${c}">${v}</b></li>`;
-  return `<ul class="calfacts">${line('Holding now', `${money(r.value)}${r.qty > 0 ? ` · ${r.qty.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${esc(r.cur)}` : ''}`)}
-    ${line('Cost of what you still hold', r.cost > 0 ? money(r.cost) : 'not known')}
-    ${line('Average cost per unit', r.avgCost != null ? px(r.avgCost) : 'not known')}
-    ${line(`Breakeven price per unit <small class="muted">after a ${(r.feeRate * 100).toFixed(2)}% selling fee</small>`, r.breakeven != null ? px(r.breakeven) : 'not known')}
+  // a row: the label on the left (a small second line may explain it) and the value on the right, never broken in the middle of a number
+  const line = (k, v, c = '', note = '', sub = '') => `<li><span class="kl">${k}${note ? `<small>${note}</small>` : ''}</span><b class="kv ${c}">${v}${sub ? `<small>${sub}</small>` : ''}</b></li>`;
+  const fpct = `${(r.feeRate * 100).toFixed(r.feeRate * 100 < 1 ? 2 : 1)}%`;   // the fee rate you really paid on this coin (fees / value traded), else the default
+  return `<ul class="calfacts tokfacts">${line('Current Holdings', money(r.value), '', '', r.qty > 0 ? `${r.qty.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${esc(r.cur)}` : '')}
+    ${line('Current Cost', r.cost > 0 ? money(r.cost) : 'not known', '', 'what you paid for what you hold')}
+    ${line('Average Cost', r.avgCost != null ? px(r.avgCost) : 'not known', '', 'per unit')}
+    ${line(`Breakeven Price (at ${fpct} Fee)`, r.breakeven != null ? px(r.breakeven) : 'not known', '', 'per unit, after a selling fee')}
     ${line('Profit on paper (unrealized)', r.cost > 0 ? sgn(r.unreal) : 'not known', r.cost > 0 ? tcl(r.unreal) : '')}
     ${line('Profit from selling (realized)', sgn(r.realized), tcl(r.realized))}
-    ${line('<b>Trading profit and loss</b>', `${sgn(r.gain)}${r.pct == null ? '' : ` (${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%)`}`, tcl(r.gain))}
-    ${line('Earned (Earn interest), not in profit and loss', sgn(r.earned), tcl(r.earned))}
-    ${line('Other income (staking, airdrops…), not in profit and loss', sgn(r.income), tcl(r.income))}
-    ${line('Trading profit and loss plus interest and income', sgn(r.total), tcl(r.total))}
+    ${line('<b>Trading profit and loss</b>', sgn(r.gain), tcl(r.gain), '', r.pct == null ? '' : `${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%`)}
+    ${line('Earned (Earn interest)', sgn(r.earned), tcl(r.earned), 'not in profit and loss')}
+    ${line('Other income (staking, airdrops…)', sgn(r.income), tcl(r.income), 'not in profit and loss')}
+    ${line('Profit and loss plus interest and income', sgn(r.total), tcl(r.total))}
     ${line('Trading fees paid', money(r.fees))}
     ${line('Buys and sells', String(r.trades))}
     ${r.first ? line('First trade', esc(r.first.slice(0, 10))) : ''}</ul>`;
 };
-const TOK_HINT = 'Average cost = what you paid for the units you hold, divided by those units. Breakeven = the price at which selling everything you hold (after a selling fee, the average you paid on this token or 0.1%) brings your trading profit and loss to zero; profit you already took by selling counts, interest does not. Percent = trading profit and loss divided by what was put in (cost of what you hold plus the cost of what you sold). Fees are not taken off twice: the fee on a sale is already inside the profit from selling. All amounts use the currency chosen in Investment Settings.';
+// the explanation of average cost, breakeven and percent lives in the Glossary (glossary.js), not on this screen
 ACT['tok-open'] = (el) => {
   const db = get(); setInvCur(db); const book = tradeBook(db.txs), r = tokenPerformance(db, book, live(db.accounts).filter(inInvest).filter(isAsset), HOME).find((x) => x.cur === el.dataset.cur); if (!r) return;
-  sheet(`<p class="hint">Overall: every platform and wallet that holds ${esc(tokName(db, r.cur))}${r.platforms.length ? ` (${esc(r.platforms.join(', '))})` : ''}.</p>${tokList(r)}<p class="hint">${TOK_HINT}</p>`, { title: `${tokName(db, r.cur)} Performance` });
+  sheet(`<p class="hint">Overall: every platform and wallet that holds ${esc(tokName(db, r.cur))}${r.platforms.length ? ` (${esc(r.platforms.join(', '))})` : ''}.</p>${tokList(r)}<div class="btnrow tight">${button({ label: 'What do these words mean?', kind: 'link', act: 'glossary', data: 'q', v: 'Breakeven' })}</div>`, { title: `${tokName(db, r.cur)} Performance` });
 };
 // The same figures for ONE account only (for example Bitget > Spot > USDT), shown inside that asset's details. Nothing from other platforms is mixed in.
 export function assetPerfHtml(db, a) {
@@ -594,8 +596,7 @@ export function assetPerfHtml(db, a) {
   const r = tokenPerformance(db, tradeBook(db.txs), [a], HOME)[0]; if (!r) return '';
   const where = a.exchange ? `${a.exchange}${walletOf(a) ? ' ' + walletOf(a) : ''}` : a.name;
   return `<section class="assetperf"><h3>${esc(tokName(db, a.cur))} Performance on ${esc(where)}</h3>${tokList(r)}
-    <p class="hint">Only this account: ${esc(where)}. ${TOK_HINT}</p>
-    <div class="btnrow tight">${button({ label: `Overall ${tokName(db, a.cur)} performance (all platforms)`, kind: 'link', act: 'tok-open', data: 'cur', v: a.cur })}</div></section>`;
+    <div class="btnrow tight">${button({ label: 'What do these words mean?', kind: 'link', act: 'glossary', data: 'q', v: 'Breakeven' })}${button({ label: `Overall ${tokName(db, a.cur)} performance (all platforms)`, kind: 'link', act: 'tok-open', data: 'cur', v: a.cur })}</div></section>`;
 }
 
 ACT['inv-cost'] = async (el) => {

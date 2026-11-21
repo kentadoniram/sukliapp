@@ -30,7 +30,8 @@ def patch():
     Page.select_option = sel
 
 REVEAL = """(sel)=>{let el=null;try{el=document.querySelector(sel)}catch(e){return false}
-  if(!el)return false;let n=el,k=0;while(n&&n!==document.body){if(n.tagName==='DETAILS'&&!n.open){n.open=true;k++}
+  const fp=document.querySelector('#tr-feepanel'); let k0=0; if(fp&&fp.hidden&&/data-fm|name=fee|data-resp|feeAcct/.test(sel)){document.querySelector('#tr-feerow').click();k0=1}
+  if(!el)return k0>0;let n=el,k=k0;while(n&&n!==document.body){if(n.tagName==='DETAILS'&&!n.open){n.open=true;k++}
   if(n.classList&&n.classList.contains('collbody')&&n.hidden){n.hidden=false;k++}n=n.parentElement}return k>0}"""
 def patch_reveal():
     """Settings sections are folded <details>, cards collapse: open whatever hides a control before the test clicks or waits for it."""

@@ -3,6 +3,7 @@
 import { typeNames } from './accpage.js';
 import { accLabel, assetName, isEarnAcct, get, commit, uid, stamp, nowStamp, rateFor, homeFx, walletOf, fmt, HOME, balances, findOrAddCategory, softDelete, exactAmt } from './core.js';
 import { seg, button } from './components.js';
+import { look } from './appearance.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
 import { inInvest, pushHistory, exchangeOf, addAsset } from './invest.js';
@@ -11,11 +12,16 @@ import { localMs } from './earn.js';
 import { priceDay } from './timezone.js';
 import { TOP_TOKENS, ensureAsset, ensureUsdt } from './tokens.js';
 import { openDatePicker } from './datepicker.js';
+import { tradeFacts } from './tradefacts.js';
 
 const money = (n, cur = HOME) => fmt(n, cur);
 const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
 const live = (l) => l.filter((x) => !x.deleted && !x.archived);
 const r6 = (n) => Math.round(n * 1e6) / 1e6;
+
+const COIN = { BTC: ['#F7931A', '₿'], ETH: ['#627EEA', 'Ξ'], USDT: ['#26A17B', '₮'], USDC: ['#2775CA', '$'], BNB: ['#F0B90B', 'B'], SOL: ['#9945FF', 'S'], XRP: ['#23292F', 'X'], DOGE: ['#C2A633', 'Ð'] };
+const coinBadge = (cur) => { const [c, g] = COIN[cur] || ['#6B7886', String(cur || '?')[0]]; return `<span class="tr-coin" style="background:${c}" aria-hidden="true">${esc(g)}</span>`; };
+const shortQty = (n) => (+n || 0).toLocaleString('en-US', { maximumFractionDigits: 8 });
 
 export function openTrade(pre = {}) {
   try { ensureUsdt(); } catch { /* keep going */ }
@@ -44,26 +50,35 @@ export function openTrade(pre = {}) {
   const platOpt = (sel) => [...plats, ''].map((p) => `<option value="${esc(p)}" ${p === sel ? 'selected' : ''}>${esc(p || 'No platform / other')}</option>`).join('');
   const holdFor = (p) => hold.filter((a) => (exchangeOf(a) || '') === p);
   const grp = (l, p, sel) => treeOpts(l, sel, p);
-  const s = sheet(`<form id="tr" novalidate>
-    <div class="seg two3" role="group" aria-label="Kind">${[['buy', 'Buy'], ['sell', 'Sell'], ['convert', 'Convert']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${(pre.side || 'buy') === v ? 'on' : ''}`, attr: { 'data-side': v } })}`).join('')}</div>
-    <label class="field"><span>Platform</span><select name="plat">${platOpt(plat0)}</select></label>
-    <label class="field"><span id="l-asset">Holding</span><select name="asset">${opt(holdFor(plat0), pre.asset)}</select></label>
-    <p class="pairline" id="pair" aria-live="polite"></p>
-    <div id="f-conv" hidden><label class="field"><span>Convert Into</span><select name="asset2">${opt(hold, (hold.find((a) => a.id !== (pre.asset || hold[0].id)) || hold[0]).id)}</select></label></div>
-    <div id="slot-a"><div id="f-cash"><label class="field"><span id="l-cash">Paid From</span><select name="cash"></select></label></div></div>
-    <div class="two"><label class="field hasall"><span id="l-qty">Quantity</span><input name="qty" inputmode="decimal" placeholder="e.g. 0.01">${button({ label: 'All', kind: 'plain', cls: 'allbtn', attr: { 'data-all': 'qty', 'hidden': true } })}</label><label class="field" id="f-price"><span id="l-price">Price</span><input name="price" inputmode="decimal"></label></div>
-    <label class="field hasall" id="f-total"><span id="l-total">Total paid</span><input name="total" inputmode="decimal">${button({ label: 'All', kind: 'plain', cls: 'allbtn', attr: { 'data-all': 'total', 'hidden': true } })}</label>
-    <div id="f-conv2" class="two" hidden><label class="field"><span id="l-qty2">Quantity</span><input name="qty2" inputmode="decimal"></label><label class="field"><span id="l-worth">Value in ${HOME} (Optional)</span><input name="worth" inputmode="decimal"></label></div>
-    <div class="feehead"><span class="feelab">Trading Fee</span>${seg({ options: [{ label: '0 Fee', value: 'none' }, { label: 'Fixed Amount', value: 'fixed' }, { label: '% of the Trade', value: 'pct' }], value: 'none', data: 'fm', aria: 'Trading fee' })}</div>
+  const t1 = look().design !== 'legacy', hide = t1 ? ' tr-hide' : '';
+  const sideSeg = `<div class="seg two3" role="group" aria-label="Kind">${[['buy', 'Buy'], ['sell', 'Sell'], ['convert', 'Convert']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${(pre.side || 'buy') === v ? 'on' : ''}`, attr: { 'data-side': v } })}`).join('')}</div>`;
+  const tile = (id, cap) => `<div class="tr-slot" id="tslot-${id}" hidden><span class="tr-cap" id="cap-${id}">${cap}</span>${button({ html: '', kind: 'plain', cls: 'tr-tile', id: `tile-${id}` })}</div>`;
+  const feeSeg = seg({ options: t1 ? [{ label: 'No fee', value: 'none' }, { label: '% of trade', value: 'pct' }, { label: 'Fixed', value: 'fixed' }] : [{ label: '0 Fee', value: 'none' }, { label: 'Fixed Amount', value: 'fixed' }, { label: '% of the Trade', value: 'pct' }], value: 'none', data: 'fm', aria: 'Trading fee' });
+  const feeBlock = `<div class="feehead"><span class="feelab">Trading Fee</span>${feeSeg}</div>
     <select name="feeMode" hidden aria-hidden="true"><option value="none">0 Fee</option><option value="fixed">Fixed Amount</option><option value="pct">% of the Trade</option></select>
     <div id="feedet" class="feedet" hidden><label class="field"><span id="l-fee">Fee Amount</span><input name="fee" inputmode="decimal" placeholder="0"></label>
       <div class="field"><span>Fee Responsibility</span>${seg({ options: [{ label: 'Taken from Maker', value: 'maker' }, { label: 'Taken from Taker', value: 'taker' }, { label: 'Other Asset', value: 'other', title: 'Pay the fee with another asset you hold, for example BGB on Bitget' }], value: null, data: 'resp', aria: 'Fee responsibility' })}</div>
       <label class="field" id="f-feeacct" hidden><span>Pay the Fee With</span><select name="feeAcct"></select><small class="hint" id="feeacct-hint"></small></label></div>
     <select name="feeIn" hidden aria-hidden="true"></select>
-    <div id="slot-b"></div>
-    <div class="field"><span>When</span>${button({ label: ``, kind: 'plain', cls: 'whenbtn', id: 'tr-when' })}</div>
-    <div id="tr-sum" class="hint" aria-live="polite"></div>
-    <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-x': true } })}${button({ html: `${old ? 'Save Changes' : 'Record'}`, kind: 'primary', submit: true })}</div></form>`, { title: old ? 'Edit Trade' : 'Buy, Sell or Convert', wide: true });
+    <div id="slot-fee"></div>`;
+  const amtRows = `<div class="two"><label class="field hasall"><span id="l-qty">Quantity</span><input name="qty" inputmode="decimal" placeholder="e.g. 0.01">${button({ label: t1 ? 'Max' : 'All', kind: 'plain', cls: 'allbtn', attr: { 'data-all': 'qty', 'hidden': true } })}</label><label class="field" id="f-price"><span id="l-price">Price</span><input name="price" inputmode="decimal"></label></div>
+    <label class="field hasall" id="f-total"><span id="l-total">Total paid</span><input name="total" inputmode="decimal">${button({ label: t1 ? 'Max' : 'All', kind: 'plain', cls: 'allbtn', attr: { 'data-all': 'total', 'hidden': true } })}</label>
+    <div id="f-conv2" class="two" hidden><label class="field"><span id="l-qty2">Quantity</span><input name="qty2" inputmode="decimal"></label><label class="field"><span id="l-worth">Value in ${HOME} (Optional)</span><input name="worth" inputmode="decimal"></label></div>`;
+  const know = `<div class="tr-know" id="tr-know"><span>I know the…</span><div class="seg" role="group" aria-label="I know the">${button({ label: 'Quantity', kind: 'plain', cls: 'on', attr: { 'data-know': 'qty' } })}${button({ label: 'Total', kind: 'plain', attr: { 'data-know': 'total' } })}</div></div>`;
+  const s = sheet(`<form id="tr" novalidate class="${t1 ? 'trade2' : ''}" data-side="${pre.side || 'buy'}">
+    ${sideSeg}
+    ${t1 ? button({ html: '', kind: 'plain', cls: 'tr-plat', id: 'tr-platbar' }) : ''}
+    <label class="field${hide}"><span>Platform</span><select name="plat">${platOpt(plat0)}</select></label>
+    ${t1 ? `<div class="tr-card tr-tiles">${tile('a', 'YOU GET')}${tile('b', 'CONVERT INTO')}${tile('c', 'YOU PAY WITH')}</div>` : ''}
+    <label class="field${hide}"><span id="l-asset">Holding</span><select name="asset">${opt(holdFor(plat0), pre.asset)}</select></label>
+    <p class="pairline${hide}" id="pair" aria-live="polite"></p>
+    <div id="f-conv" hidden><label class="field${hide}"><span>Convert Into</span><select name="asset2">${opt(hold, (hold.find((a) => a.id !== (pre.asset || hold[0].id)) || hold[0]).id)}</select></label></div>
+    <div id="slot-a"><div id="f-cash"><label class="field${hide}" id="lab-cash"><span id="l-cash">Paid From</span><select name="cash"></select></label></div></div>
+    ${t1 ? `<div class="tr-card tr-amt">${know}${amtRows}</div>` : amtRows}
+    ${t1 ? `<div class="tr-rows">${button({ html: '<span class="k">Fee</span><b class="v" id="tr-feeval">No fee</b><em>Edit</em>', kind: 'plain', cls: 'tr-row', id: 'tr-feerow' })}<div id="tr-feepanel" class="tr-panel" hidden>${feeBlock}</div>${button({ html: '<span class="k">When</span><b class="v"></b><em>Edit</em>', kind: 'plain', cls: 'tr-row', id: 'tr-when' })}</div>`
+      : `${feeBlock.replace('<div id="slot-fee"></div>', '<div id="slot-b"></div>')}<div class="field"><span>When</span>${button({ label: ``, kind: 'plain', cls: 'whenbtn', id: 'tr-when' })}</div>`}
+    ${t1 ? `<div class="tr-foot"><span id="tr-sum" class="tr-sumline" aria-live="polite"></span>${button({ html: old ? 'Save changes' : 'Record', kind: 'primary', cls: 'tr-go', submit: true })}</div>`
+      : `<div id="tr-sum" class="hint" aria-live="polite"></div><div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-x': true } })}${button({ html: `${old ? 'Save Changes' : 'Record'}`, kind: 'primary', submit: true })}</div>`}</form>`, { title: old ? 'Edit Trade' : t1 ? 'Trade' : 'Buy, Sell or Convert', wide: true });
   const f = s.el.querySelector('#tr'); let side = pre.side || 'buy', last = '', feeOther = false, feeAcctPlat = null;
   const acct = (id) => db.accounts.find((a) => a.id === id);
   const fillCash = (keep) => { const p = f.plat.value, pool = [...cash.filter((x) => !inInvest(x)), ...cash.filter((x) => inInvest(x))], q = ((db.settings.tickers || {})[(acct(f.asset.value) || {}).cur] || {}).quote;
@@ -89,10 +104,59 @@ export function openTrade(pre = {}) {
   let priceTouched = false;
   const autoPrice = () => { if (priceTouched || side === 'convert') return; const a0 = acct(f.asset.value), c0 = acct(f.cash.value); if (!a0 || !c0) return; const ra = rateFor(db, a0.cur), rc = rateFor(db, c0.cur);
     if (ra > 0 && rc > 0) { const v = r6(ra / rc); if (v > 0 && String(v) !== f.price.value) { f.price.value = String(v); f.price.dataset.auto = '1'; } } };
+  // ---- Theme 1: platform bar, asset tiles, "I know the…" toggle, one-line Fee / When rows, sticky action footer, platform-first asset picker ----
+  let known = 'qty', feeOpen = false;
+  const SIDEWORD = { buy: 'Buy', sell: 'Sell', convert: 'Convert' };
+  const tileHtml = (cur, title, sub) => `${coinBadge(cur)}<span class="tr-tt"><b>${esc(title)}</b><small>${esc(sub)}</small></span><span class="car" aria-hidden="true">▾</span>`;
+  const t1Refresh = (from, { a, c, b2, conv, q, fee, fcur, cc }) => {
+    const $ = (id) => s.el.querySelector(id), plat = f.plat.value, wl = a ? (walletOf(a) || 'Spot') : 'Spot';
+    f.dataset.side = side; f.dataset.know = known;
+    const pbH = `<span class="tr-pico" aria-hidden="true">${esc((plat || '?')[0].toUpperCase())}</span><span class="tr-pn"><b>${esc(plat || 'No platform')}</b>${plat ? ` <span>· ${esc(wl)} wallet</span>` : ''}</span><em>Change</em>`; { const pb = $('#tr-platbar'); if (pb._h !== pbH) { pb._h = pbH; pb.innerHTML = pbH; } }   // only repaint when it changed, so a tap that starts while a field blurs is not lost
+    const T = (id, on, cap, html) => { $(`#tslot-${id}`).hidden = !on; if (on) { $(`#cap-${id}`).textContent = cap; const tl = $(`#tile-${id}`); if (tl._h !== html) { tl._h = html; tl.innerHTML = html; } } };
+    const heldOn = (x) => `You hold ${shortQty(bals.get(x.id) || 0)} on ${exchangeOf(x) || 'this account'}`;
+    T('a', !!a, conv ? 'CONVERT FROM' : side === 'buy' ? 'YOU GET' : 'YOU SELL', a ? tileHtml(a.cur, a.cur, conv ? `Balance ${shortQty(bals.get(a.id) || 0)}` : heldOn(a)) : '');
+    T('b', conv && !!b2, 'CONVERT INTO', b2 ? tileHtml(b2.cur, b2.cur, heldOn(b2)) : '');
+    T('c', !conv && !!c, side === 'buy' ? 'YOU PAY WITH' : 'YOU GET PAID IN', c ? tileHtml(c.cur, `${c.cur} · ${walletOf(c) || typeNames[c.type] || 'Account'}`, `Balance ${shortQty(bals.get(c.id) || 0)}`) : '');
+    $('#tr-know').hidden = conv; $('#tr-know').querySelectorAll('[data-know]').forEach((b) => { const on = b.dataset.know === known; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+    $('#f-total').classList.toggle('derived', !conv && known === 'qty'); f.qty.closest('label').classList.toggle('derived', !conv && known === 'total');
+    $('#l-qty').textContent = conv ? `You give (${a ? a.cur : 'coin'})` : `Quantity (${a ? a.cur : 'coin'})`;
+    $('#l-qty2').textContent = `You get (${b2 ? b2.cur : 'coin'})`;
+    $('#l-total').textContent = conv ? '' : `${side === 'buy' ? 'Total you pay' : 'Total you get'} (${cc})`;
+    $('#tr-feeval').textContent = f.feeMode.value === 'none' || !(fee > 0) ? 'No fee' : `${f.feeMode.value === 'pct' ? `${num(f.fee.value)}% · ` : ''}${shortQty(r6(fee))} ${fcur || ''}`;
+    $('#tr-feepanel').hidden = !feeOpen; $('#tr-feerow').querySelector('em').textContent = feeOpen ? 'Done' : 'Edit'; $('#tr-feerow').setAttribute('aria-expanded', String(feeOpen));
+    const go = $('.tr-go'), qs = q > 0 ? `${shortQty(q)} ` : '', tot = num(f.total.value), q2 = num(f.qty2.value);
+    go.textContent = old ? 'Save changes' : conv ? `Convert ${qs}${a ? a.cur : ''}${b2 ? ` to ${b2.cur}` : ''}` : `${SIDEWORD[side]} ${qs}${a ? a.cur : ''}`;
+    $('#tr-sum').textContent = conv ? (q > 0 && q2 > 0 ? `1 ${b2.cur} = ${shortQty(r6(q / q2))} ${a.cur}${fee > 0 ? ` · fee ${shortQty(r6(fee))} ${fcur}` : ''}` : '')
+      : tot > 0 && c ? `${cc === HOME ? '' : 'About '}${money(tot * (homeFx(db, cc) || 0) || tot, cc === HOME ? cc : HOME)} · ${side === 'buy' ? 'average cost updates after you record' : 'profit is worked out by average cost'}` : '';
+  };
+  const openCoinPicker = (target) => {
+    const cp = f.plat.value, isB = target === 'asset2', pool = isB ? hold.filter((x) => x.id !== f.asset.value) : hold, here = pool.filter((x) => (exchangeOf(x) || '') === cp), others = pool.filter((x) => (exchangeOf(x) || '') !== cp);
+    const row = (x, sub) => button({ html: `${coinBadge(x.cur)}<span class="tr-tt"><b>${esc(x.cur)}</b><small>${esc(sub)}</small></span><span class="tr-bal"><b>${shortQty(bals.get(x.id) || 0)}</b><small>≈ ${money((bals.get(x.id) || 0) * (homeFx(db, x.cur) || 0))}</small></span>`, kind: 'plain', cls: `tr-prow${x.id === f[target].value ? ' on' : ''}`, attr: { 'data-v': x.id, 'data-q': `${x.cur} ${assetName(x)} ${exchangeOf(x) || ''}`.toLowerCase() } });
+    const have = new Set(holdFor(cp).map((x) => x.cur)), tops = isB || !cp ? [] : TOP_TOKENS.filter((t) => !have.has(t.c));
+    const oPlats = [...new Set(others.map((x) => exchangeOf(x) || 'No platform'))];
+    const ps = sheet(`<div class="trade2 tr-pick"><label class="tr-search"><span aria-hidden="true">⌕</span><input type="search" placeholder="Search coin or ticker" autocomplete="off" aria-label="Search coin or ticker"></label>
+      ${here.length ? `<div class="tr-psec"><div class="tr-ph"><span class="tr-pico">${esc((cp || '?')[0].toUpperCase())}</span><b>On ${esc(cp || 'this platform')}</b><span>· what you hold here</span></div><div class="tr-card tr-raised">${here.map((x) => row(x, walletOf(x) || 'Spot')).join('')}</div></div>` : ''}
+      ${tops.length ? `<div class="tr-psec"><p class="tr-pcap">Not held yet on ${esc(cp)} · top coins</p><div class="tr-chips">${tops.map((t, i) => `${button({ label: t.c, kind: 'plain', cls: `tr-chip${i >= 8 ? ' more' : ''}`, attr: { ...(i >= 8 ? { hidden: true } : {}), 'data-v': `tok:${t.c}`, 'data-q': `${t.c} ${t.n}`.toLowerCase() } })}`).join('')}${tops.length > 8 ? button({ label: 'More…', kind: 'plain', cls: 'tr-chip', attr: { 'data-more': true } }) : ''}</div></div>` : ''}
+      ${others.length ? `${button({ html: `<span>Other platforms: ${esc(oPlats.slice(0, 3).join(', '))}${oPlats.length > 3 ? '…' : ''}</span><span aria-hidden="true">›</span>`, kind: 'plain', cls: 'tr-other', attr: { 'aria-expanded': 'false' } })}<div class="tr-card tr-raised" id="tr-others" hidden>${others.map((x) => row(x, `${exchangeOf(x) || 'No platform'} · ${walletOf(x) || 'Spot'}`)).join('')}</div>
+      <p class="tr-note">Picking a coin from another platform switches the whole form to that platform.</p>` : ''}</div>`, { title: isB ? 'Convert into' : side === 'buy' ? 'You get' : side === 'sell' ? 'You sell' : 'Convert from' });
+    const root = ps.el, others$ = root.querySelector('#tr-others'), otherBtn = root.querySelector('.tr-other');
+    const showOthers = (on) => { if (others$) { others$.hidden = !on; otherBtn.setAttribute('aria-expanded', String(on)); } };
+    root.addEventListener('click', (e) => {
+      const v = e.target.closest('[data-v]'), more = e.target.closest('[data-more]');
+      if (v) { ps.close(); f[target].value = v.dataset.v; f[target].dispatchEvent(new Event('change', { bubbles: true })); }
+      else if (more) { root.querySelectorAll('.tr-chip.more').forEach((x) => { x.hidden = false; }); more.remove(); }
+      else if (e.target.closest('.tr-other')) showOthers(others$.hidden);
+    });
+    root.querySelector('input').addEventListener('input', (e) => { const qy = e.target.value.trim().toLowerCase();
+      root.querySelectorAll('[data-q]').forEach((x) => { const hit = !qy || x.dataset.q.includes(qy); x.hidden = !hit || (!qy && x.classList.contains('more')); if (qy && hit && x.classList.contains('more')) x.hidden = false; });
+      const mb = root.querySelector('[data-more]'); if (mb) mb.hidden = !!qy; if (qy) showOthers(true); else showOthers(false); });
+  };
   const sync = (from) => {
     if (from === 'price' || from === 'total') { priceTouched = true; f.price.dataset.auto = ''; } else if (from === '' || from === 'qty') autoPrice();
+    const byTotal = t1 && known === 'total' && side !== 'convert';   // "I know the Total": the quantity is worked out from the total and the price
+    if (byTotal && num(f.total.value) > 0 && num(f.price.value) > 0 && from !== 'qty') f.qty.value = String(r6(num(f.total.value) / num(f.price.value)));
     const q = num(f.qty.value), p = num(f.price.value), t = num(f.total.value);
-    if (from === 'total' && q > 0) f.price.value = String(r6(t / q)); else if (q > 0 && p > 0 && from !== 'total') f.total.value = String(r6(q * p));
+    if (byTotal) { /* quantity already derived above */ } else if (from === 'total' && q > 0) f.price.value = String(r6(t / q)); else if (q > 0 && p > 0 && from !== 'total') f.total.value = String(r6(q * p));
     const a = acct(f.asset.value), c = acct(f.cash.value), conv = side === 'convert';
     s.el.querySelector('#f-conv').hidden = !conv; s.el.querySelector('#f-cash').hidden = false; s.el.querySelector('#f-price').hidden = conv; s.el.querySelector('#f-total').hidden = conv;
     s.el.querySelector('#l-asset').textContent = conv ? 'Convert from' : side === 'buy' ? 'Buying' : 'Selling';
@@ -104,7 +168,7 @@ export function openTrade(pre = {}) {
     $s('#l-qty2').textContent = `Quantity (${b2 ? b2.cur : 'coin'})`;
     $s('#f-conv2').hidden = !conv;
     $s('#pair').textContent = a ? (conv ? (b2 ? `${a.cur}/${b2.cur}  ·  you give ${a.cur} and receive ${b2.cur}` : '') : `${a.cur}/${cc}  ·  ${side === 'buy' ? 'buying' : 'selling'} ${a.cur} ${side === 'buy' ? 'with' : 'for'} ${cc}`) : '';
-    { const slot = $s(conv ? '#slot-b' : '#slot-a'), box = $s('#f-cash'); if (box.parentNode !== slot) slot.appendChild(box); }   // when converting, "Pay the fee from" comes last, under the fee
+    { const slot = $s(conv ? (t1 ? '#slot-fee' : '#slot-b') : '#slot-a'), box = $s('#f-cash'); if (box.parentNode !== slot) slot.appendChild(box); }   // when converting, "Pay the fee from" comes last, under the fee
     f.querySelector('[data-all=qty]').hidden = side === 'buy'; f.querySelector('[data-all=total]').hidden = side !== 'buy';   // All: the whole holding when selling or converting, the whole cash balance when buying
     const fi = f.feeIn, want = [c && c.cur, a && a.cur].filter((x, i, arr) => x && arr.indexOf(x) === i), have = [...fi.options].map((o) => o.value);
     if (want.join() !== have.join()) { const keep = fi.value; fi.innerHTML = want.map((x, i) => `<option value="${x}">${x}${i === 0 ? ' (the money used)' : ' (the asset itself)'}</option>`).join(''); if (want.includes(keep)) fi.value = keep; }
@@ -119,6 +183,7 @@ export function openTrade(pre = {}) {
       mk.dataset.cur = payer || ''; tk.dataset.cur = other || ''; const isMaker = fi.value === payer || payer === other; const ot = f.querySelector('[data-resp=other]'), mOn = !feeOther && isMaker, tOn = !feeOther && !isMaker; mk.classList.toggle('on', mOn); tk.classList.toggle('on', tOn); ot.classList.toggle('on', feeOther); mk.setAttribute('aria-pressed', String(mOn)); tk.setAttribute('aria-pressed', String(tOn)); ot.setAttribute('aria-pressed', String(feeOther)); }
     f.querySelectorAll('[data-side]').forEach((b) => b.classList.toggle('on', b.dataset.side === side));
     const fcur = (fa && fa.cur) || f.feeIn.value || (c && c.cur), fee = f.feeMode.value === 'none' ? 0 : f.feeMode.value === 'pct' ? ((fcur === (a && a.cur) ? q : (num(f.total.value) || 0)) * num(f.fee.value)) / 100 : num(f.fee.value); s.el.querySelector('#tr-sum').textContent = conv ? `${q || 0} ${a ? a.cur : ''} becomes ${num(f.qty2.value) || 0} ${acct(f.asset2.value) ? acct(f.asset2.value).cur : ''}.${fee ? ` Fee ${money(fee, fcur)} is saved as a financial loss.` : ''}` : (q && num(f.total.value) ? `${side === 'buy' ? 'Buy' : 'Sell'} ${q} ${a ? a.cur : ''} for ${money(num(f.total.value), c ? c.cur : HOME)}.${fee ? ` The fee of ${money(fee, fcur)} is saved separately as a financial loss.` : ''} This is not counted as spending.` : '');
+    if (t1) t1Refresh(from, { a, c, b2, conv, q, fee, fcur, cc });
   };
   f.addEventListener('input', (e) => sync(e.target.name === 'fee' ? '' : e.target.name)); f.addEventListener('change', () => sync(''));
   f.addEventListener('click', (e) => { const m = e.target.closest('[data-fm]'), r = e.target.closest('[data-resp]'); if (m) { f.feeMode.value = m.dataset.fm; if (m.dataset.fm === 'none') f.fee.value = ''; sync(''); if (m.dataset.fm !== 'none') f.fee.focus(); } else if (r && r.dataset.resp === 'other') { feeOther = true; fillFeeAcct(); sync(''); } else if (r && r.dataset.cur && [...f.feeIn.options].some((o) => o.value === r.dataset.cur)) { feeOther = false; f.feeIn.value = r.dataset.cur; sync(''); } });
@@ -127,12 +192,19 @@ export function openTrade(pre = {}) {
     if (!(v > 0)) { toast(`There is nothing in ${src ? src.name : 'that account'} to use.`); return; }
     const inp = f[b.dataset.all]; inp.value = exactAmt(v); inp.dispatchEvent(new Event('input', { bubbles: true }));
   }; });
-  f.querySelectorAll('[data-side]').forEach((b) => { b.onclick = () => { side = b.dataset.side; sync(''); }; });
-  let when = old ? old.date : nowStamp(); const whenBtn = s.el.querySelector('#tr-when'), showWhen = () => { whenBtn.textContent = String(when).slice(0, 16); };
+  f.querySelectorAll('[data-side]').forEach((b) => { b.onclick = () => { side = b.dataset.side; if (t1 && side === 'convert') feeOpen = true; sync(''); }; });
+  if (t1) {
+    const $ = (id) => s.el.querySelector(id);
+    $('#tr-platbar').onclick = () => f.plat._pk && f.plat._pk.open();
+    $('#tile-a').onclick = () => openCoinPicker('asset'); $('#tile-b').onclick = () => openCoinPicker('asset2'); $('#tile-c').onclick = () => f.cash._pk && f.cash._pk.open();
+    f.querySelectorAll('[data-know]').forEach((b) => { b.onclick = () => { known = b.dataset.know; sync(''); }; });
+    $('#tr-feerow').onclick = () => { feeOpen = !feeOpen; sync(''); };
+  }
+  let when = old ? old.date : nowStamp(); const whenBtn = s.el.querySelector('#tr-when'), showWhen = () => { const v = whenBtn.querySelector('.v'); (v || whenBtn).textContent = String(when).slice(0, 16); };
   whenBtn.onclick = () => openDatePicker(when, (v) => { when = v; showWhen(); }, { title: 'When Was It?' }); showWhen();
-  s.el.querySelector('[data-x]').onclick = () => s.close(); sync('');
+  { const x = s.el.querySelector('[data-x]'); if (x) x.onclick = () => s.close(); } sync('');
   if (old) {   // fill the form from the saved trade
-    const x = old.trade; f.plat.value = exchangeOf(acct(x.asset)) || ''; fillAsset(x.asset); if (x.asset2) f.asset2.value = x.asset2; if (pre.cashAcct) { fillCash(pre.cashAcct); f.cash.value = pre.cashAcct; }
+    const x = old.trade; if (t1 && (x.feeAmt > 0 || x.feeOther)) feeOpen = true; f.plat.value = exchangeOf(acct(x.asset)) || ''; fillAsset(x.asset); if (x.asset2) f.asset2.value = x.asset2; if (pre.cashAcct) { fillCash(pre.cashAcct); f.cash.value = pre.cashAcct; }
     f.qty.value = String(x.qty); side = x.side; sync('');
     if (x.side === 'convert') { f.qty2.value = String(x.qty2); f.worth.value = String(r6(x.valueHome)); } else { f.total.value = String(r6(x.paidAmt)); const pm = String(old.notes || '').match(/Price ([\d.]+)/); f.price.value = pm ? pm[1] : String(r6(x.paidAmt / x.qty)); priceTouched = true; }
     if (x.feeOther && acct(x.feeOther)) { feeOther = true; fillFeeAcct(); f.feeAcct.value = x.feeOther; }
@@ -179,9 +251,15 @@ ACT['trade-new'] = (el) => openTrade({ asset: el && el.dataset ? el.dataset.id :
 
 // tapping a trade shows what it was and lets you delete it together with its fee
 function tradeDetail(t) {
-  const db = get(), x = t.trade, A = db.accounts.find((a) => a.id === x.asset) || { name: '?', cur: '' }, fee = db.txs.find((q) => !q.deleted && q.tradeOf === t.id);
-  const s = sheet(`<p><b>${esc(t.name)}</b></p><ul class="calfacts"><li><span>Date</span><b>${esc(String(t.date).slice(0, 16))}</b></li><li><span>Worth when recorded</span><b>${money(x.valueHome)}</b></li>${fee ? `<li><span>Fee (financial loss)</span><b>${money(fee.amount, fee.cur)}</b></li>` : ''}</ul>
-    <p class="hint">A trade is not counted as spending or income. Realized gains and losses are worked out on the Investments tab.</p>
+  const db = get(), f = tradeFacts(db, t), fee = db.txs.find((q) => !q.deleted && q.tradeOf === t.id);
+  const li = (k, v, sub = '') => `<li><span>${esc(k)}</span><b class="kv">${esc(v)}${sub ? `<small>${esc(sub)}</small>` : ''}</b></li>`;
+  const feeVal = f.fee > 0 ? f.feeText : fee ? `${fee.amount.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${fee.cur}` : f.feeText;
+  const s = sheet(`<p class="tdname"><b>${esc(t.name)}</b></p><ul class="calfacts tradefacts">
+    ${li('Filled Price', f.priceText)}
+    ${li('Quantity', f.qtyText)}
+    ${li('Transaction Value', f.valueText, [f.homeText, f.rateText].filter(Boolean).join(' · '))}
+    ${li('Trading Fees', feeVal, f.feePct != null ? `${f.feePct.toFixed(f.feePct < 1 ? 3 : 2)}% of the transaction value` : '')}
+    ${li('Date and Time', f.date)}</ul>
     <div class="btnrow"><button type="button" class="btn danger ghost" data-del>Delete</button>${button({ label: 'Edit', kind: 'ghost', attr: { 'data-edit': true } })}${button({ label: 'Close', kind: 'primary', attr: { 'data-x': true } })}</div>`, { title: 'Trade' });
   s.el.querySelector('[data-edit]').onclick = () => { s.close(); openTrade({ edit: t.id }); };
   s.el.querySelector('[data-x]').onclick = () => s.close();

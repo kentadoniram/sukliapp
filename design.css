@@ -247,3 +247,14 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 :root { --area-inv: #3A5BD0; --area-inv-ink: #FFFFFF; --area-inv-soft: color-mix(in srgb, var(--area-inv) 9%, var(--paper)); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --area-inv: #8DA2F5; --area-inv-ink: #0E141A; } }
 :root[data-theme="dark"] { --area-inv: #8DA2F5; --area-inv-ink: #0E141A; }
+
+/* ---- §12 Trade form (Theme 1): the blue used for the active segment and the platform bar ---- */
+:root { --trade-blue: #2A47A8; --trade-blue-soft: #EDF1FC; --trade-blue-bd: #C9D3F2; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --trade-blue: #8DA2F5; --trade-blue-soft: #1B2540; --trade-blue-bd: #33427A; } }
+:root[data-theme="dark"] { --trade-blue: #8DA2F5; --trade-blue-soft: #1B2540; --trade-blue-bd: #33427A; }
+
+/* Trade form kinds: cards and controls take their look from the tables above */
+:is(.tr-card, .tr-rows) { --cd-bg: var(--sheet); --cd-bd: var(--rule); --cd-r: var(--r-card); --cd-pad: 14px; --cd-shadow: none; }
+.tr-raised { --cd-pad: var(--sp-2); --cd-shadow: var(--sh-chip); }
+:is(.tr-search, .tr-chip, .trade2 > .seg) { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-pill); --ct-pad: 0 14px; --ct-shadow: none; }
+.tr-search { --ct-r: var(--r-l); }

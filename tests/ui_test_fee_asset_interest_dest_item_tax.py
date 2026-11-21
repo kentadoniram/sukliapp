@@ -26,7 +26,7 @@ with sync_playwright() as p:
     ok('fee label names BGB and the balance is shown', 'BGB' in pg.inner_text('#l-fee') and '50' in pg.inner_text('#feeacct-hint'))
     pg.fill('#tr [name=qty]','0.01'); pg.dispatch_event('#tr [name=qty]','input'); pg.fill('#tr [name=total]','600'); pg.dispatch_event('#tr [name=total]','input'); pg.fill('#tr [name=fee]','2'); pg.dispatch_event('#tr [name=fee]','input'); pg.wait_for_timeout(150)
     pg.select_option('#tr [name=cash]','u1'); pg.wait_for_timeout(100)
-    pg.evaluate("document.querySelector('#tr .btnrow .btn:not(.ghost)').click()"); pg.wait_for_timeout(800)
+    pg.evaluate("document.querySelector('#tr [type=submit]').click()"); pg.wait_for_timeout(800)
     r=pg.evaluate("""(async()=>{const c=await import('/js/core.js');const d=c.get(),bal=c.balances(d),t=d.txs.find(x=>!x.deleted&&x.trade&&x.trade.asset==='b1'),k=d.txs.find(x=>!x.deleted&&x.tradeOf===(t&&t.id));return {bgb:bal.get('g1'),usdt:bal.get('u1'),btc:bal.get('b1'),other:t&&t.trade.feeOther,fee:k&&[k.acct,k.amount,k.cur]}})()""")
     ok('BGB lost 2, USDT lost 600, BTC gained 0.01 %s'%r, r['bgb']==48 and r['usdt']==400 and abs(r['btc']-0.11)<1e-9 and r['other']=='g1' and r['fee']==['g1',2,'BGB'])
     pg.evaluate("(async()=>{const m=await import('/js/trades.js');const c=await import('/js/core.js');const t=c.get().txs.find(x=>!x.deleted&&x.trade&&x.trade.asset==='b1');m.openTrade({edit:t.id})})()"); pg.wait_for_selector('#tr'); pg.wait_for_timeout(400)

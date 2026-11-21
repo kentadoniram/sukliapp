@@ -27,6 +27,6 @@ with sync_playwright() as p:
     ok('names the platform only', 'Bitget' in h and 'Binance' not in h)
     ok('no hardcoded home currency in prices', 'PHP' not in h and 'JPY' not in h)
     pg.evaluate("(async()=>{const a=await import('/js/accpage.js');a.openAccountDetail('b1')})()"); pg.wait_for_selector('.assetperf'); t=pg.inner_text('.assetperf')
-    ok('detail sheet shows platform performance in USDT', 'Performance on Bitget' in t and 'Holding now' in t and ('₮' in t or 'USDT' in t) and '₱' not in t and 'PHP' not in t)
+    ok('detail sheet shows platform performance in USDT', 'Performance on Bitget' in t and 'Current Holdings' in t and ('₮' in t or 'USDT' in t) and '₱' not in t and 'PHP' not in t)
     ok('no page errors %s'%errs, not errs)
     b.close()
