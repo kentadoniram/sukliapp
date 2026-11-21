@@ -2210,15 +2210,15 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .tokfacts li > .kl, .tradefacts li > span:first-child { flex: 1 1 auto; }
 
 /* Home / Investments header: small title beside the menu, the tools (bell, eye, month) on the row below */
-.areatitle { font-size: var(--fz-16); font-weight: 700; margin-left: var(--sp-2); color: var(--ink); }
+.areatitle { font-size: var(--fz-30); font-weight: 750; letter-spacing: -.01em; color: var(--ink); flex: 0 0 auto; }
 .t1top.two { display: flex; flex-wrap: wrap; row-gap: var(--sp-2); margin-bottom: var(--sp-2); }
 .t1top.two .hl { display: flex; align-items: center; flex: 1 1 auto; }
 .t1top.two .hhelp { flex: 0 0 auto; margin-left: 0; }
-.t1top.two .hbar { flex: 1 0 100%; justify-content: flex-end; gap: var(--sp-2); }
+.t1top.two .hrow { flex: 1 0 100%; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.t1top.two .hbar { flex: 0 1 auto; justify-content: flex-end; gap: var(--sp-2); }
 .t1top.two .hbar .monthsel { margin-left: var(--sp-2); }
 .t1top.two .mspanel { right: 0; }
 :root[data-design="legacy"] header.top h1 { font-size: var(--fz-19); }
-:root[data-design="theme1"] body[data-area="invest"] #view .invpage > header.top .areatitle::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: var(--sp-3); border-radius: 50%; background: var(--area-inv); vertical-align: middle; }
 
 /* ---- Trade form, Theme 1 (the design from the Trade mockup) ---- */
 .trade2 { display: grid; gap: var(--sp-5); }
@@ -2260,11 +2260,8 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .tr-panel { padding: 14px; display: grid; gap: var(--sp-4); border-bottom: 1px solid var(--rule); background: var(--sheet); } .tr-panel[hidden] { display: none; }
 .tr-panel .feelab { display: none; }
 .tr-panel .seg button.on { background: var(--trade-blue); color: var(--paper); }
-.tr-foot { position: sticky; bottom: 0; margin: 0 calc(-1 * var(--sp-5)); padding: 12px var(--sp-5) 16px; background: var(--paper); border-top: 1px solid var(--rule); display: grid; gap: var(--sp-3); }
-.tr-sumline { font-size: var(--fz-13); color: var(--ink2); text-align: center; min-height: 1.2em; }
-.tr-go { min-height: var(--h-56); border-radius: var(--r-pill); font-size: var(--fz-17); font-weight: 700; width: 100%; }
-.trade2[data-side="buy"] .tr-go { background: var(--in); } .trade2[data-side="sell"] .tr-go { background: var(--bad); } .trade2[data-side="convert"] .tr-go { background: var(--trade-blue); }
-/* the asset picker */
+.tr-sumline { text-align: center; min-height: 1.2em; }
+.trade2[data-side="buy"] /* the asset picker */
 .tr-pick { gap: var(--sp-5); }
 .tr-search { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--h-48); padding: var(--ct-pad); border-radius: var(--ct-r); border: 1px solid var(--ct-bd); background: var(--ct-bg); color: var(--ink2); }
 .tr-search input { all: unset; flex: 1; font-size: var(--fz-15); color: var(--ink); min-width: 0; }
@@ -2278,3 +2275,29 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .tr-chip { all: unset; cursor: pointer; box-sizing: border-box; min-height: var(--h-chip); padding: var(--ct-pad); border-radius: var(--ct-r); border: 1px solid var(--ct-bd); background: var(--ct-bg); font-size: var(--fz-13); font-weight: 600; display: inline-flex; align-items: center; }
 .tr-other { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: var(--sp-4); min-height: var(--h-52); padding: 0 14px; border-radius: var(--r-l); border: 1px dashed var(--rule); color: var(--ink2); font-size: var(--fz-14); }
 .tr-other span:first-child { flex: 1; } .tr-note { margin: 0; padding: 0 4px; font-size: var(--fz-12); color: var(--ink2); }
+
+/* Investments card: the Home card's face with a non-interactive headline */
+.inv-card .sc-net { cursor: pointer; }
+.inv-card .sc-swap.sc-eq { cursor: default; }
+.inv-card .bm-chip { cursor: default; }
+.inv-card .inv-nochip { min-height: var(--h-chip-sm); }
+.inv-upd { margin: var(--sp-1) 0 var(--sp-3); font-size: var(--fz-12); color: var(--ink2); text-align: center; }
+.inv-card .bm-mini.share { background: var(--gchip); color: var(--gink); }
+.inv-card .sc-face { min-height: 237px; }   /* the same height as Home's card (its content, at the default text size, is 237px) */
+
+/* Trade form, Fee: the three options are always shown; the amount and the fee responsibility sit side by side below them */
+.tr-fee { gap: var(--sp-4); }
+.tr-fee .tr-feetitle { font-size: var(--fz-15); }
+.tr-fee .feehead { display: block; margin: 0; } .tr-fee .feehead .seg { display: flex; width: 100%; }
+.tr-fee .feedet { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: var(--sp-4); align-items: end; }
+.tr-fee .feedet[hidden] { display: none; }
+.tr-fee .feedet > #f-feeacct { grid-column: 1 / -1; }
+.tr-fee .feedet .field { margin: 0; }
+.tr-fee .feedet .seg button { padding-left: var(--sp-2); padding-right: var(--sp-2); font-size: var(--fz-12); }
+.tr-fee .feehead .seg { max-width: none; grid-template-columns: 1fr 1.2fr 1fr; }
+.tr-fee .seg button.on { background: var(--trade-blue); color: var(--paper); }
+.tr-fee .feedet { grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); }
+.tr-fee .feehead .feelab { display: none; }
+.tr-fee .feedet { grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); }
+.t1top.two .hbar { min-width: 0; }
+@media (max-width: 360px) { .areatitle { font-size: var(--fz-24); } .t1top.two .hbar .mscard { padding-left: var(--sp-3); padding-right: var(--sp-3); } }

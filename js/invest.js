@@ -12,7 +12,7 @@ import { INV_RANGES } from './config.js';
 import { priceDay, platformDay, zoneFor, zoneLabel } from './timezone.js';
 import { groupColor, compact, WALLETS, WALLET_INFO, walletOf, accLabel, get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, today, findOrAddCategory, factorFor, allCurrencies, ensureCurrency } from './core.js';
 import { ACT, sheet, ic, esc, toast, promptDialog, confirmDialog } from './ui.js';
-import { hdr, backHdr, coll, pieLabels, ui } from './screens.js';
+import { hdr, backHdr, coll, pieLabels, ui, investCard } from './screens.js';
 import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
 import { pendingReview } from './tradereview.js';
@@ -361,8 +361,16 @@ export function investments(db) {
     const cards = c[0] === 'crypto' ? [...platMap.entries()].sort((x, y) => exSum(y[1]) - exSum(x[1])).map(([n, l]) => platformCard(n, money(exSum(l)), platIcon(n, 'xs'), invC !== HOME ? `≈ ${f2(exSum(l), HOME)}` : '', look().design === 'legacy' ? '' : (() => { const k = new Set(l.filter((a) => Math.abs(bal.get(a.id) || 0) > 1e-12).map((a) => a.cur)).size, w = new Set(l.map((a) => walletOf(a) || 'Other')).size; return l.length ? `${k} asset${k === 1 ? '' : 's'} · ${w} wallet${w === 1 ? '' : 's'}` : 'Empty'; })())) : catItems[c[0]].map((a) => productCard(a, money(exSum([a])), invC !== HOME ? `≈ ${f2(exSum([a]), HOME)}` : ''));
     return levelTwo(c, cards);
   };
+  const invHomeCard = () => {
+    const raw = valueSeries(db), last = raw.length ? raw[raw.length - 1].v : 0, sc = last > 0 && total > 0 ? total / last : 1, series = raw.map((p) => ({ d: p.d, v: p.v * sc }));
+    const dlab = (ds) => new Date(ds.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), tips = series.map((p) => `${dlab(p.d)} · ${money(p.v)}`);
+    let chip = null;
+    if (series.length > 1) { const cut = new Date(); cut.setDate(cut.getDate() - 30); const key = localDay(cut), ref = [...series].reverse().find((p) => p.d <= key) || series[0], ch = ref.v > 0 ? (series[series.length - 1].v - ref.v) / ref.v : null; if (ch != null && isFinite(ch)) chip = { up: ch >= 0, txt: `${Math.abs(ch * 100).toFixed(ch !== 0 && Math.abs(ch) < 0.1 ? 1 : 0)}%`, name: ref === series[0] && ref.d > key ? `since ${dlab(ref.d)}` : 'vs 30 days ago' }; }
+    const cryptoV = exSum(crypto), otherV = exSum(other), pct = (v) => (total > 0 ? `${Math.round((v / total) * 100)}%` : '');
+    return investCard({ label: `Market value in ${invC}`, value: money(total), eq: altOf(db, total) ? `≈ ${altOf(db, total)}` : '', series, tips, chip, rows: [[`Crypto · ${crypto.length} asset${crypto.length === 1 ? '' : 's'}`, fmt(cryptoV, invC, { round: true }), pct(cryptoV)], [`Other · ${other.length}`, fmt(otherV, invC, { round: true }), pct(otherV)]] }) + `<p class="hint inv-upd">${updatedLine(db)}</p>`;
+  };
   const overviewHtml = `<div class="btnrow left invact">${button({ label: 'Record activity', kind: 'primary', size: 'sm', act: 'inv-add', cls: 'iv-rec' })} ${button({ label: 'Add asset', kind: 'ghost', size: 'sm', act: 'inv-new', cls: 'iv-add' })} ${button({ label: 'Buying Check', kind: 'ghost', size: 'sm', act: 'buy-check' })}${pendingReview(db).length ? ` ${button({ label: `Review trades (${pendingReview(db).length})`, kind: 'ghost', size: 'sm', act: 'trade-review' })}` : ''} </div>
-    <section class="nwcard one"><div class="nwmain nwsplit"><div class="nwl"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${platMap.size} place${platMap.size === 1 ? '' : 's'} · ${other.length} other</small></div>${button({ html: `<span id="ivmini" class="ivmini"></span>`, kind: 'plain', cls: 'ivgraph', act: 'inv-graph', aria: 'Open the graph of your market value over time' })}<small class="updated">${updatedLine(db)}</small></div></section>
+    ${look().design === 'legacy' ? `<section class="nwcard one"><div class="nwmain nwsplit"><div class="nwl"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${platMap.size} place${platMap.size === 1 ? '' : 's'} · ${other.length} other</small></div>${button({ html: `<span id="ivmini" class="ivmini"></span>`, kind: 'plain', cls: 'ivgraph', act: 'inv-graph', aria: 'Open the graph of your market value over time' })}<small class="updated">${updatedLine(db)}</small></div></section>` : invHomeCard()}
     ${marketBar(db)}${hiddenInvLink(db)}
     ${(() => { const odd = items.map((x) => x.cur).filter((c, i, l) => l.indexOf(c) === i && tickers[c] && oddPrices(tickers[c].history || []).size); return odd.length ? `<p class="hint warnline">A saved price looks wrong for ${odd.map((c) => `${button({ label: tickers[c].ticker || c, kind: 'link', act: 'inv-ticker', data: 'sym', v: c })}`).join(', ')}. Open it and delete the price marked “looks off”; the value and the graph then use the price before it.</p>` : ''; })()}
     ${unpriced.length ? `<p class="hint">No price yet for ${unpriced.map((a) => esc(a.cur)).join(', ')}, so ${unpriced.length === 1 ? 'it is' : 'they are'} left out of the total. Prices load when you are online, or set one in Settings, Exchange rates.</p>` : ''}
@@ -375,7 +383,7 @@ export function investments(db) {
   setTimeout(() => { if (ensureUsdt()) window.dispatchEvent(new Event('sukli-render')); }, 30);
   setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
   const enter = INV.fresh; INV.fresh = false;
-  return `<div class="invpage sec-${INV.sec}${enter ? ' enter' : ''}">${(INV.sec === 'platform' ? backHdr : hdr)('Investments', `${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`, { bar: look().design !== 'legacy' && INV.sec !== 'platform' })}${look().design !== 'legacy' ? areaSwitch('invest') : ''}${secBody}</div>`;
+  return `<div class="invpage sec-${INV.sec}${enter ? ' enter' : ''}">${(INV.sec === 'platform' ? backHdr : hdr)('Investments', `${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`, { bar: look().design !== 'legacy' && INV.sec !== 'platform' })}${secBody}</div>`;
 }
 
 // manual tickers: any coin, token, stock or fund, on any platform or market (Tokyo, Korea, NASDAQ...), kept apart from real currencies

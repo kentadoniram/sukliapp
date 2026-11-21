@@ -57,7 +57,7 @@ export function openTrade(pre = {}) {
   const feeBlock = `<div class="feehead"><span class="feelab">Trading Fee</span>${feeSeg}</div>
     <select name="feeMode" hidden aria-hidden="true"><option value="none">0 Fee</option><option value="fixed">Fixed Amount</option><option value="pct">% of the Trade</option></select>
     <div id="feedet" class="feedet" hidden><label class="field"><span id="l-fee">Fee Amount</span><input name="fee" inputmode="decimal" placeholder="0"></label>
-      <div class="field"><span>Fee Responsibility</span>${seg({ options: [{ label: 'Taken from Maker', value: 'maker' }, { label: 'Taken from Taker', value: 'taker' }, { label: 'Other Asset', value: 'other', title: 'Pay the fee with another asset you hold, for example BGB on Bitget' }], value: null, data: 'resp', aria: 'Fee responsibility' })}</div>
+      <div class="field"><span>Fee Responsibility</span>${seg({ options: [{ label: t1 ? 'Maker' : 'Taken from Maker', value: 'maker', title: 'Fee taken from the maker side' }, { label: t1 ? 'Taker' : 'Taken from Taker', value: 'taker', title: 'Fee taken from the taker side' }, { label: t1 ? 'Other asset' : 'Other Asset', value: 'other', title: 'Pay the fee with another asset you hold, for example BGB on Bitget' }], value: null, data: 'resp', aria: 'Fee responsibility' })}</div>
       <label class="field" id="f-feeacct" hidden><span>Pay the Fee With</span><select name="feeAcct"></select><small class="hint" id="feeacct-hint"></small></label></div>
     <select name="feeIn" hidden aria-hidden="true"></select>
     <div id="slot-fee"></div>`;
@@ -75,10 +75,9 @@ export function openTrade(pre = {}) {
     <div id="f-conv" hidden><label class="field${hide}"><span>Convert Into</span><select name="asset2">${opt(hold, (hold.find((a) => a.id !== (pre.asset || hold[0].id)) || hold[0]).id)}</select></label></div>
     <div id="slot-a"><div id="f-cash"><label class="field${hide}" id="lab-cash"><span id="l-cash">Paid From</span><select name="cash"></select></label></div></div>
     ${t1 ? `<div class="tr-card tr-amt">${know}${amtRows}</div>` : amtRows}
-    ${t1 ? `<div class="tr-rows">${button({ html: '<span class="k">Fee</span><b class="v" id="tr-feeval">No fee</b><em>Edit</em>', kind: 'plain', cls: 'tr-row', id: 'tr-feerow' })}<div id="tr-feepanel" class="tr-panel" hidden>${feeBlock}</div>${button({ html: '<span class="k">When</span><b class="v"></b><em>Edit</em>', kind: 'plain', cls: 'tr-row', id: 'tr-when' })}</div>`
+    ${t1 ? `<div class="tr-card tr-fee"><b class="tr-feetitle">Fee</b>${feeBlock}</div><div class="tr-rows">${button({ html: '<span class="k">When</span><b class="v"></b><em>Edit</em>', kind: 'plain', cls: 'tr-row', id: 'tr-when' })}</div>`
       : `${feeBlock.replace('<div id="slot-fee"></div>', '<div id="slot-b"></div>')}<div class="field"><span>When</span>${button({ label: ``, kind: 'plain', cls: 'whenbtn', id: 'tr-when' })}</div>`}
-    ${t1 ? `<div class="tr-foot"><span id="tr-sum" class="tr-sumline" aria-live="polite"></span>${button({ html: old ? 'Save changes' : 'Record', kind: 'primary', cls: 'tr-go', submit: true })}</div>`
-      : `<div id="tr-sum" class="hint" aria-live="polite"></div><div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-x': true } })}${button({ html: `${old ? 'Save Changes' : 'Record'}`, kind: 'primary', submit: true })}</div>`}</form>`, { title: old ? 'Edit Trade' : t1 ? 'Trade' : 'Buy, Sell or Convert', wide: true });
+    <div id="tr-sum" class="hint${t1 ? ' tr-sumline' : ''}" aria-live="polite"></div><div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-x': true } })}${button({ html: `${old ? 'Save Changes' : 'Record'}`, kind: 'primary', cls: 'tr-go', submit: true })}</div></form>`, { title: old ? 'Edit Trade' : t1 ? 'Trade' : 'Buy, Sell or Convert', wide: true });
   const f = s.el.querySelector('#tr'); let side = pre.side || 'buy', last = '', feeOther = false, feeAcctPlat = null;
   const acct = (id) => db.accounts.find((a) => a.id === id);
   const fillCash = (keep) => { const p = f.plat.value, pool = [...cash.filter((x) => !inInvest(x)), ...cash.filter((x) => inInvest(x))], q = ((db.settings.tickers || {})[(acct(f.asset.value) || {}).cur] || {}).quote;
@@ -122,8 +121,6 @@ export function openTrade(pre = {}) {
     $('#l-qty').textContent = conv ? `You give (${a ? a.cur : 'coin'})` : `Quantity (${a ? a.cur : 'coin'})`;
     $('#l-qty2').textContent = `You get (${b2 ? b2.cur : 'coin'})`;
     $('#l-total').textContent = conv ? '' : `${side === 'buy' ? 'Total you pay' : 'Total you get'} (${cc})`;
-    $('#tr-feeval').textContent = f.feeMode.value === 'none' || !(fee > 0) ? 'No fee' : `${f.feeMode.value === 'pct' ? `${num(f.fee.value)}% · ` : ''}${shortQty(r6(fee))} ${fcur || ''}`;
-    $('#tr-feepanel').hidden = !feeOpen; $('#tr-feerow').querySelector('em').textContent = feeOpen ? 'Done' : 'Edit'; $('#tr-feerow').setAttribute('aria-expanded', String(feeOpen));
     const go = $('.tr-go'), qs = q > 0 ? `${shortQty(q)} ` : '', tot = num(f.total.value), q2 = num(f.qty2.value);
     go.textContent = old ? 'Save changes' : conv ? `Convert ${qs}${a ? a.cur : ''}${b2 ? ` to ${b2.cur}` : ''}` : `${SIDEWORD[side]} ${qs}${a ? a.cur : ''}`;
     $('#tr-sum').textContent = conv ? (q > 0 && q2 > 0 ? `1 ${b2.cur} = ${shortQty(r6(q / q2))} ${a.cur}${fee > 0 ? ` · fee ${shortQty(r6(fee))} ${fcur}` : ''}` : '')
@@ -198,7 +195,6 @@ export function openTrade(pre = {}) {
     $('#tr-platbar').onclick = () => f.plat._pk && f.plat._pk.open();
     $('#tile-a').onclick = () => openCoinPicker('asset'); $('#tile-b').onclick = () => openCoinPicker('asset2'); $('#tile-c').onclick = () => f.cash._pk && f.cash._pk.open();
     f.querySelectorAll('[data-know]').forEach((b) => { b.onclick = () => { known = b.dataset.know; sync(''); }; });
-    $('#tr-feerow').onclick = () => { feeOpen = !feeOpen; sync(''); };
   }
   let when = old ? old.date : nowStamp(); const whenBtn = s.el.querySelector('#tr-when'), showWhen = () => { const v = whenBtn.querySelector('.v'); (v || whenBtn).textContent = String(when).slice(0, 16); };
   whenBtn.onclick = () => openDatePicker(when, (v) => { when = v; showWhen(); }, { title: 'When Was It?' }); showWhen();

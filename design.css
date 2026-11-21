@@ -258,3 +258,11 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 .tr-raised { --cd-pad: var(--sp-2); --cd-shadow: var(--sh-chip); }
 :is(.tr-search, .tr-chip, .trade2 > .seg) { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-pill); --ct-pad: 0 14px; --ct-shadow: none; }
 .tr-search { --ct-r: var(--r-l); }
+
+/* ==== 12b. The Investments card ========================================
+   Same card as Home's (markup, type, height, graph); only its colours differ. Indigo/violet instead of Home's blue.
+   Change --ig1..--ig3 / --iink / --isub to recolour it. */
+:root { --ig1: #ECEBFF; --ig2: #D3D0FA; --ig3: #B4AEF2; --iink: #251F5C; --isub: #50498F; --igline: rgba(37, 31, 92, .12); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ig1: #2A2563; --ig2: #38318A; --ig3: #4C44B3; --iink: #F4F2FF; --isub: #CBC6F2; --igline: rgba(255, 255, 255, .16); } }
+:root[data-theme="dark"] { --ig1: #2A2563; --ig2: #38318A; --ig3: #4C44B3; --iink: #F4F2FF; --isub: #CBC6F2; --igline: rgba(255, 255, 255, .16); }
+.inv-card { --g1: var(--ig1); --g2: var(--ig2); --g3: var(--ig3); --gink: var(--iink); --gsub: var(--isub); --gline: var(--igline); }
