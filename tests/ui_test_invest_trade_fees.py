@@ -10,7 +10,7 @@ with sync_playwright() as p:
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
-    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard')
+    pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard, .inv-card')
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic'); pg.fill('#ic [name=ex]','Binance'); pg.fill('#ic [name=coin]','ZZZ'); pg.click('#ic .btn:not(.ghost)'); pg.wait_for_timeout(600)
     open_menu(pg,'trade'); pg.wait_for_selector('#tr'); choose(pg,'#tr [name=plat]',text='Binance'); choose(pg,'#tr [name=asset]',text='ZZZ')
     pg.fill('#tr [name=qty]','10'); pg.fill('#tr [name=total]','30000'); pg.dispatch_event('#tr [name=total]','input'); pg.click('#tr [data-fm=fixed]'); pg.fill('#tr [name=fee]','100')

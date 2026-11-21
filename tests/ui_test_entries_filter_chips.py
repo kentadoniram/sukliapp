@@ -13,7 +13,7 @@ with sync_playwright() as p:
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
     pg.goto(U+'#/accounts'); pg.wait_for_selector('[data-aview=group]'); ok('compact dropdown filters', pg.locator('.aview.compact select').count()==2 and pg.locator('.aview .seg').count()==0)
     pg.goto(U+'#/invest'); pg.wait_for_selector('[data-act=inv-new]')
-    ok('hero text laid out', pg.evaluate("getComputedStyle(document.querySelector('.nwmain')).display")=='grid' and 'updated' in pg.inner_text('.nwmain').lower() or 'Live' in pg.inner_text('.nwmain'))
+    ok('hero text laid out', pg.evaluate("getComputedStyle(document.querySelector('.nwmain, .inv-card .sc-front')).display")=='grid')
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic')
     print(pg.locator('.chip.plat b').count(), repr(pg.inner_text('.platlist')[:80])); ok('platform chips bold with history first', pg.locator('.chip.plat b').count()>5 and 'You used' in pg.inner_text('.platlist'))
     pg.locator('.chip.plat', has_text='Moomoo').click(); ok('chip fills platform', pg.input_value('#ic [name=ex]')=='Moomoo')

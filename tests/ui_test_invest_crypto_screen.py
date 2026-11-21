@@ -11,7 +11,7 @@ with sync_playwright() as p:
     pg.on('console',lambda m: errs.append(m.text) if m.type=='error' and 'ERR_TUNNEL' not in m.text and 'Failed to load resource' not in m.text else None)
     pg.goto(U); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
-    pg.goto(U+'#/invest'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(300)
+    pg.goto(U+'#/invest'); pg.wait_for_selector('.nwcard, .inv-card'); pg.wait_for_timeout(300)
     pkhelp.open_all(pg); t=pg.inner_text('#view'); ok('investments screen from imported crypto', 'Market value' in t and any(x in pg.inner_text('.tabs').lower() for x in ('bybit','binance','bitget','kucoin','okx')))
     print(t[:400].replace('\n',' | '))
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic')

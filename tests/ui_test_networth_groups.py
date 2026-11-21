@@ -11,7 +11,7 @@ with sync_playwright() as p:
     pg.on('pageerror',lambda e: errs.append(str(e)))
     pg.goto('http://localhost:8123/index.html'); pg.wait_for_selector('#first-file',state='attached')
     pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(500)
-    pg.goto('http://localhost:8123/index.html#/accounts'); pg.wait_for_selector('.nwcard'); pg.wait_for_timeout(300)
+    pg.goto('http://localhost:8123/index.html#/accounts'); pg.wait_for_selector('.nwcard, .inv-card'); pg.wait_for_timeout(300)
     ok('net worth card shown: '+pg.inner_text('.nwmain').replace('\n',' | ')[:80], 'Net worth' in pg.inner_text('.nwmain'))
     pg.select_option('[data-aview=group]','cur'); pg.wait_for_timeout(300)
     secs=pg.locator('.coll .collhead h2').all_inner_texts(); print('  sections',[x.replace('\n',' ') for x in secs])
@@ -55,7 +55,7 @@ with sync_playwright() as p:
     pg.close() if False else None
     # credit card fields
     pg.click('.scrim [data-close]') if pg.locator('.scrim').count() else None
-    pg.goto('http://localhost:8123/index.html#/accounts'); pg.wait_for_selector('.nwcard')
+    pg.goto('http://localhost:8123/index.html#/accounts'); pg.wait_for_selector('.nwcard, .inv-card')
     card=pg.evaluate("window.sukli.get().accounts.find(a=>a.type==='card')")
     print('  a card account:', card and card['name'])
     if card:

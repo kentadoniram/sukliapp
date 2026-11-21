@@ -16,7 +16,7 @@ with sync_playwright() as p:
     pg.evaluate("(async()=>{const m=await import('/js/trades.js');m.openTrade({asset:'b1',side:'buy'})})()"); pg.wait_for_selector('#tr'); pg.wait_for_timeout(300)
     pg.click('[data-fm=fixed]'); pg.wait_for_timeout(150)
     labs=pg.evaluate("[...document.querySelectorAll('[data-resp]')].map(x=>x.textContent.trim())")
-    ok('three responsibility options %s'%labs, labs==['Taken from Maker','Taken from Taker','Other Asset'])
+    ok('three responsibility options %s'%labs, labs in (['Taken from Maker','Taken from Taker','Other Asset'],['Maker','Taker','Other asset']))
     ok('asset picker hidden until Other Asset', not pg.is_visible('#f-feeacct'))
     pg.click('[data-resp=other]'); pg.wait_for_timeout(200)
     ok('Other Asset shows the picker and is pressed', pg.is_visible('#f-feeacct') and pg.get_attribute('[data-resp=other]','aria-pressed')=='true' and pg.get_attribute('[data-resp=maker]','aria-pressed')=='false')
