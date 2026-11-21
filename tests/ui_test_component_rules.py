@@ -28,6 +28,10 @@ raw_fs=len(re.findall(r'(?<![-\w])font-size:\s*calc\([\d.]+px \* var\(--fs',styl
 ok('no raw font-size calc() in styles.css, use var(--fz-N) from design.css (%d)'%raw_fs, raw_fs==0)
 raw_r=len(re.findall(r'border-radius:\s*(?:6|8|10|12|14|16|18|22|99|999)px\s*(?:;|}|!)',styles_only))
 ok('no raw 6/8/10/12/14/16/18/22/999px radius in styles.css, use the radius scale (%d)'%raw_r, raw_r==0)
+raw_h=len(re.findall(r'(?<![-\w])min-height:\s*(?:2[6-9]|[3-5]\d|6[0-2])px',styles_only))
+ok('no raw min-height of 26 to 62px in styles.css, use var(--h-N) or a role like --h-field (%d)'%raw_h, raw_h==0)
+nchip=len(re.findall(r'(?m)^\.chip\s*\{',styles_only))
+ok('.chip has exactly one base definition (%d)'%nchip, nchip==1)
 raw_g=len(re.findall(r'(?<![-\w])gap:\s*(?:2|4|6|8|10|12)px\s*;',styles_only))
 ok('no raw single gap of 2/4/6/8/10/12px, use the spacing scale (%d)'%raw_g, raw_g==0)
 # v16.12: a card-like rule (fill + outline + corner) must take its look from the card-kind table in design.css (var(--cd-*)); controls are the ones left

@@ -178,7 +178,7 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 .items .item .qty { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 0 6px; --ct-shadow: none; }
 .sql { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 12px; --ct-shadow: none; }
 /* BUTTON-LIKE CONTROLS (chips, segmented controls, keypad, pickers, rows you tap) */
-.chip { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-pill); --ct-pad: 0 14px; --ct-shadow: none; }
+.chip { --ct-bg: var(--rule); --ct-bd: var(--rule); --ct-r: var(--r-pill); --ct-pad: 0 16px; --ct-shadow: none; }
 :is(.seg, .calcbtn, .fxrev) { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 0; --ct-shadow: none; }
 .segm { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-l); --ct-pad: 4px; --ct-shadow: none; }
 :is(.sugg, .swapbtn) { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-ctl); --ct-pad: 0; --ct-shadow: none; }
@@ -200,3 +200,42 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 .adfab-menu { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 6px; --ct-shadow: var(--sh-menu); }
 .mspanel { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: var(--r-xl); --ct-pad: 12px; --ct-shadow: var(--sh-panel); }
 .msm { --ct-bg: var(--paper); --ct-bd: var(--rule); --ct-r: var(--r-m); --ct-pad: 11px 0; --ct-shadow: none; }
+
+/* ==== 9. Control sizes ================================================
+   One scale of heights (--h-N is exactly N px) and the roles that use it.
+   Change a role here and every control of that kind follows. Theme 1 keeps
+   its own taller buttons and tab bar through the rules that already
+   override them in styles.css. */
+:root {
+  --h-26: 26px; --h-28: 28px; --h-30: 30px; --h-31: 31px; --h-32: 32px; --h-34: 34px; --h-36: 36px; --h-38: 38px; --h-40: 40px; --h-42: 42px; --h-44: 44px; --h-46: 46px; --h-48: 48px; --h-50: 50px; --h-52: 52px; --h-56: 56px; --h-58: 58px; --h-60: 60px; --h-62: 62px;
+  /* roles */
+  --h-field: var(--h-46);      /* inputs, selects, textareas, pickers (date, account) */
+  --h-pick: var(--h-48);       /* the big picker rows (category, account) */
+  --h-btn: var(--h-46);        /* .btn */
+  --h-btn-sm: var(--h-38);     /* .btn.sm and its siblings (tbtn, addtime) */
+  --h-chip: var(--h-38);       /* .chip */
+  --h-chip-sm: var(--h-34);    /* small chips and segmented filters */
+  --h-seg: var(--h-44);        /* segmented control buttons */
+  --h-key: var(--h-46);        /* keypad keys */
+  --h-touch: var(--h-44);      /* minimum tap target on touch screens */
+}
+
+/* ==== 10. Attention card ===============================================
+   The one card that is meant to catch the eye: a soft gradient with two
+   pale circles and its own ink colours. Home's main card uses it, and so
+   does the Investments summary in Theme 1. Everything else stays a plain
+   card kind. To retint it change --g1..--g3 / --gink / --gsub in the palette;
+   to reshape it change the tokens below. */
+:root { --hero-bg: linear-gradient(135deg, var(--g1) 0%, var(--g2) 55%, var(--g3) 100%); --hero-r: var(--r-2xl); --hero-shadow: var(--sh-glow); --hero-ink: var(--gink); --hero-sub: var(--gsub); }
+:is(.sumcard, .ui-card--hero),
+:root[data-design="theme1"] #view[data-screen="invest"] .invpage .nwcard.one div.nwmain { position: relative; overflow: hidden; border: 0; border-radius: var(--hero-r); background: var(--hero-bg); box-shadow: var(--hero-shadow); color: var(--hero-ink); }
+:is(.sumcard, .ui-card--hero)::before,
+:root[data-design="theme1"] #view[data-screen="invest"] .invpage .nwcard.one div.nwmain::before { content: ""; position: absolute; right: -46px; top: -58px; width: 190px; height: 190px; border-radius: 50%; background: var(--gchip); pointer-events: none; }
+:is(.sumcard, .ui-card--hero)::after,
+:root[data-design="theme1"] #view[data-screen="invest"] .invpage .nwcard.one div.nwmain::after { content: ""; position: absolute; right: 38px; bottom: -70px; width: 150px; height: 150px; border-radius: 50%; background: var(--gchip); opacity: .6; pointer-events: none; }
+:is(.sumcard, .ui-card--hero) > *,
+:root[data-design="theme1"] #view[data-screen="invest"] .invpage .nwcard.one div.nwmain > * { position: relative; z-index: 1; }
+/* the Investments summary: its text takes the attention card's ink */
+:root[data-design="theme1"] #view[data-screen="invest"] .invpage .nwcard.one div.nwmain :is(span, small, .hint) { color: var(--hero-sub); }
+:root[data-design="theme1"] #view[data-screen="invest"] .invpage .nwcard.one div.nwmain b { color: var(--hero-ink); }
+:root[data-design="theme1"] #view[data-screen="invest"] .invpage .nwcard.one div.nwmain .ivgraph { background: var(--gchip); }

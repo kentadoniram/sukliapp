@@ -61,7 +61,7 @@ export function tabs({ items = [], value, act, aria = '', attrOf } = {}) {
 
 // the one reusable card: every card-like box takes its look from the shared card tokens (see DESIGN SYSTEM in styles.css), so a theme changes the tokens, not each screen
 // design: '' (the theme's own card), 'flat', 'raised' or 'tint'. Each is only a set of card tokens in design.css, so no screen restyles a card.
-export const CARD_DESIGNS = ['flat', 'raised', 'tint'];
+export const CARD_DESIGNS = ['flat', 'raised', 'tint', 'hero'];
 // kind: the card kind from the table in design.css (section 7); unknown names are ignored so a typo cannot add a stray class
 export const CARD_KINDS = ['cardbox', 'binrow', 'tile', 'outlook-card', 'rem', 'fsum', 'goalcheck', 'reimbview'];
 export function card({ body = '', cls = '', tone = '', design = '', kind = '', tag = 'section', attr = {} } = {}) {
