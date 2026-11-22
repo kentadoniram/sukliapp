@@ -111,7 +111,7 @@ export function monthNav(title, o = {}) {
   syncMonth();
   const isNow = ui.month === thisMonth(), label = esc(title || monthLabel(ui.month));
   if (look().design !== 'legacy') return `<header class="top t1top two"><div class="hl">${burger()}${o.label ? areaLabels('home') : ''}</div><div class="hact hhelp">${helpBtn()}</div>
-    <div class="hrow"><div class="hact hbar">${o.bell && get() ? bellBtn(get()) : ''}${eyeBtn()}<div class="monthsel">${button({ html: `<h1>${label}</h1>${ic('down', 'chev')}`, kind: 'plain', cls: 'mscard', act: 'msel', aria: 'Choose month', attr: { 'aria-expanded': String(MS.open), 'aria-controls': 'mspanel' } })}</div></div></div></header>
+    <div class="hrow"><div class="hact hbar">${o.bell && get() ? bellBtn(get()) : ''}${eyeBtn()}<div class="monthsel">${button({ html: `<h1>${title ? label : `<span class="ml-l">${label}</span><span class="ml-s" aria-hidden="true">${label.replace(/^([A-Za-z]{3})[a-z]*/, '$1')}</span>`}</h1>${ic('down', 'chev')}`, kind: 'plain', cls: 'mscard', act: 'msel', aria: 'Choose month', attr: { 'aria-expanded': String(MS.open), 'aria-controls': 'mspanel' } })}</div></div></div></header>
     <div class="mspanel" id="mspanel" role="group" aria-label="Choose month" ${MS.open ? '' : 'hidden'}>${MS.open ? monthPanel() : ''}</div>`;
   return `<header class="top"><div class="hl">${burger()}<div class="monthbox">${button({ html: `${ic('left')}`, kind: 'plain', cls: 'iconbtn', act: 'month', aria: 'Previous month', attr: { 'data-d': '-1' } })}
     <h1>${label}</h1>
@@ -120,7 +120,7 @@ export function monthNav(title, o = {}) {
 }
 const burger = () => { const n = reviewCount(get()); return `${button({ html: `${ic('menu')}${n ? '<em class="dot" aria-label="items to check"></em>' : ''}`, kind: 'plain', cls: 'iconbtn burger', act: 'menu', aria: 'Open menu' })}`; };
 export const hdr = (title, right = '', o = {}) => o.bar
-  ? `<header class="top t1top two"><div class="hl">${burger()}${areaLabels('invest')}</div><div class="hact hhelp">${helpBtn()}</div><div class="hrow"><div class="hact hbar">${right}${eyeBtn()}</div></div></header>`
+  ? `<header class="top t1top two"><div class="hl">${burger()}${areaLabels('invest')}</div><div class="hact hhelp">${helpBtn()}</div><div class="hrow"><div class="hact hbar">${eyeBtn()}${right}</div></div></header>`
   : o.below
   ? `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${helpBtn()}${eyeBtn()}</div></header><div class="btnrow actrow">${right}</div>`
   : `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${right}${helpBtn()}${eyeBtn()}</div></header>`;
@@ -219,11 +219,11 @@ ACT.sumflip = (el) => {
 };
 // The Investments card: the same card as Home's (same markup, type, height, touchable graph), in its own indigo colours.
 // rows = [[label, text]], chip = {up, txt, name} or null. series = [{d, v}] already in the Investments currency, tips = one text per point.
-export function investCard({ label, value, eq, series, tips, chip, rows }) {
-  const vals = series.map((p) => p.v);
-  return `<section class="strip sumcard main-home-card inv-card" data-id="inv-card" aria-label="Investments market value"><div class="sc-inner"><div class="sc-face sc-front">
-    ${button({ html: `<span>${esc(label)}</span><b>${esc(value)}</b>`, kind: 'plain', cls: 'sc-net', act: 'inv-graph', aria: 'Open the graph of your market value over time' })}${chip ? `<span class="bm-chip ${chip.up ? 'good' : 'bad'}">${diag(chip.up, 'bm-dg')}<b>${esc(chip.txt)}</b><span>${esc(chip.name)}</span></span>` : '<span class="bm-chip inv-nochip" aria-hidden="true"></span>'}
-    ${spark(vals, 'Market value over time', tips)}<div class="sc-rows">${rows.map(([l, v, tag]) => `<div class="sc-row"><span class="sc-lab">${esc(l)}</span><span class="sc-vl"><b class="sc-val">${esc(v)}</b>${tag ? `<i class="sc-sep" aria-hidden="true">·</i><span class="bm-mini share">${esc(tag)}</span>` : ''}</span></div>`).join('')}</div>
+export function investCard({ label, value, eq, series, tips, chip, rows, id = 'inv-card', aria = 'Investments market value', act = 'inv-graph', graphAria = 'Open the graph of your market value over time', sparkLabel = 'Market value over time', cls = '', pc = '', kicker = '' }) {
+  const vals = series.map((p) => p.v), head = `<span>${esc(label)}</span><b>${esc(value)}</b>`;
+  return `<section class="strip sumcard main-home-card inv-card${cls ? ' ' + cls : ''}" data-id="${id}" aria-label="${esc(aria)}"${pc ? ` style="--pc:${pc}"` : ''}><div class="sc-inner"><div class="sc-face sc-front">
+    ${kicker ? `<div class="sc-kick">${kicker}</div>` : ''}${act ? button({ html: head, kind: 'plain', cls: 'sc-net', act, aria: graphAria }) : `<div class="sc-net static">${head}</div>`}${chip ? `<span class="bm-chip ${chip.flat ? 'flat' : chip.up ? 'good' : 'bad'}${chip.cls ? ' ' + chip.cls : ''}">${chip.flat ? '' : diag(chip.up, 'bm-dg')}<b>${esc(chip.txt)}</b><span>${esc(chip.name)}</span></span>` : '<span class="bm-chip inv-nochip" aria-hidden="true"></span>'}
+    ${spark(vals, sparkLabel, tips)}<div class="sc-rows">${rows.map(([l, v, tag, tone]) => `<div class="sc-row"><span class="sc-lab">${esc(l)}</span><span class="sc-vl"><b class="sc-val${tone ? ' ' + tone : ''}">${esc(v)}</b>${tag ? `<i class="sc-sep" aria-hidden="true">·</i><span class="bm-mini share">${esc(tag)}</span>` : ''}</span></div>`).join('')}</div>
     ${eq ? `<span class="sc-swap sc-eq">${esc(eq)}</span>` : ''}</div></div></section>`;
 }
 export const summaryCard = mainHomeCard;

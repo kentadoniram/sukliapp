@@ -37,6 +37,7 @@ with sync_playwright() as p:
       const b=s.balancesNow().get('cardx'); return b;})()""")
     ok('card balance -600 after 1000 spend and 400 payment', abs(r+600)<1e-6)
     pg.goto('http://localhost:8123/index.html#/accounts'); pg.wait_for_timeout(500)
+    pg.locator('[data-act=accside][data-v=liabs]').click(); pg.wait_for_timeout(300)  # v16.20: liabilities are on their own side
     pg.evaluate("document.querySelector('[data-act=acct][data-id=cardx]').click()"); pg.wait_for_selector('.cardbox')
     t=pg.inner_text('.cardbox'); print(t.replace('\n',' | ')[:300])
     ok('card box shows amount due and Pay button', 'Amount due' in t and pg.locator('[data-ad=pay]').count()==1)

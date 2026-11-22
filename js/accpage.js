@@ -4,7 +4,9 @@ import { button, textField, card as uiCard } from './components.js';
 import { pickAll } from './picker.js';
 import { isEarnAcct, EARN_BLOCK, openDateOf, openDates, WALLETS, WALLET_INFO, walletOf } from './core.js';
 import { tipBtn, calcHtml, bindCalc, COMP_LABEL, rateAt, hasRate } from './interest.js';
-import { exchangeOf, canonPlatform, nearPlatform, platformNames, assetPerfHtml } from './invest.js';
+import { exchangeOf, canonPlatform, nearPlatform, platformNames, assetPerfHtml, platOf } from './invest.js';
+import { platformCard } from './invnav.js';
+import { platIcon } from './platicons.js';
 import { softDelete, subscribe } from './core.js';
 import { acctPic, isImg } from './pictures.js';
 import {
@@ -15,7 +17,7 @@ import { transferHints } from './finance.js';
 import { lockInfo, interestPreview, promoStatus, rateHistory, debtPreview, hasDebtInt, accountHistory, netWorth, cardInfo, billingPeriods, statementSummary, postedDay, cardReminders, cardIcs, interestChangeFrom, isLiability, setLiab, today, postInterest, postDebtInterest, interestTaxPct, retaxInterest } from './finance.js';
 import { esc, ic, ACT, sheet, toast, download, confirmDialog, promptDialog } from './ui.js';
 import { applyHide, look } from './appearance.js';
-import { money, eq, hdr, coll, ui, tradeKids, effectLine } from './screens.js';
+import { money, eq, hdr, coll, ui, tradeKids, effectLine, t1seg } from './screens.js';
 import { openEntry } from './entry.js';
 import './earnui.js';
 import './platform.js';
@@ -88,12 +90,30 @@ function walletTotals(list, val) {
   const m = new Map(); for (const a of list) { const ex = a.exchange || 'Other products', w = a.exchange ? walletOf(a) : ''; if (!m.has(ex)) m.set(ex, new Map()); const ws = m.get(ex); ws.set(w, (ws.get(w) || 0) + val(a)); }
   return `<ul class="calfacts wtots">${[...m.entries()].map(([ex, ws]) => `<li><span><b>${esc(ex)}</b>${ws.size > 1 || ![...ws.keys()].every((w) => !w || w === 'Spot') ? ` <small class="muted">${[...ws.entries()].filter(([w]) => w).map(([w, v]) => `${esc(w)} ${money(v)}`).join(' · ')}</small>` : ''}</span><b>${money([...ws.values()].reduce((x, y) => x + y, 0))}</b></li>`).join('')}</ul>`;
 }
+// Assets / Liabilities switch: Theme 1 uses its sliding .t1seg, Legacy its own .seg buttons
+function sideSwitch(side) {
+  const opts = [['assets', 'Assets', 'Show assets, what you own'], ['liabs', 'Liabilities', 'Show liabilities, what you owe']];
+  if (look().design === 'legacy') return `<div class="seg" role="group" aria-label="Show assets or liabilities">${opts.map(([v, l, aria]) => button({ html: l, kind: 'plain', cls: side === v ? 'on' : '', act: 'accside', pressed: side === v, aria, attr: { 'data-v': v } })).join('')}</div>`;
+  return t1seg({ options: opts.map(([value, label, aria]) => ({ value, label, aria })), value: side, act: 'accside', aria: 'Show assets or liabilities', wide: true });
+}
+// Accounts > Investments: every exchange or platform is its own card (same card as the Investments tab uses), tap one to open it there
+function invCards(list, val) {
+  const m = new Map(); for (const a of list) { const k = platOf(a); if (!m.has(k)) m.set(k, []); m.get(k).push(a); }
+  const rows = [...m.entries()].map(([name, l]) => ({ name, l, tot: sum(l.map(val)) })).sort((x, y) => y.tot - x.tot);
+  const total = sum(list.map(val));
+  return `<section class="topgrp assets invblock"><div class="tophead"><h2>Investments</h2><b>${money(total)}</b></div>
+    <p class="hint">Each platform is its own card. Tap one to open it, or go to the <a href="#/invest">Investments tab</a>. Already counted in your net worth above.</p>
+    <div class="invcats l2 accinv">${rows.map(({ name, l, tot }) => { const w = new Set(l.map((a) => walletOf(a) || 'Other')), n = new Set(l.map((a) => a.cur)).size;
+      return platformCard(name, money(tot), platIcon(name, 'xs'), '', `${n} asset${n === 1 ? '' : 's'}${w.size > 1 ? ` · ${w.size} wallets` : ''}`); }).join('')}</div></section>`;
+}
 export function accounts(db) {
   const bal = balances(db), nw = netWorth(db);
   const allShown = live(db.accounts).filter((a) => !a.archived);
   const invAccts = allShown.filter(inInvestAcct);          // investments live in their own tab; here they are one separate block
-  const shown = allShown.filter((a) => !inInvestAcct(a));
-  const hidden = live(db.accounts).length - shown.length;
+  const side = view.side === 'liabs' ? 'liabs' : 'assets';                 // the switch under the cards: only one of the two lists is drawn
+  const nonInv = allShown.filter((a) => !inInvestAcct(a));
+  const shown = nonInv.filter((a) => (side === 'liabs') === isLiability(a));
+  const hidden = live(db.accounts).length - allShown.length;
   const val = (a) => baseOf(db, a, bal.get(a.id) || 0);
   const grp = view.sort === 'cat' ? 'class' : view.group;             // sorting by category groups assets and debts, then sorts inside each group by the second choice
   const key = view.sort === 'cat' ? (view.then || 'high') : view.sort;
@@ -160,14 +180,17 @@ export function accounts(db) {
       ${nw.assets + nw.debts > 0 ? `<span class="nwbar" role="img" aria-label="Assets against debts"><i style="width:${Math.round(nw.assets / (nw.assets + nw.debts) * 100)}%"></i></span>` : ''}`, kind: 'plain', cls: 'nwmain', act: 'nw', aria: 'Net worth details' })}
       ${button({ html: `<span class="nwk">Spendable now</span><b class="nwv">${money(sp)}</b>`, kind: 'plain', cls: 'nwsp', act: 'acct-sp' })}</section>`}
     ${nw.missing ? `<p class="hint">Some accounts have no exchange rate yet, so they are left out of these totals. Set rates in Settings.</p>` : ''}
+    <div class="accside">${sideSwitch(side, nonInv.filter((a) => !isLiability(a)).length + (invAccts.length ? 1 : 0), nonInv.filter((a) => isLiability(a)).length)}</div>
     <div class="aview compact"><label>Group <select data-aview="group" aria-label="Group accounts by">${[['class', 'Assets / debts'], ['cur', 'Currency'], ['type', 'Category'], ['exchange', 'Exchange'], ['none', 'None']].map(([v, l]) => `<option value="${v}" ${grp === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <label>Sort <select data-aview="sort" aria-label="Sort accounts">${[['high', 'High → low'], ['low', 'Low → high'], ['name', 'A–Z'], ['cat', 'Category']].map(([v, l]) => `<option value="${v}" ${view.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       ${view.sort === 'cat' ? `<label>Then <select data-aview="then" aria-label="Sort inside each category">${[['high', 'High → low'], ['low', 'Low → high'], ['name', 'A–Z']].map(([v, l]) => `<option value="${v}" ${(view.then || 'high') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>` : ''}</div>
-    ${sections || (invAccts.length ? '' : '<p class="empty">No accounts yet. Tap “Add account” and start with the money you have today, for example your wallet or a bank account.</p>')}
-    ${invAccts.length ? `<section class="topgrp assets invblock"><div class="tophead"><h2>Investments</h2><b>${money(sum(invAccts.map(val)))}</b></div><p class="hint">Crypto, stocks, funds and similar are kept in their own tab, with prices, gains and trades. They are already counted in your net worth above.</p>${walletTotals(invAccts, val)}<a class="btn wide ghost" href="#/invest">Open the Investments tab (${invAccts.length} ${invAccts.length === 1 ? 'account' : 'accounts'})</a></section>` : ''}
+    ${sections || (invAccts.length || side === 'liabs' ? '' : '<p class="empty">No accounts yet. Tap “Add account” and start with the money you have today, for example your wallet or a bank account.</p>')}
+    ${side === 'assets' && invAccts.length ? invCards(invAccts, val) : ''}
+    ${side === 'liabs' && !shown.length ? '<p class="empty">No liabilities. Credit cards, loans and money you owe will be listed here.</p>' : ''}
     ${hidden ? `<p class="muted center">${hidden} hidden ${hidden === 1 ? 'account' : 'accounts'} (archived).</p>` : ''}`;
 }
 document.addEventListener('change', (e) => { const el = e.target.closest && e.target.closest('select[data-aview]'); if (el) { view[el.dataset.aview] = el.value; saveView(); render(); } });
+ACT.accside = (el) => { view.side = el.dataset.v; saveView(); render(); };
 ACT.aview = (el) => { view[el.dataset.k] = el.dataset.v; saveView(); render(); };
 // move an asset to another wallet of the same platform in one tap (the name follows when it carried the wallet)
 ACT['wallet-move'] = async (el) => {

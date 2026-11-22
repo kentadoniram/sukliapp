@@ -26,7 +26,7 @@ with sync_playwright() as p:
         name=cards[0]['t']; pg.click('.invplat >> nth=0'); pg.wait_for_timeout(900)
         labs=pg.evaluate("[...document.querySelectorAll('.tabs a')].map(e=>e.textContent.trim())")
         ok(n+'platform tab shows selected name', name in labs[1])
-        has=pg.evaluate("({hero:!!document.querySelector('.plathero'),graph:!!document.querySelector('.invline svg'),pl:/Profit and Loss/.test(document.body.innerText),met:/Other Metrics/.test(document.body.innerText),tx:/Transactions on/.test(document.body.innerText)})")
+        has=pg.evaluate("({hero:!!document.querySelector('.plat-hero'),graph:!!document.querySelector('.invline svg'),pl:/Profit and Loss/.test(document.body.innerText),met:/Other Metrics/.test(document.body.innerText),tx:/Transactions on/.test(document.body.innerText)})")
         ok(n+'platform page has hero, graph, P&L, metrics, transactions %s'%has, all(has.values()))
         rows=pg.evaluate("[...document.querySelectorAll('.invtx > *')].map(e=>e.textContent)")
         bad=[r for r in rows if name not in r]

@@ -59,6 +59,7 @@ with sync_playwright() as p:
     card=pg.evaluate("window.sukli.get().accounts.find(a=>a.type==='card')")
     print('  a card account:', card and card['name'])
     if card:
+        pg.locator('[data-act=accside][data-v=liabs]').click(); pg.wait_for_timeout(300)  # v16.20: liabilities are on their own side
         pg.click(f'[data-act=acct][data-id="{card["id"]}"]'); pg.wait_for_selector('#ad'); pg.click('[data-ad=edit]'); pg.wait_for_selector('#cardfields:not([hidden])')
         pg.fill('#acct-form [name=limit]','50000'); pg.fill('#acct-form [name=dueDay]','25'); pg.click('#acct-form button[type=submit], #acct-form .btnrow .btn:not(.ghost):not([data-del])'); pg.wait_for_timeout(300)
         ok('detail stays open and refreshes after save', pg.locator('#ad .cardbox').count()==1)

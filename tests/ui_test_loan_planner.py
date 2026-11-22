@@ -21,7 +21,8 @@ with sync_playwright() as p:
     lt=pg.inner_text('#view'); ok('loan is one entry: borrowed, fees deducted, received', 'Loan: borrowed' in lt and 'fees' in lt and 'received' in lt and 'Loan fees:' not in lt)
     pg.goto(U+'#/accounts'); pg.wait_for_timeout(500)
     pg.select_option('[data-aview=group]','class'); pg.wait_for_timeout(300)
-    tx=pg.inner_text('#view'); ok('assets/debts grouping with the new loan', 'Liabilities' in tx and 'Home loan' in tx)
+    pg.click('[data-act=accside][data-v=liabs]'); pg.wait_for_timeout(300); tx=pg.inner_text('#view'); ok('assets/debts grouping with the new loan', 'Liabilities' in tx and 'Home loan' in tx)
+    pg.locator('[data-act=accside][data-v=liabs]').click(); pg.wait_for_timeout(300)  # v16.20: liabilities are on their own side
     pg.locator('.row.acct', has_text='Home loan').first.click(); pg.wait_for_selector('#ad'); pg.wait_for_timeout(300)
     d=pg.inner_text('#ad'); ok('loan box with plan and due info', 'Monthly payment' in d and 'Received after fees' in d and ('due' in d.lower()))
     pg.click('#ad [data-act=loan-charge]'); pg.wait_for_selector('#lc'); choose(pg,'#lc [name=what]',value='Late fee'); pg.fill('#lc [name=amt]','400'); pg.click('#lc .btn:not(.ghost)'); pg.wait_for_timeout(600)

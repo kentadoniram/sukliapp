@@ -56,3 +56,8 @@ def patch_reveal():
             except Exception: pass
         return ow(self, selector, *a, **kw)
     Page.wait_for_selector = w
+
+def acc_side(pg, side='liabs'):
+    """v16.20: Accounts shows Assets or Liabilities, one at a time. Switch to the side the test needs."""
+    if pg.locator(f'[data-act=accside][data-v={side}]').count() and pg.locator(f'[data-act=accside][data-v={side}][aria-pressed=true]').count() == 0:
+        pg.click(f'[data-act=accside][data-v={side}]'); pg.wait_for_timeout(300)

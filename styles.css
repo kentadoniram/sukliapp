@@ -2322,3 +2322,40 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 :root[data-design="legacy"] .dashcard .dashstrip { display: none; }
 .invpage .coll.collite, #view .coll.collite { background: transparent; border: 0; border-left: 0; box-shadow: none; padding: 0; margin: 0; border-radius: 0; }
 .pc-sec .coll.collite .collbody { padding-top: var(--sp-2); }
+
+/* v16.20: the platform's main card follows Home's card; its headline change is the Daily PnL, the overall PnL is a separate row */
+.plat-hero .sc-kick { display: flex; align-items: center; gap: var(--sp-3); font-size: var(--fz-14); color: var(--gink); }
+.plat-hero .sc-kick b { font-weight: 750; letter-spacing: -.01em; }
+.plat-hero .sc-face { min-height: 262px; }
+.inv-card .sc-net.static { display: grid; gap: var(--sp-0); margin-bottom: -8px; }
+.inv-card .sc-val.good { color: var(--good); }
+.inv-card .sc-val.bad { color: var(--bad); }
+.plat-hero .bm-chip.dpnl { max-width: 100%; white-space: nowrap; }
+.plat-hero .bm-chip.dpnl > span { color: var(--gsub); font-weight: 650; }
+.nwcard.plat-hero .phead { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
+.nwcard.plat-hero .dpnl-l, .nwcard.plat-hero .opnl-l { display: block; }
+.nwcard.plat-hero .dpnl-l { font-size: var(--fz-14); margin-top: var(--sp-1); }
+.nwcard.plat-hero .dpnl-l, .nwcard.plat-hero .opnl-l { font-size: var(--fz-13); font-weight: 650; }
+.nwcard.plat-hero .dpnl-l em, .nwcard.plat-hero .opnl-l em { font-style: normal; font-weight: 600; color: var(--ink2); margin-right: var(--sp-2); }
+.platmain .pc-sec:first-child { margin-top: var(--sp-0); padding-top: var(--sp-0); border-top: 0; }
+
+/* v16.20: bell, eye and month (or currency) line up with the burger. Narrow phones: a second row that starts exactly under the burger
+   (bell and eye on the left, month on the right). Wide screens: one row with everything on the same centre line. */
+.t1top.two { align-items: center; }
+.t1top.two .hl, .t1top.two .hhelp, .t1top.two .hbar, .t1top.two .hbar > *, .t1top.two .monthsel { align-items: center; }
+.t1top.two .hrow { flex: 1 0 100%; justify-content: stretch; margin-left: -8px; }   /* the same -8px the burger (.hl) uses, so the first icon sits right under it */
+.t1top.two .hbar { flex: 1 1 auto; width: 100%; justify-content: flex-start; gap: var(--sp-1); }
+.t1top.two .hbar .monthsel, .t1top.two .hbar .curchip { margin-left: auto; }
+.t1top.two .hbar .bellbtn, .t1top.two .hbar .eyebtn, .t1top.two .hbar .iconbtn { margin: 0; }
+.t1top.two .mscard .ml-s { display: none; }
+@media (min-width: 540px) {
+  .t1top.two .hrow { flex: 0 1 auto; margin-left: auto; }
+  .t1top.two .hbar { width: auto; }
+  .t1top.two .hbar .monthsel, .t1top.two .hbar .curchip { margin-left: var(--sp-2); }
+  .t1top.two .hl { flex: 0 1 auto; }
+}
+.main-home-card .bm-chip.flat b { color: var(--gsub); }
+.accside { margin: var(--sp-4) var(--sp-0); }
+.accside .t1seg { display: grid; width: 100%; }
+.accinv { margin-top: var(--sp-3); }
+:root[data-design="legacy"] .accside .seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }

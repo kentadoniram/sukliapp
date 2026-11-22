@@ -34,6 +34,7 @@ def part0(p,b,ctx,pg,errs):
     # --- opening balance in account history
     pg.evaluate("(async()=>{const c=await import('/js/core.js');c.commit(d=>{const a=d.accounts.find(x=>x.name==='Wallet'&&!x.deleted);a.open=500;a.openDate='2026-10-18'})})()")
     pg.goto('http://localhost:8123/#/accounts'); pg.wait_for_timeout(500)
+    pg.locator('[data-act=accside][data-v=liabs]').click(); pg.wait_for_timeout(300)  # v16.20: liabilities are on their own side
     pg.locator('.row.acct:has(strong:text-is("Wallet"))').first.click(); pg.wait_for_selector('#ad'); pg.wait_for_timeout(300)
     for _ in range(40):
         m=pg.locator('#ad >> text=/Show more/')
@@ -93,6 +94,7 @@ def part1(p,b,ctx,pg,errs):
     ok('Check explains itself', 'Check means' in pg.inner_text('#filterhint'))
     # accounts: investments are a separate block
     pg.goto('http://localhost:8123/#/accounts'); pg.wait_for_timeout(700)
+    pg.locator('[data-act=accside][data-v=assets]').click(); pg.wait_for_timeout(300)
     ok('accounts page keeps investments in their own block', pg.locator('.invblock').count()==1 and pg.locator('.invblock a[href="#/invest"]').count()==1)
     # invest + menu
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(700)
@@ -130,6 +132,7 @@ def part2(p,b,ctx,pg,errs):
       const c=d.categories.find(x=>x.kind==='expense'&&!x.deleted).id, mk=(i,date,amt,extra)=>d.txs.push(Object.assign({id:i,kind:'expense',amount:amt,cur:'PHP',fx:1,date,name:i,cat:c,acct:id,updatedAt:Date.now()},extra||{}));
       mk('pa','%s 12:00:00',500); mk('pb','%s 20:00:00',300,{posted:'%s'}); mk('pc','%s 12:00:00',200);});})()""" % (PA,PB,PS,PC))
     pg.goto('http://localhost:8123/#/accounts'); pg.wait_for_timeout(600)
+    pg.locator('[data-act=accside][data-v=liabs]').click(); pg.wait_for_timeout(300)
     pg.evaluate("document.querySelector('[data-act=acct][data-id=cardz]').click()"); pg.wait_for_selector('select[data-bp]')
     opts=pg.eval_on_selector_all('select[data-bp] option','o=>o.map(x=>[x.value,x.textContent])'); print(opts[:3])
     ok('period list has Current first', len(opts)>=12 and opts[1][1].startswith('Current') and opts[1][0]==CUR)

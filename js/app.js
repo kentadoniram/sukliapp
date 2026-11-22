@@ -10,7 +10,7 @@ import { scheduleSync, onStatus } from './drive.js';
 import './feedback.js';
 import './borrowing.js';
 import { cloudSchedule, cloudInit, onCloudStatus, handleOAuthReturn } from './cloud.js';
-import { invTabs, setSec } from './invnav.js';
+import { invTabs, setSec, INV } from './invnav.js';
 import { currentPlatform } from './invest.js';
 import { home, ledger, review, accounts, reports, settings, bindLedger, bindSettings, openAccountSetup, ui, fillDeferred, tabIds, TAB_DEFS, setLookMode } from './screens.js';
 import { openEntry } from './entry.js';
@@ -93,7 +93,8 @@ function render() {
   if (route === lastRoute && route === 'settings' && ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && document.getElementById('view').contains(ae)) return;
   document.getElementById('view').dataset.screen = route;
   document.body.dataset.area = route === 'invest' ? 'invest' : 'main';   // Theme 1 tints the Investments area so you can tell it from Home
-  if (route === 'invest' && lastRoute && lastRoute !== 'invest') setSec('overview');   // coming into Investments always lands on Overview
+  if (route === 'invest' && lastRoute && lastRoute !== 'invest' && !INV.keep) setSec('overview');
+  if (route === 'invest') INV.keep = false;   // coming into Investments always lands on Overview
   document.getElementById('view').innerHTML = empty && route !== 'settings' ? firstRun() : fn(db);
   document.getElementById('tabs').innerHTML = tabs(route);
   document.getElementById('tabs').hidden = empty && route !== 'settings';

@@ -29,7 +29,11 @@ function go(change) {
 window.addEventListener('popstate', (e) => { const v = e.state && e.state.inv; if (v && /^#\/invest/.test(location.hash)) { apply(v); rerender(); } });
 ACT['inv-sec'] = (el) => go(() => { setSec(el.dataset.v); if (el.dataset.v === 'accounts') { INV.cat = ''; wr('sukli-invcat', ''); } });
 ACT['inv-cat'] = (el) => go(() => { INV.cat = el.dataset.v || ''; wr('sukli-invcat', INV.cat); });
-ACT['inv-plat'] = (el) => go(() => selectPlatform(el.dataset.ex));
+ACT['inv-plat'] = (el) => {
+  // from Accounts (another page) open the platform in Investments; inside Investments just switch
+  if (!/^#\/invest/.test(location.hash)) { INV.keep = true; selectPlatform(el.dataset.ex); location.hash = '#/invest'; return; }
+  go(() => selectPlatform(el.dataset.ex));
+};
 ACT['inv-month'] = (el) => { INV.month = shiftMonth(INV.month || thisMonth(), +el.dataset.d); rerender(); };
 ACT['inv-range'] = (el) => { INV.rg = el.dataset.v; rerender(); };
 

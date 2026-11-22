@@ -1,4 +1,20 @@
-Sukli v16.19 - QA suite (extract over your project)
-ADDED:  qa/ (README.md, run_qa.py, lib.mjs, qahelp.py, integration/, system/, e2e/, regression/ incl. golden.json, performance/ incl. perf_budget.json, reports/latest.md)
-CHANGED: sw.js (5 modules added to the offline cache, cache name v16.19), js/version.js (change 19), README.md (16.19 entry)
-No other file changed.
+Sukli v16.20 - changed or added files only (extract over your project)
+README.md
+js/accpage.js
+js/app.js
+js/invest.js
+js/invnav.js
+js/screens.js
+js/version.js
+styles.css
+sw.js
+tests/pkhelp.py
+tests/ui_test_app_misc_budget_csv_earn.py
+tests/ui_test_invest_entry_rows.py
+tests/ui_test_loan_planner.py
+tests/ui_test_networth_groups.py
+tests/ui_test_recycle_bin.py
+tests/ui_test_screens_first_run_exports.py
+tests/ui_test_v16_20_accounts_platform_header.py
+tests/ui_test_v16_6_invest_sections.py
+tests/ui_test_v16_7_pnl_audit.py

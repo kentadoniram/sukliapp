@@ -71,7 +71,7 @@ const assetTypeOf = (a) => a.assetType || (a.type === 'crypto' ? 'crypto' : '');
 const isAsset = (a) => !!assetTypeOf(a);
 // which of the four Investments categories an account belongs to (crypto / stock market / government bonds / other)
 export const catOf = (a) => { const t = assetTypeOf(a); return t === 'crypto' ? 'crypto' : ['stock', 'etf', 'fund'].includes(t) ? 'stock' : t === 'other' ? 'other' : 'gov'; };
-const platOf = (a) => exchangeOf(a) || 'Wallets and other';
+export const platOf = (a) => exchangeOf(a) || 'Wallets and other';
 // the platform shown in the second section: the one you opened last, otherwise the one holding the most
 export function currentPlatform(db) {
   const b = balances(db), tot = new Map();
@@ -141,6 +141,33 @@ ACT['inv-cur'] = () => {
 const PLAT_COLORS = ['#2F6FDE', '#1F9D6B', '#C2410C', '#7C3AED', '#0E7490', '#BE185D', '#A16207', '#4D7C0F'];
 const platColor = (n) => { let h = 0; for (const c of String(n).toLowerCase()) h = (h * 31 + c.charCodeAt(0)) >>> 0; return PLAT_COLORS[h % PLAT_COLORS.length]; };
 const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// the price of a coin in the home currency on a given day: the last price recorded on or before that day (quote currencies at today's rate)
+function pxMaker(db, hist) {
+  const now = new Map();
+  return (a, day) => {
+    if (a.cur === HOME) return 1; const h = hist.get(a.cur) || [];
+    if (!h.length) return homeFx(db, a.cur) || 0;
+    let p = h[0]; for (const q of h) { if (q.date <= day) p = q; else break; }
+    const qf = (!p.quote || p.quote === HOME) ? 1 : (now.has(p.quote) ? now.get(p.quote) : (now.set(p.quote, homeFx(db, p.quote) || 0), now.get(p.quote)));
+    return p.price * qf; };
+}
+// Daily PnL of some investment accounts: what the market did to the units you held when the day began.
+// units at the end of yesterday x (latest price - price at the end of yesterday). Days follow the platform's own clock (its time zone).
+// A coin with no recorded price from before today has no starting point, so it adds nothing and is counted in `missing`.
+export function dailyPnl(db, accts, platform) {
+  const tickers = db.settings.tickers || {}, hist = new Map();
+  for (const a of accts) hist.set(a.cur, ((tickers[a.cur] || {}).history || []).filter((p) => p && p.price > 0 && p.date).slice().sort((x, y) => (x.date + (x.ts || 0) < y.date + (y.ts || 0) ? -1 : 1)));
+  const day = platform ? platformDay(db, platform) : localDay(), prev = platform ? platformDay(db, platform, Date.now() - 864e5) : localDay(new Date(Date.now() - 864e5));
+  const b0 = balances(db, prev + ' 23:59:59'), px = pxMaker(db, hist);
+  let pnl = 0, base = 0, missing = 0;
+  for (const a of accts) {
+    const q = b0.get(a.id) || 0; if (Math.abs(q) < 1e-12 || a.cur === HOME) continue;
+    const h = hist.get(a.cur) || [], hasBefore = h.some((p) => p.date <= prev);
+    if (!hasBefore) { missing++; continue; }
+    const p0 = px(a, prev), p1 = px(a, day); pnl += q * (p1 - p0); base += q * p0;
+  }
+  return { pnl, base, pct: base > 0 ? pnl / base * 100 : null, missing, day };
+}
 // One point per day on which something was recorded: an entry in an investment account, or a price (live, set by you, or from a trade).
 // Value = what you held at the end of that day x the last price recorded on or before that day, in your home currency
 // (quote currencies are converted at today's rate, the rate history is not kept). Nothing is estimated between the points.
@@ -151,12 +178,7 @@ export function valueSeries(db, only) {
   for (const a of items) { const h = ((tickers[a.cur] || {}).history || []).filter((p) => p && p.price > 0 && p.date).slice().sort((x, y) => (x.date + (x.ts || 0) < y.date + (y.ts || 0) ? -1 : 1)); hist.set(a.cur, h); for (const p of h) days.add(p.date); }
   let list = [...days].filter((d) => d <= localDay()).sort();
   if (list.length > 160) { const step = Math.ceil(list.length / 160); list = list.filter((d, i) => i % step === 0 || i === list.length - 1); }
-  const now = new Map(), pxAt = (a, day) => {
-    if (a.cur === HOME) return 1; const h = hist.get(a.cur) || [];
-    if (!h.length) return homeFx(db, a.cur) || 0;
-    let p = h[0]; for (const q of h) { if (q.date <= day) p = q; else break; }
-    const qf = (!p.quote || p.quote === HOME) ? 1 : (now.has(p.quote) ? now.get(p.quote) : (now.set(p.quote, homeFx(db, p.quote) || 0), now.get(p.quote)));
-    return p.price * qf; };
+  const pxAt = pxMaker(db, hist);
   const out = [];
   for (const d of list) { const b = balances(db, d + ' 23:59:59'); let v = 0, any = false; for (const a of items) { const q = b.get(a.id) || 0; if (Math.abs(q) > 1e-12) { any = true; v += q * pxAt(a, d); } } if (any || out.length) out.push({ d, v }); }
   while (out.length && out[0].v === 0) out.shift();
@@ -338,9 +360,17 @@ export function investments(db) {
     const txN = db.txs.filter((t) => !t.deleted && (ids.has(t.acct) || ids.has(t.toAcct))).length;
     // Theme 1 shows a platform as ONE card (total, performance, profit and loss, metrics); Legacy keeps its separate cards
     const one = look().design !== 'legacy', secO = (c) => (one ? `<div class="pc-sec${c ? ' ' + c : ''}">` : `<section class="ui-card invcard${c ? ' ' + c : ''}">`), secC = one ? '</div>' : '</section>';
-    return `<div class="platpage"><section class="t1-card ui-card plathero${one ? ' platcard' : ''}" style="--pc:${platColor(sel)}"><div class="phead">${platIcon(sel, 'xs')}<b>${esc(sel)}</b></div>
-        <span class="pl-k">Total asset value</span><b class="pl-v">${money(tot)}</b>${eqLine(db, tot)}
-        <span class="pl-pnl ${cl(pnl)}">${sgn(pnl)}${pct === null ? '' : ` · ${pct >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(2)}% open`} <small class="muted">trading profit and loss</small></span>${one ? '' : '</section>'}
+    // the main card follows the Home card; its big change is the DAILY PnL (what the market did today), kept apart from the overall trading PnL
+    const dp = dailyPnl(db, accs, sel), dtone = dp.pnl > 0 ? 'good' : dp.pnl < 0 ? 'bad' : '', dsgn = dp.base > 0 || dp.pnl ? sgn(dp.pnl) : money(0), dpct = dp.pct == null ? '' : `${dp.pct >= 0 ? '+' : '−'}${Math.abs(dp.pct).toFixed(Math.abs(dp.pct) < 10 && dp.pct !== 0 ? 2 : 1)}%`;
+    const sSeries = full.map((p) => ({ d: p.d, v: p.v * invK })), dl = (ds) => new Date(ds.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const hero = one
+      ? investCard({ label: 'Total asset value', value: money(tot), eq: altOf(db, tot) ? `≈ ${altOf(db, tot)}` : '', series: sSeries, tips: sSeries.map((p) => `${dl(p.d)} · ${money(p.v)}`), id: 'plat-card', aria: `${sel} total asset value and daily PnL`, act: '', cls: 'plat-hero', pc: platColor(sel), sparkLabel: `${sel} value over time`, kicker: `${platIcon(sel, 'xs')}<b>${esc(sel)}</b>`,
+          chip: dp.base > 0 ? { up: dp.pnl >= 0, txt: `${dsgn}${dpct ? ` · ${dpct}` : ''}`, name: 'Daily PnL', cls: 'dpnl' } : { up: true, flat: true, txt: '—', name: 'Daily PnL · no earlier price', cls: 'dpnl' },
+          rows: [['Daily PnL', dp.base > 0 ? `${dsgn}${dpct ? ` · ${dpct}` : ''}` : '—', '', dtone], ['Overall PnL', sgn(pnl), pct === null ? '' : `${pct >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(2)}% open`, cl(pnl) === 'cg' ? 'good' : 'bad']] })
+      : `<section class="nwcard one plat-hero" style="--pc:${platColor(sel)}"><div class="nwmain nwsplit"><div class="nwl"><div class="phead">${platIcon(sel, 'xs')}<b>${esc(sel)}</b></div><span>Total asset value</span><b>${money(tot)}</b>${eqLine(db, tot)}
+          <small class="dpnl-l ${dp.pnl >= 0 ? 'cg' : 'cr'}"><em>Daily PnL</em> ${dp.base > 0 ? `${dsgn}${dpct ? ` · ${dpct}` : ''}` : 'no earlier price yet'}</small>
+          <small class="opnl-l ${cl(pnl)}"><em>Overall PnL</em> ${sgn(pnl)}${pct === null ? '' : ` · ${pct >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(2)}% open`}</small></div><span class="ivgraph"><span class="ivmini">${miniSvg(sSeries)}</span></span></div></section>`;
+    return `<div class="platpage">${hero}<section class="ui-card invcard platmain${one ? ' platcard' : ''}" style="--pc:${platColor(sel)}">
         ${secO('perf')}<h2 class="invh">Performance</h2>${graph}${secC}
         ${secO('')}${coll('pl-pnl', 'Profit and Loss', `<ul class="calfacts">
         <li><span>Unrealized <small class="muted">still held</small></span><b class="${cl(unrealP)}">${sgn(unrealP)}</b></li>
@@ -351,7 +381,7 @@ export function investments(db) {
         <p class="hint">Average-cost method, after fees. Units held before using Sukli have no known cost and are left out.</p>`, '', true)}${secC}
         ${secO('')}<h2 class="invh">Other Metrics</h2><ul class="calfacts">
         <li><span>Cost of what you still hold</span><b>${cost > 0 ? money(cost) : '—'}</b></li>
-        <li><span>Assets held</span><b>${coins.size}</b></li><li><span>Wallets</span><b>${wl.size}</b></li><li><span>Transactions</span><b>${txN}</b></li></ul>${secC}${one ? '</section>' : ''}
+        <li><span>Assets held</span><b>${coins.size}</b></li><li><span>Wallets</span><b>${wl.size}</b></li><li><span>Transactions</span><b>${txN}</b></li></ul>${secC}</section>
       <section class="ui-card invcard ivplat" style="--pc:${platColor(sel)}"><div class="holdhead"><h2 class="invh">Holdings</h2>${sel !== 'Wallets and other' ? button({ label: 'Platform Settings', kind: 'link', size: 'sm', cls: 'holdset', act: 'plat-open', data: 'ex', v: sel, aria: `Settings for the platform ${sel}` }) : ''}</div>${list.length ? walletBlocks(list, tot) : '<p class="hint">Nothing in this platform yet.</p>'}${(() => { const n = cryptoAll.filter((a) => platOf(a) === sel).length - list.length; return n > 0 || showEmpty ? `<p class="hint">${showEmpty ? 'Showing empty assets.' : `${n} empty asset${n === 1 ? '' : 's'} hidden.`} ${button({ label: showEmpty ? 'Hide them' : 'Show them', kind: 'link', act: 'inv-empty' })}</p>` : ''; })()}
         ${sel !== 'Wallets and other' ? platActs(sel) : ''}</section>
       <section class="ui-card invcard"><h2 class="invh">Transactions on ${esc(sel)}</h2>${txList(db, ids, sel)}</section></div>`;

@@ -37,7 +37,7 @@ with sync_playwright() as p:
       d.accounts.push(c.stamp({id:'sp2',name:'Zeta DOGE',wallet:'Spot',cur:'DOGE',type:'crypto',assetType:'crypto',exchange:'Zeta',open:0,include:false,archived:false,invtab:true}));
       d.settings.tickers=d.settings.tickers||{};});}""")
     go_invest(pg,'Zeta')  # v16.6: the platform tab replaces the old collapsible header (no .exname / uppercase name any more)
-    sm=pg.inner_text('.plathero'); ok(f'platform total shows two currencies: {sm!r}', '≈' in sm)
+    sm=pg.inner_text('.plat-hero'); ok(f'platform total shows two currencies: {sm!r}', '≈' in sm)
     body=pg.inner_text('#view')
     ok('asset with a balance is listed', 'XRP' in body)
     ok('empty asset (DOGE) is hidden', 'DOGE' not in body and 'empty asset' in body)

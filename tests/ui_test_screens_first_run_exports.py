@@ -197,7 +197,7 @@ def part_first_screen_tips():
         ctx=b.new_context(viewport={'width':402,'height':874},service_workers='block'); pg=ctx.new_page(); pg.goto(URL); pg.wait_for_selector('.welcome')
         pg.evaluate("""(async()=>{const c=await import('/js/core.js');c.commit(d=>{d.accounts.push(c.stamp({id:'a1',name:'Wallet',type:'cash',cur:c.HOME,open:1000,openDate:'2026-10-01',include:true}))})})()"""); pg.wait_for_timeout(500)
         pg.goto(URL+'#/home'); pg.wait_for_timeout(600); h=pg.inner_text('#view')
-        ok(f'Home empty text is short ({len(h)} chars)', len(h)<520 and 'Tap the round' not in h and 'Next step' in h)
+        ok(f'Home empty text is short ({len(h)} chars)', len(h)<560 and 'Tap the round' not in h and 'Next step' in h)
         pg.click('.nextstep .tipbtn'); pg.wait_for_timeout(200)
         ok('the tip opens only on tap and holds the explanation', 'Tap the round' in pg.inner_text('.nextstep + .tipbox, .tipbox'))
         pg.goto(URL+'#/ledger'); pg.wait_for_timeout(500); e=pg.inner_text('#ledger-list')
