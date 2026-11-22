@@ -21,7 +21,7 @@ with sync_playwright() as p:
     pg.click('#ic button:text-is("Add asset")'); pg.wait_for_timeout(700)
     # set price twice -> history
     pg.click('[data-act=inv-price][data-sym=NVDA]'); pg.fill('.sheet input[name=v]','7700'); pg.click('.sheet .btn:not(.ghost)'); pg.wait_for_timeout(500)
-    pg.locator('[data-act=inv-ticker][data-sym=NVDA]').click(); pg.wait_for_selector('.sheet svg.chart, .sheet .calfacts'); t=pg.inner_text('.sheet >> nth=-1')
+    pg.locator('[data-act=inv-ticker][data-sym=NVDA]').first.click(); pg.wait_for_selector('.sheet svg.chart, .sheet .calfacts'); t=pg.inner_text('.sheet >> nth=-1')
     ok('price history lists the update', 'you set' in t and '7,700' in t)
     pg.click('.sheet [data-x]'); pg.wait_for_timeout(300)
     ok('performance card needs cost: asks "I paid"', 'I paid' in pg.inner_text('#view'))

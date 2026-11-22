@@ -1,6 +1,6 @@
 // The five screens: Home, Ledger, Review, Accounts, Reports, and Settings.
 import { addCfg, startKind, KIND_META, START_CHOICES } from './addset.js';
-import { button, textField, seg, areaSwitch, areaLabels, card as uiCard } from './components.js';
+import { button, textField, seg, areaSwitch, areaLabels, areaTitle, card as uiCard } from './components.js';
 import { catIcon } from './caticons.js';
 import { softDelete, appMode, reimbKeep } from './core.js';
 import { safetyCfg, balanceTrail, netWorth, cashFlowSeries, netWorthSeries, inInvest } from './finance.js';
@@ -110,7 +110,7 @@ try { document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && MS
 export function monthNav(title, o = {}) {
   syncMonth();
   const isNow = ui.month === thisMonth(), label = esc(title || monthLabel(ui.month));
-  if (look().design !== 'legacy') return `<header class="top t1top two"><div class="hl">${burger()}${o.label ? areaLabels('home') : ''}</div><div class="hact hhelp">${helpBtn()}</div>
+  if (look().design !== 'legacy') return `<header class="top t1top two"><div class="hl">${burger()}${o.label ? areaTitle('home') : ''}</div><div class="hact hhelp">${helpBtn()}</div>
     <div class="hrow"><div class="hact hbar">${o.bell && get() ? bellBtn(get()) : ''}${eyeBtn()}<div class="monthsel">${button({ html: `<h1>${title ? label : `<span class="ml-l">${label}</span><span class="ml-s" aria-hidden="true">${label.replace(/^([A-Za-z]{3})[a-z]*/, '$1')}</span>`}</h1>${ic('down', 'chev')}`, kind: 'plain', cls: 'mscard', act: 'msel', aria: 'Choose month', attr: { 'aria-expanded': String(MS.open), 'aria-controls': 'mspanel' } })}</div></div></div></header>
     <div class="mspanel" id="mspanel" role="group" aria-label="Choose month" ${MS.open ? '' : 'hidden'}>${MS.open ? monthPanel() : ''}</div>`;
   return `<header class="top"><div class="hl">${burger()}<div class="monthbox">${button({ html: `${ic('left')}`, kind: 'plain', cls: 'iconbtn', act: 'month', aria: 'Previous month', attr: { 'data-d': '-1' } })}
@@ -120,7 +120,7 @@ export function monthNav(title, o = {}) {
 }
 const burger = () => { const n = reviewCount(get()); return `${button({ html: `${ic('menu')}${n ? '<em class="dot" aria-label="items to check"></em>' : ''}`, kind: 'plain', cls: 'iconbtn burger', act: 'menu', aria: 'Open menu' })}`; };
 export const hdr = (title, right = '', o = {}) => o.bar
-  ? `<header class="top t1top two"><div class="hl">${burger()}${areaLabels('invest')}</div><div class="hact hhelp">${helpBtn()}</div><div class="hrow"><div class="hact hbar">${eyeBtn()}${right}</div></div></header>`
+  ? `<header class="top t1top two"><div class="hl">${burger()}${areaTitle('invest')}</div><div class="hact hhelp">${helpBtn()}</div><div class="hrow"><div class="hact hbar">${eyeBtn()}${right}</div></div></header>`
   : o.below
   ? `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${helpBtn()}${eyeBtn()}</div></header><div class="btnrow actrow">${right}</div>`
   : `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${right}${helpBtn()}${eyeBtn()}</div></header>`;

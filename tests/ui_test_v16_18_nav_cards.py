@@ -13,15 +13,14 @@ with sync_playwright() as p:
       commit((d)=>{const mk=(cur,ex,o)=>stamp({id:uid(),name:cur,cur,type:'crypto',open:o,include:true,archived:false,exchange:ex,wallet:'Spot'});
         d.accounts.push(mk('BTC','Bitget',0.0213),mk('USDT','Bitget',1240.5));
         d.settings.rates=d.settings.rates||{}; Object.assign(d.settings.rates,{BTC:5600000,USDT:58});});}""")
-    # 1. labels beside the burger, both are links
+    # 1. (v16.21) the header names the page only; Investments has its own Home button
     pg.goto(U + '#/home'); pg.wait_for_timeout(600)
-    ys = pg.evaluate("(()=>{const t=(s)=>{const r=document.querySelector(s).getBoundingClientRect();return r.top+r.height/2};return [t('.t1top .burger'),t('.arealabs a.on'),t('.arealabs a:not(.on)')]})()")
-    ok('Home and Investments labels sit on the burger row %s' % ys, max(ys) - min(ys) < 8)
-    ok('both labels are links', pg.locator('.arealabs a').count() == 2 and pg.locator('.arealabs a.on').inner_text() == 'Home')
-    pg.click('.arealabs a:not(.on)'); pg.wait_for_timeout(700)
-    ok('Investments label opens Investments, on Overview', pg.evaluate('location.hash').startswith('#/invest') and pg.locator('.invpage.sec-overview').count() == 1 and pg.locator('.arealabs a.on').inner_text() == 'Investments')
-    pg.click('.arealabs a:not(.on)'); pg.wait_for_timeout(700)
-    ok('Home label goes back to Home', pg.evaluate('location.hash').startswith('#/home'))
+    ok('Home header shows only its own title (no Investments link beside it)', pg.locator('.arealabs a').count() == 0 and pg.locator('.arealabs .areatitle.on').inner_text() == 'Home')
+    pg.goto(U + '#/invest'); pg.wait_for_timeout(700)
+    ok('Investments header shows only its own title', pg.locator('.arealabs .areatitle').count() == 1 and pg.locator('.arealabs .areatitle.on').inner_text() == 'Investments')
+    ok('Home button sits immediately left of Record activity', pg.evaluate("(()=>{const b=[...document.querySelectorAll('.invact button')].map(x=>x.textContent.trim());return b[0]==='Home'&&b[1]==='Record activity'})()"))
+    pg.click('.invact .iv-home'); pg.wait_for_timeout(700)
+    ok('Home button goes back to Home', pg.evaluate('location.hash').startswith('#/home'))
     # 3. the price line is one line
     pg.goto(U + '#/invest'); pg.wait_for_timeout(700)
     hh = pg.evaluate("(()=>{const e=document.querySelector('.inv-upd');return [e.getBoundingClientRect().height,parseFloat(getComputedStyle(e).lineHeight)||0,e.scrollWidth<=e.clientWidth+1]})()")

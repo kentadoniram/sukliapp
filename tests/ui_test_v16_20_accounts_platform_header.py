@@ -18,22 +18,20 @@ for design in ('theme1', 'legacy'):
         pg.evaluate(SEED); pg.wait_for_timeout(300); n = design + ': '
         # 1 one card per platform
         pg.goto(U + '#/accounts'); pg.wait_for_timeout(800)
-        names = pg.evaluate("[...document.querySelectorAll('.accinv .invplat .ic-t')].map(e=>e.textContent)")
-        ok(n + 'each platform has its own card %s' % names, 'Bitget' in names and 'Kraken2' in names and len(names) == len(set(names)) and pg.locator('.accinv .invplat').count() == len(names))
-        ok(n + 'no single grouped investment list remains', pg.locator('.invblock .calfacts.wtots').count() == 0)
+        ok(n + 'investments sit in one expandable Crypto section (v16.21)', pg.locator('[data-sec="acc-crypto"]').count() == 1 and pg.locator('.accinv .invplat').count() == 0)
         # 3 switch
         sw = pg.locator('[data-act=accside]')
         ok(n + 'Assets / Liabilities switch with two choices', sw.count() == 2 and pg.locator('[data-act=accside][aria-pressed=true]').inner_text() == 'Assets')
         if design == 'theme1': ok(n + 'it is the Theme 1 .t1seg', pg.locator('.accside .t1seg').count() == 1)
-        ok(n + 'Assets view shows investments and no liability rows', pg.locator('.accinv').count() == 1 and pg.evaluate("[...document.querySelectorAll('.topgrp h2')].every(h=>h.textContent!=='Liabilities')"))
+        ok(n + 'Assets view shows investments and no liability rows', pg.locator('[data-sec="acc-crypto"]').count() == 1 and pg.evaluate("[...document.querySelectorAll('.topgrp h2')].every(h=>h.textContent!=='Liabilities')"))
         pg.click('[data-act=accside][data-v=liabs]'); pg.wait_for_timeout(400)
-        ok(n + 'Liabilities view hides assets and investment cards', pg.locator('.accinv').count() == 0 and pg.locator('.topgrp.assets').count() == 0 and pg.locator('.topgrp.liabs').count() == 1)
+        ok(n + 'Liabilities view hides assets and investment cards', pg.locator('[data-sec="acc-crypto"]').count() == 0 and pg.locator('.topgrp.assets').count() == 0 and pg.locator('.topgrp.liabs').count() == 1)
         pg.reload(); pg.wait_for_timeout(1200)
         ok(n + 'the choice is remembered', pg.locator('[data-act=accside][aria-pressed=true]').inner_text() == 'Liabilities')
         pg.click('[data-act=accside][data-v=assets]'); pg.wait_for_timeout(400)
         # card opens platform in Investments
-        pg.locator('.accinv .invplat', has_text='Bitget').click(); pg.wait_for_timeout(900)
-        ok(n + 'tapping a platform card opens that platform in Investments', pg.evaluate('location.hash').startswith('#/invest') and pg.locator('.invpage.sec-platform').count() == 1 and 'Bitget' in pg.locator('.plat-hero').inner_text())
+        pg.goto(U + '#/invest'); pg.wait_for_timeout(800); pg.click('[data-act=inv-sec][data-v=accounts]'); pg.wait_for_timeout(300); pg.click('[data-act=inv-cat][data-v=crypto]'); pg.wait_for_timeout(300); pg.locator('[data-act=inv-plat]', has_text='Bitget').first.click(); pg.wait_for_timeout(900)
+        ok(n + 'a platform in Investments opens its page', pg.evaluate('location.hash').startswith('#/invest') and pg.locator('.invpage.sec-platform').count() == 1 and 'Bitget' in pg.locator('.plat-hero').inner_text())
         # 2 platform card
         t = pg.locator('.plat-hero').inner_text()
         ok(n + 'platform card shows Total asset value, Daily PnL and Overall PnL', 'Total asset value' in t and 'Daily PnL' in t and 'Overall PnL' in t)

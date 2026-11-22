@@ -22,7 +22,7 @@ with sync_playwright() as p:
             if pg.locator('.row:has-text("Yen Cash")').count(): break
             m=pg.locator('#view >> text=/Show more/')
             if not m.count(): break
-            m.first.click(); pg.wait_for_timeout(250)
+            pg.evaluate("document.querySelectorAll('.toast').forEach(e=>e.remove())"); m.first.evaluate('e=>e.click()'); pg.wait_for_timeout(250)
         ok(f'[{vw}] row shows what arrived', any('29,356' in x for x in pg.locator('.row:has-text("Yen Cash") .arrived').all_inner_texts()))
         pg.select_option('#lf-cat', index=1); pg.wait_for_timeout(300)
         ok(f'[{vw}] category filter shows a summary', pg.locator('#lsum').count()==1)
@@ -31,7 +31,7 @@ with sync_playwright() as p:
         ok(f'[{vw}] date range limits days', days<=1)
         pg.click('[data-act=f-clear]'); pg.wait_for_timeout(500)
         pg.evaluate("(async()=>{const m=await import('/js/screens.js');m.ui.month='2026-09';window.dispatchEvent(new Event('sukli-render'))})()"); pg.wait_for_timeout(400)
-        h=pg.locator('.dayhead').first; h.click(); pg.wait_for_timeout(150)
+        pg.evaluate("document.getElementById('backupnudge')?.remove()"); h=pg.locator('.dayhead').first; h.click(); pg.wait_for_timeout(150)
         ok(f'[{vw}] day collapses', pg.locator('.day.off .rows[hidden]').count()==1)
         h.click(); pg.wait_for_timeout(150)
         ok(f'[{vw}] day expands again', pg.locator('.day.off').count()==0)

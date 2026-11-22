@@ -95,7 +95,7 @@ def part1(p,b,ctx,pg,errs):
     # accounts: investments are a separate block
     pg.goto('http://localhost:8123/#/accounts'); pg.wait_for_timeout(700)
     pg.locator('[data-act=accside][data-v=assets]').click(); pg.wait_for_timeout(300)
-    ok('accounts page keeps investments in their own block', pg.locator('.invblock').count()==1 and pg.locator('.invblock a[href="#/invest"]').count()==1)
+    ok('accounts page keeps investments in their own block', pg.locator('.invgrp').count()>=1)
     # invest + menu
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_timeout(700)
     ok('invest header wording is clear', 'Record activity' in pg.inner_text('#view') and 'Add asset' in pg.inner_text('#view'))

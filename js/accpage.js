@@ -4,8 +4,9 @@ import { button, textField, card as uiCard } from './components.js';
 import { pickAll } from './picker.js';
 import { isEarnAcct, EARN_BLOCK, openDateOf, openDates, WALLETS, WALLET_INFO, walletOf } from './core.js';
 import { tipBtn, calcHtml, bindCalc, COMP_LABEL, rateAt, hasRate } from './interest.js';
-import { exchangeOf, canonPlatform, nearPlatform, platformNames, assetPerfHtml, platOf } from './invest.js';
-import { platformCard } from './invnav.js';
+import { exchangeOf, canonPlatform, nearPlatform, platformNames, assetPerfHtml, platOf, catOf } from './invest.js';
+import { CATS } from './invnav.js';
+import { assetIcon } from './curpicker.js';
 import { platIcon } from './platicons.js';
 import { softDelete, subscribe } from './core.js';
 import { acctPic, isImg } from './pictures.js';
@@ -96,16 +97,26 @@ function sideSwitch(side) {
   if (look().design === 'legacy') return `<div class="seg" role="group" aria-label="Show assets or liabilities">${opts.map(([v, l, aria]) => button({ html: l, kind: 'plain', cls: side === v ? 'on' : '', act: 'accside', pressed: side === v, aria, attr: { 'data-v': v } })).join('')}</div>`;
   return t1seg({ options: opts.map(([value, label, aria]) => ({ value, label, aria })), value: side, act: 'accside', aria: 'Show assets or liabilities', wide: true });
 }
-// Accounts > Investments: every exchange or platform is its own card (same card as the Investments tab uses), tap one to open it there
-function invCards(list, val) {
-  const m = new Map(); for (const a of list) { const k = platOf(a); if (!m.has(k)) m.set(k, []); m.get(k).push(a); }
-  const rows = [...m.entries()].map(([name, l]) => ({ name, l, tot: sum(l.map(val)) })).sort((x, y) => y.tot - x.tot);
-  const total = sum(list.map(val));
-  return `<section class="topgrp assets invblock"><div class="tophead"><h2>Investments</h2><b>${money(total)}</b></div>
-    <p class="hint">Each platform is its own card. Tap one to open it, or go to the <a href="#/invest">Investments tab</a>. Already counted in your net worth above.</p>
-    <div class="invcats l2 accinv">${rows.map(({ name, l, tot }) => { const w = new Set(l.map((a) => walletOf(a) || 'Other')), n = new Set(l.map((a) => a.cur)).size;
-      return platformCard(name, money(tot), platIcon(name, 'xs'), '', `${n} asset${n === 1 ? '' : 's'}${w.size > 1 ? ` · ${w.size} wallets` : ''}`); }).join('')}</div></section>`;
+// Accounts > Investments (v16.21): one expandable section per kind of investment (Crypto, Stock Market, ...), built like the other Accounts sections.
+// Inside: each platform is a collapsible line (colour dot, name, total) holding its products; nothing opens another page, a product opens its sheet.
+const tint = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 58% 46%)`; };
+function invCards(list, val, db, bal) {
+  const tick = db.settings.tickers || {};
+  const prod = (a) => { const v = bal.get(a.id) || 0, ic = assetIcon(a, tick), sym = a.cur === HOME || a.cur === 'USD' ? a.name : ((tick[a.cur] && tick[a.cur].ticker) || a.cur), n = v.toLocaleString('en-US', { maximumFractionDigits: 8 });
+    return button({ html: `<i class="badge sm ${ic.coin ? 'coinbadge' : ''}" style="background:${ic.coin ? 'transparent' : 'var(--xfer)'}">${ic.html}</i>
+      <span class="rmain"><strong>${esc(sym)}</strong><small>${esc(walletOf(a) || 'Other')} · ${esc(n)} ${esc(a.cur)}</small></span>
+      <span class="ramt"><b class="${val(a) < 0 ? 'neg' : ''}">${money(val(a))}</b></span>`, kind: 'plain', cls: 'row acct invprod', act: 'acct', attr: { 'data-id': a.id, style: `--pc:${tint(a.cur)}` } }); };
+  const keep = (id) => { if (!(id in ui.collapsed)) ui.collapsed[id] = true; return id; };            // platforms start folded, so the section is short
+  return CATS.map(([key, label]) => {
+    const inCat = list.filter((a) => catOf(a) === key); if (!inCat.length) return '';
+    const m = new Map(); for (const a of inCat) { const k = platOf(a); if (!m.has(k)) m.set(k, []); m.get(k).push(a); }
+    const plats = [...m.entries()].map(([name, l]) => ({ name, l, tot: sum(l.map(val)) })).sort((x, y) => y.tot - x.tot);
+    const body = plats.map(({ name, l, tot }) => coll(keep(`acc-${key}-${name}`), `<i class="platdot" style="background:${tint(name)}" aria-hidden="true"></i>${esc(name)} <small class="muted gsum">${money(tot)}</small>`,
+      `<div class="rows plain">${l.slice().sort((x, y) => val(y) - val(x)).map(prod).join('')}</div>`, '', true)).join('');
+    return coll(`acc-${key}`, `${esc(label)} <small class="muted gsum">${money(sum(inCat.map(val)))}</small> <small class="muted">${plats.length} platform${plats.length === 1 ? '' : 's'}</small>`, `<div class="invgrp">${body}</div>`);
+  }).join('');
 }
+
 export function accounts(db) {
   const bal = balances(db), nw = netWorth(db);
   const allShown = live(db.accounts).filter((a) => !a.archived);
@@ -185,7 +196,7 @@ export function accounts(db) {
       <label>Sort <select data-aview="sort" aria-label="Sort accounts">${[['high', 'High → low'], ['low', 'Low → high'], ['name', 'A–Z'], ['cat', 'Category']].map(([v, l]) => `<option value="${v}" ${view.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       ${view.sort === 'cat' ? `<label>Then <select data-aview="then" aria-label="Sort inside each category">${[['high', 'High → low'], ['low', 'Low → high'], ['name', 'A–Z']].map(([v, l]) => `<option value="${v}" ${(view.then || 'high') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>` : ''}</div>
     ${sections || (invAccts.length || side === 'liabs' ? '' : '<p class="empty">No accounts yet. Tap “Add account” and start with the money you have today, for example your wallet or a bank account.</p>')}
-    ${side === 'assets' && invAccts.length ? invCards(invAccts, val) : ''}
+    ${side === 'assets' && invAccts.length ? invCards(invAccts, val, db, bal) : ''}
     ${side === 'liabs' && !shown.length ? '<p class="empty">No liabilities. Credit cards, loans and money you owe will be listed here.</p>' : ''}
     ${hidden ? `<p class="muted center">${hidden} hidden ${hidden === 1 ? 'account' : 'accounts'} (archived).</p>` : ''}`;
 }

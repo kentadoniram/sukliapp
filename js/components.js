@@ -73,5 +73,7 @@ export function card({ body = '', cls = '', tone = '', design = '', kind = '', t
 // the area you are in is filled, the other one is a link. areaSwitch('home') or areaSwitch('invest').
 export const AREAS = [['home', 'Home', 'home'], ['invest', 'Investments', 'spark']];
 // v16.18: the two area names sit beside the burger menu as the title of the page; the current one is large, the other is a link to it.
+// v16.21: the header names the page you are on and nothing else (no second link beside it); Investments has its own Home button
+export const areaTitle = (cur) => `<nav class="arealabs" aria-label="${esc((AREAS.find(([r]) => r === cur) || [0, cur])[1])}"><span class="areatitle on" aria-current="page">${esc((AREAS.find(([r]) => r === cur) || [0, cur])[1])}</span></nav>`;
 export const areaLabels = (cur) => `<nav class="arealabs" aria-label="Home or Investments">${AREAS.map(([r, l]) => `<a href="#/${r}" class="areatitle${cur === r ? ' on' : ''}" ${cur === r ? 'aria-current="page"' : ''}>${esc(l)}</a>`).join('')}</nav>`;
 export const areaSwitch = (cur) => `<nav class="areasw" data-area-switch="${esc(cur)}" aria-label="Switch between Home and Investments">${AREAS.map(([r, l, i]) => `<a href="#/${r}" class="${cur === r ? 'on' : ''}" ${cur === r ? 'aria-current="page"' : ''}>${ic(i)}<span>${l}</span></a>`).join('')}</nav>`;

@@ -2359,3 +2359,27 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .accside .t1seg { display: grid; width: 100%; }
 .accinv { margin-top: var(--sp-3); }
 :root[data-design="legacy"] .accside .seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+
+/* v16.21: Accounts > Investments as expandable sections; platforms fold inside, each product has its own colour */
+.invgrp { display: grid; gap: var(--sp-1); }
+.invgrp .coll.collite { margin: var(--sp-0); }
+.invgrp .coll.collite > .collrow .collhead h2 { display: flex; align-items: center; gap: var(--sp-3); font-size: var(--fz-15); }
+.platdot { display: inline-block; width: 10px; height: 10px; border-radius: var(--r-pill); flex: none; }
+.row.acct.invprod { border-left: 3px solid var(--pc, var(--rule)); padding-left: var(--sp-3); }
+.invprod .coinbadge { box-shadow: 0 0 0 2px var(--pc, transparent); }
+
+/* v16.21: Performance, the "no known cost" and "price source" blocks */
+.needcost, .pricesrc { margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--rule); }
+.needcost .subh, .pricesrc .subh { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-0) var(--sp-0) var(--sp-2); }
+.pillcount { background: var(--sheet); color: var(--accent); border-radius: var(--r-pill); padding: 0 var(--sp-3); font-size: var(--fz-12); font-weight: 700; }
+.needlist { list-style: none; margin: var(--sp-2) var(--sp-0) var(--sp-0); padding: var(--sp-0); display: grid; gap: var(--sp-2); }
+.needrow { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--sheet); border-radius: var(--r-m); min-width: 0; }
+.needrow .nmain { flex: 1 1 auto; min-width: 0; display: grid; }
+.needrow .nmain small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.needrow .nval { font-weight: 700; white-space: nowrap; }
+.needrow .btn { flex: none; }
+.needmore summary { cursor: pointer; padding: var(--sp-3) var(--sp-0); color: var(--accent); font-weight: 650; }
+.srcline { display: flex; align-items: baseline; gap: var(--sp-2); margin: var(--sp-2) var(--sp-0); font-size: var(--fz-14); }
+.srcdot { display: inline-block; width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--good); }
+.srcdot.own { background: var(--warn); }
+.needrow small.stale { color: var(--warn); font-weight: 650; }

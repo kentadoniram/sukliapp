@@ -403,7 +403,7 @@ export function investments(db) {
     const cryptoV = exSum(crypto), otherV = exSum(other), pct = (v) => (total > 0 ? `${Math.round((v / total) * 100)}%` : '');
     return investCard({ label: `Market value in ${invC}`, value: money(total), eq: altOf(db, total) ? `≈ ${altOf(db, total)}` : '', series, tips, chip, rows: [[`Crypto · ${crypto.length} asset${crypto.length === 1 ? '' : 's'}`, fmt(cryptoV, invC, { round: true }), pct(cryptoV)], [`Other · ${other.length}`, fmt(otherV, invC, { round: true }), pct(otherV)]] }) + `<p class="hint inv-upd" title="Live crypto prices, and the latest price you set or traded">${updatedLine(db)}</p>`;
   };
-  const overviewHtml = `<div class="btnrow left invact">${button({ label: 'Record activity', kind: 'primary', size: 'sm', act: 'inv-add', cls: 'iv-rec' })} ${button({ label: 'Add asset', kind: 'ghost', size: 'sm', act: 'inv-new', cls: 'iv-add' })} ${button({ label: 'Buying Check', kind: 'ghost', size: 'sm', act: 'buy-check' })}${pendingReview(db).length ? ` ${button({ label: `Review trades (${pendingReview(db).length})`, kind: 'ghost', size: 'sm', act: 'trade-review' })}` : ''} </div>
+  const overviewHtml = `<div class="btnrow left invact">${button({ label: 'Home', kind: 'ghost', size: 'sm', act: 'go-home', cls: 'iv-home', aria: 'Back to Home' })} ${button({ label: 'Record activity', kind: 'primary', size: 'sm', act: 'inv-add', cls: 'iv-rec' })} ${button({ label: 'Add asset', kind: 'ghost', size: 'sm', act: 'inv-new', cls: 'iv-add' })} ${button({ label: 'Buying Check', kind: 'ghost', size: 'sm', act: 'buy-check' })}${pendingReview(db).length ? ` ${button({ label: `Review trades (${pendingReview(db).length})`, kind: 'ghost', size: 'sm', act: 'trade-review' })}` : ''} </div>
     ${look().design === 'legacy' ? `<section class="nwcard one"><div class="nwmain nwsplit"><div class="nwl"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${platMap.size} place${platMap.size === 1 ? '' : 's'} · ${other.length} other</small></div>${button({ html: `<span id="ivmini" class="ivmini"></span>`, kind: 'plain', cls: 'ivgraph', act: 'inv-graph', aria: 'Open the graph of your market value over time' })}<small class="updated">${updatedLine(db)}</small></div></section>` : invHomeCard()}
     ${marketBar(db)}${hiddenInvLink(db)}
     ${(() => { const odd = items.map((x) => x.cur).filter((c, i, l) => l.indexOf(c) === i && tickers[c] && oddPrices(tickers[c].history || []).size); return odd.length ? `<p class="hint warnline">A saved price looks wrong for ${odd.map((c) => `${button({ label: tickers[c].ticker || c, kind: 'link', act: 'inv-ticker', data: 'sym', v: c })}`).join(', ')}. Open it and delete the price marked “looks off”; the value and the graph then use the price before it.</p>` : ''; })()}
@@ -580,6 +580,30 @@ function feesCard(db, book) {
     <h3 class="subh">Latest Fees</h3><ul class="calfacts">${parts.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6).map((p) => `<li><span>${esc(p.date.slice(0, 10))} · ${esc(p.name)}</span><b>${money(p.v)}</b></li>`).join('') || '<li><span>No fees recorded</span><b></b></li>'}</ul>
     <p class="hint">Each fee is saved with its trade and also counted as an expense. They appear here, not as losses in Entries.</p>`, '');
 }
+// Performance > assets with no known cost: a short list, biggest first, one clear action per line (v16.21)
+function needCost(db, unk, nm) {
+  if (!unk.length) return '';
+  const tick = db.settings.tickers || {}, list = unk.slice().sort((x, y) => y.v - x.v);
+  const row = (r) => { const ic = assetIcon(r.a, tick);
+    return `<li class="needrow"><i class="badge sm ${ic.coin ? 'coinbadge' : ''}" style="background:${ic.coin ? 'transparent' : 'var(--xfer)'}">${ic.html}</i><span class="nmain"><b>${esc(nm(r.a))}</b><small class="muted">${esc(r.a.exchange || 'No platform')}${r.a.wallet ? ' · ' + esc(r.a.wallet) : ''}</small></span><span class="nval">${r.v > 0 ? money(r.v) : '<small class="muted">no value</small>'}</span>${button({ label: 'I paid…', kind: 'ghost', size: 'sm', act: 'inv-cost', data: 'id', v: r.a.id, aria: `Tell Sukli what you paid for ${nm(r.a)} on ${r.a.exchange || 'no platform'}` })}</li>`; };
+  const first = list.slice(0, 4), rest = list.slice(4);
+  return `<div class="needcost"><h3 class="subh">Add what you paid <span class="pillcount">${unk.length}</span></h3>
+    <p class="hint">Without your cost Sukli cannot show profit or loss for these. The biggest are first.</p>
+    <ul class="needlist">${first.map(row).join('')}</ul>${rest.length ? `<details class="needmore"><summary>Show ${rest.length} more</summary><ul class="needlist">${rest.map(row).join('')}</ul></details>` : ''}</div>`;
+}
+// Performance > where today's price comes from: live coins in one line, the rest listed with how old your price is and a button to update it
+function priceSources(db, rows, nm) {
+  const tick = db.settings.tickers || {}, live = db.settings.live, seen = new Set(), liveC = [], own = [];
+  for (const r of rows) { const k = r.a.cur; if (seen.has(k)) continue; seen.add(k); const tk = tick[k] || {};
+    if ((tk.live || tk.cgId) && live && live.ts) liveC.push(nm(r.a));
+    else { const age = tk.priceDate ? Math.max(0, Math.round((Date.now() - new Date(tk.priceDate + 'T12:00:00').getTime()) / 864e5)) : null; own.push({ k, name: nm(r.a), age, date: tk.priceDate || '' }); } }
+  if (!liveC.length && !own.length) return '';
+  own.sort((x, y) => (y.age == null ? 1e9 : y.age) - (x.age == null ? 1e9 : x.age));
+  return `<div class="pricesrc"><h3 class="subh">Where today's value comes from</h3>
+    ${liveC.length ? `<p class="srcline"><i class="srcdot live" aria-hidden="true"></i><span><b>Live price</b> · ${esc(liveC.slice(0, 8).join(', '))}${liveC.length > 8 ? ` and ${liveC.length - 8} more` : ''}<small class="muted"> · updated ${esc(fmtDay(live.ts))}</small></span></p>` : ''}
+    ${own.length ? `<p class="srcline"><i class="srcdot own" aria-hidden="true"></i><span><b>Your own price</b> · the last price you set or traded at. Update it to refresh the value.</span></p>
+    <ul class="needlist">${own.map((o) => `<li class="needrow"><span class="nmain"><b>${esc(o.name)}</b><small class="${o.age != null && o.age > 7 ? 'stale' : 'muted'}">${o.age == null ? 'no price set yet' : o.age === 0 ? 'set today' : `set ${o.age} day${o.age === 1 ? '' : 's'} ago`}${o.date ? ' · ' + esc(o.date) : ''}</small></span>${button({ label: 'Update price', kind: 'ghost', size: 'sm', act: 'inv-ticker', attr: { 'data-sym': o.k }, aria: `Update the price of ${o.name}` })}</li>`).join('')}</ul>` : ''}</div>`;
+}
 function performanceCard(db, bal, book, items) {
   const got = earnedUnits(db);
   // v is what the units with a known cost are worth now (units held before Sukli and interest units have no cost, so they are not compared with it)
@@ -593,8 +617,7 @@ function performanceCard(db, bal, book, items) {
     <div class="perfbars"><i class="pb now ${r.v >= r.cost ? 'up' : 'down'}" style="width:${(r.v / mx * 100).toFixed(2)}%"></i><small>now ${money(r.v)}</small></div></div>`;
   return panel('i-perf', `Performance <small class="muted gsum">${tc > 0 ? `${tv >= tc ? '+' : '−'}${money(Math.abs(tv - tc))} (${((tv - tc) / tc * 100).toFixed(2)}%)` : ''}</small>`,
     `${known.sort((x, y) => y.v - x.v).map(bar).join('') || '<p class="hint">Buy through Buy / sell, or tell Sukli what you paid, to compare.</p>'}
-    ${unk.length ? `<p class="hint">No known cost: ${unk.slice(0, 8).map((r) => `${esc((r.a.exchange ? r.a.exchange + ' ' : '') + nm(r.a))} ${button({ label: 'I paid…', kind: 'link', act: 'inv-cost', data: 'id', v: r.a.id })}`).join(', ')}${unk.length > 8 ? ` and ${unk.length - 8} more` : ''}</p>` : ''}
-    <p class="hint">Value uses today’s price: live for coins with a price feed, otherwise the price you last set or traded at (tap a ticker below to update it and see its history).</p>`, '');
+    ${needCost(db, unk, nm)}${priceSources(db, rows, nm)}`, '');
 }
 // Per-token performance: one line per coin or stock across every platform; tap for the full breakdown
 const tokName = (db, cur) => ((db.settings.tickers || {})[cur] || {}).ticker || cur;
@@ -796,4 +819,5 @@ export function invEntryMenu({ id = '', ex = '' } = {}) {
     if (k === 'internal') return (await import('./internal.js')).openInternal({ asset: first && first.id, platform: plat || undefined });
     const { openEntry } = await import('./entry.js'); openEntry({ preset: k === 'transfer' ? { kind: 'transfer', acct: first ? first.id : '' } : { kind: 'expense', acct: first ? first.id : '' } }); }; });
 }
+ACT['go-home'] = () => { location.hash = '#/home'; };
 ACT['inv-add'] = (el) => invEntryMenu({ id: el && el.dataset ? el.dataset.id : '', ex: el && el.dataset ? el.dataset.ex : '' });

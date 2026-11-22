@@ -26,7 +26,7 @@ with sync_playwright() as p:
     pg.reload(); pg.wait_for_timeout(800)
     pg.goto('http://localhost:8123/index.html#/accounts'); pg.wait_for_timeout(500)
     pg.select_option('[data-aview=group]','exchange'); pg.wait_for_timeout(300)
-    ok('accounts page keeps investments in their own block', pg.locator('.invblock').count()==1)
+    ok('accounts page keeps investments in their own block', pg.locator('.invgrp').count()>=1)
     pg.goto('http://localhost:8123/index.html#/invest'); pg.wait_for_timeout(600)
     pkhelp.open_all(pg)
     ok('platform shown in the Investments tab bar or page', any(x in pg.inner_text('body').lower() for x in ('bybit','binance','bitget','kucoin','okx')))
