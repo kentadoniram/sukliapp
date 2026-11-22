@@ -19,6 +19,8 @@ const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/,/
 const live = (l) => l.filter((x) => !x.deleted && !x.archived);
 const r6 = (n) => Math.round(n * 1e6) / 1e6;
 
+// the Theme 1 sliding segmented control (.t1seg), with a data-<name> on each slot so the form can read it
+const t1Seg = (name, options, value, aria) => `<div class="t1seg wide" role="group" aria-label="${esc(aria)}" data-sel="${options.findIndex((o) => o.value === value)}" style="--n:${options.length};--sel:${Math.max(0, options.findIndex((o) => o.value === value))}">${options.map((o) => button({ html: esc(o.label), kind: 'plain', cls: `t1s-slot${o.value === value ? ' on' : ''}`, pressed: o.value === value, attr: { [`data-${name}`]: o.value, ...(o.title ? { title: o.title } : {}) } })).join('')}</div>`;
 const COIN = { BTC: ['#F7931A', '₿'], ETH: ['#627EEA', 'Ξ'], USDT: ['#26A17B', '₮'], USDC: ['#2775CA', '$'], BNB: ['#F0B90B', 'B'], SOL: ['#9945FF', 'S'], XRP: ['#23292F', 'X'], DOGE: ['#C2A633', 'Ð'] };
 const coinBadge = (cur) => { const [c, g] = COIN[cur] || ['#6B7886', String(cur || '?')[0]]; return `<span class="tr-coin" style="background:${c}" aria-hidden="true">${esc(g)}</span>`; };
 const shortQty = (n) => (+n || 0).toLocaleString('en-US', { maximumFractionDigits: 8 });
@@ -53,11 +55,12 @@ export function openTrade(pre = {}) {
   const t1 = look().design !== 'legacy', hide = t1 ? ' tr-hide' : '';
   const sideSeg = `<div class="seg two3" role="group" aria-label="Kind">${[['buy', 'Buy'], ['sell', 'Sell'], ['convert', 'Convert']].map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${(pre.side || 'buy') === v ? 'on' : ''}`, attr: { 'data-side': v } })}`).join('')}</div>`;
   const tile = (id, cap) => `<div class="tr-slot" id="tslot-${id}" hidden><span class="tr-cap" id="cap-${id}">${cap}</span>${button({ html: '', kind: 'plain', cls: 'tr-tile', id: `tile-${id}` })}</div>`;
-  const feeSeg = seg({ options: t1 ? [{ label: 'No fee', value: 'none' }, { label: '% of trade', value: 'pct' }, { label: 'Fixed', value: 'fixed' }] : [{ label: '0 Fee', value: 'none' }, { label: 'Fixed Amount', value: 'fixed' }, { label: '% of the Trade', value: 'pct' }], value: 'none', data: 'fm', aria: 'Trading fee' });
+  const feeOpts = t1 ? [{ label: 'No fee', value: 'none' }, { label: '% of trade', value: 'pct' }, { label: 'Fixed', value: 'fixed' }] : [{ label: '0 Fee', value: 'none' }, { label: 'Fixed Amount', value: 'fixed' }, { label: '% of the Trade', value: 'pct' }];
+  const feeSeg = t1 ? t1Seg('fm', feeOpts, 'none', 'Trading fee') : seg({ options: feeOpts, value: 'none', data: 'fm', aria: 'Trading fee' });
   const feeBlock = `<div class="feehead"><span class="feelab">Trading Fee</span>${feeSeg}</div>
     <select name="feeMode" hidden aria-hidden="true"><option value="none">0 Fee</option><option value="fixed">Fixed Amount</option><option value="pct">% of the Trade</option></select>
     <div id="feedet" class="feedet" hidden><label class="field"><span id="l-fee">Fee Amount</span><input name="fee" inputmode="decimal" placeholder="0"></label>
-      <div class="field"><span>Fee Responsibility</span>${seg({ options: [{ label: t1 ? 'Maker' : 'Taken from Maker', value: 'maker', title: 'Fee taken from the maker side' }, { label: t1 ? 'Taker' : 'Taken from Taker', value: 'taker', title: 'Fee taken from the taker side' }, { label: t1 ? 'Other asset' : 'Other Asset', value: 'other', title: 'Pay the fee with another asset you hold, for example BGB on Bitget' }], value: null, data: 'resp', aria: 'Fee responsibility' })}</div>
+      <div class="field"><span>Fee Responsibility</span>${(() => { const ro = [{ label: t1 ? 'Maker' : 'Taken from Maker', value: 'maker', title: 'Fee taken from the maker side' }, { label: t1 ? 'Taker' : 'Taken from Taker', value: 'taker', title: 'Fee taken from the taker side' }, { label: t1 ? 'Other asset' : 'Other Asset', value: 'other', title: 'Pay the fee with another asset you hold, for example BGB on Bitget' }]; return t1 ? t1Seg('resp', ro, null, 'Fee responsibility') : seg({ options: ro, value: null, data: 'resp', aria: 'Fee responsibility' }); })()}</div>
       <label class="field" id="f-feeacct" hidden><span>Pay the Fee With</span><select name="feeAcct"></select><small class="hint" id="feeacct-hint"></small></label></div>
     <select name="feeIn" hidden aria-hidden="true"></select>
     <div id="slot-fee"></div>`;
@@ -123,6 +126,7 @@ export function openTrade(pre = {}) {
     $('#l-total').textContent = conv ? '' : `${side === 'buy' ? 'Total you pay' : 'Total you get'} (${cc})`;
     const go = $('.tr-go'), qs = q > 0 ? `${shortQty(q)} ` : '', tot = num(f.total.value), q2 = num(f.qty2.value);
     go.textContent = old ? 'Save changes' : conv ? `Convert ${qs}${a ? a.cur : ''}${b2 ? ` to ${b2.cur}` : ''}` : `${SIDEWORD[side]} ${qs}${a ? a.cur : ''}`;
+    f.querySelectorAll('.t1seg').forEach((g) => { const vis = [...g.querySelectorAll('.t1s-slot')].filter((x) => !x.hidden), i = vis.findIndex((x) => x.classList.contains('on')); g.dataset.sel = String(i); g.style.setProperty('--n', String(vis.length)); g.style.setProperty('--sel', String(Math.max(0, i))); });
     $('#tr-sum').textContent = conv ? (q > 0 && q2 > 0 ? `1 ${b2.cur} = ${shortQty(r6(q / q2))} ${a.cur}${fee > 0 ? ` · fee ${shortQty(r6(fee))} ${fcur}` : ''}` : '')
       : tot > 0 && c ? `${cc === HOME ? '' : 'About '}${money(tot * (homeFx(db, cc) || 0) || tot, cc === HOME ? cc : HOME)} · ${side === 'buy' ? 'average cost updates after you record' : 'profit is worked out by average cost'}` : '';
   };

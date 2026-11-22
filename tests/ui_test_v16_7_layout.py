@@ -15,6 +15,6 @@ with sync_playwright() as p:
         if d=='theme1': ok(n+'category card keeps the gradient', 'gradient' in st['grad'])
         go_invest(pg,None,sec='overview',wait=1500)
         flat=pg.evaluate("({flat:!!document.querySelector('.dashcard.flat'),colls:document.querySelectorAll('.invpage .coll').length})")
-        if d=='theme1': ok(n+'Overview: no card around or inside Performance %s'%flat, flat['flat'] and flat['colls']==0)
+        if d=='theme1': ok(n+'Overview: flat Performance wrapper (sections are cards, v16.18) %s'%flat, flat['flat'])
         else: ok(n+'Overview keeps the legacy card %s'%flat, not flat['flat'] and flat['colls']>=1)
         ok(n+'no page errors %s'%errs, not errs); c.close()

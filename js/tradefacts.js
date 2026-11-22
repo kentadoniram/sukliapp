@@ -17,7 +17,7 @@ export function tradeFacts(db, t) {
   const rate = valueAmt > 0 ? home / valueAmt : 0;   // HOME per one unit of the currency the value is in, as saved with the trade
   const fee = x.feeAmt != null ? x.feeAmt : (t.fee > 0 ? t.fee : 0), feeCur = x.feeCur || t.feeCur || valueCur, feeHome = x.feeHome != null ? x.feeHome : 0;
   const feePct = home > 0 && feeHome > 0 ? feeHome / home * 100 : (valueAmt > 0 && feeCur === valueCur && fee > 0 ? fee / valueAmt * 100 : null);
-  return { side, priceText, qtyText, valueText: qty(valueAmt, valueCur), homeText: valueCur === HOME ? '' : home > 0 ? `≈ ${fmt(home, HOME)}` : '', rateText: valueCur !== HOME && rate > 0 ? `1 ${valueCur} = ${fmt(rate, HOME)} (rate at the time)` : '', fee, feeCur, feeText: fee > 0 ? qty(fee, feeCur) : 'No fee', feePct, price, priceCur: conv ? bc : paidCur, date: String(t.date || '').slice(0, 16), ac };
+  return { side, priceText, qtyText, valueText: qty(valueAmt, valueCur), homeText: valueCur === HOME ? '' : home > 0 ? `≈ ${fmt(home, HOME)}` : '', rateText: valueCur !== HOME && rate > 0 ? `@ ${fmt(rate, HOME)}` : '', fee, feeCur, feeText: fee > 0 ? qty(fee, feeCur) : 'No fee', feePct, price, priceCur: conv ? bc : paidCur, date: String(t.date || '').slice(0, 16), ac };
 }
 // the short line shown under a trade in lists
 export const tradeLine = (db, t) => { const f = tradeFacts(db, t); return f ? `${f.side} filled at ${f.priceText.replace(/^1 /, '1 ')}` : 'Trade'; };

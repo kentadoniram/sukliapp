@@ -2181,7 +2181,6 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 :root[data-design="theme1"] body[data-area="invest"] .areasw { border-color: color-mix(in srgb, var(--area-inv) 40%, var(--rule)); }
 :root[data-design="theme1"] body[data-area="invest"] .tabs { background: var(--area-inv-soft); border-top: 3px solid var(--area-inv); }
 :root[data-design="theme1"] body[data-area="invest"] .tabs a.on { color: var(--area-inv); }
-:root[data-design="theme1"] body[data-area="invest"] #view .invpage > header.top h1::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: var(--sp-3); border-radius: 50%; background: var(--area-inv); vertical-align: middle; }
 :root[data-design="legacy"] .areasw { display: none; }
 :root[data-design="theme1"] body[data-area="invest"] .tabs a.on::before { background: var(--area-inv); }
 
@@ -2210,11 +2209,14 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .tokfacts li > .kl, .tradefacts li > span:first-child { flex: 1 1 auto; }
 
 /* Home / Investments header: small title beside the menu, the tools (bell, eye, month) on the row below */
-.areatitle { font-size: var(--fz-30); font-weight: 750; letter-spacing: -.01em; color: var(--ink); flex: 0 0 auto; }
+.arealabs { display: flex; align-items: center; gap: var(--sp-5); margin-left: var(--sp-2); min-width: 0; }
+.areatitle { display: inline-flex; align-items: center; min-height: var(--h-touch); font-size: var(--fz-18); font-weight: 600; color: var(--ink2); text-decoration: none; white-space: nowrap; letter-spacing: -.01em; }
+.areatitle.on { font-size: var(--fz-26); font-weight: 750; color: var(--ink); }
+.areatitle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-s); }
 .t1top.two { display: flex; flex-wrap: wrap; row-gap: var(--sp-2); margin-bottom: var(--sp-2); }
 .t1top.two .hl { display: flex; align-items: center; flex: 1 1 auto; }
 .t1top.two .hhelp { flex: 0 0 auto; margin-left: 0; }
-.t1top.two .hrow { flex: 1 0 100%; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.t1top.two .hrow { flex: 1 0 100%; display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3); }
 .t1top.two .hbar { flex: 0 1 auto; justify-content: flex-end; gap: var(--sp-2); }
 .t1top.two .hbar .monthsel { margin-left: var(--sp-2); }
 .t1top.two .mspanel { right: 0; }
@@ -2281,7 +2283,7 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .inv-card .sc-swap.sc-eq { cursor: default; }
 .inv-card .bm-chip { cursor: default; }
 .inv-card .inv-nochip { min-height: var(--h-chip-sm); }
-.inv-upd { margin: var(--sp-1) 0 var(--sp-3); font-size: var(--fz-12); color: var(--ink2); text-align: center; }
+.inv-upd { margin: var(--sp-1) 0 var(--sp-3); font-size: clamp(9px, 2.7vw, 11.5px); color: var(--ink2); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .inv-card .bm-mini.share { background: var(--gchip); color: var(--gink); }
 .inv-card .sc-face { min-height: 237px; }   /* the same height as Home's card (its content, at the default text size, is 237px) */
 
@@ -2294,10 +2296,29 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .tr-fee .feedet > #f-feeacct { grid-column: 1 / -1; }
 .tr-fee .feedet .field { margin: 0; }
 .tr-fee .feedet .seg button { padding-left: var(--sp-2); padding-right: var(--sp-2); font-size: var(--fz-12); }
-.tr-fee .feehead .seg { max-width: none; grid-template-columns: 1fr 1.2fr 1fr; }
-.tr-fee .seg button.on { background: var(--trade-blue); color: var(--paper); }
 .tr-fee .feedet { grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); }
 .tr-fee .feehead .feelab { display: none; }
 .tr-fee .feedet { grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); }
 .t1top.two .hbar { min-width: 0; }
-@media (max-width: 360px) { .areatitle { font-size: var(--fz-24); } .t1top.two .hbar .mscard { padding-left: var(--sp-3); padding-right: var(--sp-3); } }
+@media (max-width: 360px) { .areatitle.on { font-size: var(--fz-22); } .areatitle { font-size: var(--fz-16); } .t1top.two .hbar .mscard { padding-left: var(--sp-3); padding-right: var(--sp-3); } }
+.tr-fee .t1seg { display: grid; width: 100%; }
+.tr-fee .t1seg .t1s-slot { font-size: var(--fz-13); padding: 0 var(--sp-2); }
+.tr-fee .t1seg .t1s-slot[hidden] { display: none; }
+.tr-fee .feedet .t1seg .t1s-slot { font-size: var(--fz-12); }
+
+/* v16.18: Investments Overview. Each section is its own card, the switch is one row, each asset is its own soft tile */
+.dashstrip { margin: 0 0 var(--sp-4); } .dashstrip .t1seg { display: grid; width: 100%; }
+.dashstrip .t1seg .t1s-slot { font-size: var(--fz-12-5); padding: 0 2px; }
+.dashcard.flat .dashbody.dashcardsec { margin: 0 0 var(--sp-4); }
+.dashcard.flat .dashbody.dashcardsec > .coll { margin: 0; }
+.dashcardsec .collhead h2 { font-size: var(--fz-16); flex-wrap: wrap; }
+.dashcardsec .perf, .dashcardsec .rows.tokrows > .row.tokrow { background: color-mix(in srgb, var(--accent) 6%, var(--paper)); border-radius: var(--r-l); padding: var(--sp-4) var(--sp-5); margin: 0 0 var(--sp-3); border: 0; }
+.dashcard.flat .dashcardsec .perf:last-of-type { border-bottom: 0; }
+.dashcardsec .rows.plain.tokrows { gap: 0; }
+/* a collapsible heading inside a card (Profit and Loss, the per-coin performance) */
+.collite { margin: 0; padding: 0; background: none; border: 0; box-shadow: none; }
+.pc-sec .collite .collhead h2 { font-size: var(--fz-16); margin: 0; }
+.assetperf .collite .collhead h2 { font-size: var(--fz-15); }
+:root[data-design="legacy"] .dashcard .dashstrip { display: none; }
+.invpage .coll.collite, #view .coll.collite { background: transparent; border: 0; border-left: 0; box-shadow: none; padding: 0; margin: 0; border-radius: 0; }
+.pc-sec .coll.collite .collbody { padding-top: var(--sp-2); }

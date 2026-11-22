@@ -72,4 +72,6 @@ export function card({ body = '', cls = '', tone = '', design = '', kind = '', t
 // Home and Investments are two areas of the app. This is the one switch between them, shown at the top of both (Theme 1):
 // the area you are in is filled, the other one is a link. areaSwitch('home') or areaSwitch('invest').
 export const AREAS = [['home', 'Home', 'home'], ['invest', 'Investments', 'spark']];
+// v16.18: the two area names sit beside the burger menu as the title of the page; the current one is large, the other is a link to it.
+export const areaLabels = (cur) => `<nav class="arealabs" aria-label="Home or Investments">${AREAS.map(([r, l]) => `<a href="#/${r}" class="areatitle${cur === r ? ' on' : ''}" ${cur === r ? 'aria-current="page"' : ''}>${esc(l)}</a>`).join('')}</nav>`;
 export const areaSwitch = (cur) => `<nav class="areasw" data-area-switch="${esc(cur)}" aria-label="Switch between Home and Investments">${AREAS.map(([r, l, i]) => `<a href="#/${r}" class="${cur === r ? 'on' : ''}" ${cur === r ? 'aria-current="page"' : ''}>${ic(i)}<span>${l}</span></a>`).join('')}</nav>`;

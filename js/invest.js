@@ -12,7 +12,7 @@ import { INV_RANGES } from './config.js';
 import { priceDay, platformDay, zoneFor, zoneLabel } from './timezone.js';
 import { groupColor, compact, WALLETS, WALLET_INFO, walletOf, accLabel, get, commit, uid, stamp, balances, homeFx, fmt, HOME, CUR, CRYPTO, curName, rateFor, nowStamp, today, findOrAddCategory, factorFor, allCurrencies, ensureCurrency } from './core.js';
 import { ACT, sheet, ic, esc, toast, promptDialog, confirmDialog } from './ui.js';
-import { hdr, backHdr, coll, pieLabels, ui, investCard } from './screens.js';
+import { hdr, backHdr, coll, pieLabels, ui, investCard, t1seg } from './screens.js';
 import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
 import { pendingReview } from './tradereview.js';
@@ -100,9 +100,11 @@ function dashTabs() {
   const list = Object.keys(DASH).map((id) => PANELS.find((x) => x.id === id) || { id, title: DASH[id], body: `<p class="hint">${EMPTY[id]}</p>` }); const any = PANELS.length > 0; PANELS = [];
   if (!any) return '';
   PANELS_LAST = list; const shown = dshown(list);
-  const strip = `<div class="segm" role="group" aria-label="Choose a section">${list.map((x) => segChoice({ label: DASH[x.id], on: shown.includes(x.id), act: 'inv-dsw', v: x.id })).join('')}</div>`, chosen = list.filter((x) => shown.includes(x.id));
+  const stripOld = `<div class="segm" role="group" aria-label="Choose a section">${list.map((x) => segChoice({ label: DASH[x.id], on: shown.includes(x.id), act: 'inv-dsw', v: x.id })).join('')}</div>`, chosen = list.filter((x) => shown.includes(x.id));
+  const SHORT = { 'i-perf': 'Performance', 'i-tok': 'Per-Token', 'i-fees': 'Fees', 'i-pred': 'Prediction', 'i-gain': 'Gains' };
+  const strip = look().design === 'theme1' ? t1seg({ options: list.map((x) => ({ value: x.id, label: SHORT[x.id], aria: DASH[x.id] })), value: shown[0] === undefined ? null : shown[0], act: 'inv-dsw', aria: 'Choose a section', wide: true }) : stripOld;
   // Theme 1: no card around the tabs and no card inside them; the chosen section's title becomes a plain heading line and its content runs down the page
-  if (look().design === 'theme1') return `<div class="dashcard flat"><h2 class="invh">Investment Performance</h2>${strip}${chosen.map((x) => `<div class="dashbody flat" data-sec="${x.id}"><h3 class="dsumh">${x.title}</h3>${x.body}</div>`).join('') || '<p class="hint">Choose a section to see it.</p>'}</div>`;
+  if (look().design === 'theme1') return `<div class="dashcard flat"><h2 class="invh">Investment Performance</h2><div class="dashstrip">${strip}</div>${chosen.map((x) => `<div class="dashbody dashcardsec" data-dsec="${x.id}">${coll('d-' + x.id, x.title, x.body)}</div>`).join('') || '<p class="hint">Choose a section to see it.</p>'}</div>`;
   const inner = `${strip}
     ${chosen.map((x) => `<div class="dashbody" data-sec="${x.id}">${coll('d-' + x.id, x.title, x.body)}</div>`).join('') || '<p class="hint">Choose a section to see it.</p>'}`;
   return `<div class="dashcard">${coll('d-card', 'Investment Performance', inner)}</div>`;   // the whole card opens and closes
@@ -340,13 +342,13 @@ export function investments(db) {
         <span class="pl-k">Total asset value</span><b class="pl-v">${money(tot)}</b>${eqLine(db, tot)}
         <span class="pl-pnl ${cl(pnl)}">${sgn(pnl)}${pct === null ? '' : ` · ${pct >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(2)}% open`} <small class="muted">trading profit and loss</small></span>${one ? '' : '</section>'}
         ${secO('perf')}<h2 class="invh">Performance</h2>${graph}${secC}
-        ${secO('')}<h2 class="invh">Profit and Loss</h2><ul class="calfacts">
+        ${secO('')}${coll('pl-pnl', 'Profit and Loss', `<ul class="calfacts">
         <li><span>Unrealized <small class="muted">still held</small></span><b class="${cl(unrealP)}">${sgn(unrealP)}</b></li>
         <li><span>Realized <small class="muted">sold</small></span><b class="${cl(realAll)}">${sgn(realAll)}</b></li>
         <li><span>Realized this year</span><b class="${cl(realYr)}">${sgn(realYr)}</b></li>
         <li><span><b>Trading profit and loss</b></span><b class="${cl(pnl)}">${sgn(pnl)}</b></li></ul>
         <h3 class="subh">Interest and income <small class="muted">not part of profit and loss</small></h3><ul class="calfacts"><li><span>Earned <small class="muted">interest, staking</small></span><b class="${cl(earnAll)}">${sgn(earnAll)}</b></li></ul>
-        <p class="hint">Average-cost method, after fees. Units held before using Sukli have no known cost and are left out.</p>${secC}
+        <p class="hint">Average-cost method, after fees. Units held before using Sukli have no known cost and are left out.</p>`, '', true)}${secC}
         ${secO('')}<h2 class="invh">Other Metrics</h2><ul class="calfacts">
         <li><span>Cost of what you still hold</span><b>${cost > 0 ? money(cost) : '—'}</b></li>
         <li><span>Assets held</span><b>${coins.size}</b></li><li><span>Wallets</span><b>${wl.size}</b></li><li><span>Transactions</span><b>${txN}</b></li></ul>${secC}${one ? '</section>' : ''}
@@ -361,13 +363,15 @@ export function investments(db) {
     const cards = c[0] === 'crypto' ? [...platMap.entries()].sort((x, y) => exSum(y[1]) - exSum(x[1])).map(([n, l]) => platformCard(n, money(exSum(l)), platIcon(n, 'xs'), invC !== HOME ? `≈ ${f2(exSum(l), HOME)}` : '', look().design === 'legacy' ? '' : (() => { const k = new Set(l.filter((a) => Math.abs(bal.get(a.id) || 0) > 1e-12).map((a) => a.cur)).size, w = new Set(l.map((a) => walletOf(a) || 'Other')).size; return l.length ? `${k} asset${k === 1 ? '' : 's'} · ${w} wallet${w === 1 ? '' : 's'}` : 'Empty'; })())) : catItems[c[0]].map((a) => productCard(a, money(exSum([a])), invC !== HOME ? `≈ ${f2(exSum([a]), HOME)}` : ''));
     return levelTwo(c, cards);
   };
+  // the page title in a platform view names what is shown there (the product category), not the generic area name
+  const platCatLabel = () => { const l = platMap.get(INV.plat) || []; return { crypto: 'Crypto Exchange', stock: 'Stock Market', gov: 'Government Bonds', other: 'Other Investments' }[l.length ? catOf(l[0]) : 'crypto']; };
   const invHomeCard = () => {
     const raw = valueSeries(db), last = raw.length ? raw[raw.length - 1].v : 0, sc = last > 0 && total > 0 ? total / last : 1, series = raw.map((p) => ({ d: p.d, v: p.v * sc }));
     const dlab = (ds) => new Date(ds.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), tips = series.map((p) => `${dlab(p.d)} · ${money(p.v)}`);
     let chip = null;
     if (series.length > 1) { const cut = new Date(); cut.setDate(cut.getDate() - 30); const key = localDay(cut), ref = [...series].reverse().find((p) => p.d <= key) || series[0], ch = ref.v > 0 ? (series[series.length - 1].v - ref.v) / ref.v : null; if (ch != null && isFinite(ch)) chip = { up: ch >= 0, txt: `${Math.abs(ch * 100).toFixed(ch !== 0 && Math.abs(ch) < 0.1 ? 1 : 0)}%`, name: ref === series[0] && ref.d > key ? `since ${dlab(ref.d)}` : 'vs 30 days ago' }; }
     const cryptoV = exSum(crypto), otherV = exSum(other), pct = (v) => (total > 0 ? `${Math.round((v / total) * 100)}%` : '');
-    return investCard({ label: `Market value in ${invC}`, value: money(total), eq: altOf(db, total) ? `≈ ${altOf(db, total)}` : '', series, tips, chip, rows: [[`Crypto · ${crypto.length} asset${crypto.length === 1 ? '' : 's'}`, fmt(cryptoV, invC, { round: true }), pct(cryptoV)], [`Other · ${other.length}`, fmt(otherV, invC, { round: true }), pct(otherV)]] }) + `<p class="hint inv-upd">${updatedLine(db)}</p>`;
+    return investCard({ label: `Market value in ${invC}`, value: money(total), eq: altOf(db, total) ? `≈ ${altOf(db, total)}` : '', series, tips, chip, rows: [[`Crypto · ${crypto.length} asset${crypto.length === 1 ? '' : 's'}`, fmt(cryptoV, invC, { round: true }), pct(cryptoV)], [`Other · ${other.length}`, fmt(otherV, invC, { round: true }), pct(otherV)]] }) + `<p class="hint inv-upd" title="Live crypto prices, and the latest price you set or traded">${updatedLine(db)}</p>`;
   };
   const overviewHtml = `<div class="btnrow left invact">${button({ label: 'Record activity', kind: 'primary', size: 'sm', act: 'inv-add', cls: 'iv-rec' })} ${button({ label: 'Add asset', kind: 'ghost', size: 'sm', act: 'inv-new', cls: 'iv-add' })} ${button({ label: 'Buying Check', kind: 'ghost', size: 'sm', act: 'buy-check' })}${pendingReview(db).length ? ` ${button({ label: `Review trades (${pendingReview(db).length})`, kind: 'ghost', size: 'sm', act: 'trade-review' })}` : ''} </div>
     ${look().design === 'legacy' ? `<section class="nwcard one"><div class="nwmain nwsplit"><div class="nwl"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${platMap.size} place${platMap.size === 1 ? '' : 's'} · ${other.length} other</small></div>${button({ html: `<span id="ivmini" class="ivmini"></span>`, kind: 'plain', cls: 'ivgraph', act: 'inv-graph', aria: 'Open the graph of your market value over time' })}<small class="updated">${updatedLine(db)}</small></div></section>` : invHomeCard()}
@@ -383,7 +387,7 @@ export function investments(db) {
   setTimeout(() => { if (ensureUsdt()) window.dispatchEvent(new Event('sukli-render')); }, 30);
   setTimeout(() => { const el = document.getElementById('ivmini'); if (el) el.innerHTML = miniSvg(valueSeries(get())); }, 40);
   const enter = INV.fresh; INV.fresh = false;
-  return `<div class="invpage sec-${INV.sec}${enter ? ' enter' : ''}">${(INV.sec === 'platform' ? backHdr : hdr)('Investments', `${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`, { bar: look().design !== 'legacy' && INV.sec !== 'platform' })}${secBody}</div>`;
+  return `<div class="invpage sec-${INV.sec}${enter ? ' enter' : ''}">${(INV.sec === 'platform' ? backHdr : hdr)(INV.sec === 'platform' ? platCatLabel() : 'Investments', `${button({ label: `${invC} ▾`, kind: 'ghost', size: 'sm', cls: 'curchip', act: 'inv-cur', aria: `Show Investments in ${invC}. Tap to change.`, title: 'Currency shown in Investments' })}`, { bar: look().design !== 'legacy' && INV.sec !== 'platform' })}${secBody}</div>`;
 }
 
 // manual tickers: any coin, token, stock or fund, on any platform or market (Tokyo, Korea, NASDAQ...), kept apart from real currencies
@@ -521,7 +525,7 @@ const ensureTicker = (d, a) => { d.settings.tickers = d.settings.tickers || {}; 
 const fmtDay = (ts) => new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 function updatedLine(db) {
   const l = db.settings.live, tk = Object.values(db.settings.tickers || {}).filter((t) => t.price > 0 && !t.live && t.priceDate).map((t) => t.priceDate).sort().pop();
-  return `${l && l.ts ? `Live crypto prices updated ${esc(fmtDay(l.ts))}` : 'Live prices not loaded yet (they load when you are online)'}${tk ? ` · latest price you set or traded: ${esc(tk)}` : ''}`;
+  return `${l && l.ts ? `Live prices updated ${esc(fmtDay(l.ts))}` : 'Live prices not loaded yet (they load when you are online)'}${tk ? ` · set/traded price: ${esc(tk)}` : ''}`;
 }
 const priceNow = (db, a) => { const tk = (db.settings.tickers || {})[a.cur] || {}, q = tk.quote || 'USD', hq = homeFx(db, q) || 0, hv = homeFx(db, a.cur) || 0; return hq > 0 && hv > 0 ? { v: hv / hq, quote: q } : null; };
 const priceStamp = (db, a) => { const tk = (db.settings.tickers || {})[a.cur] || {}, l = db.settings.live; if ((tk.live || tk.cgId) && l && l.ts) return `live, ${fmtDay(l.ts)}`; return tk.priceDate ? `set ${tk.priceDate}` : 'no update yet'; };
@@ -603,8 +607,8 @@ export function assetPerfHtml(db, a) {
   setInvCur(db);
   const r = tokenPerformance(db, tradeBook(db.txs), [a], HOME)[0]; if (!r) return '';
   const where = a.exchange ? `${a.exchange}${walletOf(a) ? ' ' + walletOf(a) : ''}` : a.name;
-  return `<section class="assetperf"><h3>${esc(tokName(db, a.cur))} Performance on ${esc(where)}</h3>${tokList(r)}
-    <div class="btnrow tight">${button({ label: 'What do these words mean?', kind: 'link', act: 'glossary', data: 'q', v: 'Breakeven' })}${button({ label: `Overall ${tokName(db, a.cur)} performance (all platforms)`, kind: 'link', act: 'tok-open', data: 'cur', v: a.cur })}</div></section>`;
+  return `<section class="assetperf">${coll(`ap-${a.cur}-${where}`, `${esc(tokName(db, a.cur))} Performance on ${esc(where)}`, `${tokList(r)}
+    <div class="btnrow tight">${button({ label: 'What do these words mean?', kind: 'link', act: 'glossary', data: 'q', v: 'Breakeven' })}${button({ label: `Overall ${tokName(db, a.cur)} performance (all platforms)`, kind: 'link', act: 'tok-open', data: 'cur', v: a.cur })}</div>`, '', true)}</section>`;
 }
 
 ACT['inv-cost'] = async (el) => {
