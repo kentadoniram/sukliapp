@@ -1,0 +1,277 @@
+{
+ "version": "16.19",
+ "when": "20261122-1057",
+ "totals": {
+  "pass": 100,
+  "fail": 0,
+  "warn": 4
+ },
+ "results": {
+  "integration": [
+   {
+    "script": "qa/integration/ledger_integrity.mjs",
+    "rc": 0,
+    "secs": 0.2,
+    "pass": [
+     "imported 95 accounts, 2374 entries from /home/claude/Transactions.csv",
+     "every entry has a finite, non-negative amount (0 bad)",
+     "every entry points at an account that exists (0 orphans)",
+     "every entry has a valid date (0 bad)",
+     "entry ids are unique (0 duplicates)",
+     "every entry is income, expense or transfer (0 other)",
+     "every category used exists (0 missing)",
+     "balances match an independent recomputation for 92 accounts without a dated opening (0 differ: )",
+     "545 same-currency transfers lose exactly their fee, nothing else (0 leak)",
+     "72 cross-currency transfers all say what arrived (0 without)",
+     "each account's history ends on its balance (0 differ )",
+     "balance trail has 2990 lines, all finite (0 bad)",
+     "net worth = assets - debts (1148809.813078366 - 966855.370328966 = 181954.4427494)",
+     "net worth equals the sum of every account in home currency (181954.4427494 vs 181954.4427494, 0 without a rate)",
+     "balances as of 2026-03-29 computed for every account",
+     "export has a row for every entry (2994 rows, 2374 entries)"
+    ],
+    "fail": [],
+    "warn": [],
+    "info": [
+     "3 same-currency transfers carry a different \"arrived\" amount (ATM or bank charges kept by the importer)"
+    ],
+    "perf": [],
+    "crash": ""
+   },
+   {
+    "script": "qa/integration/roundtrip_and_trades.mjs",
+    "rc": 0,
+    "secs": 0.3,
+    "pass": [
+     "Sukli CSV round trip keeps every entry (2374 -> 2374, skipped 0)",
+     "every entry arrives with the same date, kind, amount and account (0 differ)",
+     "account balances identical after the round trip (0 differ )",
+     "net worth identical after the round trip (181954.4427494 vs 181954.4427494)",
+     "importing the same file again adds nothing (2374 vs 2374, skipped 2374)",
+     "JSON backup copy gives the same entries and net worth",
+     "300 random buy/sell sequences: cost in = cost held + cost sold, gain = proceeds - cost - fees, never negative holdings",
+     "buy and sell at the same price loses exactly the two fees",
+     "trade list order does not change the result (gain 30)",
+     "selling units with no known cost adds no made-up profit"
+    ],
+    "fail": [],
+    "warn": [],
+    "info": [],
+    "perf": [],
+    "crash": ""
+   }
+  ],
+  "system": [
+   {
+    "script": "qa/system/sys_every_screen.py",
+    "rc": 0,
+    "secs": 146.7,
+    "pass": [
+     "[Theme 1 light, phone 402] 21 screens open with no errors, no NaN/undefined text, no sideways scroll",
+     "[Theme 1 light, phone 402] Investments sections open clean",
+     "[Theme 1 dark, phone 402] 21 screens open with no errors, no NaN/undefined text, no sideways scroll",
+     "[Theme 1 dark, phone 402] Investments sections open clean",
+     "[Legacy light, phone 402] 21 screens open with no errors, no NaN/undefined text, no sideways scroll",
+     "[Legacy light, phone 402] Investments sections open clean",
+     "[Theme 1 light, small phone 320] 21 screens open with no errors, no NaN/undefined text, no sideways scroll",
+     "[Theme 1 light, small phone 320] Investments sections open clean",
+     "[Theme 1 light, Simple mode] 21 screens open with no errors, no NaN/undefined text, no sideways scroll",
+     "[Theme 1 light, Simple mode] Investments sections open clean",
+     "[Theme 1 light, tablet 820] 21 screens open with no errors, no NaN/undefined text, no sideways scroll",
+     "[Theme 1 light, tablet 820] Investments sections open clean",
+     "[empty app, no data] every screen opens with no errors or NaN/undefined text"
+    ],
+    "fail": [],
+    "warn": [],
+    "info": [],
+    "perf": [],
+    "crash": ""
+   },
+   {
+    "script": "qa/system/sys_static.mjs",
+    "rc": 0,
+    "secs": 0.1,
+    "pass": [
+     "every import in js/ points at a file that exists (114 files; missing: )",
+     "every named import is really exported by its module (0 broken )",
+     "sw.js caches every js module so the app works offline (0 missing )",
+     "sw.js lists no file that is gone ()",
+     "service-worker cache name (v16.19) matches the version file (16.19)",
+     "no debugger statements ()",
+     "index.html references only files that exist ()"
+    ],
+    "fail": [],
+    "warn": [],
+    "info": [],
+    "perf": [],
+    "crash": ""
+   }
+  ],
+  "e2e": [
+   {
+    "script": "qa/e2e/e2e_money_workflows.py",
+    "rc": 0,
+    "secs": 26.4,
+    "pass": [
+     "1a saving the form creates exactly one new entry with the typed amount",
+     "1b the account balance equals opening + every entry worked out by hand",
+     "1c the new entry shows in the Entries list",
+     "1d editing the amount 123.45 -> 200 lowers the balance by exactly 76.55",
+     "1e deleting removes it from the count and gives the money back",
+     "1f restoring from the bin brings back the entry and its effect on the balance",
+     "1g Undo takes the restored entry away again",
+     "2a holding is 10 bought - 4 sold = 6 QAZ",
+     "2b realised profit is exactly 1,000,000 - 602,000 - 2,500 = 395,500",
+     "2c the 6 coins left carry the remaining cost 903,000 (6 x 150,500)",
+     "2d no script errors so far",
+     "3a wiping leaves no entries",
+     "3b restoring the backup returns every entry, account and the same net worth",
+     "3c the restored data is still there after closing and reopening the app (saved in the device)",
+     "4a a fresh app importing the exported CSV gets every entry",
+     "4b ...and every account has the same balance (prices and rates are settings, not part of the CSV)",
+     "4c no script errors in the fresh app"
+    ],
+    "fail": [],
+    "warn": [
+     "2-pre FINDING: a Buy paid in a currency with no known rate to home currency is saved with a home value of 0 (cost basis 0), with no warning. Later sales then show the whole proceeds as profit. [[0, 1]]"
+    ],
+    "info": [],
+    "perf": [],
+    "crash": ""
+   }
+  ],
+  "regression": [
+   {
+    "script": "qa/regression/golden_numbers.mjs",
+    "rc": 0,
+    "secs": 0.1,
+    "pass": [
+     "entries: 2374 (golden 2374)",
+     "accounts: 95 (golden 95)",
+     "categories: 87 (golden 87)",
+     "realizedCount: 36 (golden 36)",
+     "entries by kind {\"expense\":1579,\"income\":178,\"transfer\":617}",
+     "netWorth: 181954.4427494 (golden 181954.4427494)",
+     "assets: 1148809.813078366 (golden 1148809.813078366)",
+     "debts: 966855.370328966 (golden 966855.370328966)",
+     "realizedTotal: 3172.59638904 (golden 3172.59638904)",
+     "expense totals per month and currency, last six months, unchanged",
+     "all 95 account balances unchanged (0 moved )"
+    ],
+    "fail": [],
+    "warn": [],
+    "info": [],
+    "perf": [],
+    "crash": ""
+   }
+  ],
+  "performance": [
+   {
+    "script": "qa/performance/perf_browser.py",
+    "rc": 0,
+    "secs": 210.3,
+    "pass": [
+     "cold_load_to_first_screen: 330 ms (limit 2000 ms)",
+     "first load weighs 1975 KB (limit 4000 KB)",
+     "csv_import_to_home: 1965 ms (limit 6000 ms)",
+     "route_render: every screen draws within 700 ms (slowest trips 212 ms)",
+     "scrolling Entries has no freeze longer than 400 ms",
+     "JS memory after browsing every screen is 28 MB (limit 120 MB)",
+     "no script errors while measuring",
+     "route_render_20k: every screen draws within 4000 ms (slowest trips 3523 ms)",
+     "Entries list does not draw every one of 20,000 rows at once (page would crawl)",
+     "search_20k: 205 ms (limit 3000 ms)",
+     "no script errors at 20,000 entries"
+    ],
+    "fail": [],
+    "warn": [
+     "route_render_20k: the analytics screen takes 1218 ms to draw (still inside its 4000 ms limit)",
+     "route_render_20k: the invest screen takes 1013 ms to draw (still inside its 4000 ms limit)",
+     "route_render_20k: the trips screen takes 3523 ms to draw (still inside its 4000 ms limit)"
+    ],
+    "info": [
+     "page weight: 116 files, about 1975 KB on first load; DOMContentLoaded 259 ms",
+     "DOM size on Home after use: 134 elements",
+     "scrolling Entries: 0 long tasks, longest 0 ms",
+     "scale test with 20000 entries in the app",
+     "Entries list draws 120 rows at once with 20,000 entries"
+    ],
+    "perf": [
+     "cold_load_to_first_screen=330ms (budget 2000)",
+     "csv_import_to_home=1965ms (budget 6000)",
+     "route_render per screen: trips=212, invest=153, outlook=126, ledger=115, analytics=93, accounts=47 (ms, slowest 6)",
+     "route_render_20k per screen: trips=3523, analytics=1218, invest=1013, outlook=414, spend=339, ledger=195 (ms, slowest 6)",
+     "search_20k=205ms (budget 3000)"
+    ],
+    "crash": ""
+   },
+   {
+    "script": "qa/performance/perf_node.mjs",
+    "rc": 0,
+    "secs": 1.6,
+    "pass": [
+     "import_csv_3k: 54 ms (limit 400 ms)",
+     "balances_3k: 2 ms (limit 30 ms)",
+     "net_worth_3k: 3 ms (limit 50 ms)",
+     "balance_trail_3k: 5 ms (limit 100 ms)",
+     "balances_20k: 14 ms (limit 150 ms)",
+     "net_worth_20k: 24 ms (limit 300 ms)",
+     "balance_trail_20k: 24 ms (limit 400 ms)",
+     "trade_book_20k: 1 ms (limit 100 ms)",
+     "account_history_20k: 3 ms (limit 300 ms)",
+     "monthly_series_20k: 14 ms (limit 300 ms)",
+     "forecast_20k: 103 ms (limit 1000 ms)",
+     "export_csv_20k: 68 ms (limit 800 ms)",
+     "scale set holds 20000 entries",
+     "import_csv_20k: 739 ms (limit 3000 ms)",
+     "import time grows about in step with the data (3k 54 ms, 20k 739 ms)"
+    ],
+    "fail": [],
+    "warn": [],
+    "info": [],
+    "perf": [
+     "import_csv_3k=54.3ms (budget 400)",
+     "balances_3k=2.1ms (budget 30)",
+     "net_worth_3k=3.4ms (budget 50)",
+     "balance_trail_3k=5.3ms (budget 100)",
+     "balances_20k=14.3ms (budget 150)",
+     "net_worth_20k=24.1ms (budget 300)",
+     "balance_trail_20k=24.4ms (budget 400)",
+     "trade_book_20k=0.5ms (budget 100)",
+     "account_history_20k=3.0ms (budget 300)",
+     "monthly_series_20k=14.4ms (budget 300)",
+     "forecast_20k=103.4ms (budget 1000)",
+     "export_csv_20k=68.1ms (budget 800)",
+     "import_csv_20k=739.5ms (budget 3000)"
+    ],
+    "crash": ""
+   }
+  ]
+ },
+ "selftest": [
+  {
+   "break": "an expense adds money instead of taking it",
+   "caught": true
+  },
+  {
+   "break": "buying fee left out of the cost",
+   "caught": true
+  },
+  {
+   "break": "net worth overstated by 1 percent",
+   "caught": true
+  },
+  {
+   "break": "net worth off by 5,000 (golden figure moves)",
+   "caught": true
+  },
+  {
+   "break": "a js file missing from the offline cache",
+   "caught": true
+  },
+  {
+   "break": "a module the app imports is gone",
+   "caught": true
+  }
+ ]
+}

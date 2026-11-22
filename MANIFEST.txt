@@ -1,22 +1,4 @@
-Sukli v16.18 - changed files (extract over your project)
-CHANGED:
-  README.md
-  js/components.js
-  js/invest.js
-  js/screens.js
-  js/tradefacts.js
-  js/trades.js
-  js/version.js
-  styles.css
-  sw.js
-  tests/ui_test_earn_actions_apr_hourly_dash_tabs.py
-  tests/ui_test_first_screen_tips.py
-  tests/ui_test_invest_trade_fees.py
-  tests/ui_test_invest_wallet_move.py
-  tests/ui_test_one_segment_platform_assets.py
-  tests/ui_test_token_performance.py
-  tests/ui_test_v16_15_areas_people.py
-  tests/ui_test_v16_16_trade_headers.py
-  tests/ui_test_v16_7_layout.py
-ADDED:
-  tests/ui_test_v16_18_nav_cards.py
+Sukli v16.19 - QA suite (extract over your project)
+ADDED:  qa/ (README.md, run_qa.py, lib.mjs, qahelp.py, integration/, system/, e2e/, regression/ incl. golden.json, performance/ incl. perf_budget.json, reports/latest.md)
+CHANGED: sw.js (5 modules added to the offline cache, cache name v16.19), js/version.js (change 19), README.md (16.19 entry)
+No other file changed.

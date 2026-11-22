@@ -1,0 +1,22 @@
+{
+  "_note": "Budgets in milliseconds, about 10x what the cloud sandbox measured, so only a real slowdown (not machine noise) trips them. Tighten them once you have numbers from your own computer.",
+  "node": {
+    "import_csv_3k": 400,
+    "balances_3k": 30,
+    "net_worth_3k": 50,
+    "balance_trail_3k": 100,
+    "import_csv_20k": 3000,
+    "balances_20k": 150,
+    "net_worth_20k": 300,
+    "balance_trail_20k": 400,
+    "trade_book_20k": 100
+  },
+  "browser": {
+    "cold_load_to_first_screen": 2000,
+    "csv_import_to_home": 6000,
+    "route_render": 700,
+    "route_render_20k": 4000,
+    "dom_nodes_max": 12000,
+    "heap_mb_max": 120
+  }
+}
