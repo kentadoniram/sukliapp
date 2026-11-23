@@ -39,9 +39,9 @@ export function openTrade(pre = {}) {
   const SEPR = ' › ', bals = balances(db), isCoin = (a) => a.type === 'crypto';
   // every choice sits in a path: Cryptocurrency > platform > trading account, or Traditional accounts > currency > category. The picker folds each level.
   const pathOf = (a) => (inInvest(a) ? [isCoin(a) ? 'Cryptocurrency' : 'Stocks and funds', exchangeOf(a) || 'No platform', ...(isCoin(a) ? [walletOf(a) || 'Spot'] : [])] : ['Traditional accounts', a.cur, typeNames[a.type] || 'Other']).join(SEPR);
-  const WALLETS = ['Spot', 'Margin', 'Futures', 'Options', 'Earn'], rankW = (w) => { const i = WALLETS.indexOf(w); return i < 0 ? 99 : i; };
+  const WALLETS = ['Spot', 'Margin', 'Futures', 'Options', 'Earn', 'Funding', 'ETF', 'TradFi', 'Other'], rankW = (w) => { const i = WALLETS.indexOf(w); return i < 0 ? 99 : i; };
   const treeOpts = (l, sel, p) => { const sorted = l.slice().sort((x, y) => { const cx = inInvest(x) ? 0 : 1, cy = inInvest(y) ? 0 : 1; if (cx !== cy) return cx - cy;
-      if (cx === 0) { const px = (exchangeOf(x) || '') === p ? 0 : 1, py = (exchangeOf(y) || '') === p ? 0 : 1; if (px !== py) return px - py; return (exchangeOf(x) || '').localeCompare(exchangeOf(y) || '') || rankW(walletOf(x)) - rankW(walletOf(y)) || x.cur.localeCompare(y.cur); }
+      if (cx === 0) { const px = (exchangeOf(x) || '') === p ? 0 : 1, py = (exchangeOf(y) || '') === p ? 0 : 1; if (px !== py) return px - py; return (exchangeOf(x) || '').localeCompare(exchangeOf(y) || '') || rankW(walletOf(x) || 'Spot') - rankW(walletOf(y) || 'Spot') || x.cur.localeCompare(y.cur); }
       return (x.cur === HOME ? 0 : 1) - (y.cur === HOME ? 0 : 1) || x.cur.localeCompare(y.cur) || (typeNames[x.type] || '').localeCompare(typeNames[y.type] || '') || (x.name || '').localeCompare(y.name || ''); });
     const by = new Map(); for (const a of sorted) { const k = pathOf(a); if (!by.has(k)) by.set(k, []); by.get(k).push(a); }
     return [...by.entries()].map(([k, items]) => `<optgroup label="${esc(k)}">${items.map((a) => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''} data-leaf="${esc(inInvest(a) && isCoin(a) ? a.cur : a.name || a.cur)}" data-sub="${esc(`${inInvest(a) && isCoin(a) ? `${assetName(a) !== a.cur ? assetName(a) + ' · ' : ''}` : ''}${fmt(bals.get(a.id) || 0, a.cur)}`)}">${esc(accLabel(a))} · ${esc(a.cur)}</option>`).join('')}</optgroup>`).join(''); };
@@ -131,7 +131,7 @@ export function openTrade(pre = {}) {
       : tot > 0 && c ? `${cc === HOME ? '' : 'About '}${money(tot * (homeFx(db, cc) || 0) || tot, cc === HOME ? cc : HOME)} · ${side === 'buy' ? 'average cost updates after you record' : 'profit is worked out by average cost'}` : '';
   };
   const openCoinPicker = (target) => {
-    const cp = f.plat.value, isB = target === 'asset2', pool = isB ? hold.filter((x) => x.id !== f.asset.value) : hold, here = pool.filter((x) => (exchangeOf(x) || '') === cp), others = pool.filter((x) => (exchangeOf(x) || '') !== cp);
+    const cp = f.plat.value, isB = target === 'asset2', pool = isB ? hold.filter((x) => x.id !== f.asset.value) : hold, wOrd = (x, y) => rankW(walletOf(x) || 'Spot') - rankW(walletOf(y) || 'Spot') || x.cur.localeCompare(y.cur), here = pool.filter((x) => (exchangeOf(x) || '') === cp).sort(wOrd), others = pool.filter((x) => (exchangeOf(x) || '') !== cp).sort((x, y) => (exchangeOf(x) || '').localeCompare(exchangeOf(y) || '') || wOrd(x, y));
     const row = (x, sub) => button({ html: `${coinBadge(x.cur)}<span class="tr-tt"><b>${esc(x.cur)}</b><small>${esc(sub)}</small></span><span class="tr-bal"><b>${shortQty(bals.get(x.id) || 0)}</b><small>≈ ${money((bals.get(x.id) || 0) * (homeFx(db, x.cur) || 0))}</small></span>`, kind: 'plain', cls: `tr-prow${x.id === f[target].value ? ' on' : ''}`, attr: { 'data-v': x.id, 'data-q': `${x.cur} ${assetName(x)} ${exchangeOf(x) || ''}`.toLowerCase() } });
     const have = new Set(holdFor(cp).map((x) => x.cur)), tops = isB || !cp ? [] : TOP_TOKENS.filter((t) => !have.has(t.c));
     const oPlats = [...new Set(others.map((x) => exchangeOf(x) || 'No platform'))];

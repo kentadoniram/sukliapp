@@ -122,7 +122,7 @@ const burger = () => { const n = reviewCount(get()); return `${button({ html: `$
 export const hdr = (title, right = '', o = {}) => o.bar
   ? `<header class="top t1top two"><div class="hl">${burger()}${areaTitle('invest')}</div><div class="hact hhelp">${helpBtn()}</div><div class="hrow"><div class="hact hbar">${eyeBtn()}${right}</div></div></header>`
   : o.below
-  ? `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${helpBtn()}${eyeBtn()}</div></header><div class="btnrow actrow">${right}</div>`
+  ? `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${helpBtn()}${o.beside || ''}${eyeBtn()}</div></header><div class="btnrow actrow">${right}</div>`
   : `<header class="top"><div class="hl">${burger()}<h1>${esc(title)}</h1></div><div class="hact">${right}${helpBtn()}${eyeBtn()}</div></header>`;
 // Theme 1: a left arrow replaces the burger on pages you open from somewhere else (Review, Outlook, Analytics); Legacy keeps the normal header
 export const backHdr = (title, right = '') => look().design === 'legacy' ? hdr(title, right) : `<header class="top"><div class="hl">${button({ html: ic('left'), kind: 'plain', cls: 'iconbtn', act: 'nav-back', aria: 'Back' })}<h1>${esc(title)}</h1></div><div class="hact">${right}${helpBtn()}${eyeBtn()}</div></header>`;

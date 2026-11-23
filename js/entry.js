@@ -244,11 +244,20 @@ export function openEntry(opts = {}) {
     if (g && mb && mb.branch && !f.branchTouched && !f.branch && norm0(mb.merchant) === norm0(g)) { f.branch = mb.branch; f.branchSuggested = mb.why; renderBranch(); }
   }
   const isPersonSide = (to) => (to ? FLOWS[f.flow].person === 'to' : FLOWS[f.flow].person === 'from');
+  // v16.25: from the Debt / Lent form you can add the missing person (or lender, card, loan) and the missing money account on the spot
+  const personLike = (x) => !!x && (isOwed(x) || x.type === 'loan');
   async function addPerson() {
-    const n = (await promptDialog('Who did you lend to?', '', { okLabel: 'Add', hint: 'A name is enough, for example Ana or Kuya Ben. It is kept under “money owed to me”.' }))?.trim(); if (!n) return;
-    const ex = get().accounts.find((x) => !x.deleted && isOwed(x) && x.name.toLowerCase() === n.toLowerCase()); let id = ex ? ex.id : uid();
-    if (!ex) commit((d) => { d.accounts.push(stamp({ id, name: n, cur: HOME, type: 'owed', open: 0, include: true, archived: false })); });
-    f.toAcct = id; f.acctTouched = false; debtFix(f); renderAccts(); renderFx(); syncCross();
+    const fl = FLOWS[f.flow || 'lend'], pk = fl.person === 'to' ? 'toAcct' : 'acct', mk = pk === 'toAcct' ? 'acct' : 'toAcct', ma = acctOf(f[mk]);
+    const owedSide = fl.only === 'owed', q = f.flow === 'borrow' ? 'Who did you borrow from?' : f.flow === 'pay' ? 'Name of the card or loan' : f.flow === 'back' ? 'Who paid you back?' : 'Who did you lend to?';
+    const n = (await promptDialog(q, '', { okLabel: 'Add', hint: owedSide ? 'A name is enough, for example Ana or Kuya Ben. It is kept under “money owed to me”.' : 'A name is enough, for example Homer. It is kept under what you owe.' }))?.trim(); if (!n) return;
+    const type = owedSide ? 'owed' : 'loan', ex = get().accounts.find((x) => !x.deleted && x.type === type && x.name.toLowerCase() === n.toLowerCase() && (!ma || x.cur === ma.cur)); let id = ex ? ex.id : uid();
+    if (!ex) commit((d) => { d.accounts.push(stamp({ id, name: n, ...(owedSide ? {} : { person: n }), cur: ma ? ma.cur : HOME, type, open: 0, include: !owedSide ? false : true, archived: false })); });
+    f[pk] = id; f.acctTouched = true; debtFix(f); renderAccts(); renderFx(); syncCross();
+  }
+  async function addMine() {
+    const fl = FLOWS[f.flow || 'lend'], pk = fl.person === 'to' ? 'toAcct' : 'acct', mk = pk === 'toAcct' ? 'acct' : 'toAcct', pa = acctOf(f[pk]);
+    const acc = await newAccountFor((pa && pa.cur) || HOME); if (!acc) return;
+    f[mk] = acc.id; f.acctTouched = true; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; renderAccts(); renderFx(); syncCross();
   }
   // they paid back more than they owed: say what the extra is (never silently negative)
   function askExtra(extra, cur, onPick) {
@@ -934,6 +943,24 @@ export function openEntry(opts = {}) {
     else if (id === 'f-cur') {
       const cur = e.target.value, db2 = get();
       const choose = async (c) => {
+        if (f.debt && f.kind === 'transfer' && f.flow) {   // v16.25: in Debt / Lent the person never changes with the currency; they get a new currency of their own if they lack it
+          const fl = FLOWS[f.flow], pk = fl.person === 'to' ? 'toAcct' : 'acct', mk = pk === 'toAcct' ? 'acct' : 'toAcct', pa = acctOf(f[pk]);
+          if (pa && pa.cur !== c) {
+            const sib = siblingsOf(get(), pa).find((b) => b.cur === c && !b.archived);
+            if (sib) f[pk] = sib.id;
+            else if (personLike(pa)) {
+              const nm = personName(pa);
+              if (!(await confirmDialog(`${nm} has no ${c} yet (only ${siblingsOf(get(), pa).map((b) => b.cur).join(', ')}). Continuing adds ${c} as a new currency for ${nm}. The person stays the same.`, `Add ${c} for ${nm}`))) { renderCur(); return; }
+              f[pk] = addCurrencyNow(pa.id, c) || f[pk];
+            }
+          }
+          const mine = get().accounts.filter((a) => !a.deleted && !a.archived && isMine(a) && a.cur === c);
+          let m = mine.find((a) => a.id === get().settings.lastAcct) || mine.find((a) => a.include) || mine[0];
+          if (!m) m = await newAccountFor(c);
+          if (m) f[mk] = m.id;
+          f.acctTouched = true; f.acctSuggested = false; f.fx = ''; f.fxMode = 'rate'; f.peso = '';
+          renderAccts(); renderFx(); refreshPred(); updateItemLeft(); renderFreq(); renderCur(); return;
+        }
         const pool = db2.accounts.filter((a) => !a.deleted && !a.archived && a.cur === c && a.id !== (f.kind === 'transfer' ? f.toAcct : ''));
         let pick = pool.find((a) => a.id === db2.settings.lastAcct) || pool.find((a) => a.include) || pool[0];
         if (!pick) pick = await newAccountFor(c);
@@ -989,7 +1016,7 @@ export function openEntry(opts = {}) {
       case 'qtab': f.qtab = v; f.qtabManual = true; renderFreq(); break;
       case 'pick': if (Date.now() - sgDone > 700) applyPick(v); break;
       case 'acctpick': { const to = b.dataset.which === 'to', sel = $f(to ? 'f-to' : 'f-acct'), a = acctOf(f.acct);
-        openAccountPicker({ selected: sel.value, skip: to ? f.acct : (f.kind === 'transfer' ? f.toAcct : ''), cur: to ? '' : (a && a.cur) || '', only: f.debt ? (isPersonSide(to) ? FLOWS[f.flow].only : 'pay') : '', add: f.debt && f.flow === 'lend' && isPersonSide(to) ? { label: 'Add a new person', run: addPerson } : null, title: f.debt ? (isPersonSide(to) ? FLOWS[f.flow].pLabel : FLOWS[f.flow].mLabel) : to ? 'To account' : f.kind === 'transfer' ? 'From account' : 'Account' }, (id) => { sel.value = id; sel.dispatchEvent(new Event('change', { bubbles: true })); }); break; }
+        openAccountPicker({ selected: sel.value, skip: to ? f.acct : (f.kind === 'transfer' ? f.toAcct : ''), cur: to ? '' : (a && a.cur) || '', only: f.debt ? (isPersonSide(to) ? FLOWS[f.flow].only : 'pay') : '', add: f.debt ? (isPersonSide(to) ? { label: f.flow === 'borrow' ? 'Add a new lender' : f.flow === 'pay' ? 'Add a new card or loan' : 'Add a new person', run: addPerson } : { label: 'Add a new account', run: addMine }) : null, title: f.debt ? (isPersonSide(to) ? FLOWS[f.flow].pLabel : FLOWS[f.flow].mLabel) : to ? 'To account' : f.kind === 'transfer' ? 'From account' : 'Account' }, (id) => { sel.value = id; sel.dispatchEvent(new Event('change', { bubbles: true })); }); break; }
       case 'curpick': openCurrencyPicker((c) => { const sel = $f('f-cur'); if (![...sel.options].some((o) => o.value === c)) sel.add(new Option(c, c)); sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); }, { title: 'Currency' }); break;
       case 'route': pickRoute(b.dataset.from, b.dataset.to); break;
       case 'calc': f.calc = !f.calc; renderKeypad(); break;
@@ -1118,7 +1145,7 @@ export function openEntry(opts = {}) {
   function personCurFix() {
     if (existing || !f.debt || f.kind !== 'transfer' || (f.flow !== 'lend' && f.flow !== 'borrow')) return null;
     const to = FLOWS[f.flow].person === 'to', pk = to ? 'toAcct' : 'acct', pa = acctOf(f[pk]), ma = acctOf(to ? f.acct : f.toAcct);
-    if (!pa || !ma || !(isOwed(pa) || pa.loan) || pa.cur === ma.cur) return null;
+    if (!pa || !ma || !personLike(pa) || pa.cur === ma.cur) return null;
     return { pa, ma, pk, sib: siblingsOf(get(), pa).find((b) => b.cur === ma.cur) };
   }
   function save(again) {

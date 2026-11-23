@@ -18,7 +18,7 @@ with sync_playwright() as p:
     ok('Home header shows only its own title (no Investments link beside it)', pg.locator('.arealabs a').count() == 0 and pg.locator('.arealabs .areatitle.on').inner_text() == 'Home')
     pg.goto(U + '#/invest'); pg.wait_for_timeout(700)
     ok('Investments header shows only its own title', pg.locator('.arealabs .areatitle').count() == 1 and pg.locator('.arealabs .areatitle.on').inner_text() == 'Investments')
-    ok('Home button sits immediately left of Record activity', pg.evaluate("(()=>{const b=[...document.querySelectorAll('.invact button')].map(x=>x.textContent.trim());return b[0]==='Home'&&b[1]==='Record activity'})()"))
+    ok('Home button sits immediately left of Record activity', pg.evaluate("(()=>{const b=[...document.querySelectorAll('.invact button')].map(x=>x.textContent.trim());return b[0].replace('‹','')==='Home'&&b[1]==='Record activity'})()"))
     pg.click('.invact .iv-home'); pg.wait_for_timeout(700)
     ok('Home button goes back to Home', pg.evaluate('location.hash').startswith('#/home'))
     # 3. the price line is one line

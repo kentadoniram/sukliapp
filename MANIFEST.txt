@@ -1,16 +1,13 @@
-js/core.js
-js/trades.js
-js/trips.js
-js/habits.js
-js/version.js
-tests/ui_test_invest_trade_fees.py
-tests/ui_test_v16_24_offline_sw.py
-tests/ui_test_fee_asset_interest_dest_item_tax.py
-tests/ui_test_v16_24_unknown_rate_trade.py
-tests/ui_test_invest_realized_trades.py
-qa/qahelp.py
-qa/performance/perf_budget.json
-qa/e2e/e2e_money_workflows.py
+Sukli v16.25 - changed files:
 README.md
+js/accpage.js
+js/entry.js
+js/invest.js
+js/screens.js
+js/trades.js
+js/version.js
 styles.css
 sw.js
+tests/ui_test_v16_18_nav_cards.py
+tests/ui_test_v16_23_icons_header_invest.py
+tests/ui_test_v16_25_debt_sort_selectors.py

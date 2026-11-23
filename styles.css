@@ -2432,3 +2432,32 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .invplatrow .pcol { display: grid; min-width: 0; }
 .invplatrow .pcol small { color: var(--ink2); font-size: var(--fz-12); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .confirm-text { white-space: pre-line; }
+
+/* v16.25 — navigation jumps (Investments / Home) look different from action buttons */
+.navjump { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--h-36); padding: 0 var(--sp-5); border: 0; border-radius: var(--r-pill); font-size: var(--fz-13); font-weight: 700; cursor: pointer; background: color-mix(in srgb, var(--navjump, var(--iv-rec)) 14%, transparent); color: var(--navjump, var(--iv-rec)); }
+.navjump span[aria-hidden] { font-size: 1.25em; line-height: 1; }
+.navjump.nj-home { --navjump: var(--iv-add); }
+.navjump:active { filter: brightness(.92); }
+.hdr-add { white-space: nowrap; }
+
+/* v16.25 — alternative section selectors (Performance / Per-Token / Fees / Prediction / Gains) */
+.dstybar { position: relative; display: flex; justify-content: flex-end; margin-bottom: var(--sp-3); }
+.dsty-btn { display: inline-flex; gap: var(--sp-2); align-items: center; font-size: var(--fz-12); color: var(--muted); padding: var(--sp-1) var(--sp-3); cursor: pointer; background: transparent; border: 0; }
+.dsty-menu { position: absolute; top: 100%; right: 0; z-index: 8; display: flex; flex-direction: column; min-width: 170px; padding: var(--sp-2); background: var(--sheet); border-radius: var(--r-m); box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.dsty-o { text-align: left; padding: var(--sp-3) var(--sp-4); border: 0; background: transparent; color: var(--ink); font-size: var(--fz-13); cursor: pointer; border-radius: var(--r-s); }
+.dsty-o.on { font-weight: 700; color: var(--iv-add); background: color-mix(in srgb, var(--iv-add) 12%, transparent); }
+.dsel { margin-bottom: var(--sp-4); }
+.dsel-i { cursor: pointer; font-size: var(--fz-13); color: var(--muted); background: transparent; border: 0; white-space: nowrap; }
+.dsel-i.on { color: var(--ink); font-weight: 700; }
+.dsel-tabs { display: flex; overflow-x: auto; gap: var(--sp-5); border-bottom: 1px solid color-mix(in srgb, var(--muted) 30%, transparent); scrollbar-width: none; }
+.dsel-tabs .dsel-i { padding: var(--sp-3) var(--sp-1); border-bottom: 3px solid transparent; margin-bottom: -1px; }
+.dsel-tabs .dsel-i.on { border-bottom-color: var(--iv-rec); color: var(--iv-rec); }
+.dsel-chips { display: flex; gap: var(--sp-3); overflow-x: auto; scrollbar-width: none; padding-bottom: var(--sp-1); }
+.dsel-chips .dsel-i { padding: var(--sp-3) var(--sp-5); border-radius: var(--r-pill); background: color-mix(in srgb, var(--muted) 14%, transparent); }
+.dsel-chips .dsel-i.on { background: var(--iv-rec); color: var(--on-color); }
+.dsel-drop { display: flex; align-items: center; gap: var(--sp-4); font-size: var(--fz-13); color: var(--muted); }
+.dsel-drop select { flex: 1; min-height: var(--h-36); font-size: var(--fz-14, var(--fz-13)); font-weight: 700; }
+.dsel-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-3); }
+.dsel-tiles .dsel-i { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); padding: var(--sp-4) var(--sp-1); font-size: var(--fz-11, var(--fz-12)); border-radius: var(--r-m); background: color-mix(in srgb, var(--muted) 10%, transparent); white-space: normal; }
+.dsel-tiles .dsel-i.on { background: color-mix(in srgb, var(--iv-rec) 18%, transparent); color: var(--iv-rec); }
+.dt-ic { font-size: 1.4em; }

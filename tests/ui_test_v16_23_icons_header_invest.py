@@ -26,7 +26,7 @@ with sync_playwright() as p:
                 ok(n + '%s header is one row at 402px %s' % (h, r), r['h'] <= 72 and r['spread'] <= 12 and r['sw'] <= 402, r)
         # 5 home > accounts Investments button
         pg.goto(U + '#/accounts'); pg.wait_for_timeout(900)
-        labs = pg.evaluate("[...document.querySelectorAll('#view .btn.sm, #view [data-act]')].filter(e=>/Investments|Loan planner|Loan setup|Bills|Add account/.test(e.textContent)).map(e=>e.textContent.trim())")
+        labs = pg.evaluate("[...document.querySelectorAll('#view .actrow .btn.sm, #view .actrow [data-act]')].filter(e=>/Investments|Loan planner|Loan setup|Bills|Add account/.test(e.textContent)).map(e=>e.textContent.trim().replace('›',''))")
         ok(n + 'Investments is the first button, before Loan planner %s' % labs[:3], labs[:2] == ['Investments', 'Loan planner'])
         pg.click('[data-act=open-inv-accounts]'); pg.wait_for_timeout(900)
         ok(n + 'it opens Investments > Accounts', pg.evaluate('location.hash') == '#/invest' and pg.locator('.invacc').count() == 1)
@@ -51,7 +51,7 @@ with sync_playwright() as p:
         ok(n + 'Home button lands on Home > Accounts', pg.evaluate('location.hash') == '#/accounts')
         # 4 overview
         pg.evaluate("async()=>{const m=await import('/js/invnav.js');m.INV.sec='overview';m.INV.plat='';}"); pg.goto(U + '#/invest'); pg.wait_for_timeout(800)
-        ok(n + 'Overview: Home button first, goes to Home', pg.locator('.invact button').first.inner_text().strip() == 'Home')
+        ok(n + 'Overview: Home button first, goes to Home', pg.locator('.invact button').first.inner_text().strip().replace('‹', '').strip() == 'Home')
         ok(n + 'Markets bar explains itself and has + Market Tab', pg.locator('.mktbar .mkttitle b').inner_text() == 'Markets' and pg.locator('.mktbar [data-act=mkt-add]').count() == 1 and pg.locator('.mktbar .mkttitle small').inner_text().strip() != '')
         ok(n + 'pie button shares the Markets heading row, no row of its own', pg.locator('.mktbar .mkthead .piebtn').count() == 1 and pg.locator('.grprow').count() == 0)
         pg.click('.mktbar [data-act=mkt-add]'); pg.wait_for_selector('#prompt-input, .dlg input, input[type=text]', timeout=4000)
