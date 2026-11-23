@@ -8,10 +8,13 @@ export function curTab(db) { let v = 'all'; try { v = localStorage.getItem('sukl
 const setTab = (v) => { try { localStorage.setItem('sukli-mtab', v); } catch (e) { /* storage blocked */ } };
 // does this account show under the tab that is open?
 export const inMarketTab = (db, a) => { const c = curTab(db); if (c === 'all') return true; const t = tabList(db).find((x) => x.id === c); return !!t && (t.ids || []).includes(a.id); };
-export function marketBar(db) {
+export function marketBar(db, trail = '') {
+  // v16.23: says what the tabs are for, shows one clear action per job, and carries the pie button so it does not need a row of its own
   const l = tabList(db), c = curTab(db);
   const items = [{ label: 'All', value: 'all' }, ...l.map((t) => ({ label: t.name, value: t.id }))];
-  return `<div class="mktbar">${l.length ? tabs({ items, value: c, act: 'inv-mtab', aria: 'Investment markets' }) : ''}${button({ label: l.length ? 'Edit Market Tabs' : '+ Market Tab', kind: 'link', act: 'inv-mtabs' })}</div>`;
+  return `<div class="mktbar"><div class="mkthead"><div class="mkttitle"><b>Markets</b><small>${l.length ? 'Pick a tab to see only those investments below.' : 'Make a tab (for example Stocks or Deposits) to view part of your investments on their own.'}</small></div>${trail}</div>
+    ${l.length ? tabs({ items, value: c, act: 'inv-mtab', aria: 'Investment markets' }) : ''}
+    <div class="mktbtns">${button({ label: '+ Market Tab', kind: 'ghost', size: 'sm', act: 'mkt-add', aria: 'Make a new market tab' })}${l.length ? button({ label: 'Edit Market Tabs', kind: 'ghost', size: 'sm', act: 'inv-mtabs', aria: 'Rename, delete or choose what is in each tab' }) : ''}</div></div>`;
 }
 ACT['inv-mtab'] = (el) => { setTab(el.dataset.v); window.dispatchEvent(new Event('sukli-render')); };
 const inv = (db) => db.accounts.filter((a) => !a.deleted && !a.archived && (a.type === 'crypto' || a.type === 'invest' || a.invtab));

@@ -5,7 +5,7 @@ import { pickAll } from './picker.js';
 import { isEarnAcct, EARN_BLOCK, openDateOf, openDates, WALLETS, WALLET_INFO, walletOf } from './core.js';
 import { tipBtn, calcHtml, bindCalc, COMP_LABEL, rateAt, hasRate } from './interest.js';
 import { exchangeOf, canonPlatform, nearPlatform, platformNames, assetPerfHtml, platOf, catOf } from './invest.js';
-import { CATS } from './invnav.js';
+import { CATS, setSec, INV } from './invnav.js';
 import { assetIcon } from './curpicker.js';
 import { platIcon } from './platicons.js';
 import { softDelete, subscribe } from './core.js';
@@ -181,7 +181,7 @@ export function accounts(db) {
     return `<section class="topgrp ${top === 'Assets' ? 'assets' : 'liabs'}"><div class="tophead"><h2>${top}</h2><b>${money(Math.abs(tot))}</b></div><p class="hint">${top === 'Assets' ? `What you own: cash, bank, property${invAccts.length ? '. Investments are listed below and are added in the Assets of the Net worth card.' : '.'}` : 'What you owe: credit cards, loans, money owed.'}</p>${gs.map(secOf).join('')}</section>`; }).join('') : groups.map((g) => coll(g.key, `${esc(g.title)} <small class="muted gsum">${g.native ? money(g.total, g.native) : money(g.total)}</small>`,
     `<div class="rows plain">${g.list.slice().sort(cmp).map(rowFor).join('')}</div>`, exBtn(g))).join('');
   const segs = (name, opts, cur) => `<div class="seg sm" role="group" aria-label="${name}">${opts.map(([v, l]) => `${button({ html: `${l}`, kind: 'plain', cls: `${cur === v ? 'on' : ''}`, act: 'aview', pressed: cur === v, attr: { 'data-k': name, 'data-v': v } })}`).join('')}</div>`;
-  return `${hdr('Accounts', `${button({ label: 'Loan planner', kind: 'ghost', size: 'sm', act: 'loan-plan' })} ${button({ label: 'Loan setup', kind: 'ghost', size: 'sm', act: 'loan-wizard' })} ${button({ label: 'Bills', kind: 'ghost', size: 'sm', act: 'bills-open' })} <a class="btn ghost sm" href="#/invest">Investments</a> ${button({ label: 'Add account', kind: 'primary', size: 'sm', act: 'acct-new' })}`, { below: true })}
+  return `${hdr('Accounts', `${button({ label: 'Investments', kind: 'ghost', size: 'sm', act: 'open-inv-accounts', aria: 'Open Investments, Accounts' })} ${button({ label: 'Loan planner', kind: 'ghost', size: 'sm', act: 'loan-plan' })} ${button({ label: 'Loan setup', kind: 'ghost', size: 'sm', act: 'loan-wizard' })} ${button({ label: 'Bills', kind: 'ghost', size: 'sm', act: 'bills-open' })} ${button({ label: 'Add account', kind: 'primary', size: 'sm', act: 'acct-new' })}`, { below: true })}
     ${reminderBanner(db)}
     ${look().design === 'legacy' ? `<section class="nwcard">${button({ html: `<span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b>
       <small>Assets ${money(nw.assets)} · Debts ${money(nw.debts)}</small>
@@ -659,3 +659,6 @@ export function openInterestDetail(t) {
   s.el.querySelector('[data-go]').onclick = () => { const p = Math.min(100, Math.max(0, parseFloat(s.el.querySelector('#it-pct').value) || 0)); let n = 0; commit((d) => { const x = d.accounts.find((q) => q.id === a.id); x.taxPct = p; stamp(x); n = retaxInterest(d, a.id, p); }); s.close(); toast(`Tax rate ${p}%: ${n} ${n === 1 ? 'entry' : 'entries'} updated.`); };
   return true;
 }
+
+// v16.23: Investments button here opens Investments > Accounts
+ACT['open-inv-accounts'] = () => { INV.plat = ''; INV.cat = ''; INV.keep = true; setSec('accounts'); location.hash = '#/invest'; };

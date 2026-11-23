@@ -23,10 +23,8 @@ for design in ('theme1', 'legacy'):
         pg.click('[data-sec="ia-crypto"] > .collrow .collhead'); pg.wait_for_timeout(250)
         ok(n + 'a category collapses', pg.locator('[data-sec="ia-crypto"] > .collbody').is_hidden())
         pg.click('[data-sec="ia-crypto"] > .collrow .collhead'); pg.wait_for_timeout(250)
-        ok(n + 'platforms are inside, folded', pg.locator('[data-sec^="ia-crypto-"]').count() >= 2 and pg.locator('[data-sec="ia-crypto-Bitget"] > .collbody').is_hidden())
-        pg.click('[data-sec="ia-crypto-Bitget"] > .collrow .collhead'); pg.wait_for_timeout(250)
-        ok(n + 'a platform expands in place to its products; still on Investments', pg.locator('[data-sec="ia-crypto-Bitget"] .invprod').count() >= 2 and pg.evaluate('location.hash').startswith('#/invest'))
-        pg.locator('[data-sec="ia-crypto-Bitget"] [data-act=inv-plat]').click(); pg.wait_for_timeout(700)
+        ok(n + 'platforms are plain rows inside Crypto, nothing expands inside them', pg.locator('[data-sec="ia-crypto"] [data-act=inv-plat]').count() >= 2 and pg.locator('[data-sec^="ia-crypto-"]').count() == 0 and pg.locator('.invprod').count() == 0)
+        pg.locator('[data-sec="ia-crypto"] [data-act=inv-plat][data-ex="Bitget"]').click(); pg.wait_for_timeout(700)
         ok(n + 'Open <platform> goes to that platform tab', pg.locator('.plat-hero').count() == 1)
         # 2 categories sheet
         pg.evaluate("async()=>{const m=await import('/js/entry.js');m.openCategoryPicker('expense',()=>{})}"); pg.wait_for_selector('#catlist .catgroup'); pg.wait_for_timeout(300)

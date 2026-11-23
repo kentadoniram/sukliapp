@@ -185,3 +185,16 @@ export const GROUP_ICONS = { 'Food & Drinks': 'utensils', Transportation: 'bus',
 export const guessGroupIcon = (g) => GROUP_ICONS[g] || (guessIcon(g, '') === 'tag' ? 'tag' : guessIcon(g, ''));
 export const iconKeyOf = (c) => (c && c.icon && ICONS[c.icon] ? c.icon : guessIcon(c && c.name, c && c.group));
 export const catIcon = (c, cls = '') => svg(iconKeyOf(c), cls);
+
+// v16.23: the picture library is shown in groups by purpose, so a picture is easier to find. A picture that is in no group falls into Other.
+export const ICON_GROUPS = [
+  ['Transport & Travel', ['bus', 'train', 'car', 'taxi', 'bike', 'motorbike', 'plane', 'boat', 'cablecar', 'chairlift', 'fuel', 'parking', 'luggage', 'bed', 'backpack', 'compass', 'tent', 'mountain', 'pin', 'globe', 'iccard', 'truck']],
+  ['Food & Drink', ['utensils', 'coffee', 'burger', 'beer', 'wine', 'cocktail', 'cart', 'basket', 'cake', 'apple', 'pizza', 'bowl', 'icecream', 'bread', 'fish', 'meat', 'egg', 'bottle']],
+  ['Home & Bills', ['house', 'building', 'bolt', 'droplet', 'flame', 'wifi', 'phone', 'tv', 'sofa', 'wrench', 'washer', 'broom', 'trash', 'hammer', 'plug', 'toolbox', 'key', 'mail', 'receipt', 'bulb', 'lock']],
+  ['Health & Personal', ['heart', 'heartpulse', 'pill', 'cross', 'dumbbell', 'smile', 'scissors', 'spark', 'bath', 'soap', 'tooth', 'glasses', 'stethoscope', 'bandage', 'baby']],
+  ['Shopping & Gifts', ['bag', 'shirt', 'gift', 'tag', 'store', 'package', 'gem', 'watch', 'ring', 'laptop', 'monitor', 'headphones', 'printer']],
+  ['Fun & Leisure', ['gamepad', 'film', 'music', 'camera', 'ticket', 'party', 'mic', 'dice', 'ball', 'trophy', 'palette', 'blocks', 'users', 'umbrella', 'sun', 'moon', 'snow', 'leaf', 'paw', 'star']],
+  ['Money & Finance', ['card', 'bank', 'coin', 'coins', 'cash', 'piggy', 'wallet', 'ewallet', 'safe', 'chart', 'trenddown', 'percent', 'calculator', 'shield', 'repeat', 'swap', 'donate']],
+  ['Work & School', ['briefcase', 'cap', 'book', 'pen', 'clipboard', 'cloud', 'idcard', 'gavel', 'church', 'flag', 'bell']],
+];
+export const iconGroupsFull = () => { const seen = new Set(ICON_GROUPS.flatMap((g) => g[1])); const rest = ICON_KEYS.filter((k) => !seen.has(k)); return ICON_GROUPS.map(([t, ks]) => [t, ks.filter((k) => ICONS[k])]).concat(rest.length ? [['Other', rest]] : []); };

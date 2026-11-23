@@ -2233,7 +2233,7 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .trade2[data-side="convert"] > .seg button.on { background: var(--trade-blue); color: var(--paper); }
 .tr-plat { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: var(--sp-4); min-height: var(--h-48); padding: 0 14px; border-radius: var(--r-l); border: 1px solid var(--trade-blue-bd); background: var(--trade-blue-soft); color: var(--trade-blue); font-size: var(--fz-15); }
 .tr-plat .tr-pn { flex: 1; min-width: 0; } .tr-plat .tr-pn span { color: var(--ink2); } .tr-plat em { font-style: normal; font-size: var(--fz-13); font-weight: 600; }
-.tr-pico { width: 26px; height: 26px; border-radius: var(--r-s); background: var(--trade-blue); color: var(--paper); display: inline-flex; align-items: center; justify-content: center; font-size: var(--fz-13); font-weight: 700; flex: none; }
+.tr-pico { width: 24px; height: 24px; border-radius: var(--r-s); background: var(--trade-blue); color: var(--paper); display: inline-flex; align-items: center; justify-content: center; font-size: var(--fz-13); font-weight: 700; flex: none; }
 .tr-card { background: var(--cd-bg); border: 1px solid var(--cd-bd); border-radius: var(--cd-r); padding: var(--cd-pad); box-shadow: var(--cd-shadow); display: grid; gap: var(--sp-4); }
 .tr-raised { gap: var(--sp-1); }
 .tr-slot { display: grid; gap: var(--sp-1); } .tr-slot[hidden] { display: none; }
@@ -2348,7 +2348,7 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .t1top.two .hbar .monthsel, .t1top.two .hbar .curchip { margin-left: auto; }
 .t1top.two .hbar .bellbtn, .t1top.two .hbar .eyebtn, .t1top.two .hbar .iconbtn { margin: 0; }
 .t1top.two .mscard .ml-s { display: none; }
-@media (min-width: 540px) {
+@media (min-width: 400px) {
   .t1top.two .hrow { flex: 0 1 auto; margin-left: auto; }
   .t1top.two .hbar { width: auto; }
   .t1top.two .hbar .monthsel, .t1top.two .hbar .curchip { margin-left: var(--sp-2); }
@@ -2391,3 +2391,43 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 
 /* v16.22: a row with tags always shows a small # pill (with the count when there are several), even when the tag names do not fit */
 .pill.tagpill { background: var(--line); color: var(--ink); margin-left: 6px; }
+
+/* v16.23: on phones about 400-440px wide (iPhone 16 Pro is 402) the long month name pushed the bell, eye and month onto a second row; the short month ("Oct 2026") keeps everything on one row with the burger */
+@media (min-width: 400px) and (max-width: 439px) {
+  .t1top.two .mscard .ml-l { display: none; }
+  .t1top.two .mscard .ml-s { display: inline; }
+}
+
+/* v16.23: Investments > Accounts: one gradient card per category; platforms are plain rows that open the platform's tab */
+.invacc { display: grid; gap: var(--sp-3); }
+.invacc > .coll { --gh: 36; background-image: linear-gradient(135deg, color-mix(in srgb, hsl(var(--gh) 80% 52%) 26%, var(--sheet)) 0%, color-mix(in srgb, hsl(var(--gh) 80% 52%) 6%, var(--sheet)) 100%); }
+.invacc > [data-sec="ia-stock"] { --gh: 215; }
+.invacc > [data-sec="ia-gov"] { --gh: 150; }
+.invacc > [data-sec="ia-other"] { --gh: 270; }
+.invacc .invgrp { gap: var(--sp-0); }
+.invacc .row.invplatrow { display: flex; align-items: center; gap: var(--sp-3); width: 100%; padding: var(--sp-3) var(--sp-1); background: none; border: 0; border-radius: var(--r-m); text-align: left; color: var(--ink); }
+.invacc .row.invplatrow + .row.invplatrow { border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); border-radius: 0; }
+.invplatrow .pname { display: flex; align-items: center; gap: var(--sp-3); flex: 1; min-width: 0; font-size: var(--fz-16); }
+.invplatrow .pname strong { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.invplatrow .ramt { display: grid; text-align: right; }
+.invplatrow .ramt small { color: var(--ink2); font-size: var(--fz-12); }
+.invplatrow .chev { flex: none; color: var(--ink2); }
+
+/* v16.23: Investments Overview market bar: what it is, the tabs, one action per job; the pie button shares the heading row */
+.mktbar { display: grid; gap: var(--sp-2); margin: var(--sp-2) 0; padding: var(--sp-3); background: var(--tint); border-radius: var(--r-m); }
+.mktbar .mkthead { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
+.mktbar .mkttitle { display: grid; gap: var(--sp-1); min-width: 0; }
+.mktbar .mkttitle b { font-size: var(--fz-16); }
+.mktbar .mkttitle small { color: var(--ink2); font-size: var(--fz-12); line-height: 1.35; }
+.mktbar .piebtn { width: auto; height: auto; min-height: var(--h-32); padding: 0 var(--sp-3); display: inline-flex; align-items: center; gap: var(--sp-2); flex: none; }
+.mktbar .piebtn .ic { width: 18px; height: 18px; }
+.mktbar .mktbtns { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* v16.23: platform page: a larger exchange name in the top card, and a shorter Performance line graph */
+.plat-hero .sc-kick { font-size: var(--fz-18); }
+.plat-hero .sc-kick b, .plat-hero .sc-kick strong, .nwcard.plat-hero .phead b { font-size: var(--fz-20); }
+.invline { max-height: 120px; }
+.invpage .invacc > .coll { border-left: 0; }
+.invplatrow .pbfb { display: inline-block; width: 24px; height: 24px; border-radius: var(--r-s); background: color-mix(in srgb, var(--ink) 14%, transparent); flex: none; }
+.invplatrow .pcol { display: grid; min-width: 0; }
+.invplatrow .pcol small { color: var(--ink2); font-size: var(--fz-12); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

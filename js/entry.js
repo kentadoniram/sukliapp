@@ -1,7 +1,7 @@
 // The add / edit sheet, the category picker and the "add many at once" sheet.
 import { addCfg, KIND_META } from './addset.js';
 import { suggestedGroups } from './catsuggest.js';
-import { catIcon, ICONS, ICON_KEYS, iconKeyOf, iconSvg, guessIcon } from './caticons.js';
+import { iconGroupsFull, catIcon, ICONS, ICON_KEYS, iconKeyOf, iconSvg, guessIcon } from './caticons.js';
 import { GICONS, GKEYS, gsvg, pickOwnImage, merchPic } from './pictures.js';
 import {
   get, commit, undoLast, uid, stamp, nowStamp, toLocalInput, fromLocalInput, rateFor, fmt, freqNames, accountMap, catMap,
@@ -1387,7 +1387,7 @@ export function openIconLibrary(current, onPick, o = {}) {
     ${button({ label: o.auto || 'Automatic (guess from the name)', kind: 'ghost', cls: 'wide', attr: { 'data-ico': '' } })}
     ${o.own ? '<button type="button" class="btn ghost wide" data-own>Use My Own Image…</button><p class="hint">Your image stays on this device. Sukli does not include company logos, because they are trademarks.</p>' : ''}
     ${o.group ? `<h3>Group Pictures</h3><div class="icogrid">${GKEYS.map((k) => cell(k, gsvg(k), GICONS[k][0])).join('')}</div><h3>More Pictures</h3>` : ''}
-    <div class="icogrid">${ICON_KEYS.map((k) => cell(k, iconSvg(k), ICONS[k][0])).join('')}</div></div>`, { title: o.title || 'Category Pictures', wide: true });
+    ${iconGroupsFull().map(([t, ks]) => `<h3 class="icogrp">${esc(t)}</h3><div class="icogrid">${ks.map((k) => cell(k, iconSvg(k), ICONS[k][0])).join('')}</div>`).join('')}</div>`, { title: o.title || 'Category Pictures', wide: true });
   s.el.addEventListener('click', async (e) => {
     if (e.target.closest('[data-own]')) { const v = await pickOwnImage(); if (v) { s.close(); onPick(v); } return; }
     const b = e.target.closest('[data-ico]'); if (!b) return; s.close(); onPick(b.dataset.ico);

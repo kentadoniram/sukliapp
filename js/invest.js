@@ -353,7 +353,7 @@ export function investments(db) {
     const earnP = earnedTx.filter((t) => ids.has(earnAcctOf(t))), earnAll = earnP.reduce((q, t) => q + eVal(t), 0), pnl = unrealP + realAll, pct = cost > 0 ? unrealP / cost * 100 : null;
     const sgn = (v) => `${v >= 0 ? '+' : '−'}${money(Math.abs(v))}`;
     const RG = INV_RANGES, full = valueSeries(db, (a) => ids.has(a.id)), days = (RG.find((r) => r[0] === INV.rg) || RG[3])[1], cut = days ? localDay(new Date(Date.now() - days * 864e5)) : '', sub = days ? full.filter((p) => p.d >= cut) : full, ser = (sub.length >= 2 ? sub : full.slice(-2)).map((p) => ({ l: p.d, v: p.v * invK }));
-    const graph = full.length >= 2 ? `<div class="seg sm small invrg" role="group" aria-label="Range">${RG.map(([l]) => button({ html: l, kind: 'plain', cls: l === INV.rg ? 'on' : '', pressed: l === INV.rg, act: 'inv-range', attr: { 'data-v': l } })).join('')}</div><div class="invline">${lineChart(ser, `${sel} value over time`, (n) => f2(n, invC), 320, false, 150)}</div>
+    const graph = full.length >= 2 ? `<div class="seg sm small invrg" role="group" aria-label="Range">${RG.map(([l]) => button({ html: l, kind: 'plain', cls: l === INV.rg ? 'on' : '', pressed: l === INV.rg, act: 'inv-range', attr: { 'data-v': l } })).join('')}</div><div class="invline">${lineChart(ser, `${sel} value over time`, (n) => f2(n, invC), 320, false, 92)}</div>
       <p class="hint invspan">${esc(ser[0].l)} to ${esc(ser[ser.length - 1].l)}</p>` : '<p class="hint">Not enough history yet. A point is saved each day something is recorded on this platform or a price changes.</p>';
     const B = (label, act, aria, o = {}) => button({ label, kind: o.kind || 'ghost', size: 'sm', act, data: 'ex', v: sel, aria, cls: o.cls || '' });
     const coins = new Set(list.filter((a) => Math.abs(bal.get(a.id) || 0) > 1e-12).map((a) => a.cur)), wl = new Set(list.map((a) => walletOf(a) || 'Other'));
@@ -387,24 +387,21 @@ export function investments(db) {
       <section class="ui-card invcard"><h2 class="invh">Transactions on ${esc(sel)}</h2>${txList(db, ids, sel)}</section></div>`;
   };
   const cats = CATS.map(([id, title, subt]) => { const l = id === 'crypto' ? [...platMap.values()].flat() : catItems[id], count = id === 'crypto' ? platMap.size : l.length; return { id, title, sub: subt, count, total: money(exSum(l)), one: id === 'crypto' ? 'platform' : 'product', many: id === 'crypto' ? 'platforms' : 'products' }; });
-  // v16.22: every category is a collapsible section in this same view; a platform folds open to its products, and "Open <platform>" goes to its tab. No separate category page.
+  // v16.23: every category is a collapsible card with its own gradient; its platforms are plain rows that open the platform's tab (nothing expands inside a platform)
   const accountsPage = () => {
-    const tint = (x) => { let h = 0; for (const ch of String(x)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 58% 46%)`; };
-    const keep = (id) => { if (!(id in ui.collapsed)) ui.collapsed[id] = true; return id; };
     const conv = (l) => (invC !== HOME ? `<small class="muted gsum">≈ ${f2(exSum(l), HOME)}</small>` : '');
-    const prod = (a) => { const v = bal.get(a.id) || 0; return button({ html: `<span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(walletOf(a) || 'Other')} · ${esc(v.toLocaleString('en-US', { maximumFractionDigits: 8 }))} ${esc(a.cur)}</small></span><span class="ramt"><b>${money(exSum([a]))}</b></span>`, kind: 'plain', cls: 'row acct invprod', act: 'acct', attr: { 'data-id': a.id, style: `--pc:${tint(a.cur)}` } }); };
     const out = CATS.map(([id, title]) => {
       const l = id === 'crypto' ? [...platMap.values()].flat() : catItems[id];
       const m = new Map();
       if (id === 'crypto') for (const [n, x] of platMap.entries()) m.set(n, x);
       else for (const a of l) { const k = platOf(a); if (!m.has(k)) m.set(k, []); m.get(k).push(a); }
       const plats = [...m.entries()].sort((x, y) => exSum(y[1]) - exSum(x[1]));
-      if (!plats.length) return coll(`ia-${id}`, `${esc(title)} <small class="muted gsum">${money(0)}</small>`, '<p class="empty invemp">Nothing here yet.</p>');
-      const body = plats.map(([n, x]) => coll(plats.length > 1 ? keep(`ia-${id}-${n}`) : `ia-${id}-${n}`, `<i class="platdot" style="background:${tint(n)}" aria-hidden="true"></i>${platIcon(n, 'xs')}${esc(n)} <small class="muted gsum">${money(exSum(x))}</small>${conv(x)}`,
-        `${x.length ? `<div class="rows plain">${x.slice().sort((p, q) => exSum([q]) - exSum([p])).map(prod).join('')}</div>` : '<p class="hint">Empty.</p>'}<div class="btnrow left">${button({ label: `Open ${n}`, kind: 'ghost', size: 'sm', act: 'inv-plat', attr: { 'data-ex': n }, aria: `Open the ${n} tab` })}</div>`, '', true)).join('');
-      return coll(`ia-${id}`, `${esc(title)} <small class="muted gsum">${money(exSum(l))}</small> <small class="muted">${plats.length} ${id === 'crypto' || plats.length !== 1 ? 'platforms' : 'platform'}</small>`, `<div class="invgrp">${body}</div>`);
+      const body = plats.length
+        ? `<div class="invgrp">${plats.map(([n, x]) => button({ html: `<span class="pname">${platIcon(n, 'xs') || '<i class="pbfb" aria-hidden="true"></i>'}<span class="pcol"><strong>${esc(n)}</strong><small>${(() => { const nm = x.slice().sort((p, q) => exSum([q]) - exSum([p])).map((a) => esc(id === 'crypto' ? a.cur : a.name || a.cur)).filter((v, i, l) => l.indexOf(v) === i); return nm.slice(0, 4).join(', ') + (nm.length > 4 ? ` +${nm.length - 4}` : ''); })()}</small></span></span><span class="ramt"><b>${money(exSum(x))}</b>${conv(x) ? `<small>${conv(x).replace(/<[^>]+>/g, '')}</small>` : ''}</span>${ic('right', 'chev')}`, kind: 'plain', cls: 'row invplatrow', act: 'inv-plat', attr: { 'data-ex': n }, aria: `Open ${n}` })).join('')}</div>`
+        : '<p class="empty invemp">Nothing here yet.</p>';
+      return coll(`ia-${id}`, `${esc(title)} <small class="muted gsum">${money(exSum(l))}</small> <small class="muted">${plats.length} ${plats.length === 1 ? 'platform' : 'platforms'}</small>`, body);
     });
-    return `<div class="invacc">${out.join('')}</div>`;
+    return `<div class="btnrow left invact">${button({ label: 'Home', kind: 'ghost', size: 'sm', act: 'go-home-acc', cls: 'iv-home', aria: 'Back to Home, Accounts' })}</div><div class="invacc">${out.join('')}</div>`;
   };
   // the page title in a platform view names what is shown there (the product category), not the generic area name
   const platCatLabel = () => { const l = platMap.get(INV.plat) || []; return { crypto: 'Crypto Exchange', stock: 'Stock Market', gov: 'Government Bonds', other: 'Other Investments' }[l.length ? catOf(l[0]) : 'crypto']; };
@@ -418,10 +415,9 @@ export function investments(db) {
   };
   const overviewHtml = `<div class="btnrow left invact">${button({ label: 'Home', kind: 'ghost', size: 'sm', act: 'go-home', cls: 'iv-home', aria: 'Back to Home' })} ${button({ label: 'Record activity', kind: 'primary', size: 'sm', act: 'inv-add', cls: 'iv-rec' })} ${button({ label: 'Add asset', kind: 'ghost', size: 'sm', act: 'inv-new', cls: 'iv-add' })} ${button({ label: 'Buying Check', kind: 'ghost', size: 'sm', act: 'buy-check' })}${pendingReview(db).length ? ` ${button({ label: `Review trades (${pendingReview(db).length})`, kind: 'ghost', size: 'sm', act: 'trade-review' })}` : ''} </div>
     ${look().design === 'legacy' ? `<section class="nwcard one"><div class="nwmain nwsplit"><div class="nwl"><span>Market value in ${esc(invC)}</span><b>${money(total)}</b>${eqLine(db, total)}<small>${crypto.length} asset${crypto.length === 1 ? '' : 's'} in ${platMap.size} place${platMap.size === 1 ? '' : 's'} · ${other.length} other</small></div>${button({ html: `<span id="ivmini" class="ivmini"></span>`, kind: 'plain', cls: 'ivgraph', act: 'inv-graph', aria: 'Open the graph of your market value over time' })}<small class="updated">${updatedLine(db)}</small></div></section>` : invHomeCard()}
-    ${marketBar(db)}${hiddenInvLink(db)}
+    ${marketBar(db, items.length ? button({ html: `${ic('pie')}<span>Pie</span>`, kind: 'ghost', size: 'sm', cls: 'piebtn', act: 'inv-pie', aria: 'Pie chart of where your money is', title: 'Pie chart' }) : '')}${hiddenInvLink(db)}
     ${(() => { const odd = items.map((x) => x.cur).filter((c, i, l) => l.indexOf(c) === i && tickers[c] && oddPrices(tickers[c].history || []).size); return odd.length ? `<p class="hint warnline">A saved price looks wrong for ${odd.map((c) => `${button({ label: tickers[c].ticker || c, kind: 'link', act: 'inv-ticker', data: 'sym', v: c })}`).join(', ')}. Open it and delete the price marked “looks off”; the value and the graph then use the price before it.</p>` : ''; })()}
     ${unpriced.length ? `<p class="hint">No price yet for ${unpriced.map((a) => esc(a.cur)).join(', ')}, so ${unpriced.length === 1 ? 'it is' : 'they are'} left out of the total. Prices load when you are online, or set one in Settings, Exchange rates.</p>` : ''}
-    ${items.length ? `<div class="grprow">${button({ html: `${ic('pie')}`, kind: 'plain', cls: 'piebtn', act: 'inv-pie', aria: 'Pie chart of where your money is', title: 'Pie chart' })}</div>` : ''}
     ${performanceCard(db, bal, book, items)}${tokenCard(db, book, items)}${feesCard(db, book)}${predictCard(db)}${gains}${dashTabs()}${incomeCard(db)}${tickerCard(db, tickers)}
     ${items.length ? '' : '<p class="empty">Nothing here yet. Add an exchange coin, an investment, or any account marked “Show in Investments” (for example MP2).</p>'}
     <p class="hint">Each coin or share is its own balance at its platform (for example USDT, BNB and NVDA). Open Accounts to browse by category and platform. ${button({ label: 'Words explained', kind: 'link', act: 'glossary' })}</p>`;
@@ -833,4 +829,5 @@ export function invEntryMenu({ id = '', ex = '' } = {}) {
     const { openEntry } = await import('./entry.js'); openEntry({ preset: k === 'transfer' ? { kind: 'transfer', acct: first ? first.id : '' } : { kind: 'expense', acct: first ? first.id : '' } }); }; });
 }
 ACT['go-home'] = () => { location.hash = '#/home'; };
+ACT['go-home-acc'] = () => { location.hash = '#/accounts'; };
 ACT['inv-add'] = (el) => invEntryMenu({ id: el && el.dataset ? el.dataset.id : '', ex: el && el.dataset ? el.dataset.ex : '' });

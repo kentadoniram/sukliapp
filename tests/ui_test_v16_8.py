@@ -18,7 +18,7 @@ with sync_playwright() as p:
         h0=pg.evaluate("document.elementFromPoint(%f,%f).closest('.collhead')!=null"%(res['x'],res['y']))
         ok(n+'a tap on the arrow lands on the collapsible button', h0)
         # 4. Investments button
-        ok(n+'Investments button at the top of Accounts', pg.locator('a[href="#/invest"]:has-text("Investments")').count()>=1)
+        ok(n+'Investments button at the top of Accounts', pg.locator('[data-act=open-inv-accounts]').count()==1 and pg.evaluate("document.querySelector('.hdr, header, #view').innerText.indexOf('Investments')<document.body.innerText.indexOf('Loan planner')"))
         if d=='theme1':
             t=pg.inner_text('.nwcard')
             ok(n+'Net worth card has Assets: and Debts: rows', 'Assets:' in t and 'Debts:' in t)
@@ -31,7 +31,7 @@ with sync_playwright() as p:
         pg.goto('http://localhost:8123/#/accounts'); pg.wait_for_timeout(300); pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(1200)
         pg.evaluate("async()=>{const m=await import('/js/invnav.js');m.INV.sec='overview';m.INV.cat='';window.dispatchEvent(new Event('sukli-render'))}"); pg.wait_for_timeout(300)
         pg.click('.tabs a:has-text("Accounts")'); pg.wait_for_timeout(500); pg.wait_for_timeout(300)
-        pg.evaluate("document.querySelector('[data-sec^=\"ia-crypto-\"] > .collrow .collhead').click()"); pg.wait_for_timeout(300); pg.locator('[data-sec^="ia-crypto-"] [data-act=inv-plat]:visible').first.click(); pg.wait_for_timeout(700)
+        pg.locator('[data-sec="ia-crypto"] [data-act=inv-plat]').first.click(); pg.wait_for_timeout(700)
         ok(n+'platform opens', pg.locator('.platpage').count()==1)
         if d=='theme1':
             ok(n+'platform has a back button', pg.locator('.invpage [data-act=nav-back], header [data-act=nav-back]').count()>=1)
