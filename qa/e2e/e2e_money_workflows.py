@@ -47,7 +47,11 @@ with sync_playwright() as p:
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic'); pg.fill('#ic [name=ex]', 'Binance'); pg.fill('#ic [name=coin]', 'QAW'); pg.fill('#ic [name=amt]', '0'); pg.click('#ic .btn:not(.ghost)'); pg.wait_for_timeout(700)
     open_menu(pg, 'trade'); pg.wait_for_selector('#tr'); choose(pg, '#tr [name=plat]', text='Binance'); pg.click('[data-side=buy]'); choose(pg, '#tr [name=asset]', text='Binance (Spot) QAW')
     pg.fill('#tr [name=qty]', '1'); pg.fill('#tr [name=total]', '100'); pg.dispatch_event('#tr [name=total]', 'input'); pg.click('#tr .btn:not(.ghost)'); pg.wait_for_timeout(700)
-    if pg.locator('[data-yes]').count(): pg.click('[data-yes]'); pg.wait_for_timeout(400)
+    dl = []
+    for _ in range(3):
+        if not pg.locator('[data-yes]').count(): break
+        dl.append(pg.inner_text('.confirm-text')[:90].replace(chr(10), ' ')); pg.click('[data-yes]'); pg.wait_for_timeout(500)
+    ok('2-pre with no rate the form warns and records it as an asset move, not a trade', any('cannot be a trade' in x for x in dl), str(dl))
     vh = J(pg, "const x=c.get().txs.find(t=>!t.deleted&&t.trade&&t.trade.side==='buy'&&t.name==='Buy 1 QAW');return x?[x.trade.valueHome,c.homeFx(c.get(),x.trade.paidCur)]:null")
     if vh and vh[0] == 0: warn('2-pre FINDING: a Buy paid in a currency with no known rate to home currency is saved with a home value of 0 (cost basis 0), with no warning. Later sales then show the whole proceeds as profit. [%s]' % vh)
     elif vh: info('2-pre buy with unknown rate stored a home value of %s' % vh[0])
@@ -60,7 +64,9 @@ with sync_playwright() as p:
         open_menu(pg, 'trade'); pg.wait_for_selector('#tr'); choose(pg, '#tr [name=plat]', text='Binance'); pg.click(f'[data-side={side}]')
         choose(pg, '#tr [name=asset]', text='Binance (Spot) QAZ'); pg.fill('#tr [name=qty]', qty); pg.fill('#tr [name=total]', total); pg.dispatch_event('#tr [name=total]', 'input')
         pg.click('#tr [data-fm=fixed]'); pg.fill('#tr [name=fee]', fee); pg.click('#tr .btn:not(.ghost)'); pg.wait_for_timeout(500)
-        if pg.locator('[data-yes]').count(): pg.click('[data-yes]'); pg.wait_for_timeout(300)
+        for _ in range(3):
+            if not pg.locator('[data-yes]').count(): break
+            print('  dialog:', pg.inner_text('.confirm-text')[:140].replace(chr(10), ' ')); pg.click('[data-yes]'); pg.wait_for_timeout(400)
         pg.wait_for_timeout(500)
     trade('buy', '10', '30000', '100'); trade('sell', '4', '20000', '50')
     held = J(pg, "const a=c.get().accounts.find(x=>!x.deleted&&x.cur==='QAZ'&&x.exchange==='Binance');return a?c.balances(c.get()).get(a.id):null")

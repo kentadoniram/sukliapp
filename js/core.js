@@ -17,7 +17,9 @@ export const uid = () =>
 // HOME is the currency the person wants to see totals in (Settings). It may differ from BASE.
 export const BASE = 'PHP';
 export let HOME = 'PHP';
-export function syncHome() { HOME = (state && state.settings && state.settings.home) || BASE; return HOME; }
+// v16.24: lastTxRate walks every entry; the answer is kept until the data is next changed (every change path calls syncHome)
+const lastRateMemo = new Map();
+export function syncHome() { lastRateMemo.clear(); HOME = (state && state.settings && state.settings.home) || BASE; return HOME; }
 
 const CUR0 = {
   PHP: { sym: '₱', dec: 2 }, JPY: { sym: '¥', dec: 0 }, USD: { sym: '$', dec: 2 }, USDT: { sym: '₮', dec: 2 },
@@ -475,6 +477,10 @@ export function liveRate(db, cur) {
   return a > 0 && b > 0 ? a / b : 0;
 }
 export function lastTxRate(db, cur) {
+  if (db === state && lastRateMemo.has(cur)) return lastRateMemo.get(cur);
+  const v = lastTxRateRaw(db, cur); if (db === state) lastRateMemo.set(cur, v); return v;
+}
+function lastTxRateRaw(db, cur) {
   let best = null;
   for (const t of db.txs) {
     if (t.deleted || t.cur !== cur || !(t.fx > 0)) continue;

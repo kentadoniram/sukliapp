@@ -9,7 +9,7 @@ with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':390,'height':844},service_workers='block'); errs=[]
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
-    pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
+    pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800); pg.evaluate("async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.rates=d.settings.rates||{};for(const [k,v] of Object.entries({JPY:0.4,USDT:58,USD:58})) if(!(d.settings.rates[k]>0)) d.settings.rates[k]=v;})}")
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard, .inv-card')
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic'); pg.fill('#ic [name=ex]','Binance'); pg.fill('#ic [name=coin]','ZZZ'); pg.click('#ic .btn:not(.ghost)'); pg.wait_for_timeout(600)
     open_menu(pg,'trade'); pg.wait_for_selector('#tr'); choose(pg,'#tr [name=plat]',text='Binance'); choose(pg,'#tr [name=asset]',text='ZZZ')

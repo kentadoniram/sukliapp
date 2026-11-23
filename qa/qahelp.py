@@ -18,9 +18,11 @@ class Page:
         self.pg = ctx.new_page(); self.errs = []; self.bad404 = []
         self.pg.on('pageerror', lambda e: self.errs.append('pageerror: ' + str(e)[:300]))
         self.pg.on('console', lambda m: self.errs.append('console: ' + m.text[:300]) if m.type == 'error' and not any(s in m.text for s in IGNORE) else None)
-        self.pg.on('response', lambda r: self.bad404.append(r.url) if r.status >= 400 and r.url.startswith(URL) else None)
+        self.pg.on('response', lambda r: self.bad404.append(r.url) if r.status >= 400 and r.url.startswith(URL) and not (_NO_VENDOR and '/vendor/' in r.url) else None)   # the vendor folder (coin logos, map) is not part of the test copy
     def take(self):
         e, b = self.errs[:], self.bad404[:]; self.errs.clear(); self.bad404.clear(); return e, b
+import os as _os
+_NO_VENDOR = not _os.path.isdir(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', 'vendor'))
 def new_ctx(p, w=402, h=874, touch=True, scheme='light'):
     return p.chromium.launch().new_context(viewport={'width': w, 'height': h}, locale='en-US', timezone_id='Asia/Tokyo', service_workers='block', color_scheme=scheme, has_touch=touch, is_mobile=w < 600)
 def boot_csv(P, csv=CSV):

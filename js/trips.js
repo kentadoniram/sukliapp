@@ -1,7 +1,7 @@
 // Trips and events (Advanced): what Sukli has learned about the times your spending left daily life (js/habits.js).
 // Everything here is a suggestion with the reason shown. Yes / No teaches Sukli: it never changes an entry, a category or a budget.
 import { button } from './components.js';
-import { get, commit, fmt, HOME, homeFx, nowStamp } from './core.js';
+import { get, commit, fmt, HOME, homeFx as homeFx0, nowStamp } from './core.js';
 import { ACT, esc, toast, promptDialog, sheet } from './ui.js';
 import { hdr } from './screens.js';
 import { placesOf, farKm, distKm, locOn, here, permState } from './loc.js';
@@ -21,9 +21,17 @@ export const learnedWeights = (db) => {
 // what the person decided by hand: per entry, and per shop name (first word) so that Sukli learns from names
 export const brandOf = (name) => { const w = String(name || '').toLowerCase().split(/[\s・,\-/]+/)[0] || ''; return w.length >= 3 ? w : ''; };
 export const pickOf = (db, tx) => { const st = db.settings || {}; return (st.tripPick || {})[tx.id] || ((tx.kind === 'expense' && brandOf(tx.name)) ? (st.tripShop || {})[brandOf(tx.name)] : '') || ''; };
+// v16.24: the report is the heavy part (it walks every entry), and Trips, Daily Needs and the Home card all ask for it; keep the last one until entries or settings change
+let reportCache = { key: '', rep: null };
+const reportKey = (db) => { const st = db.settings || {}, tx = db.txs || []; let mx = 0; for (const t of tx) if ((t.updatedAt || 0) > mx) mx = t.updatedAt; return `${tx.length}|${mx}|${JSON.stringify(st.tripNotes || {})}|${JSON.stringify(st.tripPick || {})}|${JSON.stringify(st.tripShop || {})}|${JSON.stringify(st.habitW || {})}|${JSON.stringify(st.rates || {})}|${st.home || ''}|${(db.places || []).length}`; };
 export function tripReport(db) {
+  const key = reportKey(db);
+  if (reportCache.key === key && reportCache.rep) return reportCache.rep;
+  const rep = tripReportRaw(db); reportCache = { key, rep }; return rep;
+}
+function tripReportRaw(db) {
   const notes = (db.settings && db.settings.tripNotes) || {}, txm = new Map((db.txs || []).map((t) => [t.id, t]));
-  const rows = habitRows(db, homeFx).filter((r) => pickOf(db, txm.get(r.id) || r) !== 'out');   // "not a trip" entries are left out of the maths
+  const rows = habitRows(db, homeFx0).filter((r) => pickOf(db, txm.get(r.id) || r) !== 'out');   // "not a trip" entries are left out of the maths
   const pl = placesOf(db), res = analyzeHabits(rows, { weights: learnedWeights(db), farKm: (loc) => farKm(pl, loc) });
   const trips = res.trips.filter((t) => !(notes[t.from] && notes[t.from].s === 'no')).map((t) => ({ ...t, note: notes[t.from] || null }));
   // "part of this trip" entries the person added by hand (also transfers): their whole amount joins the trip cost
@@ -33,7 +41,7 @@ export function tripReport(db) {
       if (x.deleted || x.trade || pickOf(db, x) !== 'in' || String(x.date).slice(0, 10) < t.from || String(x.date).slice(0, 10) > t.to) continue;
       t.usual = t.usual.filter((id) => id !== x.id);
       if (t.entries.includes(x.id)) continue;
-      const amt = x.amount * (homeFx(db, x.cur) || x.fx || 1);
+      const amt = x.amount * (homeFx0(db, x.cur) || x.fx || 1);
       t.entries.push(x.id); t.forced.push(x.id); t.trueCost += amt; t.onTrip += amt;
     }
   }
@@ -53,13 +61,14 @@ export function tripEntryIds(db) {
 }
 // Daily needs: what an ordinary day costs, from the last 90 days with trips, events and fixed bills (same amount again and again, such as rent) left out
 export function dailyNeeds(db, days = 90) {
+  const fxm = new Map(), homeFx = (d, cur) => { if (!fxm.has(cur)) fxm.set(cur, homeFx0(d, cur)); return fxm.get(cur); };
   const ex = (db.txs || []).filter((t) => !t.deleted && t.kind === 'expense' && !t.trade && !t.tradeOf);
   if (!ex.length) return { perDay: 0, perMonth: 0, days: 0, left: 0 };
   const last = ex.reduce((m, t) => (String(t.date).slice(0, 10) > m ? String(t.date).slice(0, 10) : m), ''), from = new Date(new Date(last + 'T12:00:00').getTime() - (days - 1) * 864e5).toISOString().slice(0, 10);
   const inR = ex.filter((t) => String(t.date).slice(0, 10) >= from), trip = tripEntryIds(db), by = new Map();
   for (const t of ex) { if (!by.has(t.cat)) by.set(t.cat, []); by.get(t.cat).push(t.amount * (homeFx(db, t.cur) || t.fx || 1)); }
   const med = (a) => { const b = a.slice().sort((x, y) => x - y); return b[Math.floor(b.length / 2)] || 0; };
-  const fixed = new Set([...by].filter(([, a]) => a.length >= 3 && a.filter((v) => Math.abs(v - med(a)) <= 0.05 * med(a)).length >= a.length * 0.8).map(([k]) => k));
+  const fixed = new Set([...by].filter(([, a]) => { if (a.length < 3) return false; const m = med(a); return a.filter((v) => Math.abs(v - m) <= 0.05 * m).length >= a.length * 0.8; }).map(([k]) => k));
   let sum = 0, left = 0; for (const t of inR) { const v = t.amount * (homeFx(db, t.cur) || t.fx || 1); if (trip.has(t.id) || fixed.has(t.cat)) left += v; else sum += v; }
   const n = Math.min(days, Math.max(1, Math.round((new Date(last + 'T12:00:00') - new Date(from + 'T12:00:00')) / 864e5) + 1));
   return { perDay: sum / n, perMonth: sum / n * 30, days: n, left };

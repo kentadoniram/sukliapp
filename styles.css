@@ -2431,3 +2431,4 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .invplatrow .pbfb { display: inline-block; width: 24px; height: 24px; border-radius: var(--r-s); background: color-mix(in srgb, var(--ink) 14%, transparent); flex: none; }
 .invplatrow .pcol { display: grid; min-width: 0; }
 .invplatrow .pcol small { color: var(--ink2); font-size: var(--fz-12); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.confirm-text { white-space: pre-line; }

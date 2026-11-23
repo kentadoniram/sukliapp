@@ -55,7 +55,8 @@ export function analyzeHabits(rows, opts = {}) {
   const activeDays = dayList.length, catDays = new Map();
   for (const r of ex) { const k = r.catName || r.cat; if (!catDays.has(k)) catDays.set(k, new Set()); catDays.get(k).add(r.d); }
   const gapOf = (k) => { const ds = [...(catDays.get(k) || [])].sort((a, b) => a - b); return ds.length > 1 ? median(ds.slice(1).map((x, i) => x - ds[i])) : 999; };
-  const dailyCat = (k) => (catDays.get(k) ? catDays.get(k).size : 0) / activeDays >= (opts.dailyShare ?? 0.06) && gapOf(k) <= (opts.dailyGap ?? 4);   // used often AND regularly close together; a monthly allowance is not daily life
+  const dailyMemo = new Map();                                                         // asked for every entry; the answer only depends on the category
+  const dailyCat = (k) => { if (dailyMemo.has(k)) return dailyMemo.get(k); const v = (catDays.get(k) ? catDays.get(k).size : 0) / activeDays >= (opts.dailyShare ?? 0.06) && gapOf(k) <= (opts.dailyGap ?? 4); dailyMemo.set(k, v); return v; };   // used often AND regularly close together; a monthly allowance is not daily life
   const fixedCat = new Map();                                                         // same amount again and again (rent, allowance): not "daily spending"
   { const by = new Map(); for (const r of ex) { const k = r.catName || r.cat; if (!by.has(k)) by.set(k, []); by.get(k).push(r.amount); }
     for (const [k, a] of by) fixedCat.set(k, a.length >= 3 && mad(a) / (median(a) || 1) < 0.05); }
@@ -149,7 +150,8 @@ export function analyzeHabits(rows, opts = {}) {
 }
 
 // rows from the database (expenses only, amounts in the home currency)
-export function habitRows(db, homeFx) {
+export function habitRows(db, homeFx0) {
+  const fxm = new Map(), homeFx = homeFx0 ? (d, cur) => { if (!fxm.has(cur)) fxm.set(cur, homeFx0(d, cur)); return fxm.get(cur); } : null;   // one rate lookup per currency, not per entry
   const cm = new Map((db.categories || []).map((c) => [c.id, c]));
   return (db.txs || []).filter((t) => !t.deleted && t.kind === 'expense').map((t) => { const c = cm.get(t.cat) || {}; return { id: t.id, date: t.date, amount: t.amount * reimbKeep(t) * (homeFx ? homeFx(db, t.cur) || 1 : t.fx || 1), cur: t.cur, cat: t.cat, group: c.group || '', catName: c.name || '', name: t.name, labels: t.labels || '', loc: t.loc || null }; });
 }

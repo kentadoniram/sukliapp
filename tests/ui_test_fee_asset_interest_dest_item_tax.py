@@ -7,7 +7,7 @@ with sync_playwright() as p:
     b=p.chromium.launch(); ctx=b.new_context(viewport={'width':390,'height':844},device_scale_factor=2,service_workers='block'); pg=ctx.new_page(); errs=[]
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached')
-    pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900)
+    pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(900); pg.evaluate("async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.rates=d.settings.rates||{};for(const [k,v] of Object.entries({JPY:0.4,USDT:58,USD:58})) if(!(d.settings.rates[k]>0)) d.settings.rates[k]=v;})}")
     pg.evaluate("""async()=>{const c=await import('/js/core.js');c.commit(d=>{
       const A=(id,cur,open,w)=>d.accounts.push(c.stamp({id,name:'Bitget '+cur,wallet:w||'Spot',cur,type:'crypto',assetType:'crypto',exchange:'Bitget',open,include:false,archived:false,invtab:true}));
       A('u1','USDT',1000);A('b1','BTC',0.1);A('g1','BGB',50);A('e1','USDT',200,'Earn');d.accounts.find(a=>a.id==='e1').apy=5;

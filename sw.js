@@ -1,19 +1,28 @@
 // Offline shell: the app is fetched fresh when online and kept in the cache for when you are offline.
-const VERSION = 'sukli-v16.23';
+const VERSION = 'sukli-v16.24';
 const FILES = ['./', 'index.html', 'design.css', 'styles.css', 'manifest.webmanifest',
   'js/caticons.js', 'js/invnav.js', 'js/glance.js', 'js/platicons.js', 'js/safety.js', 'js/worth.js', 'js/people.js', 'js/tradefacts.js', 'js/loanwizard.js', 'js/dailyneeds.js', 'js/goaltx.js', 'js/unusual.js', 'js/yearly.js', 'js/quick.js', 'js/config.js', 'js/timezone.js', 'js/addset.js', 'js/market.js', 'js/ratecompare.js', 'js/catsuggest.js', 'js/stations.js', 'js/daytrip.js', 'js/pictures.js', 'js/savings.js', 'js/goalcheck.js', 'js/tokenperf.js', 'js/borrowing.js', 'js/reimburse.js', 'js/reimbkeep.js', 'js/pasmomerch.js', 'js/styleguide.js', 'js/modelguide.js', 'js/components.js', 'js/picsettings.js', 'js/app.js', 'vendor/coins/aave.svg', 'vendor/coins/gt.svg', 'vendor/coins/kcs.svg', 'vendor/coins/mx.svg', 'vendor/coins/ht.svg', 'vendor/coins/pyusd.svg', 'vendor/coins/tusd.svg', 'vendor/coins/usdd.svg', 'vendor/coins/dash.svg', 'vendor/coins/zec.svg', 'vendor/coins/sand.svg', 'vendor/coins/mana.svg', 'vendor/coins/ape.svg', 'vendor/coins/grt.svg', 'vendor/coins/rune.svg', 'vendor/coins/ldo.svg', 'vendor/coins/mkr.svg', 'vendor/coins/crv.svg', 'vendor/coins/1inch.svg', 'vendor/coins/comp.svg', 'vendor/coins/snx.svg', 'vendor/coins/imx.svg', 'vendor/coins/strk.svg', 'vendor/coins/pi.svg', 'vendor/coins/xaut.svg', 'vendor/coins/paxg.svg', 'vendor/coins/wbtc.svg', 'vendor/coins/eurc.svg', 'vendor/coins/ada.svg', 'vendor/coins/algo.svg', 'vendor/coins/apt.svg', 'vendor/coins/arb.svg', 'vendor/coins/atom.svg', 'vendor/coins/avax.svg', 'vendor/coins/bch.svg', 'vendor/coins/bnb.svg', 'vendor/coins/btc.svg', 'vendor/coins/cro.svg', 'vendor/coins/dai.svg', 'vendor/coins/doge.svg', 'vendor/coins/dot.svg', 'vendor/coins/etc.svg', 'vendor/coins/eth.svg', 'vendor/coins/fdusd.svg', 'vendor/coins/fet.svg', 'vendor/coins/fil.svg', 'vendor/coins/hbar.svg', 'vendor/coins/icp.svg', 'vendor/coins/jup.svg', 'vendor/coins/link.svg', 'vendor/coins/ltc.svg', 'vendor/coins/matic.svg', 'vendor/coins/near.svg', 'vendor/coins/op.svg', 'vendor/coins/pepe.svg', 'vendor/coins/pol.svg', 'vendor/coins/render.svg', 'vendor/coins/sei.svg', 'vendor/coins/shib.svg', 'vendor/coins/sol.svg', 'vendor/coins/sui.svg', 'vendor/coins/tao.svg', 'vendor/coins/tia.svg', 'vendor/coins/ton.svg', 'vendor/coins/trx.svg', 'vendor/coins/uni.svg', 'vendor/coins/usdc.svg', 'vendor/coins/usde.svg', 'vendor/coins/usdt.svg', 'vendor/coins/vet.svg', 'vendor/coins/xlm.svg', 'vendor/coins/xmr.svg', 'vendor/coins/xrp.svg', 'js/finance.js', 'js/stats.js', 'js/merchants.js', 'js/textnorm.js', 'js/simgraph.js', 'js/receipt.js', 'js/sukliCsv.js', 'js/glossary.js', 'js/tabhelp.js', 'js/bulkedit.js', 'js/merchantpick.js', 'js/merchantset.js', 'js/owed.js', 'js/spendgroups.js', 'js/trips.js', 'js/safe.js', 'js/earn.js', 'js/earnui.js', 'js/internal.js', 'js/platform.js', 'js/tokens.js', 'js/tradereview.js', 'js/splitbill.js', 'js/entryview.js', 'js/mappick.js', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css', 'vendor/leaflet/images/marker-icon.png', 'vendor/leaflet/images/marker-icon-2x.png', 'vendor/leaflet/images/marker-shadow.png', 'js/geo.js', 'js/loc.js', 'js/walletscan.js', 'js/walletparse.js', 'js/habits.js', 'js/catsolve.js', 'js/itemsolve.js', 'js/undoui.js', 'js/debts.js', 'js/debtplan.js', 'js/receiptimg.js', 'js/scan.js', 'js/compare.js', 'js/itemcat.js', 'js/route.js', 'js/rolling.js', 'js/version.js', 'js/label.js', 'js/loans.js', 'js/invest.js', 'js/trades.js', 'js/picker.js', 'js/inputlog.js', 'js/budgetsetup.js', 'js/tradecalc.js', 'js/loancalc.js', 'js/accpage.js', 'js/calc.js', 'js/appearance.js', 'js/core.js', 'js/importer.js', 'js/predict.js', 'js/drive.js', 'js/cloud.js', 'js/features.js', 'js/interest.js', 'js/fxview.js', 'js/tags.js', 'js/jpgloss.js', 'js/welcome.js', 'js/feedback.js', 'js/insights.js', 'js/views.js', 'config.js', 'js/ui.js', 'js/entry.js', 'js/screens.js', 'js/rates.js', 'js/backup.js', 'js/acctpicker.js', 'js/curpicker.js', 'js/datepicker.js', 'js/gestures.js', 'js/bin.js', 'js/analytics.js',
   'fonts/schibsted-grotesk-latin-wght-normal.woff2', 'fonts/nunito-latin-wght-normal.woff2', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // one file at a time: a single missing file must not stop the whole offline copy from installing (addAll fails as a whole)
+  e.waitUntil(caches.open(VERSION).then((c) => Promise.allSettled(FILES.map((f) => c.add(f)))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== VERSION).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
+let slowUntil = 0;     // once the network has hung, the next files do not wait long again for a while
+const WAIT_MS = 2500, QUICK_MS = 400;   // on a weak or dead connection the network can hang for a minute; after this long the saved copy is used instead
 self.addEventListener('fetch', (e) => {
   const u = new URL(e.request.url);
   if (e.request.method !== 'GET' || u.origin !== location.origin) return;
-  // network first, so a new version shows up on the next open; the cache is only the offline fallback
-  e.respondWith(fetch(e.request).then((r) => { if (r.ok) { const copy = r.clone(); caches.open(VERSION).then((c) => c.put(e.request, copy)); } return r; })
-    .catch(() => caches.open(VERSION).then((c) => c.match(e.request, { ignoreSearch: true }))));
+  // network first, so a new version shows up on the next open; the cache is the offline fallback (and the quick fallback on a bad connection)
+  const fromCache = () => caches.open(VERSION).then((c) => c.match(e.request, { ignoreSearch: true })
+    .then((r) => r || (e.request.mode === 'navigate' ? c.match('./').then((x) => x || c.match('index.html')) : undefined)));
+  const net = fetch(e.request).then((r) => { if (r.ok) { const copy = r.clone(); caches.open(VERSION).then((c) => c.put(e.request, copy)); } return r; });
+  e.respondWith(new Promise((res) => {
+    let done = false; const ok = (r) => { if (!done && r) { done = true; res(r); } };
+    const t = setTimeout(() => { slowUntil = Date.now() + 30000; fromCache().then(ok); }, Date.now() < slowUntil ? QUICK_MS : WAIT_MS);
+    net.then((r) => { clearTimeout(t); slowUntil = 0; ok(r); }, () => { clearTimeout(t); fromCache().then((r) => { if (r) ok(r); else if (!done) { done = true; res(Response.error()); } }); });
+  }));
 });

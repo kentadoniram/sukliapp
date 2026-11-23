@@ -217,7 +217,7 @@ export function openTrade(pre = {}) {
     if (f.feeMode.value === 'pct') fee = side === 'convert' ? q * fee / 100 : (feeCur === a.cur ? q : tot0) * fee / 100;
     if (side === 'convert' && feeCur === c.cur && feeAcct === c) { /* fee on the paying balance */ }
     let t = num(f.total.value); const tid = old ? old.id : uid();
-    let rec, trade, name;
+    let rec, trade, name, asTransfer = false, fxOverride = 0;
     if (side === 'convert') {
       const b = acct(f.asset2.value), q2 = num(f.qty2.value); if (!b || b.id === a.id || !(q2 > 0)) { toast('Choose the other coin and the amount you receive.'); return; }
       const worth = num(f.worth.value) || q2 * (homeFx(db, b.cur) || 0); if (!(worth > 0)) { toast(`No price for ${b.cur} yet. Type what it is worth in ${HOME}.`); return; }
@@ -225,19 +225,28 @@ export function openTrade(pre = {}) {
       rec = { amount: q, cur: a.cur, fx: rateFor(db, a.cur) || 1, acct: a.id, toAcct: b.id, toAmount: q2 };
     } else {
       if (!(t > 0)) { const p = num(f.price.value); t = p * q; } if (!(t > 0)) { toast('Enter the price or the total.'); return; }
-      const hv = t * (homeFx(db, c.cur) || 0), buy = side === 'buy';
-      name = `${buy ? 'Buy' : 'Sell'} ${q} ${a.cur}`; trade = { side, asset: a.id, qty: q, valueHome: hv, paidCur: c.cur, paidAmt: t, feeHome: fee * (homeFx(db, feeAcct.cur) || 0), feeCur: feeAcct.cur, feeAmt: fee, ...(oa ? { feeOther: oa.id } : {}) };
-      rec = buy ? { amount: t, cur: c.cur, fx: rateFor(db, c.cur) || 1, acct: c.id, toAcct: a.id, toAmount: q } : { amount: q, cur: a.cur, fx: rateFor(db, a.cur) || 1, acct: a.id, toAcct: c.id, toAmount: t };
+      let hv = t * (homeFx(db, c.cur) || 0); const buy = side === 'buy';
+      // v16.24: no rate between the money used and your home currency means the value of this trade is unknown. Warn first; offer a rate worked out from the coin's price;
+      // otherwise it is recorded as a plain move of the asset (no profit or loss is claimed), not as a trade.
+      if (!(hv > 0)) {
+        const ra = rateFor(db, a.cur), sug = ra > 0 && t > 0 ? (q * ra) / t : 0;
+        if (sug > 0 && await confirmDialog(`Sukli has no exchange rate for ${c.cur} (to ${HOME}) yet, so it cannot tell what this trade is worth.\n\nFrom today's price of ${a.cur} it looks like 1 ${c.cur} ≈ ${r6(sug)} ${HOME}. Use that rate for this entry?`, `Use ≈ ${r6(sug)}`, false, 'Not this one')) { hv = t * sug; fxOverride = sug; }
+        else if (!(await confirmDialog(`Without a ${c.cur} rate this cannot be a trade, because the cost is unknown and any profit or loss would be wrong.\n\nRecord it as ${buy ? 'adding' : 'taking out'} ${q} ${a.cur} instead (a move of the asset, no profit or loss)? You can add a ${c.cur} rate later in Settings.`, 'Record as asset', false, 'Cancel'))) return;
+        else asTransfer = true;
+      }
+      name = asTransfer ? `${buy ? 'Add' : 'Remove'} ${q} ${a.cur}` : `${buy ? 'Buy' : 'Sell'} ${q} ${a.cur}`; trade = asTransfer ? undefined : { side, asset: a.id, qty: q, valueHome: hv, paidCur: c.cur, paidAmt: t, feeHome: fee * (homeFx(db, feeAcct.cur) || 0), feeCur: feeAcct.cur, feeAmt: fee, ...(oa ? { feeOther: oa.id } : {}) };
+      rec = buy ? { amount: t, cur: c.cur, fx: fxOverride || rateFor(db, c.cur) || (asTransfer ? 0 : 1), acct: c.id, toAcct: a.id, toAmount: q } : { amount: q, cur: a.cur, fx: rateFor(db, a.cur) || 1, acct: a.id, toAcct: c.id, toAmount: t };
+      if (asTransfer && !buy) rec.fx = rateFor(db, a.cur) || 1;
     }
     const bal = balances(db), src = acct(rec.acct); let have = bal.get(src.id) || 0; if (old && old.acct === src.id) have += old.amount + (old.fee > 0 && old.feeBy === 'from' ? old.fee : 0);   // what this same trade already took out does not count twice
     if (have < rec.amount - 1e-9 && !(await confirmDialog(`${src.name} only has ${money(have, src.cur)}. Record it anyway?`, 'Record anyway'))) return;
     if (oa && fee > 0) { const hv = balances(db).get(oa.id) || 0; if (hv < fee - 1e-9 && !(await confirmDialog(`${oa.name} only has ${money(hv, oa.cur)} to pay the ${money(fee, oa.cur)} fee. Record it anyway?`, 'Record anyway'))) return; }
     commit((d) => {
       if (exchangeOf(a)) d.settings.lastPlat = exchangeOf(a);
-      const tk = !old && d.settings.tickers && side !== 'convert' && d.settings.tickers[a.cur]; if (tk && q > 0 && t > 0) { tk.price = +(t / q).toPrecision(8); tk.quote = c.cur; const ms = localMs(when) || Date.now(); tk.priceDate = priceDay(d, tk, a, ms); pushHistory(tk, tk.price, c.cur, 'trade', a, ms); }   // a ticker you added is priced by its last trade
+      const tk = !old && !asTransfer && d.settings.tickers && side !== 'convert' && d.settings.tickers[a.cur]; if (tk && q > 0 && t > 0) { tk.price = +(t / q).toPrecision(8); tk.quote = c.cur; const ms = localMs(when) || Date.now(); tk.priceDate = priceDay(d, tk, a, ms); pushHistory(tk, tk.price, c.cur, 'trade', a, ms); }   // a ticker you added is priced by its last trade
       // the fee stays on the trade itself (like a transfer fee), so one row shows what happened and balances include it; only a fee paid from a third account is its own entry
       const onTrade = fee > 0 && (feeAcct.id === rec.acct || feeAcct.id === rec.toAcct), fcat = fee > 0 ? findOrAddCategory(d, 'Fees', 'Trading fee', 'expense') : null;
-      const full = { kind: 'transfer', date: when, name, cat: '', notes: num(f.price.value) > 0 ? `Price ${r6(num(f.price.value))} ${c.cur}` : '', trade, ...rec,
+      const full = { kind: 'transfer', date: when, name, cat: '', notes: num(f.price.value) > 0 ? `Price ${r6(num(f.price.value))} ${c.cur}` : '', ...(trade ? { trade } : {}), ...rec,
         ...(onTrade ? { fee, feeCat: fcat.id, feeBy: feeAcct.id === rec.acct ? 'from' : 'to', feeCur: feeAcct.cur, feeFx: rateFor(d, feeAcct.cur) || 1 } : { fee: 0, feeCat: '', feeBy: '', feeCur: '', feeFx: 0 }) };
       if (old) { const t0 = d.txs.find((q) => q.id === old.id); t0.rev = [{ at: Date.now(), date: t0.date, name: t0.name, amount: t0.amount, acct: t0.acct, toAcct: t0.toAcct, toAmount: t0.toAmount }, ...(t0.rev || [])].slice(0, 5); delete t0.trade; Object.assign(t0, full); stamp(t0);
         for (const q of d.txs) if (q.tradeOf === old.id && !q.deleted) softDelete(q); }   // the old separate fee entry is replaced below when one is still needed

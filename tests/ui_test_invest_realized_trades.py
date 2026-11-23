@@ -11,7 +11,7 @@ with sync_playwright() as p:
     pg.on('pageerror',lambda e: errs.append(str(e)))
     pg.on('console',lambda m: errs.append(m.text) if m.type=='error' and 'ERR_TUNNEL' not in m.text and 'Failed to load resource' not in m.text else None)
     pg.goto(U); pg.wait_for_selector('#first-file',state='attached')
-    pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800)
+    pg.set_input_files('#first-file',CSV); pg.wait_for_selector('#setup',timeout=20000); pg.click('#setup .btn'); pg.wait_for_timeout(800); pg.evaluate("async()=>{const c=await import('/js/core.js');c.commit(d=>{d.settings.rates=d.settings.rates||{};for(const [k,v] of Object.entries({JPY:0.4,USDT:58,USD:58})) if(!(d.settings.rates[k]>0)) d.settings.rates[k]=v;})}")
     pg.goto(U+'#/invest'); pg.wait_for_selector('.nwcard, .inv-card'); 
     pg.click('[data-act=inv-new]'); pg.click('[data-k=coin]'); pg.wait_for_selector('#ic')
     pg.fill('#ic [name=ex]','Binance'); pg.fill('#ic [name=coin]','zzz'); pg.fill('#ic [name=amt]','0'); pg.click('#ic .btn:not(.ghost)'); pg.wait_for_timeout(600)

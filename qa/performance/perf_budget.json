@@ -15,7 +15,7 @@
     "cold_load_to_first_screen": 2000,
     "csv_import_to_home": 6000,
     "route_render": 700,
-    "route_render_20k": 4000,
+    "route_render_20k": 2000,
     "dom_nodes_max": 12000,
     "heap_mb_max": 120
   }
