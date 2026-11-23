@@ -387,11 +387,24 @@ export function investments(db) {
       <section class="ui-card invcard"><h2 class="invh">Transactions on ${esc(sel)}</h2>${txList(db, ids, sel)}</section></div>`;
   };
   const cats = CATS.map(([id, title, subt]) => { const l = id === 'crypto' ? [...platMap.values()].flat() : catItems[id], count = id === 'crypto' ? platMap.size : l.length; return { id, title, sub: subt, count, total: money(exSum(l)), one: id === 'crypto' ? 'platform' : 'product', many: id === 'crypto' ? 'platforms' : 'products' }; });
+  // v16.22: every category is a collapsible section in this same view; a platform folds open to its products, and "Open <platform>" goes to its tab. No separate category page.
   const accountsPage = () => {
-    const c = CATS.find((x) => x[0] === INV.cat);
-    if (!c) return `<h2 class="invh">Investment Categories</h2>${categoryCards(cats)}`;
-    const cards = c[0] === 'crypto' ? [...platMap.entries()].sort((x, y) => exSum(y[1]) - exSum(x[1])).map(([n, l]) => platformCard(n, money(exSum(l)), platIcon(n, 'xs'), invC !== HOME ? `≈ ${f2(exSum(l), HOME)}` : '', look().design === 'legacy' ? '' : (() => { const k = new Set(l.filter((a) => Math.abs(bal.get(a.id) || 0) > 1e-12).map((a) => a.cur)).size, w = new Set(l.map((a) => walletOf(a) || 'Other')).size; return l.length ? `${k} asset${k === 1 ? '' : 's'} · ${w} wallet${w === 1 ? '' : 's'}` : 'Empty'; })())) : catItems[c[0]].map((a) => productCard(a, money(exSum([a])), invC !== HOME ? `≈ ${f2(exSum([a]), HOME)}` : ''));
-    return levelTwo(c, cards);
+    const tint = (x) => { let h = 0; for (const ch of String(x)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 58% 46%)`; };
+    const keep = (id) => { if (!(id in ui.collapsed)) ui.collapsed[id] = true; return id; };
+    const conv = (l) => (invC !== HOME ? `<small class="muted gsum">≈ ${f2(exSum(l), HOME)}</small>` : '');
+    const prod = (a) => { const v = bal.get(a.id) || 0; return button({ html: `<span class="rmain"><strong>${esc(a.name)}</strong><small>${esc(walletOf(a) || 'Other')} · ${esc(v.toLocaleString('en-US', { maximumFractionDigits: 8 }))} ${esc(a.cur)}</small></span><span class="ramt"><b>${money(exSum([a]))}</b></span>`, kind: 'plain', cls: 'row acct invprod', act: 'acct', attr: { 'data-id': a.id, style: `--pc:${tint(a.cur)}` } }); };
+    const out = CATS.map(([id, title]) => {
+      const l = id === 'crypto' ? [...platMap.values()].flat() : catItems[id];
+      const m = new Map();
+      if (id === 'crypto') for (const [n, x] of platMap.entries()) m.set(n, x);
+      else for (const a of l) { const k = platOf(a); if (!m.has(k)) m.set(k, []); m.get(k).push(a); }
+      const plats = [...m.entries()].sort((x, y) => exSum(y[1]) - exSum(x[1]));
+      if (!plats.length) return coll(`ia-${id}`, `${esc(title)} <small class="muted gsum">${money(0)}</small>`, '<p class="empty invemp">Nothing here yet.</p>');
+      const body = plats.map(([n, x]) => coll(plats.length > 1 ? keep(`ia-${id}-${n}`) : `ia-${id}-${n}`, `<i class="platdot" style="background:${tint(n)}" aria-hidden="true"></i>${platIcon(n, 'xs')}${esc(n)} <small class="muted gsum">${money(exSum(x))}</small>${conv(x)}`,
+        `${x.length ? `<div class="rows plain">${x.slice().sort((p, q) => exSum([q]) - exSum([p])).map(prod).join('')}</div>` : '<p class="hint">Empty.</p>'}<div class="btnrow left">${button({ label: `Open ${n}`, kind: 'ghost', size: 'sm', act: 'inv-plat', attr: { 'data-ex': n }, aria: `Open the ${n} tab` })}</div>`, '', true)).join('');
+      return coll(`ia-${id}`, `${esc(title)} <small class="muted gsum">${money(exSum(l))}</small> <small class="muted">${plats.length} ${id === 'crypto' || plats.length !== 1 ? 'platforms' : 'platform'}</small>`, `<div class="invgrp">${body}</div>`);
+    });
+    return `<div class="invacc">${out.join('')}</div>`;
   };
   // the page title in a platform view names what is shown there (the product category), not the generic area name
   const platCatLabel = () => { const l = platMap.get(INV.plat) || []; return { crypto: 'Crypto Exchange', stock: 'Stock Market', gov: 'Government Bonds', other: 'Other Investments' }[l.length ? catOf(l[0]) : 'crypto']; };

@@ -24,7 +24,7 @@ with sync_playwright() as p:
     ok('a platform is one card with Performance, Profit and Loss and Other Metrics inside', pg.evaluate("(()=>{const c=document.querySelector('.platcard');if(!c)return false;const t=c.innerText;return /Performance/.test(t)&&/Profit and Loss/.test(t)&&/Other Metrics/.test(t)&&!document.querySelector('.platpage > .invcard.perf')})()"))
     pg.evaluate("async()=>{const m=await import('/js/invnav.js');}"); go_invest(pg, None, 700, 'accounts')
     pg.evaluate("document.querySelector('.invcat')&&document.querySelector('.invcat').click()"); pg.wait_for_timeout(500)
-    ok('platform cards in Accounts carry their assets and wallets', pg.locator('.invplat .ic-m').count() >= 1 or pg.locator('.invcat').count() >= 1)
+    ok('platform cards in Accounts carry their assets and wallets', pg.locator('.invacc [data-sec^="ia-"]').count() >= 1)
     # people with several currencies
     pg.evaluate(look, 'legacy'); pg.goto('http://localhost:8123/#/home'); pg.wait_for_timeout(500)
     ok('Legacy has no switch', pg.locator('.areasw:visible').count() == 0)

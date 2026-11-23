@@ -30,7 +30,7 @@ for design in ('theme1', 'legacy'):
         ok(n + 'the choice is remembered', pg.locator('[data-act=accside][aria-pressed=true]').inner_text() == 'Liabilities')
         pg.click('[data-act=accside][data-v=assets]'); pg.wait_for_timeout(400)
         # card opens platform in Investments
-        pg.goto(U + '#/invest'); pg.wait_for_timeout(800); pg.click('[data-act=inv-sec][data-v=accounts]'); pg.wait_for_timeout(300); pg.click('[data-act=inv-cat][data-v=crypto]'); pg.wait_for_timeout(300); pg.locator('[data-act=inv-plat]', has_text='Bitget').first.click(); pg.wait_for_timeout(900)
+        pg.goto(U + '#/invest'); pg.wait_for_timeout(800); pg.click('[data-act=inv-sec][data-v=accounts]'); pg.wait_for_timeout(300); pg.evaluate("document.querySelector('[data-sec=\"ia-crypto-Bitget\"] > .collrow .collhead').click()"); pg.wait_for_timeout(300); pg.locator('[data-sec="ia-crypto-Bitget"] [data-act=inv-plat]:visible').first.click(); pg.wait_for_timeout(900)
         ok(n + 'a platform in Investments opens its page', pg.evaluate('location.hash').startswith('#/invest') and pg.locator('.invpage.sec-platform').count() == 1 and 'Bitget' in pg.locator('.plat-hero').inner_text())
         # 2 platform card
         t = pg.locator('.plat-hero').inner_text()

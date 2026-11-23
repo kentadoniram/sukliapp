@@ -27,3 +27,14 @@ export function addCurrencyFor(accountId, { onDone } = {}) {
     toast(`${cur} added for ${personName(a)}.`); if (onDone) onDone(id);
   }, { title: `Add a currency for ${personName(a)}` });
 }
+
+// v16.22: make the person's account in another currency without asking again (the caller has already warned the user). Returns the new account id.
+// A hidden account of that currency is shown again instead of making a second one.
+export function addCurrencyNow(personAcctId, cur) {
+  const a = get().accounts.find((x) => x.id === personAcctId && !x.deleted); if (!a) return '';
+  const have = siblingsOf(get(), a).find((b) => b.cur === cur);
+  if (have) { if (have.archived) commit((d) => { const x = d.accounts.find((y) => y.id === have.id); if (x) { x.archived = false; stamp(x); } }); return have.id; }
+  const id = uid();
+  commit((d) => { d.accounts.push(stamp({ id, name: a.name, person: personName(a), cur, type: a.type, open: 0, include: a.include !== false, archived: false })); });
+  return id;
+}

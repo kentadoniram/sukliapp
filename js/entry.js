@@ -31,6 +31,7 @@ import { buildModel, predict, suggest, lookup, catCandidates, byAmount, recentNa
 import { evalExpr, isExpr, tidy } from './calc.js';
 import { predictFee, safetyCheck, typeGroupName, typeGroupOrder, transferHints } from './finance.js';
 import { esc, sheet, toast, ic, confirmDialog, promptDialog } from './ui.js';
+import { personName, siblingsOf, addCurrencyNow } from './people.js';
 import { applyHide } from './appearance.js';
 import { openDatePicker, prettyDate } from './datepicker.js';
 import { openCurrencyPicker, favCurs, flagOf, curIcon } from './curpicker.js';
@@ -144,8 +145,8 @@ const isMine = (a) => !!a && !isLiability(a) && !isOwed(a);
 // person = which side is the card/loan/person ('to' or 'from'); the other side is always one of your own accounts.
 const FLOWS = {
   pay: { person: 'to', only: 'debt', pLabel: 'What will you pay?', pEmpty: 'Choose a card or loan', mLabel: 'Paid from', ph: 'e.g. Monthly payment', hint: 'This is not counted as spending. It lowers what you owe and the money in the account you pay from.', auto: (p) => `Paid ${p.name}`, flag: 'debtPay' },
-  borrow: { person: 'from', only: 'debt', pLabel: 'Who did you borrow from?', pEmpty: 'Choose a card or loan', mLabel: 'Received into', ph: 'e.g. Loan payout, cash from card', hint: 'This is not income. It adds to what you owe and to the money in the account that received it.', auto: (p) => `Borrowed from ${p.name}`, flag: 'debtBorrow' },
-  lend: { person: 'to', only: 'owed', pLabel: 'Who did you lend to?', pEmpty: 'Choose or add a person', mLabel: 'Lent from', ph: 'e.g. Lent for rent', hint: 'This is not spending. The money moves to “money owed to me”, so you can see who still owes you.', auto: (p) => `Lent to ${p.name}`, flag: 'lent' },
+  borrow: { person: 'from', only: 'debt', pLabel: 'Who did you borrow from?', pEmpty: 'Choose a card or loan', mLabel: 'Received into', ph: 'e.g. Loan payout, cash from card', hint: 'This is not income. It adds to what you owe and to the money in the account that received it. Borrowing from a lender in a new currency adds that currency for them after a warning.', auto: (p) => `Borrowed from ${p.name}`, flag: 'debtBorrow' },
+  lend: { person: 'to', only: 'owed', pLabel: 'Who did you lend to?', pEmpty: 'Choose or add a person', mLabel: 'Lent from', ph: 'e.g. Lent for rent', hint: 'This is not spending. The money moves to “money owed to me”, so you can see who still owes you. If you lend in a currency they do not have yet, it is added for them after a warning.', auto: (p) => `Lent to ${p.name}`, flag: 'lent' },
   back: { person: 'from', only: 'owed', pLabel: 'Who paid you back?', pEmpty: 'Choose a person', mLabel: 'Received into', ph: 'e.g. Paid back', hint: 'This is not income. It lowers what they owe you.', auto: (p) => `Paid back by ${p.name}`, flag: 'lentBack' },
 };
 const SEGNOTE = { transfer: 'Move money between your own accounts. Not spending.', debt: 'Pay a card or loan, or record money you borrowed.', lent: 'Money you lent to someone, or that they paid back.' };
@@ -1112,7 +1113,23 @@ export function openEntry(opts = {}) {
 
   function fail(msg) { const el = $f('err'); el.textContent = msg; el.hidden = false; el.scrollIntoView({ block: 'nearest' }); }
 
+  // v16.22: lending to a person, or borrowing from a lender, in a currency they do not have yet: the amount stays in the currency you moved (nothing is converted)
+  // and that currency is added for the person, after a warning. A currency they already have is simply used.
+  function personCurFix() {
+    if (existing || !f.debt || f.kind !== 'transfer' || (f.flow !== 'lend' && f.flow !== 'borrow')) return null;
+    const to = FLOWS[f.flow].person === 'to', pk = to ? 'toAcct' : 'acct', pa = acctOf(f[pk]), ma = acctOf(to ? f.acct : f.toAcct);
+    if (!pa || !ma || !(isOwed(pa) || pa.loan) || pa.cur === ma.cur) return null;
+    return { pa, ma, pk, sib: siblingsOf(get(), pa).find((b) => b.cur === ma.cur) };
+  }
   function save(again) {
+    const pf = personCurFix();
+    if (pf) {
+      const go = () => { f[pf.pk] = addCurrencyNow(pf.pa.id, pf.ma.cur) || f[pf.pk]; f.convert = false; f.sameDiff = false; save(again); };
+      if (pf.sib && !pf.sib.archived) { f[pf.pk] = pf.sib.id; f.convert = false; f.sameDiff = false; }
+      else { const nm = personName(pf.pa), had = siblingsOf(get(), pf.pa).map((b) => b.cur).join(', ');
+        confirmDialog(pf.sib ? `${nm} has a hidden ${pf.ma.cur} account. Continuing shows it again and records this ${f.flow === 'lend' ? 'loan' : 'borrowing'} in ${pf.ma.cur}. Nothing is converted.` : `${nm} only has ${had} so far. Continuing adds ${pf.ma.cur} as a new currency for ${nm}, and this ${f.flow === 'lend' ? 'loan' : 'borrowing'} is recorded in ${pf.ma.cur}. Nothing is converted.`, `Add ${pf.ma.cur} and save`).then((ok) => { if (ok) go(); });
+        return; }
+    }
     const db2 = get();
     const a = acctOf(f.acct);
     const amount0 = qtyR(num(f.amount), (acctOf(f.acct) || {}).cur); let amount = amount0, extraAmt = 0;
@@ -1272,12 +1289,15 @@ export function openCategoryPicker(kind, onPick) {
     q = q.toLowerCase();
     list.innerHTML = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([g, cs]) => {
       const m = cs.filter((c) => !q || c.name.toLowerCase().includes(q) || g.toLowerCase().includes(q));
-      return m.length ? `<div class="catgroup"><h3><i class="ghd" style="background:${groupColor(g)}">${groupLetter(g)}</i>${esc(g)}</h3><div class="chips cattiles">${m.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `${button({ html: `<i style="background:${groupColor(g)}">${catIcon(c)}</i><span>${esc(c.name)}</span>`, kind: 'chip', cls: 'cattile', attr: { 'data-id': c.id } })}`).join('')}</div></div>` : '';
+      return m.length ? `<div class="catgroup"><h3><i class="ghd" style="background:${groupColor(g)}">${groupLetter(g)}</i><span class="ghname">${esc(g)}</span>${button({ html: '+', kind: 'plain', cls: 'grpplus', attr: { 'data-newg': g }, aria: `New category in ${g}` })}</h3><div class="chips cattiles">${m.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `${button({ html: `<i style="background:${groupColor(g)}">${catIcon(c)}</i><span>${esc(c.name)}</span>`, kind: 'chip', cls: 'cattile', attr: { 'data-id': c.id } })}`).join('')}</div></div>` : '';
     }).join('') || '<p class="muted">Nothing matches.</p>';
   };
   draw();
   s.el.querySelector('#catq').addEventListener('input', (e) => draw(e.target.value));
-  list.addEventListener('click', (e) => { const b = e.target.closest('[data-id]'); if (b) { onPick(b.dataset.id); s.close(); } });
+  const made = (c) => { onPick(c.id); s.close(); };
+  list.addEventListener('click', (e) => {
+    const p = e.target.closest('[data-newg]'); if (p) { openCategoryForm({ kind, group: p.dataset.newg, onDone: made }); return; }   // the + beside a group starts a category already inside that group
+    const b = e.target.closest('[data-id]'); if (b) { onPick(b.dataset.id); s.close(); } });
   s.el.querySelector('#newcat-btn').onclick = () => openCategoryForm({ kind, onDone: (c) => { onPick(c.id); s.close(); } });
 }
 

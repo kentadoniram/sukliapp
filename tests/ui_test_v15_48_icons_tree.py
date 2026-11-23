@@ -20,7 +20,7 @@ with sync_playwright() as p:
     ok('every known platform has its own shape and colour pair', len(set(pairs))==len(pairs))
     ok('an unknown platform keeps the same symbol', pg.evaluate("(async()=>{const m=await import('/js/platicons.js');return JSON.stringify(m.platSymbol('Zeta Securities'))===JSON.stringify(m.platSymbol('zeta securities'))})()"))
     go_invest(pg,'Bybit',sec='accounts'); pg.evaluate("async()=>{const m=await import('/js/invnav.js');m.INV.cat='crypto';window.dispatchEvent(new Event('sukli-render'))}"); pg.wait_for_timeout(600)
-    ok('Investments platform cards carry an icon', pg.locator('.invplat .pbadge').count()>=3)
+    ok('Investments platform cards carry an icon', pg.locator('.invacc .pbadge').count()>=3)
     bg=pg.evaluate("[...document.querySelectorAll('.exname .pbadge')].map(e=>e.style.background)")
     ok('icons differ per platform %s'%bg, len(set(bg))==len(bg))
     # tree

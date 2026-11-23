@@ -2383,3 +2383,11 @@ select,#acct-form select,#acctfilter,#lf-cat{padding-right:22px;padding-left:8px
 .srcdot { display: inline-block; width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--good); }
 .srcdot.own { background: var(--warn); }
 .needrow small.stale { color: var(--warn); font-weight: 650; }
+
+/* v16.22: All Categories sheet: a + beside every group, and + New category stays in view like Save */
+.catgroup h3 .ghname { flex: 1; min-width: 0; }
+.grpplus { margin-left: auto; width: var(--h-32); height: var(--h-32); display: inline-grid; place-items: center; border-radius: var(--r-pill); border: 0; background: var(--tint); color: var(--ink); font-size: var(--fz-18); font-weight: 700; line-height: 1; padding: 0; }
+.sheet-body > .newcat { position: sticky; bottom: calc(-24px - env(safe-area-inset-bottom, 0px)); z-index: 5; background: var(--sheet); margin-top: 8px; padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 10px -9px rgba(0,0,0,.35); }
+
+/* v16.22: a row with tags always shows a small # pill (with the count when there are several), even when the tag names do not fit */
+.pill.tagpill { background: var(--line); color: var(--ink); margin-left: 6px; }

@@ -30,19 +30,17 @@ with sync_playwright() as p:
         # 2/10. back navigation
         pg.goto('http://localhost:8123/#/accounts'); pg.wait_for_timeout(300); pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(1200)
         pg.evaluate("async()=>{const m=await import('/js/invnav.js');m.INV.sec='overview';m.INV.cat='';window.dispatchEvent(new Event('sukli-render'))}"); pg.wait_for_timeout(300)
-        pg.click('.tabs a:has-text("Accounts")'); pg.wait_for_timeout(500); pg.click('.invcat:has-text("Crypto")'); pg.wait_for_timeout(500)
-        pg.click('.invplat >> nth=0'); pg.wait_for_timeout(700)
+        pg.click('.tabs a:has-text("Accounts")'); pg.wait_for_timeout(500); pg.wait_for_timeout(300)
+        pg.evaluate("document.querySelector('[data-sec^=\"ia-crypto-\"] > .collrow .collhead').click()"); pg.wait_for_timeout(300); pg.locator('[data-sec^="ia-crypto-"] [data-act=inv-plat]:visible').first.click(); pg.wait_for_timeout(700)
         ok(n+'platform opens', pg.locator('.platpage').count()==1)
         if d=='theme1':
             ok(n+'platform has a back button', pg.locator('.invpage [data-act=nav-back], header [data-act=nav-back]').count()>=1)
             pg.click('[data-act=nav-back]'); pg.wait_for_timeout(700)
         else:
             pg.go_back(); pg.wait_for_timeout(700)
-        ok(n+'back from a platform returns to the platform list, not Accounts', pg.locator('.invplat').count()>=3 and pg.url.endswith('#/invest'))
+        ok(n+'back from a platform returns to the category sections, not Accounts', pg.locator('.invacc').count()==1 and pg.url.endswith('#/invest'))
         pg.go_back(); pg.wait_for_timeout(600)
-        ok(n+'back again returns to the four categories', pg.locator('.invcat').count()==4 and pg.url.endswith('#/invest'))
-        pg.go_back(); pg.wait_for_timeout(600)
-        ok(n+'back again returns to the Overview', pg.locator('.invcat').count()==0 and pg.url.endswith('#/invest'))
+        ok(n+'back again returns to the Overview', pg.locator('.invacc').count()==0 and pg.url.endswith('#/invest'))
         pg.go_back(); pg.wait_for_timeout(700)
         ok(n+'only then does it leave Investments', pg.url.endswith('#/accounts'))
         # platform page layout

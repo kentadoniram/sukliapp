@@ -13,7 +13,7 @@ with sync_playwright() as p:
     go_invest(pg,None,sec='accounts')
     def prods():
         pg.evaluate("async()=>{const m=await import('/js/invnav.js');m.INV.cat='';window.dispatchEvent(new Event('sukli-render'))}"); pg.wait_for_timeout(300)
-        import re; return sum(int(x) for x in re.findall(r'(\d+) products?',pg.inner_text('.invcats')))
+        import re; return sum(int(x) for x in re.findall(r'(\d+) products?',pg.inner_text('.invacc')))
     def names():
         t=''
         for c in ('gov','stock','other'):

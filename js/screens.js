@@ -290,7 +290,7 @@ export function row(t, accts, cats, sel, trail) {
   const sub0 = tr ? `${t.trade ? 'Trade · ' : t.debtPay ? 'Pay debt · ' : t.debtBorrow ? 'Borrowed · ' : t.lent ? 'Lent · ' : t.lentBack ? 'Paid back · ' : 'Transfer · '}${esc(a ? a.name : '?')} → ${esc((accts.get(t.toAcct) || {}).name || '?')}`
     : `${esc(c ? c.name : 'No category')}${t.merchant ? ` · ${esc(t.merchant)}${t.branch ? ' ' + esc(t.branch) : ''}` : ''} · ${esc(a ? a.name : '')}${t.items && t.items.length ? ` · ${t.items.length} items` : ''}`;
   const sub = t._sub || sub0;
-  const tg = parseTags(t.labels).map((x) => `#${esc(x)}`).join(' '), sub2 = tg ? `${sub} · <span class="rtags">${tg}</span>` : sub;
+  const tl = parseTags(t.labels), tg = tl.map((x) => `#${esc(x)}`).join(' '), tagPill = tl.length ? `<em class="pill tagpill" title="${esc(tl.map((x) => '#' + x).join(' '))}" aria-label="${tl.length} tag${tl.length === 1 ? '' : 's'}: ${esc(tl.join(', '))}">#${tl.length > 1 ? tl.length : ''}</em>` : '', sub2 = tg ? `${sub} · <span class="rtags">${tg}</span>` : sub;
   const bb = tr ? accts.get(t.toAcct) : null, arr = tr && t.toAmount != null && bb && Math.abs(t.toAmount - t.amount) > 1e-9 && !t.trade ? `<small class="arrived">arrived ${fmt(t.toAmount, bb.cur, { cut2: true })}</small>` : '';
   const signed = tr ? fmt(t.amount, t.cur, { cut2: true }) : fmt(t.kind === 'income' ? t.amount : -t.amount, t.cur, { cut2: true });
   const base = !tr && eq(t.amount, t.cur, t.fx, t.date) ? `<small>${eq(t.amount, t.cur, t.fx, t.date)}</small>` : '';
@@ -298,7 +298,7 @@ export function row(t, accts, cats, sel, trail) {
   return `<button class="row ${sel ? 'selrow' : ''} ${on ? 'picked' : ''}" data-act="${sel ? 'sel-toggle' : 'edit'}" data-id="${t.id}" ${sel ? `role="checkbox" aria-checked="${!!on}"` : ''}>
     ${sel ? `<i class="selbox ${on ? 'on' : ''}">${on ? ic('check') : ''}</i>` : ''}
     <i class="badge" style="background:${tr ? 'var(--xfer)' : groupColor(group)}">${tr || !c ? groupLetter(group) : catIcon(c)}</i>
-    <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}${t.reimb ? `<em class="pill reimbpill ${t.reimb.st === 'paid' ? 'paid' : ''}">${t.reimb.st === 'paid' ? 'Reimbursed' : 'Reimbursable'}</em>` : ''}</strong><small>${sub2}</small><small class="eff">${effectLine(t, accts)}</small>${balLines(t, accts, trail)}</span>
+    <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}${t.reimb ? `<em class="pill reimbpill ${t.reimb.st === 'paid' ? 'paid' : ''}">${t.reimb.st === 'paid' ? 'Reimbursed' : 'Reimbursable'}</em>` : ''}${tagPill}</strong><small>${sub2}</small><small class="eff">${effectLine(t, accts)}</small>${balLines(t, accts, trail)}</span>
     <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}${arr}</span></button>`;
 }
 // a tapped entry opens to read only; Edit and Delete are separate buttons inside it
