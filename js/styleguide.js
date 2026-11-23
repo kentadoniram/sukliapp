@@ -1,5 +1,7 @@
 // Style guide (15.23): every component the app is built from, on one page, so a look can be checked in one place (light, dark, Simple, Advanced).
 import { esc, sheet, toast, ACT } from './ui.js';
+import { look } from './appearance.js';
+import { DSTYLES } from './invest.js';
 import { card, CARD_DESIGNS, button, seg, toggle, segChoice, field, textField, selectField, box, tabs, sectionTitle } from './components.js';
 
 const TOKENS = [['--paper', 'Page'], ['--sheet', 'Card'], ['--ink', 'Text'], ['--ink2', 'Soft text'], ['--rule', 'Rule'], ['--line', 'Accent'], ['--tint', 'Tint'], ['--in', 'Income'], ['--warn', 'Warning'], ['--bad', 'Bad'], ['--iv-spot', 'Spot'], ['--iv-earn', 'Earn'], ['--iv-margin', 'Margin'], ['--iv-fut', 'Futures']];
@@ -23,6 +25,7 @@ export function styleguide() {
   return `<header class="pagehead"><h2>Style Guide</h2></header>
   <p class="hint">Sizes are CSS pixels measured live from this page at your current Text Size (<b id="sgscale">100%</b>). At 100% they match the numbers in the style sheet; at other text sizes, type and some padding scale with it. Use them for exact dimensions.</p>
   <p class="hint">Everything the app is built from. If something looks wrong here it looks wrong everywhere. Change a look once in the style sheet, not screen by screen.</p>
+  ${sec('Investment Performance selector', `<p class="hint">How you switch between Performance, Per-Token, Fees, Prediction and Gains on the Investments tab. Tap one to use it.</p><div class="sgopts">${DSTYLES.map(([v, n]) => button({ label: n, kind: 'chip', on: (look().dsel || 'seg') === v, act: 'look', attr: { 'data-k': 'dsel', 'data-v': v } })).join('')}</div>`)}
   ${sec('Colours', `<div class="sgsw">${TOKENS.map(([v, n]) => `<div class="sgsw1"><i style="background:var(${v})"></i><small>${esc(n)}<br><code>${esc(v)}</code></small></div>`).join('')}</div>`)}
   ${sec('Text', `<h2>Heading 2</h2><h3>Heading 3</h3><h4>Heading 4</h4><p>Body text, the size most of the app uses.</p><p class="hint">Hint text explains something quietly.</p><p class="muted">Muted text for details.</p>`)}
   ${sec('Buttons', [demo('primary', button({ label: 'Save', kind: 'primary' }) + button({ label: 'Save', kind: 'primary', size: 'sm' })), demo('ghost', button({ label: 'Cancel', kind: 'ghost' }) + button({ label: 'Cancel', kind: 'ghost', size: 'sm' })), demo('danger', button({ label: 'Delete', kind: 'danger' }) + button({ label: 'Delete', kind: 'danger-ghost', size: 'sm' })), demo('link', button({ label: 'Edit', kind: 'link' }) + button({ label: 'Remove', kind: 'danger-link' })),  demo('icon', button({ label: 'Close', kind: 'icon', icon: 'x' }))].join(''))}

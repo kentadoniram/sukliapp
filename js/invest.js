@@ -98,10 +98,9 @@ const dshown = (list) => { const v = dsec(); return v ? v.filter((id) => list.so
 ACT['inv-dsw'] = (el) => { const id = el.dataset.v, cur = dshown(PANELS_LAST), next = [id]; /* one section at a time */ try { localStorage.setItem('sukli-dpanels', JSON.stringify(next)); } catch { /* blocked */ } window.dispatchEvent(new Event('sukli-render')); };
 const DSTYLES = [['seg', 'Segmented'], ['tabs', 'Underline tabs'], ['chips', 'Pill chips'], ['drop', 'Dropdown'], ['tiles', 'Icon tiles']];
 const DICON = { 'i-perf': '📈', 'i-tok': '🪙', 'i-fees': '🧾', 'i-pred': '🔮', 'i-gain': '💰' };
-const dstyle = () => { try { const v = localStorage.getItem('sukli-dstyle'); return DSTYLES.some((d) => d[0] === v) ? v : 'seg'; } catch { return 'seg'; } };
+export { DSTYLES };
+const dstyle = () => { let v = look().dsel; if (!v) { try { v = localStorage.getItem('sukli-dstyle'); } catch { /* blocked */ } } return DSTYLES.some((d) => d[0] === v) ? v : 'seg'; };   // chosen in Style Guide
 document.addEventListener('change', (e) => { const el = e.target.closest && e.target.closest('select[data-dsel]'); if (el) ACT['inv-dsw']({ dataset: { v: el.value } }); });
-ACT['inv-dsty-open'] = () => { ui.dstyOpen = !ui.dstyOpen; window.dispatchEvent(new Event('sukli-render')); };
-ACT['inv-dsty'] = (el) => { try { localStorage.setItem('sukli-dstyle', el.dataset.v); } catch { /* blocked */ } ui.dstyOpen = false; window.dispatchEvent(new Event('sukli-render')); };
 function dashTabs() {
   const list = Object.keys(DASH).map((id) => PANELS.find((x) => x.id === id) || { id, title: DASH[id], body: `<p class="hint">${EMPTY[id]}</p>` }); const any = PANELS.length > 0; PANELS = [];
   if (!any) return '';
@@ -113,8 +112,7 @@ function dashTabs() {
     : sty === 'chips' ? `<div class="dsel dsel-chips" role="group" aria-label="Choose a section">${list.map((x) => button({ label: SHORT[x.id], kind: 'plain', cls: `dsel-i${shown[0] === x.id ? ' on' : ''}`, act: 'inv-dsw', attr: { 'data-v': x.id, 'aria-pressed': String(shown[0] === x.id), 'aria-label': DASH[x.id] } })).join('')}</div>`
     : sty === 'drop' ? `<label class="dsel dsel-drop"><span>Showing</span><select data-dsel aria-label="Choose a section">${list.map((x) => `<option value="${x.id}" ${shown[0] === x.id ? 'selected' : ''}>${esc(DASH[x.id])}</option>`).join('')}</select></label>`
     : sty === 'tiles' ? `<div class="dsel dsel-tiles" role="group" aria-label="Choose a section">${list.map((x) => button({ html: `<span class="dt-ic" aria-hidden="true">${DICON[x.id]}</span><span>${esc(SHORT[x.id])}</span>`, kind: 'plain', cls: `dsel-i${shown[0] === x.id ? ' on' : ''}`, act: 'inv-dsw', attr: { 'data-v': x.id, 'aria-pressed': String(shown[0] === x.id), 'aria-label': DASH[x.id] } })).join('')}</div>` : '';
-  const styBar = `<div class="dstybar">${button({ html: `<span>Style · ${esc(DSTYLES.find((d) => d[0] === sty)[1])}</span><span aria-hidden="true">▾</span>`, kind: 'plain', cls: 'dsty-btn', act: 'inv-dsty-open', attr: { 'aria-expanded': String(!!ui.dstyOpen) } })}${ui.dstyOpen ? `<div class="dsty-menu" role="group" aria-label="Selector style">${DSTYLES.map((d) => button({ label: d[1], kind: 'plain', cls: `dsty-o${d[0] === sty ? ' on' : ''}`, act: 'inv-dsty', attr: { 'data-v': d[0], 'aria-pressed': String(d[0] === sty) } })).join('')}</div>` : ''}</div>`;
-  const strip = styBar + (alt || (look().design === 'theme1' ? t1seg({ options: list.map((x) => ({ value: x.id, label: SHORT[x.id], aria: DASH[x.id] })), value: shown[0] === undefined ? null : shown[0], act: 'inv-dsw', aria: 'Choose a section', wide: true }) : stripOld));
+  const strip = (alt || (look().design === 'theme1' ? t1seg({ options: list.map((x) => ({ value: x.id, label: SHORT[x.id], aria: DASH[x.id] })), value: shown[0] === undefined ? null : shown[0], act: 'inv-dsw', aria: 'Choose a section', wide: true }) : stripOld));
   // Theme 1: no card around the tabs and no card inside them; the chosen section's title becomes a plain heading line and its content runs down the page
   if (look().design === 'theme1') return `<div class="dashcard flat"><h2 class="invh">Investment Performance</h2><div class="dashstrip">${strip}</div>${chosen.map((x) => `<div class="dashbody dashcardsec" data-dsec="${x.id}">${coll('d-' + x.id, x.title, x.body)}</div>`).join('') || '<p class="hint">Choose a section to see it.</p>'}</div>`;
   const inner = `${strip}

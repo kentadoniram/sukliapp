@@ -1,13 +1,6 @@
-Sukli v16.25 - changed files:
+Sukli v16.26 - changed files:
 README.md
-js/accpage.js
-js/entry.js
 js/invest.js
-js/screens.js
-js/trades.js
+js/styleguide.js
 js/version.js
-styles.css
 sw.js
-tests/ui_test_v16_18_nav_cards.py
-tests/ui_test_v16_23_icons_header_invest.py
-tests/ui_test_v16_25_debt_sort_selectors.py
