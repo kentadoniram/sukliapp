@@ -11,13 +11,22 @@ export const ACCENTS = {
   rose:     { n: 'Rose',     l: ['#B03A5B', '#F6E4EA', '#FFFFFF'], d: ['#F08AA6', '#3A1B27', '#1B0D13'] },
   orange:   { n: 'Orange',   l: ['#A8540C', '#F6E9DC', '#FFFFFF'], d: ['#F0A867', '#3A2714', '#1B120A'] },
   graphite: { n: 'Graphite', l: ['#3B4650', '#E6E9EC', '#FFFFFF'], d: ['#AEBBC7', '#232B33', '#0E141A'] },
+  indigo:   { n: 'Indigo',   l: ['#3F4BB8', '#E5E7F7', '#FFFFFF'], d: ['#9AA5F2', '#1E2240', '#0F1120'] },
+  ocean:    { n: 'Ocean',    l: ['#0B6E99', '#DDEEF6', '#FFFFFF'], d: ['#62C0E8', '#10303F', '#0A151B'] },
+  plum:     { n: 'Plum',     l: ['#8A2D7B', '#F3E3F0', '#FFFFFF'], d: ['#E39AD6', '#341A31', '#180B16'] },
+  gold:     { n: 'Gold',     l: ['#8A6500', '#F5ECD3', '#FFFFFF'], d: ['#E8C45C', '#37300F', '#1A1606'] },
+  coral:    { n: 'Coral',    l: ['#C2412D', '#F8E4DF', '#FFFFFF'], d: ['#F59A8A', '#3C1B16', '#1C0C09'] },
+  forest:   { n: 'Forest',   l: ['#1F5E3B', '#DDEDE3', '#FFFFFF'], d: ['#6FD09A', '#14301F', '#0A150E'] },
+  mono:     { n: 'Mono',     l: ['#111111', '#EDEDED', '#FFFFFF'], d: ['#F2F2F2', '#262626', '#0A0A0A'] },
 };
 export const SIZES = [['xs', 'Extra small', 0.8], ['s', 'Small', 0.9], ['m', 'Medium', 1], ['l', 'Large', 1.12], ['xl', 'Extra large', 1.25]];
 let simpleNow = false;
 // "Match the mode": calm teal in Simple, blue in Advanced (a colour you pick yourself always wins)
 export const setLookMode = (simple) => { if (simple !== simpleNow) { simpleNow = simple; applyLook(); } };
-const DEFAULT = { accent: 'auto', theme: 'auto', size: 's', pcase: 'upper', design: 'theme1', font: 'auto' };
-export const FONTS = [['auto', 'Automatic'], ['rounded', 'Rounded'], ['standard', 'Standard']];
+const DEFAULT = { accent: 'auto', theme: 'auto', size: 's', pcase: 'upper', design: 'theme1', font: 'auto', bg: 'auto', card: 'auto', radius: 'auto', density: 'auto', btn: 'auto', nav: 'auto', bars: 'auto', lead: 'auto', dsel: 'seg', logo: 'initials' };
+export const FONTS = [['auto', 'Automatic'], ['rounded', 'Rounded'], ['standard', 'Standard'], ['system', 'System'], ['serif', 'Serif'], ['humanist', 'Humanist'], ['mono', 'Mono']];
+// Design Studio choices (Style Guide): each is one data attribute on <html>; 'auto' removes it so the app looks as it always did
+export const STUDIO = { bg: ['warm', 'cool', 'black'], card: ['flat', 'outline', 'lifted', 'tinted'], radius: ['sharp', 'round'], density: ['compact', 'roomy'], btn: ['pill', 'square', 'soft'], nav: ['icons', 'pill'], bars: ['square', 'slim', 'accent'], lead: ['tight', 'airy'] };
 export const DESIGNS = [['theme1', 'Theme 1'], ['legacy', 'Legacy Theme']];
 
 export function look() {
@@ -36,7 +45,8 @@ export function applyLook() {
   const key = v.accent === 'auto' ? (simpleNow ? 'teal' : 'blue') : v.accent, a = (ACCENTS[key] || ACCENTS.blue)[dark ? 'd' : 'l'];
   root.style.setProperty('--line', a[0]); root.style.setProperty('--tint', a[1]); root.style.setProperty('--line-ink', a[2]);
   root.dataset.design = v.design === 'legacy' ? 'legacy' : 'theme1';
-  root.dataset.font = v.font === 'standard' || (v.font !== 'rounded' && v.design === 'legacy') ? 'standard' : 'rounded';   // Automatic: rounded in Theme 1, the old font in Legacy Theme
+  root.dataset.font = ['system', 'serif', 'humanist', 'mono'].includes(v.font) ? v.font : v.font === 'standard' || (v.font !== 'rounded' && v.design === 'legacy') ? 'standard' : 'rounded';
+  for (const [k, ok] of Object.entries(STUDIO)) { if (ok.includes(v[k])) root.dataset[k === 'card' ? 'cardlook' : k] = v[k]; else delete root.dataset[k === 'card' ? 'cardlook' : k]; }   // Automatic: rounded in Theme 1, the old font in Legacy Theme
   root.dataset.pcase = ['upper', 'title', 'lower'].includes(v.pcase) ? v.pcase : 'upper';
   const sz = SIZES.find((s) => s[0] === v.size) || SIZES[1];
   root.style.setProperty('--fs', String(sz[2]));

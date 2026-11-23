@@ -3,6 +3,7 @@
 // logo on a platform: Platform Settings > Icon > Upload logo (kept on this device inside settings.platformIcons).
 import { get } from './core.js';
 import { esc } from './ui.js';
+import { look } from './appearance.js';
 
 const SHAPES = {
   diamond: 'M12 3 21 12 12 21 3 12Z', hex: 'M12 3 20 7.5V16.5L12 21 4 16.5V7.5Z', tri: 'M12 4 21 19H3Z', down: 'M3 6H21L12 20Z',
@@ -18,12 +19,13 @@ const SHAPES = {
 const KEYS = Object.keys(SHAPES);
 // name (letters and digits only, lower case) -> [shape, colour]. Matching is by "starts with", so "Binance Japan" finds "binance".
 const KNOWN = [
-  ['binance', 'diamond', '#D69E00'], ['bybit', 'bars', '#3B4A6B'], ['bitget', 'hex', '#0E9AA7'], ['okx', 'plus', '#1F2933'], ['kucoin', 'ring', '#1FA67A'],
-  ['coinbase', 'moon', '#1652F0'], ['kraken', 'wave', '#6D4AC4'], ['bitfinex', 'leaf', '#4E9A2F'], ['gate', 'shield', '#D6455D'], ['mexc', 'tri', '#3B5BDB'],
-  ['htx', 'drop', '#1C9CC2'], ['huobi', 'drop', '#1C9CC2'], ['cryptocom', 'half', '#1E3A8A'], ['upbit', 'star', '#0891B2'], ['bithumb', 'chev', '#EA6A12'],
+  ['binance', 'diamond', '#F0B90B'], ['bybit', 'bars', '#F7A600'], ['bitget', 'hex', '#0E9AA7'], ['okx', 'plus', '#000000'], ['kucoin', 'ring', '#23AF91'],
+  ['coinbase', 'moon', '#0052FF'], ['kraken', 'wave', '#5741D9'], ['bitfinex', 'leaf', '#4E9A2F'], ['gate', 'shield', '#2354E6'], ['mexc', 'tri', '#1972E2'],
+  ['htx', 'drop', '#1B67C2'], ['huobi', 'drop', '#1C9CC2'], ['cryptocom', 'half', '#1E3A8A'], ['upbit', 'star', '#0891B2'], ['bithumb', 'chev', '#EA6A12'],
   ['bitflyer', 'bolt', '#2563EB'], ['coincheck', 'arrow', '#0F766E'], ['bitbank', 'stack', '#0369A1'], ['gemini', 'hash', '#0E7490'], ['bitstamp', 'down', '#15803D'],
   ['moomoo', 'crown', '#E8590C'], ['futu', 'crown', '#E8590C'], ['tiger', 'grid', '#C2410C'], ['interactivebrokers', 'pent', '#B91C1C'], ['ibkr', 'pent', '#B91C1C'],
-  ['webull', 'cross', '#2B6CB0'], ['rakuten', 'square', '#BE123C'], ['sbi', 'square', '#1D4ED8'], ['matsui', 'square', '#7C3AED'], ['monex', 'square', '#0F766E'],
+  ['webull', 'cross', '#2B6CB0'], ['rakuten', 'square', '#BF0000'], ['sbi', 'square', '#1D4ED8'], ['matsui', 'square', '#7C3AED'], ['monex', 'square', '#0F766E'],
+  ['gcash', 'square', '#007CFF'], ['maya', 'square', '#00B36B'], ['paymaya', 'square', '#00B36B'], ['paypay', 'square', '#FF0033'], ['paypal', 'square', '#003087'], ['wise', 'square', '#9FE870'], ['revolut', 'square', '#191C1F'], ['seabank', 'square', '#F26B21'], ['gotyme', 'square', '#1BB6C7'], ['bdo', 'square', '#0B3C8C'], ['bpi', 'square', '#B3282D'], ['unionbank', 'square', '#F58220'], ['metrobank', 'square', '#0A3D91'], ['landbank', 'square', '#0B7A3E'],
   ['phemex', 'star', '#4D7C0F'], ['bingx', 'wave', '#2563EB'], ['bitmart', 'grid', '#0D9488'], ['lbank', 'stack', '#7E22CE'], ['poloniex', 'moon', '#047857'], ['bitmex', 'bars', '#B45309'],
 ];
 const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -35,10 +37,19 @@ export function platSymbol(ex) {
 }
 export const customIcon = (ex) => { const m = ((get() || {}).settings || {}).platformIcons || {}; return m[ex] || m[Object.keys(m).find((x) => x.toLowerCase() === String(ex).toLowerCase())] || ''; };
 // html for a small square badge. size: 'sm' (28px, rows), 'xs' (22px, headings)
+// letters for the 'initials' badge: a short name (OKX, HTX, BDO) is shown whole, a long one by its first letters
+export const platLetters = (ex) => { const w = String(ex).trim().split(/\s+/).filter(Boolean), n = norm(ex); if (!n) return '?'; if (w.length === 1) return (n.length <= 3 ? n : w[0][0]).toUpperCase(); return (w[0][0] + w[1][0]).toUpperCase(); };
+const darkText = (c) => { const m = /^#([0-9a-f]{6})$/i.exec(c); if (!m) return false; const n = parseInt(m[1], 16), l = 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255); return l > 150; };
 export function platIcon(ex, size = 'sm') {
   if (!ex || ex === 'Wallets and other') return '';
   const c = customIcon(ex);
   if (c) return `<i class="pbadge ${size} pimg" aria-hidden="true"><img alt="" src="${esc(c)}"></i>`;
   const s = platSymbol(ex);
+  if (look().logo !== 'symbol') return `<i class="pbadge ${size} pletters l${platLetters(ex).length > 2 ? 3 : 2}${s.known ? '' : ' own'}${darkText(s.color) ? ' dk' : ''}" style="background:${s.color}" aria-hidden="true"><b>${esc(platLetters(ex))}</b></i>`;
   return `<i class="pbadge ${size}" style="background:${s.color}" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path fill="#fff" fill-rule="evenodd" d="${SHAPES[s.shape]}"/></svg></i>`;
+}
+
+// Style Guide > Platform logos: every platform Sukli knows from your accounts, with upload / remove. Files are resized to 96px and kept on this device only.
+export function platLogoRows(names) {
+  return names.map((n) => `<div class="sglogo">${platIcon(n)}<span>${esc(n)}</span>${customIcon(n) ? `<button type="button" class="btn sm ghost" data-act="sg-logo-reset" data-ex="${esc(n)}">Remove</button>` : ''}<label class="btn sm ghost sglogo-up">Upload<input type="file" accept="image/*" hidden data-sg-logo="${esc(n)}"></label></div>`).join('');
 }
