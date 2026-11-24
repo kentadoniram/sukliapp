@@ -1,9 +1,8 @@
-Sukli v16.27 - changed files:
+Sukli v16.28 - changed files (since v16.27):
 README.md
 design.css
 sw.js
 js/screens.js
-js/platicons.js
-js/styleguide.js
-js/appearance.js
+js/modelguide.js
+js/modeldocs.js
 js/version.js

@@ -1,5 +1,6 @@
 // Model Computation Guide: every forecasting model with the numbers it is using right now, so each result can be checked by hand.
 import { esc } from './ui.js';
+import { modelDocsHtml } from './modeldocs.js';
 import { sectionTitle } from './components.js';
 import { get, HOME, fmt, monthLabel, thisMonth, accountMap, live } from './core.js';
 import { forecastNext, fixedItems, groupSplit, calendarEffects, categoryTrends, accuracy, safeToSpend, feeModels, monthlySeries, FIXED, SHRINK, CAL, HOLIDAYS, FEE_MODELS } from './finance.js';
@@ -63,6 +64,7 @@ export function modelguide() {
   out.push(sec('12. Calendar effects', `Month-of-year index: each month against the average of the 3 months on each side; median of those ratios per calendar month; needs ${CAL.minMonths}+ months and ${CAL.minLooks}+ looks; halved toward 1 and kept between ${CAL.lo} and ${CAL.hi}. Only then does it adjust the forecast. Weekday index: your spending on each weekday over the last ${CAL.weeks} weeks against the all-day average (shown, not applied). Payday: the day your largest income usually arrives, if steady (spread of 3 days or less).`,
     table(null, [['Months of history', `${ce.months} (${ce.active ? 'month index is on' : `month index needs ${CAL.minMonths}`})`], ['Payday', ce.payday ? `day ${ce.payday.day} (from ${ce.payday.months} months)` : 'not steady or not enough income entries'], ['Next month', `${esc(monthLabel(f.next))}${ce.holiday ? ' · ' + esc(ce.holiday) : ''}`]])
     + table(['Weekday', ...dn], [['Index', ...ce.dowIndex.map((v) => v.toFixed(2))]], 'Weekday index') + (Object.keys(ce.idx).length ? table(['Month', 'Raw', 'Used', 'Looks'], Object.entries(ce.idx).map(([c, x]) => [HOLIDAYS[c] ? `${c} · ${esc(HOLIDAYS[c])}` : c, x.raw.toFixed(2), x.index.toFixed(2), x.looks]), 'Month index') : '')));
+  out.unshift(`<h2 class="mdh">Model documentation</h2>${modelDocsHtml()}<h2 class="mdh">Live numbers</h2>`);
   return `<header class="pagehead"><h2>Model Computation Guide</h2></header><p class="hint">The numbers every forecast uses right now, with how each is computed, so you can check them by hand. Nothing here leaves your device and nothing is guessed by an outside service.</p>${out.join('')}`;
 }
 function median3(a) { const s = a.slice(-3).sort((x, y) => x - y), m = s.length >> 1; return s.length ? (s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2) : 0; }

@@ -346,3 +346,8 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 .sglogo-up { cursor: pointer; }
 .pv:has(.pbadge) { display: flex; gap: var(--sp-1); justify-content: center; } .pv .pbadge { margin-right: 0; }
 .pbadge.pletters.l3 b { font-size: 9px; letter-spacing: -.04em; } .pbadge.pletters.xs.l3 b { font-size: 7px; }
+/* Model documentation (Help) */
+.mdoc { border-top: 1px solid var(--rule); padding: var(--sp-3) 0; } .mdoc > summary { cursor: pointer; display: flex; gap: var(--sp-3); align-items: baseline; justify-content: space-between; }
+.mdoc h5 { margin: var(--sp-4) 0 var(--sp-1); font-size: var(--fz-13); color: var(--ink2); } .mdoc p, .mdoc li { font-size: var(--fz-13); } .mdoc ul, .mdoc ol { margin: 0; padding-left: var(--sp-5); }
+.mdoc code { font-size: var(--fz-12); white-space: pre-wrap; overflow-wrap: anywhere; } .mdoc .mathl { list-style: none; padding-left: 0; } .mdoc .mathl li { margin: var(--sp-1) 0; }
+.mdh { margin: var(--sp-5) 0 var(--sp-2); }
