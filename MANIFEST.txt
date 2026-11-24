@@ -1,14 +1,9 @@
-Sukli v16.29 - changed/added files only (unzip over the project)
-js/entry.js
-js/mlkit.js
-js/modelslab.js
-js/modeldocs.js
-js/app.js
+Sukli v16.30 - notification bell. Changed/added files only (unzip over v16.29)
+js/notify.js
+js/glance.js
 js/screens.js
-js/platicons.js
 js/version.js
 sw.js
 design.css
 README.md
-tests/unit_mlkit.mjs
-tests/ui_test_v16_29_models_lab_tax.py
+tests/ui_test_v16_29_notification_bell.py

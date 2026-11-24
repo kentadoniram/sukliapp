@@ -136,6 +136,7 @@ export function bellBtn(db) {
   return button({ html: `${ic('bell')}${n ? `<i class="bdot" aria-hidden="true">${n > 9 ? '9+' : n}</i>` : ''}`, kind: 'plain', cls: 'iconbtn bellbtn', act: 'glancebell', aria: n ? `Quick Glance, ${n} unread` : 'Quick Glance, all read' }).replace('class="', `class="${n ? 'ringing ' : ''}`);
 }
 export function refreshBell() {
+  try { document.dispatchEvent(new Event('sukli-bell')); } catch { /* old browsers */ }
   const db = get(); if (!db) return; const n = glanceUnread(db).length;
   document.querySelectorAll('[data-act="glancebell"]').forEach((b) => { b.innerHTML = `${ic('bell')}${n ? `<i class="bdot" aria-hidden="true">${n > 9 ? '9+' : n}</i>` : ''}`; b.setAttribute('aria-label', n ? `Quick Glance, ${n} unread` : 'Quick Glance, all read'); b.classList.toggle('ringing', n > 0); });
 }

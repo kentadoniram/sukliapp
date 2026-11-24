@@ -359,3 +359,24 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 .scrollx { overflow-x: auto; max-width: 100%; }
 
 :root { --white: #ffffff; --ink-fixed: #111111; }
+
+/* v16.29 notification bell: one card layout per kind (icon + written label + colour) so budget alerts, debts, cards, bills and the rest are told apart without relying on colour alone */
+:root { --nf-budget: #A8620B; --nf-debt: #B3261E; --nf-card: #2A47A8; --nf-owed: #1E7F4E; --nf-goal: #6B3FA0; --nf-bill: #0F766E; --nf-safe: #8F1F18; --nf-review: #5C6670; --nf-glance: #7A5C00; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --nf-budget: #E0A04A; --nf-debt: #F2877F; --nf-card: #8DA2F5; --nf-owed: #4CC38A; --nf-goal: #C3A2F2; --nf-bill: #5CCFC2; --nf-safe: #FF9E92; --nf-review: #A9B5BF; --nf-glance: #E6C96A; } }
+:root[data-theme="dark"] { --nf-budget: #E0A04A; --nf-debt: #F2877F; --nf-card: #8DA2F5; --nf-owed: #4CC38A; --nf-goal: #C3A2F2; --nf-bill: #5CCFC2; --nf-safe: #FF9E92; --nf-review: #A9B5BF; --nf-glance: #E6C96A; }
+.nflist { display: grid; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.nf { --nfc: var(--nf-review); display: flex; gap: var(--sp-3); align-items: flex-start; padding: var(--sp-3); border: 1px solid var(--rule); border-inline-start: 4px solid var(--nfc); border-radius: var(--r-m); background: var(--sheet); }
+.nf-budget { --nfc: var(--nf-budget); } .nf-debt { --nfc: var(--nf-debt); } .nf-card { --nfc: var(--nf-card); } .nf-owed { --nfc: var(--nf-owed); } .nf-goal { --nfc: var(--nf-goal); } .nf-bill { --nfc: var(--nf-bill); } .nf-safe { --nfc: var(--nf-safe); } .nf-review { --nfc: var(--nf-review); } .nf-glance { --nfc: var(--nf-glance); }
+.nf-ic { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--r-s); color: var(--nfc); background: color-mix(in srgb, var(--nfc) 14%, transparent); }
+.nf-ic .ic { width: 20px; height: 20px; }
+.nf-b { min-width: 0; flex: 1; }
+.nf-top { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; margin-bottom: 2px; }
+.nf-kind { font-size: var(--fz-11); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--nfc); }
+.nf-st, .nf-new { font-size: var(--fz-11); font-weight: 700; padding: 1px 7px; border-radius: var(--r-pill); }
+.nf-st { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+.nf-new { color: var(--ink); background: var(--tint); }
+.nf h4 { margin: 0; font-size: var(--fz-15); line-height: 1.3; }
+.nf p { margin: 2px 0 0; font-size: var(--fz-13); color: var(--ink2); }
+.nf.over { background: color-mix(in srgb, var(--bad) 7%, var(--sheet)); }
+.bellbtn.urgent .bdot, .bellbtn .bdot.urgent { background: var(--bad); }
+.bellbtn .bdot:not(.urgent) { background: var(--warn); }

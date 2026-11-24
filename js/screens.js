@@ -11,7 +11,8 @@ import {
 } from './core.js';
 import { pace, trend, totals, baselineMonths, groupTrend } from './insights.js';
 import { worthInsights, noteShown, dismiss } from './worth.js';
-import { cfg as glanceCfg, TOPICS as GLANCE_TOPICS, KIND_LABEL as GLANCE_KINDS, showGlance, bellBtn } from './glance.js';
+import { cfg as glanceCfg, TOPICS as GLANCE_TOPICS, KIND_LABEL as GLANCE_KINDS, showGlance } from './glance.js';
+import { bellBtn } from './notify.js';
 import { importBluecoins, previewImport, exportCSV, SPENDABLE_TYPES } from './importer.js';
 import { exportSukliCSV } from './sukliCsv.js';
 import { predict } from './predict.js';
@@ -116,7 +117,7 @@ export function monthNav(title, o = {}) {
   return `<header class="top"><div class="hl">${burger()}<div class="monthbox">${button({ html: `${ic('left')}`, kind: 'plain', cls: 'iconbtn', act: 'month', aria: 'Previous month', attr: { 'data-d': '-1' } })}
     <h1>${label}</h1>
     <button class="iconbtn" data-act="month" data-d="1" aria-label="Next month" ${isNow ? 'disabled' : ''}>${ic('right')}</button></div></div>
-    <div class="hact">${helpBtn()}${eyeBtn()}</div></header>`;
+    <div class="hact">${o.bell && get() ? bellBtn(get()) : ''}${helpBtn()}${eyeBtn()}</div></header>`;
 }
 const burger = () => { const n = reviewCount(get()); return `${button({ html: `${ic('menu')}${n ? '<em class="dot" aria-label="items to check"></em>' : ''}`, kind: 'plain', cls: 'iconbtn burger', act: 'menu', aria: 'Open menu' })}`; };
 export const hdr = (title, right = '', o = {}) => o.bar
@@ -1034,8 +1035,8 @@ export function settings(db) {
       <div class="field"><span>Tap feedback</span>${(() => { const c = feedbackCfg(); return `<label class="check"><input type="checkbox" data-fb="haptic" ${c.haptic ? 'checked' : ''}> Vibrate a little when I tap</label><label class="check"><input type="checkbox" data-fb="visual" ${c.visual ? 'checked' : ''}> Flash the button I tapped</label><label class="check"><input type="checkbox" data-fb="sound" ${c.sound ? 'checked' : ''}> Soft click sound</label><label class="check"><input type="checkbox" data-fb="overlay" ${c.overlay !== false ? 'checked' : ''}> Real switch on keys, Save and + (iPhone)</label>${button({ label: 'Test the buzz', kind: 'ghost', size: 'sm', act: 'fb-test' })}<label class="check realsw"><input type="checkbox" switch id="fb-realsw" aria-label="Real switch test"> <span>Tap this real switch. You should feel a small tick. If you do, your phone and its System Haptics are fine.</span></label>`; })()}
         <small class="hint">Some iPhones and browsers cannot vibrate, so the flash (and the click, if you turn it on) tells you the tap worked.</small></div>
       <div class="field"><span>When amounts are hidden (the eye button)</span>${segBtns('hidestyle', 'style', [['dot', 'Dots  ₱•••••'], ['blur', 'Blur']], priv.style)}</div>
-      <div class="field"><span>Card payment reminders</span>${segBtns('remind', 'days', [[3, '3 days'], [5, '5 days'], [7, '7 days'], [10, '10 days']], db.settings.remindDays || 5)}
-        <small class="hint">How early the banner on Home appears before a credit card is due. A web page cannot send alerts when it is closed, so for phone alerts use “Add reminders to my calendar” on the card’s account page.</small></div>
+      <div class="field"><span>Reminders: cards, loans, bills and money owed to you</span>${segBtns('remind', 'days', [[3, '3 days'], [5, '5 days'], [7, '7 days'], [10, '10 days']], db.settings.remindDays || 5)}
+        <small class="hint">How early a reminder appears on Home and in the notification bell before a card, loan, bill or money owed to you is due. A web page cannot send alerts when it is closed, so for phone alerts use “Add reminders to my calendar” on the card’s account page.</small></div>
       <div class="field"><span>Look and feel</span>${button({ label: 'Open the Style Guide', kind: 'ghost', cls: 'wide', act: 'open-styleguide' })}<small class="hint">Colours, fonts, text size, cards, buttons, navigation, charts and platform logos are all chosen there, with a picture of each option.</small></div></section>
     <section><h2>Currency</h2>
       <div class="field"><span>Home currency (totals are shown in this)</span>${button({ html: `${HOME} · ${esc(curName(HOME))}`, kind: 'ghost', cls: 'wide curbtn', act: 'home-cur' })}</div>
