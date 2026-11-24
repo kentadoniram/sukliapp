@@ -14,6 +14,7 @@ with sync_playwright() as p:
     pg.evaluate("location.hash='#/styleguide'"); pg.wait_for_timeout(1000)
     ok('style guide still renders', pg.locator('.sglogo').count()>0)
     pg.evaluate("async()=>{const m=await import('/js/entry.js');m.openEntry({})}"); pg.wait_for_selector('#f-amount'); pg.wait_for_timeout(400)
+    ok('link sits under the amount', pg.evaluate("(()=>{const t=id=>document.getElementById(id).getBoundingClientRect().top;return t('adjrow')>t('amountbox')&&t('adjrow')<=t('acctwhen')})()"))
     pg.fill('#f-amount','1000'); pg.click('.adjlink'); pg.wait_for_selector('#aj-base'); pg.fill('#aj-d','10'); pg.fill('#aj-t','10'); pg.wait_for_timeout(200)
     pg.click('#aj-ok'); pg.wait_for_timeout(400)
     ok('amount becomes 990', pg.input_value('#f-amount').replace(',','') in ('990','990.00'))

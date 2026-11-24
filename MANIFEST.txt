@@ -1,9 +1,6 @@
-Sukli v16.30 - notification bell. Changed/added files only (unzip over v16.29)
-js/notify.js
-js/glance.js
-js/screens.js
+Sukli v16.31 - fix: Add tax or discount position. Changed files only (unzip over v16.30)
+js/entry.js
 js/version.js
 sw.js
-design.css
 README.md
-tests/ui_test_v16_29_notification_bell.py
+tests/ui_test_v16_29_models_lab_tax.py

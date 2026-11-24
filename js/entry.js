@@ -218,8 +218,8 @@ export function openEntry(opts = {}) {
   const focusKeep = (el) => { if (el && document.activeElement !== el) el.focus(); };
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
-    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'reimbrow', 'itemsrow', 'countsrow', 'othrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'cbrow', 'goalrow', 'safety', 'err', 'btns'],
-    transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'safety', 'err', 'btns'],
+    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'adjrow', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'reimbrow', 'itemsrow', 'countsrow', 'othrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'cbrow', 'goalrow', 'safety', 'err', 'btns'],
+    transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'adjrow', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'safety', 'err', 'btns'],
   };
   function arrange() {
     const ids = f.kind === 'transfer' ? ORDER.transfer : ORDER.flow;
