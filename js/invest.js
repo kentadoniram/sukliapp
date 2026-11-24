@@ -17,6 +17,7 @@ import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
 import { pendingReview } from './tradereview.js';
 import { tokenPerformance, earnedUnits, openCost } from './tokenperf.js';
+import { apyAt } from './earn.js';
 import { button, tabs, segChoice, textField, areaSwitch } from './components.js';
 import { ensureUsdt, TRADING_WALLETS } from './tokens.js';
 import { INV, invTabs, CATS, categoryCards, levelTwo, platformCard, productCard, txList, invCalendar } from './invnav.js';
@@ -330,7 +331,9 @@ export function investments(db) {
   // one holding = two rows. Row 1: name (left) and how much you hold (right). Row 2: profit or loss (left) and the value (right), with the home-currency value in brackets.
   const holding = (a, tot) => { const b = bal.get(a.id) || 0, v = val(db, a, b), ok = priced(db, a), p = book.pos.get(a.id), pxh = homeFx(db, a.cur) || 0;
     const ic = assetIcon(a, tickers), nm = a.cur === 'USD' || a.cur === HOME ? esc(a.name) : esc((tickers[a.cur] && tickers[a.cur].ticker) || a.cur);
-    let pnl = '<span class="muted" title="No purchase cost is recorded for this asset">No cost</span>';
+    // coins earned in an Earn wallet have no purchase cost, so the row shows the rate they are earning now instead of "No cost"
+    const apr = a.exchange && walletOf(a) === 'Earn' ? apyAt(a.earn || {}, Date.now()) || +a.apy || 0 : 0;
+    let pnl = apr > 0 ? `<span class="aprtag" title="Current APR of this Earn asset">${+apr.toFixed(2)}% APR</span>` : (a.exchange && walletOf(a) === 'Earn' ? '<span class="muted" title="Set the APR in Subscription Settings">APR not set</span>' : '<span class="muted" title="No purchase cost is recorded for this asset">No cost</span>');
     if (p && p.qty > 0 && p.cost > 0 && pxh) { const un = p.qty * pxh - p.cost, pc = un / p.cost * 100; pnl = `<span class="${un >= 0 ? 'cg' : 'cr'}">${un >= 0 ? '+' : '−'}${money(Math.abs(un))} (${un >= 0 ? '+' : '−'}${Math.abs(pc).toFixed(2)}%)</span>`; }
     const home = invC !== HOME ? ` <small class="hhome">(${esc(f2(v, HOME))})</small>` : '';
     return button({ html: `<i class="badge sm ${ic.coin ? 'coinbadge' : ''}" style="background:${ic.coin ? 'transparent' : ic.manual ? groupColor(a.type) : 'var(--xfer)'}">${ic.html}</i>

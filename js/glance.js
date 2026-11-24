@@ -82,7 +82,7 @@ function groupMove(db, today) {
 }
 function budgetNear(db, today) {
   const ym = today.slice(0, 7), s = budgetStatus(db, ym).filter((x) => x.pct >= 75).sort((a, b) => b.pct - a.pct)[0]; if (!s) return null;
-  const dim = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate(), left = dim - +today.slice(8, 10), over = s.pct >= 100;
+  const dim = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate(), left = dim - +today.slice(8, 10), over = s.spent - s.budget > 0.005;
   return mk({ id: 'budget:' + s.key + ':' + ym + ':' + (over ? 'over' : 'near'), topic: 'goals', tone: over ? 'warn' : 'note', urgency: over ? 0.9 : 0.6 + (s.pct - 75) / 100, weight: 2, headline: over ? `${s.label} is over its budget: ${money(s.spent)} of ${money(s.budget)}.` : `${s.label} has used ${Math.round(s.pct)}% of its budget with ${left} day${left === 1 ? '' : 's'} left.`, sub: over ? `That is ${money(s.spent - s.budget)} over.` : `${money(s.budget - s.spent)} left of ${money(s.budget)}.`, chart: progressSvg(Math.min(100, s.pct)), go: '#/budget', goLabel: 'Open budgets' });
 }
 function goalNear(db, today) {

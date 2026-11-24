@@ -56,6 +56,8 @@ import { compareCard } from './compare.js';
 import { safeToSpend } from './safe.js';
 import './inputlog.js';
 import { budgetBanner } from './budgetsetup.js';
+// the regular budget notice folds away like Quick Glance, so it can be hidden when it is not wanted; the bell still lists every open alert
+const budgetBlock = (db) => { const b = budgetBanner(db); return b ? coll('h-budget', 'Budget alert', b, '', true) : ''; };
 import { versionText } from './version.js';
 import { rollingSummary, rollingAvg, dailySpend, dailyAverages, today as todayStr } from './rolling.js';
 import { buildGraph, clusters, neighbourhood, matches, explain, edgeText } from './simgraph.js';
@@ -490,7 +492,7 @@ function homeSection(id, c) {
         <div class="curs">${chips || '<span class="muted">No balances yet</span>'}</div>${miss}</section>`;
       return `<section class="spendable"><div><span>Spendable now</span><b>${money(sp.total)}</b></div><div class="curs">${chips || '<span class="muted">No balances yet</span>'}</div>
       ${miss}${(() => { if (appMode() === 'simple') return ''; return safeOn ? `${button({ html: `<span>Safe to spend<small> after ${money(sf.committed)} already owed</small></span><b>${money(sf.safe)}</b>`, kind: 'plain', cls: 'safeto', act: 'safe-info' })}` : ''; })()}</section>`; }
-    case 'alerts': { const n = reviewCount(db); return `${reminderBanner(db)}${goalBanner(db)}${budgetBanner(db)}${n ? `<a class="banner" href="#/review"><strong>${n} ${n === 1 ? 'entry needs' : 'entries need'} a quick check</strong><span>Confirm the guessed categories</span>${ic('right')}</a>` : ''}`; }
+    case 'alerts': { const n = reviewCount(db); return `${reminderBanner(db)}${goalBanner(db)}${budgetBlock(db)}${n ? `<a class="banner" href="#/review"><strong>${n} ${n === 1 ? 'entry needs' : 'entries need'} a quick check</strong><span>Confirm the guessed categories</span>${ic('right')}</a>` : ''}`; }
     case 'insights': return worthCard(db);
     case 'usual': return usualCard(db);
     case 'unusual': return unusualCard(db);

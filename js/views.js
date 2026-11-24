@@ -13,7 +13,7 @@ import { tabIds, ui, hdr, backHdr, monthNav, strip, money, row, gbar, coll, tren
 import { openEntry, openCategoryForm } from './entry.js';
 import { forecastNext, behaviorNotes, detectRecurring, nextLog, accuracy, safeToSpend, monthlySeries } from './finance.js';
 import { reminderBanner } from './accpage.js';
-import { alertPct, budgetAlerts, budgetStatus, classCard } from './budgetsetup.js';
+import { alertPct, budgetAlerts, budgetStatus, classCard, isOver, raiseAdvice } from './budgetsetup.js';
 import { needsCard } from './dailyneeds.js';
 import { ACT, sheet, ic, esc, confirmDialog, promptDialog, pushOverlay, toast } from './ui.js';
 
@@ -231,6 +231,12 @@ function openDay(date) {
 // Budget: interactive donut, percentages, expandable rows, warnings
 // =====================================================================
 // tapping a slice or a warning only changes the highlight, the centre text and the open row: nothing is redrawn, so nothing can flicker
+// "View budget" from an alert or the bell: open the Budget page on the group that holds the category, ready to read
+ACT['nf-budget'] = (el) => {
+  ui.pieBy = 'group'; ui.pie = el.dataset.g || ''; ui.month = thisMonth();
+  if (location.hash === '#/budget') render(); else location.hash = '#/budget';
+  setTimeout(() => { const d = ui.pie && document.querySelector(`details.pierow[data-k="${CSS.escape(ui.pie)}"]`); if (d) { d.open = true; d.scrollIntoView({ block: 'center', behavior: 'smooth' }); } }, 300);
+};
 ACT.slice = (el) => {
   ui.pie = ui.pie === el.dataset.k ? '' : el.dataset.k;
   const svg = document.querySelector('svg.donut:not(.sm)');
@@ -257,6 +263,15 @@ export function budget(db) {
   const ids = scopeIds(db, ui.bscope || '');
   return withScope(ids, () => budgetInner(db)).replace('<!--scope-->', `<label class="field bscope"><span>Spending from</span><select data-bscope aria-label="Platform, wallet or account">${scopeOptionsHtml(db, ui.bscope || '', esc)}</select></label>`);
 }
+// category budgets inside a group: each with its status, and, when passed, a suggestion based on what that category usually costs (never changed automatically)
+function catBudgetLines(db, ym, group) {
+  const rows = budgetStatus(db, ym).filter((c) => c.kind === 'cat' && c.group === group); if (!rows.length) return '';
+  return `<div class="catbud">${rows.map((c) => { const ov = isOver(c.spent, c.budget), adv = ov ? raiseAdvice(db, c, ym) : null;
+    return `<div class="cbrow"><div class="cbtop"><span>${esc(c.label)}</span><em class="bchip ${ov ? 'over' : c.pct >= 100 ? 'warn' : c.pct >= alertPct(db) ? 'warn' : 'ok'}">${ov ? 'Over' : c.pct >= 100 ? 'At limit' : Math.round(c.pct) + '%'}</em></div>
+      <small>${money(c.spent)} of ${money(c.budget)}${ov ? ` · ${money(c.spent - c.budget)} over` : ` · ${money(c.budget - c.spent)} left`}</small>
+      ${adv ? `<p class="hint cbadv">${adv.raise ? `Suggestion: you usually spend about ${money(adv.usual)} a month here (last ${adv.months} month${adv.months === 1 ? '' : 's'}). A budget of ${money(adv.suggest)} would fit.` : `Your usual month here (${money(adv.usual)}) is within the budget, so this month looks unusual.`} Nothing was changed.</p>` : ''}</div>`; }).join('')}
+    <div class="btnrow left">${button({ label: 'Change category budgets', kind: 'ghost', size: 'sm', act: 'budget-setup' })}</div></div>`;
+}
 function budgetInner(db) {
   const ym = ui.month, cats = catMap(db);
   const by = ui.pieBy || 'group';
@@ -272,7 +287,7 @@ function budgetInner(db) {
   const warns = [];
   for (const b of budgets) {
     const v = out.by.get(b.group) || 0, r = v / b.amount;
-    if (r >= 1) warns.push({ tone: 'over', g: b.group, text: `${b.group}: over budget by ${R(v - b.amount)} (${Math.round(r * 100)}% used).` });
+    if (isOver(v, b.amount)) warns.push({ tone: 'over', g: b.group, text: `${b.group}: over budget by ${R(v - b.amount)} (${Math.round(r * 100)}% used).` });
     else if (r >= lim) warns.push({ tone: 'warn', g: b.group, text: `${b.group}: ${Math.round(r * 100)}% of the budget used, ${R(b.amount - v)} left.` });
     else if (p.live && p.day >= 5 && v / p.day * p.dim > b.amount) {
       const hit = Math.ceil(b.amount / (v / p.day));
@@ -314,10 +329,12 @@ function budgetInner(db) {
     let chip = '', inner = '';
     if (by === 'group') {
       const b = budgetOf(db, x.key), r = b ? x.v / b : 0;
-      chip = b ? `<em class="bchip ${r >= 1 ? 'over' : r >= 0.8 ? 'warn' : 'ok'}">${r >= 1 ? 'Over' : r >= 0.8 ? 'Close' : 'On track'}</em>` : '';
+      const ov = b && isOver(x.v, b);
+      chip = b ? `<em class="bchip ${ov ? 'over' : r >= 0.8 ? 'warn' : 'ok'}">${ov ? 'Over' : r >= 1 ? 'At limit' : r >= 0.8 ? 'Close' : 'On track'}</em>` : '';
       const subs = [...monthParts(db, ym).filter((q) => q.kind === 'expense' && q.group === x.key).reduce((m, q) => m.set(q.cat || 'none', (m.get(q.cat || 'none') || 0) + q.v), new Map()).entries()].sort((a, b2) => b2[1] - a[1]);
-      inner = `${b ? `<div class="bprog"><div class="track"><div class="fill ${r >= 1 ? 'over' : r >= 0.8 ? 'warn' : ''}" style="width:${Math.min(100, r * 100)}%"></div></div>
-          <small>${money(x.v)} of ${money(b)} · ${Math.round(r * 100)}% used · ${r >= 1 ? money(x.v - b) + ' over' : money(b - x.v) + ' left'}</small></div>` : '<p class="hint">No budget for this group yet.</p>'}
+      inner = `${b ? `<div class="bprog"><div class="track"><div class="fill ${ov ? 'over' : r >= 0.8 ? 'warn' : ''}" style="width:${Math.min(100, r * 100)}%"></div></div>
+          <small>${money(x.v)} of ${money(b)} · ${Math.round(r * 100)}% used · ${ov ? money(x.v - b) + ' over' : money(b - x.v) + ' left'}</small></div>` : '<p class="hint">No budget for this group yet.</p>'}
+        ${catBudgetLines(db, ym, x.key)}
         <ul class="catlist">${subs.map(([id, v]) => `<li><span>${esc((cats.get(id) || { name: 'No category' }).name)} <small class="pct">${x.v ? Math.round(v / x.v * 100) : 0}%</small></span><b>${money(v)}</b></li>`).join('')}</ul>
         <div class="btnrow left">${button({ label: 'See entries', kind: 'ghost', size: 'sm', act: 'grp', attr: { 'data-g': x.key, 'data-k': 'expense' } })}
           ${button({ html: `${b ? 'Change budget' : 'Set a monthly budget'}`, kind: 'ghost', size: 'sm', act: 'budget', attr: { 'data-g': x.key } })}${b ? `${button({ label: 'Remove', kind: 'ghost', size: 'sm', act: 'budget-clear', attr: { 'data-g': x.key } })}` : ''}</div>`;

@@ -5,7 +5,7 @@ def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_context(service_workers='block',viewport={'width':390,'height':844}).new_page(); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached'); pg.set_input_files('#first-file','/home/claude/Transactions.csv'); pg.wait_for_timeout(1500)
-    pg.evaluate("location.hash='#/modelslab'"); pg.wait_for_timeout(3000)
+    pg.evaluate("location.hash='#/modelslab'"); pg.wait_for_selector('section.sgsec'); pg.wait_for_timeout(2500)
     ok('lab has 5 sections', pg.locator('section.sgsec').count()==5)
     ok('lab has no overflow', not pg.evaluate("document.documentElement.scrollWidth>window.innerWidth+1"))
     ok('lab shows no failed model', pg.evaluate("!document.body.innerText.includes('could not run')"))

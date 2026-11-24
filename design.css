@@ -380,3 +380,25 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 .nf.over { background: color-mix(in srgb, var(--bad) 7%, var(--sheet)); }
 .bellbtn.urgent .bdot, .bellbtn .bdot.urgent { background: var(--bad); }
 .bellbtn .bdot:not(.urgent) { background: var(--warn); }
+
+/* v16.32 budget: category budget lines inside a group row */
+.catbud { display: grid; gap: var(--sp-2); margin: var(--sp-2) 0; padding: var(--sp-2) 0; border-top: 1px solid var(--rule); }
+.cbrow small { color: var(--ink2); }
+.cbtop { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); font-weight: 600; }
+.cbadv { margin: 2px 0 0; }
+
+/* v16.32 Holdings > Overview: the value column (two rows) sits a little further right, and the name column keeps clear of it */
+.ovrow .collhead h2 { gap: var(--sp-5); }
+.ovrow .ovname { padding-inline-end: var(--sp-3); }
+.ovrow .gsum2 { margin-inline-end: calc(-1 * var(--sp-2)); min-width: 6.5em; }
+.aprtag { color: var(--in); font-weight: 600; }
+
+/* v16.32 tags: # tags are lighter so they do not compete with amounts and names */
+.tagbar .chip, .tagchips .chip { background: color-mix(in srgb, var(--line) 9%, transparent); color: color-mix(in srgb, var(--line) 72%, var(--ink2)); border-color: color-mix(in srgb, var(--line) 22%, transparent); font-weight: 500; }
+.tagbar .chip.on, .tagchips .chip.on { background: color-mix(in srgb, var(--line) 18%, transparent); color: var(--line); border-color: color-mix(in srgb, var(--line) 40%, transparent); }
+.pill.tagpill { background: color-mix(in srgb, var(--line) 12%, transparent); color: color-mix(in srgb, var(--line) 75%, var(--ink2)); font-weight: 500; }
+.rtags { color: color-mix(in srgb, var(--line) 62%, var(--ink2)); font-weight: 400; }
+
+/* v16.32 tax sheet: smaller check box */
+#adjf .chk input[type=checkbox], #adjf .check input[type=checkbox], .taxbox .check input[type=checkbox] { width: 16px; height: 16px; min-height: 16px; flex: none; accent-color: var(--line); }
+#adjf .chk, #adjf .check { gap: var(--sp-2); font-size: var(--fz-13); }

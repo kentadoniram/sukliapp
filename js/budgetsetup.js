@@ -11,6 +11,8 @@ const LUXURY = /travel|vacation|trip|hotel|flight|gadget|luxur|jewel|beauty|salo
 // a first guess from the names; the user can change any of them
 export const guessClass = (c) => { const n = `${c.group || ''} ${c.name || ''}`; if (LUXURY.test(n)) return 'luxury'; if (NEED.test(n)) return 'need'; return 'want'; };
 export const classOf = (c) => (c && CLASSES[c.need] ? c.need : c ? guessClass(c) : 'want');
+// spending is over a budget only when it goes past it; reaching exactly 100% is on the line, not over
+export const isOver = (spent, budget) => spent - budget > 0.005;
 export const alertPct = (db) => { const n = Number(db.settings.budgetAlertPct); return n >= 1 && n <= 150 ? n : 80; };
 const money = (n) => fmt(n, HOME);
 
@@ -28,20 +30,31 @@ export function budgetStatus(db, ym = thisMonth()) {
   }
   return out;
 }
+// Advice for a budget that has been passed: what this category (or group) usually costs, taken from up to the last 3 months that had spending in it.
+// It is only a recommendation: nothing here changes a budget. raise = the usual month is above the current budget, so the budget itself is probably too low.
+export function raiseAdvice(db, x, ym = thisMonth()) {
+  const vals = [];
+  for (let i = 1; i <= 3; i++) { const v = monthParts(db, shiftMonth(ym, -i)).filter((p) => p.kind === 'expense' && (x.kind === 'cat' ? 'c:' + p.cat === x.key : p.group === x.group)).reduce((t, p) => t + p.v, 0); if (v > 0) vals.push(v); }
+  if (!vals.length) return null;
+  const usual = vals.reduce((a, b) => a + b, 0) / vals.length, step = usual >= 10000 ? 1000 : usual >= 1000 ? 100 : 10, suggest = Math.ceil(usual / step) * step;
+  return { usual, suggest, months: vals.length, raise: suggest > x.budget + 0.005 };
+}
+const adviceText = (a, x) => (!a ? '' : a.raise ? ` Over the last ${a.months} month${a.months === 1 ? '' : 's'} you usually spent about ${money(a.usual)} here, so a budget of ${money(a.suggest)} would fit. This is only a suggestion; nothing was changed.` : ` Your usual month here is about ${money(a.usual)}, within the budget, so this month looks unusual rather than the budget being too low.`);
 // what to warn about now: everything at or past the alert percentage. Needs get a gentler message, so overspending on essentials is not made to feel like a fault.
 export function budgetAlerts(db, ym = thisMonth()) {
   const lim = alertPct(db);
   return budgetStatus(db, ym).filter((x) => x.pct >= lim).sort((a, b) => b.pct - a.pct).map((x) => {
-    const over = x.pct >= 100, p = Math.round(x.pct), left = x.budget - x.spent;
+    const over = isOver(x.spent, x.budget), p = Math.round(x.pct), left = x.budget - x.spent;
     const text = x.cls === 'need'
-      ? (over ? `${x.label} is ${p}% of its budget. It is a need, so this is not overspending on wants; consider raising the budget to ${money(Math.ceil(x.spent / 100) * 100)}.` : `${x.label} (need) is at ${p}% of its budget, ${money(left)} left.`)
+      ? (over ? `${x.label} is ${p}% of its budget. It is a need, so this is not overspending on wants.` : `${x.label} (need) is at ${p}% of its budget, ${money(left)} left.`)
       : (over ? `${x.label} (${CLASSES[x.cls].toLowerCase()}) is over budget by ${money(-left)} (${p}% used).` : `${x.label} (${CLASSES[x.cls].toLowerCase()}) is at ${p}%: ${money(left)} left of ${money(x.budget)}.`);
-    return { ...x, over, tone: x.cls === 'need' ? 'info' : over ? 'over' : 'warn', text };
+    const advice = over ? raiseAdvice(db, x, ym) : null;
+    return { ...x, over, advice, tone: x.cls === 'need' ? 'info' : over ? 'over' : 'warn', text: text + adviceText(advice, x) };
   }).concat(ym === thisMonth() ? [needsAlert(db)].filter(Boolean) : []);
 }
 export function budgetBanner(db) {
   const a = budgetAlerts(db).filter((x) => x.kind === 'cat' || x.kind === 'group').slice(0, 2); if (!a.length) return '';
-  return `<a class="banner" href="#/budget"><strong>Budget alert</strong><span>${a.map((x) => esc(x.text)).join(' ')}</span></a>`;
+  return `<a class="banner" href="#/budget" data-act="nf-budget" data-g="${esc(a[0].group || '')}"><strong>Budget alert</strong><span>${a.map((x) => esc(x.text)).join(' ')}</span></a>`;
 }
 // what you spent this month by need / want / luxury, next to what you budgeted for each
 export function classSplit(db, ym = thisMonth()) {

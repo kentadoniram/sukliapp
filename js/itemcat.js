@@ -17,6 +17,8 @@ const CONCEPTS = [
   ['meal', /弁当|おにぎり|サンド|寿司|すし|丼|惣菜|フライ|メンチ|コロッケ|唐揚|からあげ|カツ|サラダ|うどん|そば|ラーメン|パスタ|カレー|餃子|bento|sandwich|sushi|salad|noodle|curry/i, ['home meals', 'grocery', 'lunch']],
   ['staple', /米|卵|たまご|豆腐|納豆|パン|ヨーグルト|チーズ|バター|醤油|味噌|油|砂糖|塩|調味|小麦粉|ケチャップ|マヨ|だし|rice|egg|tofu|bread|yogurt|cheese|butter|sauce|flour|sugar/i, ['grocery', 'home meals']],
 ];
+// words of an item name, without numbers, units and one-letter bits
+const words = (k) => String(k).split(/[^a-z\u00c0-\u024f\u3040-\u30ff\u4e00-\u9fff]+/i).filter((w) => w.length > 1 && !/^(ml|g|kg|l|pc|pcs|x)$/i.test(w));
 const find = (cats, pats) => { for (const p of pats) { const c = cats.find((x) => x.name.toLowerCase().includes(p)); if (c) return c; } return null; };
 
 export function itemCatIndex(db) {
@@ -32,6 +34,11 @@ export function guessItemCat(db, name, index = itemCatIndex(db)) {
   const k = norm(n);
   let m = index.get(k), how = 'you categorised this item before';
   if (!m) { let best = 0, bk = null; for (const [kk] of index) { const s = similarity(k, kk); if (s > best) { best = s; bk = kk; } } if (best >= 0.85) { m = index.get(bk); how = 'like an item you categorised before'; } }
+  if (!m) {   // same words in a different order or size ("Asahi Super Dry 350ml" vs "Super Dry Asahi 500ml"): count shared words, ignoring numbers and sizes
+    const tk = words(k); let best = 0, bk = null;
+    if (tk.length) for (const [kk] of index) { const o = words(kk); if (!o.length) continue; const sh = tk.filter((w) => o.includes(w)).length, sc = sh / Math.max(tk.length, o.length); if (sh >= 1 && sc > best) { best = sc; bk = kk; } }
+    if (best >= 0.5) { m = index.get(bk); how = 'shares words with an item you categorised before'; }
+  }
   if (m) { const top = [...m.entries()].sort((a, b) => b[1] - a[1])[0]; if (cats.some((c) => c.id === top[0])) return { cat: top[0], conf: Math.min(0.95, 0.7 + 0.05 * top[1]), how }; }
   for (const [concept, re, names] of CONCEPTS) {
     if (!re.test(n.normalize('NFKC'))) continue;
@@ -65,3 +72,21 @@ export function knownItemNames(db, max = 80) {
 }
 // remember a correction made in the scanner
 export function learnItemCat(d, name, catId) { const k = norm(name); if (!k || !catId) return; d.settings.itemCats = { ...(d.settings.itemCats || {}), [k]: catId }; }
+
+// what to offer while typing an item: names that START with what you typed first, then names that CONTAIN it, then close spellings; each group most used first.
+// With nothing typed yet it leans on the entry itself (the same "What is it?" or category) so the list is already relevant.
+export function rankItemNames(db, text, what = '', catId = '', skip = [], max = 12) {
+  const t = norm(text || ''), counts = new Map(), skipSet = new Set(skip.map((x) => norm(x)).filter(Boolean));
+  for (const x of db.txs || []) if (!x.deleted && x.items) for (const i of x.items) { const k = norm(i.n || ''); if (!k || i.tax || i.wd) continue; const r = counts.get(k) || { n: i.n, c: 0, ctx: 0 }; r.c++; if ((what && norm(x.name || '') === norm(what)) || (catId && x.cat === catId)) r.ctx++; r.n = i.n; counts.set(k, r); }
+  const all = [...counts.entries()].filter(([k]) => !skipSet.has(k) && k !== t), by = (a, b) => b[1].ctx - a[1].ctx || b[1].c - a[1].c;
+  if (t.length < 1) return all.sort(by).slice(0, max).map(([, r]) => r.n);
+  const pre = all.filter(([k]) => k.startsWith(t)).sort(by), has = all.filter(([k]) => !k.startsWith(t) && (k.includes(t) || words(k).some((w) => w.startsWith(t)))).sort(by),
+    close = t.length >= 3 ? all.filter(([k]) => !k.includes(t) && similarity(k, t) >= 0.6).sort((a, b) => similarity(b[0], t) - similarity(a[0], t)) : [];
+  return [...pre, ...has, ...close].slice(0, max).map(([, r]) => r.n);
+}
+// the latest price you paid for an item with exactly this name (to pre-fill the amount); '' when unknown
+export function lastItemPrice(db, name) {
+  const k = norm(name || ''); if (!k) return ''; let best = null;
+  for (const t of db.txs || []) if (!t.deleted && t.items) for (const i of t.items) if (!i.tax && !i.wd && norm(i.n || '') === k && i.amt && (!best || t.date > best.d)) best = { d: t.date, p: i.amt };
+  return best ? best.p : '';
+}

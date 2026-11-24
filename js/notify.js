@@ -24,7 +24,7 @@ export function notifications(db, today = nowStamp().slice(0, 10)) {
   const win = db.settings.remindDays || 3, out = [], add = (x) => out.push({ tone: 'info', urgency: 5, ...x });
   const guard = (fn) => { try { fn(); } catch { /* one source failing must never hide the others */ } };
   guard(() => { for (const x of budgetAlerts(db)) {
-    if (x.kind === 'cat' || x.kind === 'group') add({ id: 'budget:' + x.key, kind: 'budget', tone: x.tone === 'over' ? 'over' : x.tone === 'warn' ? 'warn' : 'info', urgency: x.over ? 1 : x.tone === 'info' ? 5 : 3, title: `${x.label} ${x.over ? 'is over budget' : 'is near its budget'}`, text: x.text, go: '#/budget', goLabel: 'View budget' });
+    if (x.kind === 'cat' || x.kind === 'group') add({ id: 'budget:' + x.key, kind: 'budget', tone: x.tone === 'over' ? 'over' : x.tone === 'warn' ? 'warn' : 'info', urgency: x.over ? 1 : x.tone === 'info' ? 5 : 3, title: `${x.label} ${x.over ? 'is over budget' : 'is near its budget'}`, text: x.text, fn: 'nf-budget', attr: { 'data-g': x.group || '' }, goLabel: 'View budget' });
     else if (x.text) add({ id: 'budget:' + (x.key || 'needs'), kind: 'budget', tone: 'info', urgency: 5, title: 'Daily needs', text: x.text, go: '#/budget', goLabel: 'View budget' });
   } });
   guard(() => { for (const r of cardReminders(db, win)) {

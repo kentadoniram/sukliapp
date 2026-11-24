@@ -20,7 +20,7 @@ import { pickOnMap } from './mappick.js';
 import { goalChoices } from './goaltx.js';
 import { suggestBranch, branchFar } from './merchantset.js';
 import { splitOf, openSplit, deleteWithMates } from './splitbill.js';
-import { guessItemCat, itemCatIndex, itemsForWhat, knownItemNames } from './itemcat.js';
+import { guessItemCat, itemCatIndex, itemsForWhat, knownItemNames, rankItemNames, lastItemPrice } from './itemcat.js';
 import { cachedAddress, lookupAddress, saveAddress } from './geo.js';
 import { isLiability, isOwed, lockInfo, periodFor, addDay } from './finance.js';
 import { companies as companiesOf, lastCompany as lastCompanyOf, rememberCompany } from './reimburse.js';
@@ -435,46 +435,52 @@ export function openEntry(opts = {}) {
   function recalcFee() { if (f.feeMode === 'pct') { const v = r9(((num(f.amount) || 0) * (num(f.feePct) || 0)) / 100); f.fee = v > 0 ? String(v) : ''; } }
 
   // ---- tax or discount on a plain entry (v16.29): the price you type is the base; the entry is saved at the final total, and the parts are kept so Edit can show them again ----
-  function adjMath(base, disc, tax) {
+  function adjMath(base, disc, tax, fees = { x: { mode: 'pct', v: '' }, o: '' }) {
     const k = 10 ** (CUR[(acctOf(f.acct) || {}).cur] || { dec: 2 }).dec, r = (x) => Math.round(x * k) / k;
     const d = r(Math.min(Math.max(disc.mode === 'pct' ? base * (num(disc.v) || 0) / 100 : (num(disc.v) || 0), 0), base)), after = r(base - d), tv = num(tax.v) || 0;
-    const inc = !!tax.incl, t = r(tax.mode === 'pct' ? (inc ? after - after / (1 + tv / 100) : after * tv / 100) : tv);
-    return { discAmt: d, taxAmt: t, total: inc ? after : r(after + t) };
+    const inc = !!tax.incl, t = r(tax.mode === 'pct' ? (inc ? after - after / (1 + tv / 100) : after * tv / 100) : tv), goods = inc ? after : r(after + t);
+    // credit card charges are added on top of what the shop charges: a cross-border (foreign transaction) fee, as a percent of the charge or an amount, and any other fee
+    const fx = r(Math.max(fees.x.mode === 'pct' ? goods * (num(fees.x.v) || 0) / 100 : (num(fees.x.v) || 0), 0)), fo = r(Math.max(num(fees.o) || 0, 0));
+    return { discAmt: d, taxAmt: t, feeX: fx, feeO: fo, feeAmt: r(fx + fo), total: r(goods + fx + fo) };
   }
+  const isCard = () => (acctOf(f.acct) || {}).type === 'card';
   function renderAdj() {
     const el = $f('adjrow'); if (!el) return;
     if (f.kind === 'transfer' || f.showItems || f.debt) { el.innerHTML = ''; return; }
     if (f.adj && Math.abs((num(f.amount) || 0) - f.adj.total) > 1e-9) f.adj = null;   // you typed a different total: the breakdown no longer matches
     const cur = (acctOf(f.acct) || {}).cur || HOME, a = f.adj;
-    el.innerHTML = a ? button({ html: `<span>Price ${esc(fmt(a.base, cur))}${a.discAmt ? ` − discount ${esc(fmt(a.discAmt, cur))}` : ''}${a.taxAmt ? ` ${a.tax.incl ? 'incl.' : '+'} tax ${esc(fmt(a.taxAmt, cur))}` : ''}</span><b>Edit</b>`, kind: 'plain', cls: 'adjbtn on', e: 'adj-open' })
-      : button({ label: 'Add tax or discount', kind: 'link', cls: 'adjlink', e: 'adj-open' });
+    el.innerHTML = a ? button({ html: `<span>Price ${esc(fmt(a.base, cur))}${a.discAmt ? ` − discount ${esc(fmt(a.discAmt, cur))}` : ''}${a.taxAmt ? ` ${a.tax.incl ? 'incl.' : '+'} tax ${esc(fmt(a.taxAmt, cur))}` : ''}${a.feeAmt ? ` + fees ${esc(fmt(a.feeAmt, cur))}` : ''}</span><b>Edit</b>`, kind: 'plain', cls: 'adjbtn on', e: 'adj-open' })
+      : button({ label: isCard() ? 'Add tax, discount or card fees' : 'Add tax or discount', kind: 'link', cls: 'adjlink', e: 'adj-open' });
   }
   function openAdj() {
-    const cur = (acctOf(f.acct) || {}).cur || HOME, a0 = f.adj, st = { base: a0 ? String(a0.base) : f.amount, disc: a0 ? { ...a0.disc } : { mode: 'pct', v: '' }, tax: a0 ? { ...a0.tax } : { mode: 'pct', v: '', incl: false } };
+    const cur = (acctOf(f.acct) || {}).cur || HOME, a0 = f.adj, st = { base: a0 ? String(a0.base) : f.amount, disc: a0 ? { ...a0.disc } : { mode: 'pct', v: '' }, tax: a0 ? { ...a0.tax } : { mode: 'pct', v: cur === 'JPY' ? '8' : '', incl: false }, fees: a0 && a0.fees ? { x: { ...a0.fees.x }, o: a0.fees.o } : { x: { mode: 'pct', v: '' }, o: '' } };   // yen: the reduced 8% (food and daily needs) is filled in; change it to 10% for the standard rate
     const first8 = cur === 'JPY';
     const s2 = sheet(`<div id="adjf">
       <div class="field"><span>Price before tax and discount</span><input id="aj-base" inputmode="decimal" autocomplete="off" value="${esc(st.base)}"></div>
       <div class="taxbox"><div class="taxhead"><span class="feelab">Discount</span></div><div id="aj-dseg"></div><input id="aj-d" inputmode="decimal" autocomplete="off" placeholder="e.g. 10" value="${esc(st.disc.v)}"></div>
       <div class="taxbox"><div class="taxhead"><span class="feelab">Tax</span></div><div id="aj-tseg"></div>${first8 ? `<div class="chips" id="aj-tq">${button({ label: '8% food', kind: 'chip', attr: { 'data-q': '8' } })}${button({ label: '10%', kind: 'chip', attr: { 'data-q': '10' } })}</div>` : ''}<input id="aj-t" inputmode="decimal" autocomplete="off" placeholder="e.g. 10" value="${esc(st.tax.v)}"><label class="chk"><input type="checkbox" id="aj-inc" ${st.tax.incl ? 'checked' : ''}> The price already includes the tax</label></div>
+      ${isCard() ? `<div class="taxbox"><div class="taxhead"><span class="feelab">Credit card charges</span></div><small class="muted">Added on top of the price. Check your statement for the exact fee.</small>
+        <div class="field"><span>Cross-border (foreign transaction) fee</span><div id="aj-xseg"></div><input id="aj-x" inputmode="decimal" autocomplete="off" placeholder="e.g. 1.6" value="${esc(st.fees.x.v)}" aria-label="Cross-border fee"></div>
+        <div class="field"><span>Other fees (amount)</span><input id="aj-o" inputmode="decimal" autocomplete="off" placeholder="e.g. 150" value="${esc(st.fees.o)}" aria-label="Other fees"></div></div>` : ''}
       <p class="hint" id="aj-res"></p>
-      <div class="btnrow">${button({ label: 'Apply', kind: 'primary', id: 'aj-ok' })}${a0 ? button({ label: 'Remove', kind: 'ghost', id: 'aj-rm' }) : ''}</div></div>`, { title: 'Tax or discount' });
+      <div class="btnrow">${button({ label: 'Apply', kind: 'primary', id: 'aj-ok' })}${a0 ? button({ label: 'Remove', kind: 'ghost', id: 'aj-rm' }) : ''}</div></div>`, { title: isCard() ? 'Tax, discount and card fees' : 'Tax or discount' });
     const q = (id) => s2.el.querySelector(id), cu = (x) => esc(fmt(x, cur));
-    const segs = () => { q('#aj-dseg').innerHTML = seg({ options: [{ label: 'Percent %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: st.disc.mode, act: 'aj-dm', aria: 'Discount type' }); q('#aj-tseg').innerHTML = seg({ options: [{ label: 'Rate %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: st.tax.mode, act: 'aj-tm', aria: 'Tax type' }); };
-    const calc = () => { const base = num(st.base) || 0, m = adjMath(base, st.disc, st.tax); q('#aj-res').innerHTML = base > 0 ? `${cu(base)}${m.discAmt ? ` − discount ${cu(m.discAmt)}` : ''}${m.taxAmt && !st.tax.incl ? ` + tax ${cu(m.taxAmt)}` : ''}${m.taxAmt && st.tax.incl ? ` (includes tax ${cu(m.taxAmt)})` : ''} = <b>${cu(m.total)}</b>` : 'Type the price to see the total.'; return m; };
+    const segs = () => { q('#aj-dseg').innerHTML = seg({ options: [{ label: 'Percent %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: st.disc.mode, act: 'aj-dm', aria: 'Discount type' }); q('#aj-tseg').innerHTML = seg({ options: [{ label: 'Rate %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: st.tax.mode, act: 'aj-tm', aria: 'Tax type' }); if (q('#aj-xseg')) q('#aj-xseg').innerHTML = seg({ options: [{ label: 'Percent %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: st.fees.x.mode, act: 'aj-xm', aria: 'Cross-border fee type' }); };
+    const calc = () => { const base = num(st.base) || 0, m = adjMath(base, st.disc, st.tax, st.fees); q('#aj-res').innerHTML = base > 0 ? `${cu(base)}${m.discAmt ? ` − discount ${cu(m.discAmt)}` : ''}${m.taxAmt && !st.tax.incl ? ` + tax ${cu(m.taxAmt)}` : ''}${m.taxAmt && st.tax.incl ? ` (includes tax ${cu(m.taxAmt)})` : ''}${m.feeX ? ` + cross-border fee ${cu(m.feeX)}` : ''}${m.feeO ? ` + other fees ${cu(m.feeO)}` : ''} = <b>${cu(m.total)}</b>` : 'Type the price to see the total.'; return m; };
     segs(); calc();
-    s2.el.addEventListener('input', (e) => { if (e.target.id === 'aj-base') st.base = e.target.value; else if (e.target.id === 'aj-d') st.disc.v = e.target.value; else if (e.target.id === 'aj-t') st.tax.v = e.target.value; else if (e.target.id === 'aj-inc') return; calc(); });
+    s2.el.addEventListener('input', (e) => { if (e.target.id === 'aj-base') st.base = e.target.value; else if (e.target.id === 'aj-d') st.disc.v = e.target.value; else if (e.target.id === 'aj-t') st.tax.v = e.target.value; else if (e.target.id === 'aj-x') st.fees.x.v = e.target.value; else if (e.target.id === 'aj-o') st.fees.o = e.target.value; else if (e.target.id === 'aj-inc') return; calc(); });
     s2.el.addEventListener('change', (e) => { if (e.target.id === 'aj-inc') { st.tax.incl = e.target.checked; calc(); } });
     s2.el.addEventListener('click', (e) => {
       const b = e.target.closest('button'); if (!b) return;
       const act = b.dataset.act, v = b.dataset.v;
-      if (act === 'aj-dm') { st.disc.mode = v; segs(); calc(); } else if (act === 'aj-tm') { st.tax.mode = v; segs(); calc(); }
+      if (act === 'aj-dm') { st.disc.mode = v; segs(); calc(); } else if (act === 'aj-tm') { st.tax.mode = v; segs(); calc(); } else if (act === 'aj-xm') { st.fees.x.mode = v; segs(); calc(); }
       else if (b.dataset.q) { st.tax = { ...st.tax, mode: 'pct', v: b.dataset.q }; q('#aj-t').value = b.dataset.q; segs(); calc(); }
       else if (b.id === 'aj-rm') { if (f.adj) { f.amount = tidy(f.adj.base); const fa = $f('f-amount'); fa.value = commasOn() ? withCommas(f.amount) : f.amount; } f.adj = null; s2.close(); fa_sync(); }
       else if (b.id === 'aj-ok') {
         const base = num(st.base) || 0; if (!(base > 0)) { toast('Type the price first.'); return; }
-        const m = adjMath(base, st.disc, st.tax);
+        const m = adjMath(base, st.disc, st.tax, st.fees);
         if (!(m.total > 0)) { toast('The total must be more than zero.'); return; }
-        f.adj = { base, disc: { mode: st.disc.mode, v: st.disc.v }, tax: { mode: st.tax.mode, v: st.tax.v, incl: !!st.tax.incl }, discAmt: m.discAmt, taxAmt: m.taxAmt, total: m.total };
+        f.adj = { base, disc: { mode: st.disc.mode, v: st.disc.v }, tax: { mode: st.tax.mode, v: st.tax.v, incl: !!st.tax.incl }, discAmt: m.discAmt, taxAmt: m.taxAmt, fees: isCard() ? { x: { mode: st.fees.x.mode, v: st.fees.x.v }, o: st.fees.o } : undefined, feeX: m.feeX, feeO: m.feeO, feeAmt: m.feeAmt, total: m.total };
         f.amount = tidy(m.total); const fa = $f('f-amount'); fa.value = commasOn() ? withCommas(f.amount) : f.amount; s2.close(); fa_sync(); }
     });
   }
@@ -563,7 +569,7 @@ export function openEntry(opts = {}) {
     if (f.kind !== 'expense') { el.innerHTML = ''; return; }
     if (!f.showItems) { el.innerHTML = `${button({ html: `${ic('split')} Split into items (groceries, receipts)`, kind: 'link', cls: 'split', e: 'items-on' })}`; return; }
     el.innerHTML = box({ title: 'Items on This Receipt', hint: 'Price of one, then tap + for more of the same.', cancel: { e: 'items-off' }, cls: 'items itembox', body: `
-      <div class="chips itemsugg" id="itemsugg" aria-label="Items you often add"></div><datalist id="itemnames">${knownItemNames(get()).map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
+      <div class="chips itemsugg" id="itemsugg" aria-label="Items you often add"></div><datalist id="itemnames">${rankItemNames(get(), '', f.name, f.cat, f.items.map((x) => x.n), 40).map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
       <div id="itemlist">${f.items.map((it, i) => `<div class="item" data-i="${i}">
         <input class="in-n" list="itemnames" autocomplete="off" placeholder="Item" value="${esc(it.n)}" aria-label="Item name">
         <select class="in-c" aria-label="Item category"><option value="">Same as above</option>${catOptions(it.cat, 'expense', ctxCat(i))}</select>
@@ -961,6 +967,8 @@ export function openEntry(opts = {}) {
       const row = e.target.closest('.item'), i = +row.dataset.i, it = f.items[i];
       if (e.target.classList.contains('in-n')) {
         it.n = e.target.value;
+        { const dl = $f('itemnames') || document.getElementById('itemnames'); if (dl) dl.innerHTML = rankItemNames(get(), it.n, f.name, f.cat, f.items.filter((_, j) => j !== i).map((x) => x.n), 12).map((n) => `<option value="${esc(n)}">`).join(''); }   // the list follows what you type: names that start with it, then contain it, then close spellings
+        if (!it.amt && !it.amtTouched && it.n.trim().length > 1) { const lp = lastItemPrice(get(), it.n); if (lp) { it.amt = String(lp); const ai = row.querySelector('.in-a'); if (ai) ai.value = it.amt; updateItemLeft(); } }   // a name you have bought before brings its latest price
         if (!it.catTouched) {
           const sel = row.querySelector('.in-c'); let c = '';
           const g = it.n.trim().length > 1 ? guessItemCat(get(), it.n) : null;           // what you chose before, then a word list (Meat, Rice, Coke...)
@@ -968,7 +976,7 @@ export function openEntry(opts = {}) {
           if (c !== it.cat) { it.cat = c; f._autoCat = true; sel.value = c; sel.dispatchEvent(new Event('change', { bubbles: true })); f._autoCat = false; }
         }
       } else if (e.target.classList.contains('in-q')) { const q = parseInt(String(e.target.value).replace(/\D/g, ''), 10); if (q > 0) { it.q = Math.min(99, q); updateItemLeft(); const tc = $f('taxcalc'); if (tc) tc.textContent = taxText(); }
-      } else if (e.target.classList.contains('in-a')) { it.amt = e.target.value; updateItemLeft(); { const tc = $f('taxcalc'); if (tc) tc.textContent = taxText(); } const ln = row.querySelector('.iline'); if (ln && isExpr(it.amt) && num(it.amt) > 0) ln.textContent = '= ' + tidy(num(it.amt)) + (it.q > 1 ? `  ·  ${it.q} × = ${lineOf(it)}` : ''); else if (ln) ln.textContent = it.q > 1 ? `${it.q} × ${it.amt || 0} = ${lineOf(it)}` : ''; }
+      } else if (e.target.classList.contains('in-a')) { it.amt = e.target.value; it.amtTouched = true; updateItemLeft(); { const tc = $f('taxcalc'); if (tc) tc.textContent = taxText(); } const ln = row.querySelector('.iline'); if (ln && isExpr(it.amt) && num(it.amt) > 0) ln.textContent = '= ' + tidy(num(it.amt)) + (it.q > 1 ? `  ·  ${it.q} × = ${lineOf(it)}` : ''); else if (ln) ln.textContent = it.q > 1 ? `${it.q} × ${it.amt || 0} = ${lineOf(it)}` : ''; }
     }
   });
   async function newAccountFor(cur) {
@@ -1107,12 +1115,12 @@ export function openEntry(opts = {}) {
       case 'item-del': f.items.splice(+v, 1); if (!f.items.length) f.showItems = false; renderItems(); break;   // removing the last row closes the section, back to the Split into items link
       case 'item-calc': { const it = f.items[+v], inp = form.querySelector(`.item[data-i="${v}"] .in-a`); if (!it || !inp) break; if (isExpr(it.amt) && num(it.amt) > 0) { it.amt = tidy(num(it.amt)); renderItems(); updateItemLeft(); } else { inp.inputMode = 'text'; inp.focus(); toast('Type a sum like 120+45, then tap = again.'); } break; }
       case 'item-disc': { const it = f.items[+v]; if (it) { it.disc = it.disc && it.disc.on ? { ...it.disc, on: false } : { on: true, mode: (it.disc && it.disc.mode) || 'amt', v: (it.disc && it.disc.v) || '' }; renderItems(); const di = form.querySelector(`.item[data-i="${v}"] .in-d`); if (di) di.focus(); } break; }
-      case 'item-tax': { const it = f.items[+v]; if (it) { it.tx = it.tx && it.tx.on ? { ...it.tx, on: false } : { on: true, v: (it.tx && it.tx.v) || '10' }; renderItems(); } break; }
+      case 'item-tax': { const it = f.items[+v]; if (it) { it.tx = it.tx && it.tx.on ? { ...it.tx, on: false } : { on: true, v: (it.tx && it.tx.v) || (taxFirst8() ? '8' : '10') }; renderItems(); } break; }
       case 'item-tax-set': { const [i, m] = v.split(':'), it = f.items[+i]; if (it && it.tx) { it.tx.v = m; renderItems(); } break; }
       case 'disc-mode': { const [i, m] = v.split(':'), it = f.items[+i]; if (it && it.disc) { it.disc.mode = m; renderItems(); } break; }
       case 'wd-toggle': f.wd.on = !f.wd.on; renderItems(); { const wi = $f('f-wdv'); if (wi) wi.focus(); } break;
       case 'wd-mode': f.wd.mode = v; renderItems(); break;
-      case 'tax-toggle': f.tax.on = !f.tax.on; renderItems(); { const ti = $f('f-taxv'); if (ti) ti.focus(); } break;
+      case 'tax-toggle': f.tax.on = !f.tax.on; if (f.tax.on && !f.tax.v && f.tax.mode === 'pct' && taxFirst8()) f.tax.v = '8'; renderItems(); { const ti = $f('f-taxv'); if (ti) ti.focus(); } break;
       case 'tax-mode': f.tax.mode = v; renderItems(); break;
       case 'tax-set': f.tax.v = v; renderItems(); break;
       case 'item-q': { const [i, dq] = v.split(':').map(Number), it = f.items[i]; if (it) { it.q = Math.max(1, Math.min(99, (it.q > 0 ? it.q : 1) + dq)); renderItems(); } break; }
