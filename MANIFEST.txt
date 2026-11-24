@@ -1,8 +1,14 @@
-Sukli v16.28 - changed files (since v16.27):
-README.md
-design.css
-sw.js
-js/screens.js
-js/modelguide.js
+Sukli v16.29 - changed/added files only (unzip over the project)
+js/entry.js
+js/mlkit.js
+js/modelslab.js
 js/modeldocs.js
+js/app.js
+js/screens.js
+js/platicons.js
 js/version.js
+sw.js
+design.css
+README.md
+tests/unit_mlkit.mjs
+tests/ui_test_v16_29_models_lab_tax.py

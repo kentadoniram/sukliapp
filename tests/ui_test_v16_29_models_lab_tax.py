@@ -1,0 +1,27 @@
+# v16.29: Models Lab page runs without errors; single-entry tax/discount; model docs audit table present
+from playwright.sync_api import sync_playwright
+res=[]
+def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_context(service_workers='block',viewport={'width':390,'height':844}).new_page(); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached'); pg.set_input_files('#first-file','/home/claude/Transactions.csv'); pg.wait_for_timeout(1500)
+    pg.evaluate("location.hash='#/modelslab'"); pg.wait_for_timeout(3000)
+    ok('lab has 5 sections', pg.locator('section.sgsec').count()==5)
+    ok('lab has no overflow', not pg.evaluate("document.documentElement.scrollWidth>window.innerWidth+1"))
+    ok('lab shows no failed model', pg.evaluate("!document.body.innerText.includes('could not run')"))
+    pg.evaluate("location.hash='#/modelguide'"); pg.wait_for_timeout(1500)
+    ok('audit table in guide', pg.evaluate("document.body.innerText.includes('Status before v16.29')"))
+    pg.evaluate("location.hash='#/styleguide'"); pg.wait_for_timeout(1000)
+    ok('style guide still renders', pg.locator('.sglogo').count()>0)
+    pg.evaluate("async()=>{const m=await import('/js/entry.js');m.openEntry({})}"); pg.wait_for_selector('#f-amount'); pg.wait_for_timeout(400)
+    pg.fill('#f-amount','1000'); pg.click('.adjlink'); pg.wait_for_selector('#aj-base'); pg.fill('#aj-d','10'); pg.fill('#aj-t','10'); pg.wait_for_timeout(200)
+    pg.click('#aj-ok'); pg.wait_for_timeout(400)
+    ok('amount becomes 990', pg.input_value('#f-amount').replace(',','') in ('990','990.00'))
+    pg.fill('#f-what','Test lunch'); pg.click('[data-e=save], #f-save, button.primary[type=submit], .savebtn'); pg.wait_for_timeout(800)
+    r=pg.evaluate("async()=>{const c=await import('/js/core.js');const t=c.get().txs.filter(x=>!x.deleted&&x.adj)[0];return t&&{amount:t.amount,adj:t.adj,id:t.id}}")
+    ok('saved with breakdown', r and r['amount']==990 and r['adj']['discAmt']==100 and r['adj']['taxAmt']==90)
+    pg.evaluate("async(id)=>{const m=await import('/js/entry.js');m.openEntry({id:id})}", r['id'])
+    pg.evaluate("document.querySelectorAll('.scrim').forEach(e=>{if(!e.querySelector('#f-amount'))e.remove()})"); pg.wait_for_selector('#f-amount'); pg.wait_for_timeout(300)
+    pg.click('.adjbtn'); pg.wait_for_selector('#aj-base'); ok('edit restores base 1000', pg.input_value('#aj-base') in ('1000','1,000'))
+    ok('no page errors %s'%errs, not errs)
+print('fails',res.count(False)); raise SystemExit(1 if False in res else 0)

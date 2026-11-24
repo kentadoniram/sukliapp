@@ -1097,6 +1097,7 @@ export function settings(db) {
     ${yearlySection(db)}
     <section><h2>Style Guide</h2><p class="hint">Every button, field and card the app is made of, on one page. Mostly useful for checking how a change looks.</p><div class="btnrow left">${button({ label: 'Open the Style Guide', kind: 'ghost', act: 'open-styleguide' })}</div></section>
     <section><h2>Model Computation Guide</h2><p class="hint">How every model in the app works (purpose, maths, data, limits, status), plus the numbers the forecasts are using right now.</p><div class="btnrow left">${button({ label: 'Open the Model Computation Guide', kind: 'ghost', act: 'open-modelguide' })}</div></section>
+    <section><h2>Models Lab</h2><p class="hint">Runs regression, forecasting, clustering, anomaly detection and Monte Carlo models on your own data. Read only; nothing changes.</p><div class="btnrow left">${button({ label: 'Open the Models Lab', kind: 'ghost', act: 'open-modelslab' })}</div></section>
     <section><h2>Put It on Your Phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
     <section><h2>Erase</h2><button class="btn danger ghost" data-act="erase">Erase everything on this device</button>
       <p class="hint">Backups in your Google Drive are not touched.</p></section>`);
@@ -1291,6 +1292,7 @@ function mapSheet(key, q = '') {
 }
 ACT['open-styleguide'] = () => { location.hash = '#/styleguide'; };
 ACT['open-modelguide'] = () => { location.hash = '#/modelguide'; };
+ACT['open-modelslab'] = () => { location.hash = '#/modelslab'; };
 ACT['nm-map'] = () => mapSheet();
 ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
 
@@ -1301,7 +1303,7 @@ const SET_GROUPS = [
   ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Pictures', 'Account Types', 'Name Matching', 'Yearly Events']],
   ['data', 'Backup and Data', 'Undo, reminders, backups, export', ['Undo', 'Backup Reminder', 'Your Data', 'Google Backup (Optional)']],
   ['adv', 'Advanced', 'Most people never need these', ['Exchange Rates', 'Live exchange rates', 'Coins and Tokens: Decimals', 'Cloud Sync', 'Erase']],
-  ['help', 'Help', 'Glossary, how every model works, install on your phone', ['Glossary', 'Model Computation Guide', 'Style Guide', 'Put It on Your Phone']],
+  ['help', 'Help', 'Glossary, how every model works, install on your phone', ['Glossary', 'Model Computation Guide', 'Models Lab', 'Style Guide', 'Put It on Your Phone']],
 ];
 const SET_OPEN = new Set(['look']);
 const SUB_OPEN = new Set((() => { try { return JSON.parse(localStorage.getItem('sukli-ssub') || '[]'); } catch { return []; } })());

@@ -3,6 +3,7 @@
 // logo on a platform: Platform Settings > Icon > Upload logo (kept on this device inside settings.platformIcons).
 import { get } from './core.js';
 import { esc } from './ui.js';
+import { button } from './components.js';
 import { look } from './appearance.js';
 
 const SHAPES = {
@@ -51,5 +52,5 @@ export function platIcon(ex, size = 'sm') {
 
 // Style Guide > Platform logos: every platform Sukli knows from your accounts, with upload / remove. Files are resized to 96px and kept on this device only.
 export function platLogoRows(names) {
-  return names.map((n) => `<div class="sglogo">${platIcon(n)}<span>${esc(n)}</span>${customIcon(n) ? `<button type="button" class="btn sm ghost" data-act="sg-logo-reset" data-ex="${esc(n)}">Remove</button>` : ''}<label class="btn sm ghost sglogo-up">Upload<input type="file" accept="image/*" hidden data-sg-logo="${esc(n)}"></label></div>`).join('');
+  return names.map((n) => `<div class="sglogo">${platIcon(n)}<span>${esc(n)}</span>${customIcon(n) ? `${button({ label: 'Remove', kind: 'ghost', size: 'sm', act: 'sg-logo-reset', data: 'ex', v: n })}` : ''}<label class="btn sm ghost sglogo-up">Upload<input type="file" accept="image/*" hidden data-sg-logo="${esc(n)}"></label></div>`).join('');
 }

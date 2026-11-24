@@ -82,7 +82,7 @@ function blank() {
   const accts = db.accounts.filter((a) => !a.deleted && !a.archived);
   const last = accts.find((a) => a.id === db.settings.lastAcct) || accts.find((a) => a.include) || accts[0];
   return { reimbOn: false, reimbCo: '', cb: { on: false, mode: 'fixed', v: '' }, kind: 'expense', debt: false, flow: '', merchant: '', merchTouched: false, merchSuggested: false, amount: '', name: '', acct: last ? last.id : '', toAcct: '', toAmount: '', fx: '', cat: '',
-    catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), posted: '', postedOn: false, notes: '', labels: '', items: [], tax: { on: false, mode: 'pct', v: '' }, wd: { on: false, mode: 'pct', v: '' }, counts: [], parts: [], partsOff: '', showCounts: false, flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
+    catTouched: false, acctTouched: false, acctSuggested: false, fxMode: 'rate', peso: '', date: nowStamp(), posted: '', postedOn: false, notes: '', labels: '', items: [], adj: null, tax: { on: false, mode: 'pct', v: '' }, wd: { on: false, mode: 'pct', v: '' }, counts: [], parts: [], partsOff: '', showCounts: false, flag: null, id: null, pred: null, showItems: false, from: '', to: '', autoName: '',
     fee: '', feeMode: 'none', feePct: '', feeModeSet: false, feeCat: '', feeBy: 'from', feeTouched: false, calc: false, convert: false, cRate: '', qtab: '', qtabManual: false, goalId: '' };
 }
 function fromTx(t) {
@@ -94,6 +94,7 @@ function fromTx(t) {
     fee: t.fee > 0 ? String(t.fee) : '', feeMode: t.fee > 0 ? 'fixed' : 'none', feePct: '', feeModeSet: true, feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
     convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
     reimbOn: !!t.reimb, reimbCo: t.reimb ? (t.reimb.co || '') : '', catTouched: true, acctTouched: true, date: t.date, posted: t.posted || '', postedOn: !!t.posted, notes: t.notes || '', labels: t.labels || '', flag: t.flag || null, id: t.id, pred: null,
+    adj: t.adj ? { ...t.adj, disc: { ...t.adj.disc }, tax: { ...t.adj.tax } } : null,
     items: (t.items || []).filter((i) => !i.tax && !i.wd).map((i) => (i.u != null ? { n: i.n, amt: String(i.u), q: i.q || 1, cat: i.cat || '', ...(i.dm ? { disc: { on: true, mode: i.dm, v: String(i.dv) } } : {}), ...(i.tp ? { tx: { on: true, v: String(i.tp) } } : {}) } : { n: i.n, amt: String(i.amt), q: 1, cat: i.cat || '', ...(i.tp ? { tx: { on: true, v: String(i.tp) } } : {}) })), tax: (() => { const x = (t.items || []).find((i) => i.tax); return x && !(x.pi && !x.tm) ? { on: true, mode: x.tm || 'amt', v: String(x.tv != null ? x.tv : x.amt) } : { on: false, mode: 'pct', v: '' }; })(), wd: (() => { const x = (t.items || []).find((i) => i.wd); return x ? { on: true, mode: x.dm || 'amt', v: String(x.dv != null ? x.dv : Math.abs(x.amt)) } : { on: false, mode: 'pct', v: '' }; })(), showItems: !!(t.items && t.items.length), counts: (t.counts || []).map((c) => ({ g: c.g, n: String(c.n) })), showCounts: !!(t.counts && t.counts.length), parts: (t.parts || []).map((x) => ({ ...x })), partsOff: '', from: t.from || '', to: t.to || '' };
 }
 
@@ -191,6 +192,7 @@ export function openEntry(opts = {}) {
     <div class="field amount" id="amountbox"><span class="amtlabel">Amount ${button({ html: `${priv.on ? 'Show' : 'Hide'} amounts`, kind: 'link', cls: 'eye', e: 'eye', aria: 'Hide or show amounts' })}</span>
       <div class="amtrow"><div class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"><button type="button" class="amtx" data-e="amtclear" aria-label="Clear amount" ${f.amount ? '' : 'style="visibility:hidden"'}>×</button>${button({ label: 'All', kind: 'plain', cls: 'allin', id: 'f-all', e: 'allamt', title: 'Use the whole balance of the From account', attr: { 'hidden': true } })}${button({ html: `${ic('calc')}`, kind: 'plain', cls: 'calcbtn', e: 'calc', aria: 'Calculator', pressed: false, title: 'Calculator' })}</div><span id="curwrap" class="curwrap"></span></div>
       <div id="calcres" class="calcres" hidden></div><div id="keypad" class="keypad" hidden></div></div>
+    <div id="adjrow" class="adjrow"></div>
     <div id="fxline"></div>
     <div id="acctwhen" class="acctwhen"><div id="acctrow"></div><div class="field" id="whenrow"><span>When</span>${button({ label: ``, kind: 'plain', cls: 'whenbtn', id: 'f-when', e: 'when' })}</div></div>
     <div id="postedrow" class="postedrow" hidden></div>
@@ -354,6 +356,7 @@ export function openEntry(opts = {}) {
     }
     renderConv();
     renderFee();
+    renderAdj();
     renderSafety();
   }
   const diffNote = (f, a) => { const d = num(f.amount) - num(f.toAmount); return d > 0 ? `${fmt(d, a.cur, { force: false })} less arrived than was sent (a fee or a loss on the way).` : d < 0 ? `${fmt(-d, a.cur, { force: false })} more arrived than was sent.` : ''; };
@@ -430,6 +433,52 @@ export function openEntry(opts = {}) {
   }
   function feeCalcTxt() { const a = acctOf(f.acct), b = acctOf(f.toAcct); const cur = f.feeBy === 'to' ? (b && b.cur) : (a && a.cur); return num(f.fee) > 0 ? `= ${fmt(num(f.fee), cur || HOME)}` : ''; }
   function recalcFee() { if (f.feeMode === 'pct') { const v = r9(((num(f.amount) || 0) * (num(f.feePct) || 0)) / 100); f.fee = v > 0 ? String(v) : ''; } }
+
+  // ---- tax or discount on a plain entry (v16.29): the price you type is the base; the entry is saved at the final total, and the parts are kept so Edit can show them again ----
+  function adjMath(base, disc, tax) {
+    const k = 10 ** (CUR[(acctOf(f.acct) || {}).cur] || { dec: 2 }).dec, r = (x) => Math.round(x * k) / k;
+    const d = r(Math.min(Math.max(disc.mode === 'pct' ? base * (num(disc.v) || 0) / 100 : (num(disc.v) || 0), 0), base)), after = r(base - d), tv = num(tax.v) || 0;
+    const inc = !!tax.incl, t = r(tax.mode === 'pct' ? (inc ? after - after / (1 + tv / 100) : after * tv / 100) : tv);
+    return { discAmt: d, taxAmt: t, total: inc ? after : r(after + t) };
+  }
+  function renderAdj() {
+    const el = $f('adjrow'); if (!el) return;
+    if (f.kind === 'transfer' || f.showItems || f.debt) { el.innerHTML = ''; return; }
+    if (f.adj && Math.abs((num(f.amount) || 0) - f.adj.total) > 1e-9) f.adj = null;   // you typed a different total: the breakdown no longer matches
+    const cur = (acctOf(f.acct) || {}).cur || HOME, a = f.adj;
+    el.innerHTML = a ? button({ html: `<span>Price ${esc(fmt(a.base, cur))}${a.discAmt ? ` − discount ${esc(fmt(a.discAmt, cur))}` : ''}${a.taxAmt ? ` ${a.tax.incl ? 'incl.' : '+'} tax ${esc(fmt(a.taxAmt, cur))}` : ''}</span><b>Edit</b>`, kind: 'plain', cls: 'adjbtn on', e: 'adj-open' })
+      : button({ label: 'Add tax or discount', kind: 'link', cls: 'adjlink', e: 'adj-open' });
+  }
+  function openAdj() {
+    const cur = (acctOf(f.acct) || {}).cur || HOME, a0 = f.adj, st = { base: a0 ? String(a0.base) : f.amount, disc: a0 ? { ...a0.disc } : { mode: 'pct', v: '' }, tax: a0 ? { ...a0.tax } : { mode: 'pct', v: '', incl: false } };
+    const first8 = cur === 'JPY';
+    const s2 = sheet(`<div id="adjf">
+      <div class="field"><span>Price before tax and discount</span><input id="aj-base" inputmode="decimal" autocomplete="off" value="${esc(st.base)}"></div>
+      <div class="taxbox"><div class="taxhead"><span class="feelab">Discount</span></div><div id="aj-dseg"></div><input id="aj-d" inputmode="decimal" autocomplete="off" placeholder="e.g. 10" value="${esc(st.disc.v)}"></div>
+      <div class="taxbox"><div class="taxhead"><span class="feelab">Tax</span></div><div id="aj-tseg"></div>${first8 ? `<div class="chips" id="aj-tq">${button({ label: '8% food', kind: 'chip', attr: { 'data-q': '8' } })}${button({ label: '10%', kind: 'chip', attr: { 'data-q': '10' } })}</div>` : ''}<input id="aj-t" inputmode="decimal" autocomplete="off" placeholder="e.g. 10" value="${esc(st.tax.v)}"><label class="chk"><input type="checkbox" id="aj-inc" ${st.tax.incl ? 'checked' : ''}> The price already includes the tax</label></div>
+      <p class="hint" id="aj-res"></p>
+      <div class="btnrow">${button({ label: 'Apply', kind: 'primary', id: 'aj-ok' })}${a0 ? button({ label: 'Remove', kind: 'ghost', id: 'aj-rm' }) : ''}</div></div>`, { title: 'Tax or discount' });
+    const q = (id) => s2.el.querySelector(id), cu = (x) => esc(fmt(x, cur));
+    const segs = () => { q('#aj-dseg').innerHTML = seg({ options: [{ label: 'Percent %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: st.disc.mode, act: 'aj-dm', aria: 'Discount type' }); q('#aj-tseg').innerHTML = seg({ options: [{ label: 'Rate %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: st.tax.mode, act: 'aj-tm', aria: 'Tax type' }); };
+    const calc = () => { const base = num(st.base) || 0, m = adjMath(base, st.disc, st.tax); q('#aj-res').innerHTML = base > 0 ? `${cu(base)}${m.discAmt ? ` − discount ${cu(m.discAmt)}` : ''}${m.taxAmt && !st.tax.incl ? ` + tax ${cu(m.taxAmt)}` : ''}${m.taxAmt && st.tax.incl ? ` (includes tax ${cu(m.taxAmt)})` : ''} = <b>${cu(m.total)}</b>` : 'Type the price to see the total.'; return m; };
+    segs(); calc();
+    s2.el.addEventListener('input', (e) => { if (e.target.id === 'aj-base') st.base = e.target.value; else if (e.target.id === 'aj-d') st.disc.v = e.target.value; else if (e.target.id === 'aj-t') st.tax.v = e.target.value; else if (e.target.id === 'aj-inc') return; calc(); });
+    s2.el.addEventListener('change', (e) => { if (e.target.id === 'aj-inc') { st.tax.incl = e.target.checked; calc(); } });
+    s2.el.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      const act = b.dataset.act, v = b.dataset.v;
+      if (act === 'aj-dm') { st.disc.mode = v; segs(); calc(); } else if (act === 'aj-tm') { st.tax.mode = v; segs(); calc(); }
+      else if (b.dataset.q) { st.tax = { ...st.tax, mode: 'pct', v: b.dataset.q }; q('#aj-t').value = b.dataset.q; segs(); calc(); }
+      else if (b.id === 'aj-rm') { if (f.adj) { f.amount = tidy(f.adj.base); const fa = $f('f-amount'); fa.value = commasOn() ? withCommas(f.amount) : f.amount; } f.adj = null; s2.close(); fa_sync(); }
+      else if (b.id === 'aj-ok') {
+        const base = num(st.base) || 0; if (!(base > 0)) { toast('Type the price first.'); return; }
+        const m = adjMath(base, st.disc, st.tax);
+        if (!(m.total > 0)) { toast('The total must be more than zero.'); return; }
+        f.adj = { base, disc: { mode: st.disc.mode, v: st.disc.v }, tax: { mode: st.tax.mode, v: st.tax.v, incl: !!st.tax.incl }, discAmt: m.discAmt, taxAmt: m.taxAmt, total: m.total };
+        f.amount = tidy(m.total); const fa = $f('f-amount'); fa.value = commasOn() ? withCommas(f.amount) : f.amount; s2.close(); fa_sync(); }
+    });
+  }
+  function fa_sync() { const fa = $f('f-amount'); if (fa) fa.dispatchEvent(new Event('input', { bubbles: true })); renderAdj(); }
   function renderFee() {
     const el = $f('feerow');
     if (f.kind !== 'transfer' || f.debt) { el.innerHTML = ''; return; }
@@ -888,7 +937,7 @@ export function openEntry(opts = {}) {
   form.addEventListener('input', (e) => {
     const id = e.target.id;
     if (id === 'f-amount') {
-      formatAmountInput(e.target); f.amount = e.target.value; if (f.feeMode === 'pct') { recalcFee(); const fc = $f('feecalc'); if (fc) fc.textContent = feeCalcTxt(); } showCalcRes(); syncX(); updateFxVal(); heavy(); othSum(); updCb(); updateItemLeft();
+      formatAmountInput(e.target); f.amount = e.target.value; if (f.feeMode === 'pct') { recalcFee(); const fc = $f('feecalc'); if (fc) fc.textContent = feeCalcTxt(); } showCalcRes(); syncX(); updateFxVal(); heavy(); othSum(); updCb(); updateItemLeft(); renderAdj();
     }
     else if (e.target.classList.contains('oth-n')) { f.others.rows[+e.target.closest('.othrow').dataset.i].v = e.target.value; othSum(); }
     else if (id === 'f-cbv') { f.cb.v = e.target.value; updCb(); }
@@ -1050,6 +1099,7 @@ export function openEntry(opts = {}) {
       case 'catgroup': { const g = v, list = get().categories.filter((c) => !c.deleted && c.group === g && (c.kind === f.kind || c.kind === 'both')).sort((a, b) => a.name.localeCompare(b.name));
         pickerList(list.map((c) => ({ value: c.id, label: c.name, group: '' })), { title: g, addLabel: `Add a new category in ${g}`, onAdd: () => openCategoryForm({ kind: f.kind, group: g, name: f.name.trim().replace(/\b\w/g, (x) => x.toUpperCase()).slice(0, 40), keywords: f.name.trim().toLowerCase(), onDone: (c) => { pickCat(c.id); refreshPred(); renderCats(); } }), onPick: (id) => { pickCat(id); renderCats(); renderTrip(); renderSafety(); } }); break; }
       case 'allcats': openCategoryPicker(f.kind, (id) => { pickCat(id); renderCats(); }); break;
+      case 'adj-open': openAdj(); break;
       case 'items-on': f.showItems = true; if (!f.items.length) f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); break;
       case 'item-add': f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); form.querySelectorAll('.item .in-n')[f.items.length - 1].focus(); break;
       case 'item-sug': { const s = ($f('itemsugg')._list || [])[+v]; if (!s) break; const blank = f.items.findIndex((x) => !x.n && !x.amt); const row = { n: s.n, amt: '', q: 1, cat: s.cat || '', catTouched: !!s.cat }; if (blank >= 0) f.items[blank] = row; else f.items.push(row); renderItems(); break; }
@@ -1232,6 +1282,7 @@ export function openEntry(opts = {}) {
     }
     const rec = { kind: f.kind, amount, cur: a.cur, fx, hfx: hfxV > 0 ? hfxV : undefined, date: f.date, name: label, autoName, cat, acct: a.id,
       toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), labels: joinTags(parseTags(f.labels)), items: items && items.length ? items : [], counts, flag,
+      adj: f.kind !== 'transfer' && !(items && items.length) && f.adj && Math.abs(f.adj.total - amount) < 1e-9 ? f.adj : undefined,
       goalId: f.kind === 'transfer' && !f.debt && f.goalId ? f.goalId : '',
       posted: (f.kind !== 'transfer' && f.postedOn && a.type === 'card' && a.stmtDay > 0 && f.posted > String(f.date).slice(0, 10)) ? f.posted : '' };
     if (f.kind === 'expense' && counts.length && f.parts && f.parts.length && splitParts(f.name)) rec.parts = f.parts.map((x) => ({ n: x.n, k: x.k }));   // the things the total is made of, kept so item prices can be worked out later
