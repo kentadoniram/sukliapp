@@ -51,14 +51,20 @@ export function box({ title = '', hint = '', cancel, body = '', cls = '' } = {})
 export const sectionTitle = (t, tag = 'h2') => `<${tag} class="sect">${esc(t)}</${tag}>`;
 
 // textField({ label, id, name, value, placeholder, inputmode, type, hint, cls, hidden, attr }): label + input, one size everywhere
-export function textField({ label = '', id, name, value = '', placeholder, inputmode, type, hint = '', cls = '', hidden = false, aria, attr } = {}) {
+// v16.35 options shared by both fields (all optional, so older calls are unchanged):
+//   tip: raw HTML placed after the label text (the "?" help buttons)   lid: id of the label itself (so a row can be shown or hidden)   spanId: id of the label text (when it is rewritten later)
+//   after: raw HTML placed after the control instead of hint (a help line that has its own id or class)
+const fieldHead = (label, tip, spanId) => `<span${spanId ? ` id="${esc(spanId)}"` : ''}>${esc(label)}${tip ? ` ${tip}` : ''}</span>`;
+const fieldTail = (hint, after) => (after || (hint ? `<small class="muted">${esc(hint)}</small>` : ''));
+export function textField({ label = '', id, name, value = '', placeholder, inputmode, type, hint = '', cls = '', hidden = false, aria, attr, tip, lid, spanId, after } = {}) {
   const inp = `<input${attrs({ id, name, type, inputmode, placeholder, autocomplete: 'off', 'aria-label': aria, ...(attr || {}) })} value="${esc(value)}">`;
-  return `<label class="field ${cls}"${hidden ? ' hidden' : ''}><span>${esc(label)}</span>${inp}${hint ? `<small class="muted">${esc(hint)}</small>` : ''}</label>`;
+  return `<label class="field ${cls}"${lid ? ` id="${esc(lid)}"` : ''}${hidden ? ' hidden' : ''}>${fieldHead(label, tip, spanId)}${inp}${fieldTail(hint, after)}</label>`;
 }
-// selectField({ label, id, name, options: [{ value, label }] | ['a','b'], value, hint, cls, hidden, attr }): label + select (the app swaps it for its own picker)
-export function selectField({ label = '', id, name, options = [], value, hint = '', cls = '', hidden = false, aria, attr } = {}) {
-  const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o })).map((o) => `<option value="${esc(o.value)}"${String(o.value) === String(value) ? ' selected' : ''}>${esc(o.label)}</option>`).join('');
-  return `<label class="field ${cls}"${hidden ? ' hidden' : ''}><span>${esc(label)}</span><select${attrs({ id, name, 'aria-label': aria || label, ...(attr || {}) })}>${opts}</select>${hint ? `<small class="muted">${esc(hint)}</small>` : ''}</label>`;
+// selectField({ label, id, name, options: [{ value, label }] | ['a','b'], optionsHtml, value, hint, cls, hidden, attr }): label + select (the app swaps it for its own picker)
+// optionsHtml: ready-made <option>/<optgroup> markup, used instead of options when the list has groups or is built elsewhere
+export function selectField({ label = '', id, name, options = [], optionsHtml, value, hint = '', cls = '', hidden = false, aria, attr, tip, lid, spanId, after } = {}) {
+  const opts = optionsHtml != null ? optionsHtml : options.map((o) => (typeof o === 'object' ? o : { value: o, label: o })).map((o) => `<option value="${esc(o.value)}"${String(o.value) === String(value) ? ' selected' : ''}>${esc(o.label)}</option>`).join('');
+  return `<label class="field ${cls}"${lid ? ` id="${esc(lid)}"` : ''}${hidden ? ' hidden' : ''}>${fieldHead(label, tip, spanId)}<select${attrs({ id, name, 'aria-label': aria === undefined ? label : aria, ...(attr || {}) })}>${opts}</select>${fieldTail(hint, after)}</label>`;
 }
 // tabs({ items: [{ label, value }], value, act, v key, aria }): the compact row of tabs used on Investments (Spot, Earn, Margin; dashboard cards)
 export function tabs({ items = [], value, act, aria = '', attrOf } = {}) {

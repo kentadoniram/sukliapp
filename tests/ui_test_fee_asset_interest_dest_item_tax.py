@@ -61,7 +61,7 @@ with sync_playwright() as p:
     ok('8 percent on 500 = 40 shown on the line %s'%pg.locator('.iline').nth(0).inner_text(), '40' in pg.locator('.iline').nth(0).inner_text() and '8%' in pg.locator('.iline').nth(0).inner_text())
     ok('10 percent on 1000 = 100', '100' in pg.locator('.iline').nth(1).inner_text())
     pg.fill('.item >> nth=1 >> .in-t','8'); pg.dispatch_event('.item >> nth=1 >> .in-t','input'); pg.wait_for_timeout(100)
-    ok('typing 8 lights the 8% button and gives 80', '80' in pg.locator('.iline').nth(1).inner_text() and pg.locator('.item').nth(1).locator('.itax .seg button.on').inner_text()=='8%')
+    ok('typing 8 lights the 8% button and gives 80', '80' in pg.locator('.iline').nth(1).inner_text() and pg.locator('.item').nth(1).locator('.itax [data-e=item-tax-set].on').inner_text()=='8%')
     pg.fill('.item >> nth=1 >> .in-t','10'); pg.dispatch_event('.item >> nth=1 >> .in-t','input')
     pg.evaluate("document.querySelector('[data-e=tax-toggle]').click()"); pg.wait_for_selector('#f-taxv'); pg.evaluate("document.querySelector('[data-e=tax-set][data-v=\"10\"]').click()"); pg.wait_for_timeout(150)
     ok('whole-bill tax only applies to the item with no tax of its own (10 on 100) %s'%pg.inner_text('#taxcalc'), 'Tax' in pg.inner_text('#taxcalc') and '10' in pg.inner_text('#taxcalc') and '100' in pg.inner_text('#taxcalc'))

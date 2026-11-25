@@ -18,7 +18,6 @@ import { tipBtn } from './interest.js';
 import { captureLoc, hereWhy, permState, parsePt } from './loc.js';
 import { pickOnMap } from './mappick.js';
 import { goalChoices, goalAdds } from './goaltx.js';
-import { openPayCompare } from './paycompare.js';
 import { suggestBranch, branchFar } from './merchantset.js';
 import { splitOf, openSplit, deleteWithMates } from './splitbill.js';
 import { guessItemCat, itemCatIndex, itemsForWhat, knownItemNames, rankItemNames, lastItemPrice } from './itemcat.js';
@@ -94,7 +93,7 @@ function fromTx(t) {
     toAmount: t.toAmount != null ? String(t.toAmount) : '', fx: t.hfx > 0 ? prec(t.hfx) : t.fx ? prec(t.fx / homeRate(db, t.date)) : '', cat: t.cat || '',
     fee: t.fee > 0 ? String(t.fee) : '', feeMode: t.fee > 0 ? 'fixed' : 'none', feePct: '', feeModeSet: true, feeCat: t.feeCat || '', feeBy: t.feeBy || 'from', feeTouched: true, calc: false,
     convert: cross, cRate: cross ? prec(t.toAmount / t.amount) : '', qtab: '', qtabManual: false,
-    reimbOn: !!t.reimb, reimbCo: t.reimb ? (t.reimb.co || '') : '', catTouched: true, acctTouched: true, date: t.date, posted: t.posted || '', postedOn: !!t.posted, orig: t.orig ? { cur: t.orig.cur, amt: t.orig.amt } : null, notes: t.notes || '', labels: t.labels || '', flag: t.flag || null, id: t.id, pred: null,
+    reimbOn: !!t.reimb, reimbCo: t.reimb ? (t.reimb.co || '') : '', catTouched: true, acctTouched: true, date: t.date, posted: t.posted || '', postedOn: !!t.posted, orig: t.orig || null, notes: t.notes || '', labels: t.labels || '', flag: t.flag || null, id: t.id, pred: null,
     adj: t.adj ? { ...t.adj, disc: { ...t.adj.disc }, tax: { ...t.adj.tax } } : null,
     items: (t.items || []).filter((i) => !i.tax && !i.wd).map((i) => (i.u != null ? { n: i.n, amt: String(i.u), q: i.q || 1, cat: i.cat || '', ...(i.dm ? { disc: { on: true, mode: i.dm, v: String(i.dv) } } : {}), ...(i.tp ? { tx: { on: true, v: String(i.tp) } } : {}) } : { n: i.n, amt: String(i.amt), q: 1, cat: i.cat || '', ...(i.tp ? { tx: { on: true, v: String(i.tp) } } : {}) })), tax: (() => { const x = (t.items || []).find((i) => i.tax); return x && !(x.pi && !x.tm) ? { on: true, mode: x.tm || 'amt', v: String(x.tv != null ? x.tv : x.amt) } : { on: false, mode: 'pct', v: '' }; })(), wd: (() => { const x = (t.items || []).find((i) => i.wd); return x ? { on: true, mode: x.dm || 'amt', v: String(x.dv != null ? x.dv : Math.abs(x.amt)) } : { on: false, mode: 'pct', v: '' }; })(), showItems: !!(t.items && t.items.length), counts: (t.counts || []).map((c) => ({ g: c.g, n: String(c.n) })), showCounts: !!(t.counts && t.counts.length), parts: (t.parts || []).map((x) => ({ ...x })), partsOff: '', from: t.from || '', to: t.to || '' };
 }
@@ -194,7 +193,6 @@ export function openEntry(opts = {}) {
       <div class="amtrow"><div class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}"><button type="button" class="amtx" data-e="amtclear" aria-label="Clear amount" ${f.amount ? '' : 'style="visibility:hidden"'}>×</button>${button({ label: 'All', kind: 'plain', cls: 'allin', id: 'f-all', e: 'allamt', title: 'Use the whole balance of the From account', attr: { 'hidden': true } })}${button({ html: `${ic('calc')}`, kind: 'plain', cls: 'calcbtn', e: 'calc', aria: 'Calculator', pressed: false, title: 'Calculator' })}</div><span id="curwrap" class="curwrap"></span></div>
       <div id="calcres" class="calcres" hidden></div><div id="keypad" class="keypad" hidden></div></div>
     <div id="adjrow" class="adjrow"></div>
-    <div id="paycmp" class="adjrow"></div>
     <div id="fxline"></div>
     <div id="acctwhen" class="acctwhen"><div id="acctrow"></div><div class="field" id="whenrow"><span>When</span>${button({ label: ``, kind: 'plain', cls: 'whenbtn', id: 'f-when', e: 'when' })}</div></div>
     <div id="postedrow" class="postedrow" hidden></div>
@@ -220,7 +218,7 @@ export function openEntry(opts = {}) {
   const focusKeep = (el) => { if (el && document.activeElement !== el) el.focus(); };
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
-    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'adjrow', 'paycmp', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'reimbrow', 'itemsrow', 'countsrow', 'othrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'cbrow', 'goalrow', 'safety', 'err', 'btns'],
+    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'adjrow', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'reimbrow', 'itemsrow', 'countsrow', 'othrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'cbrow', 'goalrow', 'safety', 'err', 'btns'],
     transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'adjrow', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'safety', 'err', 'btns'],
   };
   function arrange() {
@@ -446,21 +444,7 @@ export function openEntry(opts = {}) {
     return { discAmt: d, taxAmt: t, feeX: fx, feeO: fo, feeAmt: r(fx + fo), total: r(goods + fx + fo) };
   }
   const isCard = () => (acctOf(f.acct) || {}).type === 'card';
-  // optional: compare what this purchase would cost with each payment method (estimates only; the posted amount stays the record)
-  function renderPayCmp() {
-    const el = $f('paycmp'); if (!el) return;
-    if (f.kind !== 'expense' || f.debt || f.showItems) { el.innerHTML = ''; return; }
-    const o = f.orig;
-    el.innerHTML = button({ label: o ? `Shop price ${fmt(o.amt, o.cur)} kept. Compare payment methods` : 'Compare payment methods', kind: 'link', cls: 'paylink', e: 'paycmp-open' });
-  }
-  function openPayCmp() {
-    const a = acctOf(f.acct), amt = num(f.amount) || 0, db = get();
-    const cur = f.orig ? f.orig.cur : a && a.cur !== HOME ? a.cur : 'JPY', price = f.orig ? f.orig.amt : a && a.cur === cur ? amt : 0;
-    const posted = a && amt > 0 ? (a.cur === HOME ? amt : amt * (num(f.fx) || homeFx(db, a.cur))) : 0;
-    openPayCompare({ cur, amount: price, posted, postedCur: a ? a.cur : HOME, kept: !!f.orig, onKeep: (v) => { f.orig = v; renderPayCmp(); }, onUse: (id) => useAccount(id) });
-  }
   function renderAdj() {
-    renderPayCmp();
     const el = $f('adjrow'); if (!el) return;
     if (f.kind === 'transfer' || f.showItems || f.debt) { el.innerHTML = ''; return; }
     if (f.adj && Math.abs((num(f.amount) || 0) - f.adj.total) > 1e-9) f.adj = null;   // you typed a different total: the breakdown no longer matches
@@ -969,7 +953,7 @@ export function openEntry(opts = {}) {
     else if (e.target.classList.contains('oth-n')) { f.others.rows[+e.target.closest('.othrow').dataset.i].v = e.target.value; othSum(); }
     else if (id === 'f-cbv') { f.cb.v = e.target.value; updCb(); }
     else if (e.target.classList.contains('in-d')) { const it = f.items[+e.target.closest('.item').dataset.i]; if (it && it.disc) { it.disc.v = e.target.value; const ln = e.target.closest('.item').querySelector('.iline'); if (ln) ln.innerHTML = itemLine(it); updateItemLeft(); const tc = $f('taxcalc'); if (tc) tc.textContent = taxText(); } }
-    else if (e.target.classList.contains('in-t')) { const it = f.items[+e.target.closest('.item').dataset.i]; if (it && it.tx) { it.tx.v = e.target.value; const ln = e.target.closest('.item').querySelector('.iline'); if (ln) ln.innerHTML = itemLine(it); const sg = e.target.closest('.itax').querySelector('.seg'); if (sg) sg.querySelectorAll('button').forEach((bt) => { const on = bt.dataset.v && bt.dataset.v.split(':')[1] === String(it.tx.v); bt.classList.toggle('on', !!on); bt.setAttribute('aria-pressed', String(!!on)); }); updateItemLeft(); const tc = $f('taxcalc'); if (tc) tc.textContent = taxText(); } }
+    else if (e.target.classList.contains('in-t')) { const it = f.items[+e.target.closest('.item').dataset.i]; if (it && it.tx) { it.tx.v = e.target.value; const ln = e.target.closest('.item').querySelector('.iline'); if (ln) ln.innerHTML = itemLine(it); const sg = e.target.closest('.itax').querySelector('.seg, .t1seg'); if (sg) { let sel = -1; sg.querySelectorAll('button').forEach((bt, k) => { const on = bt.dataset.v && bt.dataset.v.split(':')[1] === String(it.tx.v); bt.classList.toggle('on', !!on); bt.setAttribute('aria-pressed', String(!!on)); if (on) sel = k; }); if (sg.classList.contains('t1seg')) { sg.dataset.sel = String(sel); sg.style.setProperty('--sel', String(Math.max(0, sel))); } } updateItemLeft(); const tc = $f('taxcalc'); if (tc) tc.textContent = taxText(); } }
     else if (id === 'f-wdv') { f.wd.v = e.target.value; const wc = $f('wdcalc'); if (wc) wc.textContent = wdText(); const tc = $f('taxcalc'); if (tc) tc.textContent = taxText(); updateItemLeft(); }
     else if (id === 'f-taxv') { f.tax.v = e.target.value; const tc = $f('taxcalc'); if (tc) tc.textContent = taxText(); updateItemLeft(); }
     else if (id === 'f-fee') { if (f.feeMode === 'pct') { f.feePct = e.target.value; recalcFee(); const fc = $f('feecalc'); if (fc) fc.textContent = feeCalcTxt(); } else f.fee = e.target.value; f.feeTouched = true; f.feeSuggested = false; }
@@ -1129,7 +1113,6 @@ export function openEntry(opts = {}) {
         pickerList(list.map((c) => ({ value: c.id, label: c.name, group: '' })), { title: g, addLabel: `Add a new category in ${g}`, onAdd: () => openCategoryForm({ kind: f.kind, group: g, name: f.name.trim().replace(/\b\w/g, (x) => x.toUpperCase()).slice(0, 40), keywords: f.name.trim().toLowerCase(), onDone: (c) => { pickCat(c.id); refreshPred(); renderCats(); } }), onPick: (id) => { pickCat(id); renderCats(); renderTrip(); renderSafety(); } }); break; }
       case 'allcats': openCategoryPicker(f.kind, (id) => { pickCat(id); renderCats(); }); break;
       case 'adj-open': openAdj(); break;
-      case 'paycmp-open': openPayCmp(); break;
       case 'items-on': f.showItems = true; if (!f.items.length) f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); break;
       case 'item-add': f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); form.querySelectorAll('.item .in-n')[f.items.length - 1].focus(); break;
       case 'item-sug': { const s = ($f('itemsugg')._list || [])[+v]; if (!s) break; const blank = f.items.findIndex((x) => !x.n && !x.amt); const row = { n: s.n, amt: '', q: 1, cat: s.cat || '', catTouched: !!s.cat }; if (blank >= 0) f.items[blank] = row; else f.items.push(row); renderItems(); break; }
@@ -1310,8 +1293,8 @@ export function openEntry(opts = {}) {
       else if (f.kind === 'expense' && tripCat() && (() => { const x = suggestTrips(db2, isTransportCat(db2.categories), { hour: hourOf(f.date), prevTo: prevTrip(), limit: 1 })[0]; if (x && x.p >= 0.4) { label = x.name; if (!f.from.trim() && !f.to.trim()) { f.from = x.from; f.to = x.to; } return true; } return false; })()) flag = 'review';
       else { label = guessLabel(db2, { kind: f.kind, cat, amount, acct: a.id, hour: hourOf(f.date) }).name; flag = 'review'; }
     }
-    // the shop price kept with the entry: the posted amount stays the record; the market rate at the time of recording is saved beside it
-    let orig; if (f.orig && f.kind === 'expense' && f.orig.cur !== a.cur && f.orig.amt > 0) { const ph = a.cur === HOME ? amount : amount * (hfxV > 0 ? hfxV : homeFx(db2, a.cur)); const mid = homeFx(db2, f.orig.cur); if (ph > 0) orig = { cur: f.orig.cur, amt: f.orig.amt, mid: mid > 0 ? mid : undefined, rate: ph / f.orig.amt, home: ph, at: nowStamp() }; }
+    // a shop price added from the entry view stays with the entry; its posted rate follows the amount if that was edited
+    let orig; if (f.orig && f.kind === 'expense' && f.orig.cur !== a.cur && f.orig.amt > 0) { const ph = a.cur === HOME ? amount : amount * (hfxV > 0 ? hfxV : homeFx(db2, a.cur)); if (ph > 0) orig = Object.assign({}, f.orig, { rate: ph / f.orig.amt, home: ph }); }
     const rec = { kind: f.kind, amount, cur: a.cur, fx, hfx: hfxV > 0 ? hfxV : undefined, orig, date: f.date, name: label, autoName, cat, acct: a.id,
       toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), labels: joinTags(parseTags(f.labels)), items: items && items.length ? items : [], counts, flag,
       adj: f.kind !== 'transfer' && !(items && items.length) && f.adj && Math.abs(f.adj.total - amount) < 1e-9 ? f.adj : undefined,

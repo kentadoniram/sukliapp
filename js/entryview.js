@@ -3,6 +3,7 @@ import { get, commit, stamp, softDelete, fmt, HOME, homePer } from './core.js';
 import { esc, ACT, sheet, toast, confirmDialog } from './ui.js';
 import { splitOf, openSplit, deleteWithMates } from './splitbill.js';
 import { button, card as uiCard } from './components.js';
+import { whatIfHtml, priceFormHtml, saveShopPrice, onPayChange } from './paycompare.js';
 
 const KIND = { expense: 'Spending', income: 'Income', transfer: 'Transfer' };
 const pretty = (d) => { const s = String(d || ''), dt = new Date(s.slice(0, 10) + 'T12:00:00'); return isNaN(dt) ? s : dt.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) + (s.length > 10 ? ' · ' + s.slice(11, 16) : ''); };
@@ -30,7 +31,7 @@ export function entryFacts(db, t) {
   if (t.orig && t.orig.amt > 0) {
     add('Shop price', fmt(t.orig.amt, t.orig.cur));
     const over = t.orig.mid > 0 ? (t.orig.rate - t.orig.mid) / t.orig.mid * 100 : null;
-    add('Posted rate', `1 ${t.orig.cur} = ${+t.orig.rate.toFixed(4)} ${HOME}${t.orig.mid > 0 ? ` (market then ${+t.orig.mid.toFixed(4)}${over != null ? `, ${over >= 0 ? '+' : ''}${over.toFixed(2)}%` : ''})` : ''}`);
+    add('Posted rate', `1 ${t.orig.cur} = ${+t.orig.rate.toFixed(4)} ${HOME}${t.orig.mid > 0 ? ` (market ${t.orig.late ? 'when added' : 'then'} ${+t.orig.mid.toFixed(4)}${over != null ? `, ${over >= 0 ? '+' : ''}${over.toFixed(2)}%` : ''})` : ''}`);
   }
   if (t.fee > 0) add('Fee', fmt(t.fee, t.feeCur || t.cur));
   if (t.merchant) add('Shop', t.merchant + (t.branch ? ' · ' + t.branch : ''));
@@ -48,6 +49,12 @@ export function entryFacts(db, t) {
 
 // one line of the shared-bill summary: the amount in the bill's currency and, below it, the same amount in HOME at the rate saved with the bill
 const billLine = (who, amt, g, hp) => `<li><span>${esc(who)}</span><b>${esc(fmt(amt, g.cur))}${g.cur !== HOME && hp > 0 ? `<small class="homeeq">≈ ${esc(fmt(amt * hp, HOME))}</small>` : ''}</b></li>`;
+// "If you had paid another way": only for a finished expense; open when its shop price is known, otherwise offered as a small form
+function payBox(db, t) {
+  if (t.kind !== 'expense' || t.lent || t.trade || t.reimbBack) return '';
+  const wi = whatIfHtml(db, t);
+  return `<div class="pcwrap">${button({ label: 'If you had paid another way', kind: 'link', attr: { 'data-ev': 'pc-toggle', 'aria-expanded': String(!!wi) } })}<div id="pc-body"${wi ? '' : ' hidden'}>${wi || priceFormHtml(db, t)}</div></div>`;
+}
 export function openEntryView(id) {
   const db = get(), t = db.txs.find((x) => x.id === id); if (!t) return false;
   const g = splitOf(db, id), hp = homePer(db, t), f = entryFacts(db, t), mineAmt = g ? Math.max(0, Math.round((g.total - g.people.reduce((q, x) => q + x.amt, 0)) * 100) / 100) : 0, big = `${t.kind === 'income' ? '+' : t.kind === 'expense' ? '−' : ''}${fmt(t.amount, t.cur)}`;
@@ -57,9 +64,14 @@ export function openEntryView(id) {
     ${f.items.length ? `<h4>Items</h4><ul class="calfacts">${f.items.map((i) => `<li><span>${esc(i.n || 'Item')}${i.q > 1 ? ` × ${i.q}` : ''}</span><b>${esc(fmt(i.amt, t.cur))}</b></li>`).join('')}</ul>` : ''}
     ${g ? `<h4>Part of a Shared Bill</h4><ul class="calfacts">${billLine('Whole bill', g.total, g, hp)}${g.mine || mineAmt > 0.004 ? billLine('You', mineAmt, g, hp) : ''}${g.people.map((p) => billLine(p.who, p.amt, g, hp)).join('')}</ul>
       <p class="hint">This entry is one share of a single bill. Editing or deleting it changes the whole bill, all ${g.people.length + (g.mine ? 1 : 0)} entries together.</p>` : '<p class="hint">Read only. Tap Edit to change this entry.</p>'}
+    ${payBox(db, t)}
     <div class="btnrow"><button type="button" class="btn danger ghost" data-ev="del">${g ? 'Delete Whole Bill' : 'Delete'}</button>${button({ html: `${g ? 'Edit Whole Bill' : 'Edit'}`, kind: 'primary', attr: { 'data-ev': 'edit' } })}</div></div>`, { title: 'Entry', wide: true });
+  const drawPay = () => { const body = s.el.querySelector('#pc-body'), tx = get().txs.find((x) => x.id === id); if (body && tx) body.innerHTML = whatIfHtml(get(), tx) || priceFormHtml(get(), tx); };
+  onPayChange(drawPay);
   s.el.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-ev]'); if (!b) return;
+    if (b.dataset.ev === 'pc-toggle') { const body = s.el.querySelector('#pc-body'); body.hidden = !body.hidden; b.setAttribute('aria-expanded', String(!body.hidden)); return; }
+    if (b.dataset.ev === 'pc-save') { const amt = parseFloat(String((s.el.querySelector('#pc-amt') || {}).value || '').replace(/,/g, '')), cur = (s.el.querySelector('#pc-cur') || {}).value; if (saveShopPrice(id, cur, amt)) drawPay(); else toast('Enter the shop price and a different currency.'); return; }
     if (b.dataset.ev === 'edit') { s.close(); ACT['edit-now']({ dataset: { id } }); return; }
     if (b.dataset.ev === 'del') {
       if (!(await confirmDialog(g ? `Delete the whole shared bill (${g.people.length + (g.mine ? 1 : 0)} entries)? It moves to the recycle bin.` : 'Move this entry to the recycle bin?', 'Delete', true))) return;

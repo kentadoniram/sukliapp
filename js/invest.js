@@ -18,7 +18,7 @@ import { tradeBook } from './tradecalc.js';
 import { pendingReview } from './tradereview.js';
 import { tokenPerformance, earnedUnits, openCost } from './tokenperf.js';
 import { apyAt } from './earn.js';
-import { button, tabs, segChoice, textField, areaSwitch } from './components.js';
+import { button, tabs, segChoice, textField, selectField, areaSwitch } from './components.js';
 import { ensureUsdt, TRADING_WALLETS } from './tokens.js';
 import { INV, invTabs, CATS, categoryCards, levelTwo, platformCard, productCard, txList, invCalendar } from './invnav.js';
 import { lineChart } from './analytics.js';
@@ -482,19 +482,19 @@ ACT['inv-platdel'] = async (el) => { const ex = el.dataset.ex; if (!(await confi
 export function addAsset(pre = {}) {
   const typeOpts = Object.entries(ASSET_TYPES).map(([k, l]) => `<option value="${k}" ${(pre.type || 'crypto') === k ? 'selected' : ''}>${l}</option>`).join('');
   const s = sheet(`<form id="ic">
-    <label class="field"><span>Asset type</span><select name="type">${typeOpts}</select></label>
+    ${selectField({ label: 'Asset type', name: 'type', aria: null, optionsHtml: typeOpts })}
     ${textField({ label: 'Platform or broker', name: 'ex', value: pre.platform || '', placeholder: 'Pick one below or type your own', attr: { 'required': true } })}
     ${platformChips()}
-    <label class="field" id="walf" hidden><span>Trading Account Inside the Platform</span><select name="wallet">${[...new Set([...WALLETS, ...Object.values(get().settings.acctTypes || {}).flat(), ...get().accounts.map((x) => x.wallet).filter(Boolean)])].map((w) => `<option ${(pre.wallet || 'Spot') === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select><small class="muted" id="wal-h"></small></label>
+    ${selectField({ label: 'Trading Account Inside the Platform', lid: 'walf', hidden: true, name: 'wallet', aria: null, optionsHtml: [...new Set([...WALLETS, ...Object.values(get().settings.acctTypes || {}).flat(), ...get().accounts.map((x) => x.wallet).filter(Boolean)])].map((w) => `<option ${(pre.wallet || 'Spot') === w ? 'selected' : ''}>${esc(w)}</option>`).join(''), after: '<small class="muted" id="wal-h"></small>' })}
     <p class="hint" id="allacc">The asset is added to every trading account of this platform (Spot, Earn, Margin and the others), each with its own balance. The amount you hold now goes into Spot.</p>
     <div id="tkchips"></div>
-    <div class="two"><label class="field"><span>Ticker ${tipBtn('ticker')}</span><input name="coin" placeholder="BNB, BGB, NVDA, 7203, 005930" required autocomplete="off" style="text-transform:uppercase"></label>
-      <label class="field"><span>Name (Optional) ${tipBtn('assetname')}</span><input name="name" placeholder="NVIDIA, Toyota, Samsung…" autocomplete="off"></label></div>
+    <div class="two">${textField({ label: 'Ticker', tip: tipBtn('ticker'), name: 'coin', placeholder: 'BNB, BGB, NVDA, 7203, 005930', attr: { required: true, style: 'text-transform:uppercase' } })}
+      ${textField({ label: 'Name (Optional)', tip: tipBtn('assetname'), name: 'name', placeholder: 'NVIDIA, Toyota, Samsung…' })}</div>
     <p class="hint" id="tk-note" hidden></p>
-    <label class="field" id="mk"><span>Market (for shares and ETFs)</span><select name="market"><option value="">None</option>${MARKETS.map((m) => `<option>${m}</option>`).join('')}</select></label>
-    <div class="two"><label class="field"><span>Price Currency ${tipBtn('pricecur')}</span><select name="quote">${quoteOptions(pre.quote || 'USDT')}</select></label>
+    ${selectField({ label: 'Market (for shares and ETFs)', lid: 'mk', name: 'market', aria: null, optionsHtml: `<option value="">None</option>${MARKETS.map((m) => `<option>${m}</option>`).join('')}` })}
+    <div class="two">${selectField({ label: 'Price Currency', tip: tipBtn('pricecur'), name: 'quote', aria: null, optionsHtml: quoteOptions(pre.quote || 'USDT') })}
       ${textField({ label: 'Price (Optional)', name: 'price', inputmode: 'decimal', placeholder: 'e.g. 740' })}</div>
-    <label class="field" id="cgf"><span>Live Price ID (CoinGecko, Optional) ${tipBtn('livepriceid')}</span><input name="cg" placeholder="e.g. bitget-token" autocomplete="off" autocapitalize="off"><small class="muted" id="cg-h">Looks the price up online on its own. Suggested from the ticker. Leave empty to set prices yourself.</small></label>
+    ${textField({ label: 'Live Price ID (CoinGecko, Optional)', lid: 'cgf', tip: tipBtn('livepriceid'), name: 'cg', placeholder: 'e.g. bitget-token', attr: { autocapitalize: 'off' }, after: '<small class="muted" id="cg-h">Looks the price up online on its own. Suggested from the ticker. Leave empty to set prices yourself.</small>' })}
     <div class="two">${textField({ label: 'Amount You Hold Now', name: 'amt', inputmode: 'decimal', placeholder: '0' })}
       ${textField({ label: 'Decimals', name: 'dec', inputmode: 'numeric', placeholder: 'auto' })}</div>
     <p class="hint">Creates its own balance, kept separate from PHP, JPY or USDT. Tickers on exchanges that are not listed (Tokyo, Korea, anywhere) can be added the same way. Without a price the value shows once you buy or sell it, or set a price later.</p>
@@ -721,11 +721,11 @@ export function openIncome(pre = {}) {
   if (!hold.length) { toast('Add an asset or an investment first.'); return; }
   const nm = (a) => esc(accLabel(a));
   const incCats = (db.categories || []).filter((c) => !c.deleted && (c.kind === 'income' || c.kind === 'both') && c.name);
-  const s = sheet(`<form id="ii"><label class="field"><span>Income from</span><select name="asset">${hold.map((a) => `<option value="${a.id}" ${a.id === pre.asset ? 'selected' : ''}>${nm(a)}</option>`).join('')}</select></label>
-    <label class="field"><span>Kind</span><select name="type">${kindOptions(db, incCats)}</select></label>
-    <div class="two"><label class="field"><span id="ii-l">Amount received</span><input name="amt" inputmode="decimal" required></label>${textField({ label: 'Date', name: 'date', type: 'date', value: today() })}</div>
-    <label class="field"><span>Received as</span><select name="as"><option value="asset">More of the asset itself (units)</option>${cash.length ? '<option value="cash">Cash into an account</option>' : ''}</select></label>
-    <label class="field" id="ii-c" hidden><span>Paid into</span><select name="cash"></select></label>
+  const s = sheet(`<form id="ii">${selectField({ label: 'Income from', name: 'asset', aria: null, optionsHtml: hold.map((a) => `<option value="${a.id}" ${a.id === pre.asset ? 'selected' : ''}>${nm(a)}</option>`).join('') })}
+    ${selectField({ label: 'Kind', name: 'type', aria: null, optionsHtml: kindOptions(db, incCats) })}
+    <div class="two">${textField({ label: 'Amount received', spanId: 'ii-l', name: 'amt', inputmode: 'decimal', attr: { required: true } })}${textField({ label: 'Date', name: 'date', type: 'date', value: today() })}</div>
+    ${selectField({ label: 'Received as', name: 'as', aria: null, optionsHtml: `<option value="asset">More of the asset itself (units)</option>${cash.length ? '<option value="cash">Cash into an account</option>' : ''}` })}
+    ${selectField({ label: 'Paid into', lid: 'ii-c', hidden: true, name: 'cash', aria: null, optionsHtml: '' })}
     <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-x': true } })}${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>`, { title: 'Investment Income' });
   const f = s.el.querySelector('#ii');
   // "Cash into an account": accounts on the same platform as the asset first, then the others; an account can be added from the list
@@ -762,7 +762,7 @@ function predictCard(db) {
 function openPredict(pre = {}) {
   const db = get(), hold = db.accounts.filter((a) => !a.deleted && inInvest(a) && isAsset(a)), seen = new Set(), uniq = hold.filter((a) => (seen.has(a.cur) ? false : seen.add(a.cur)));
   if (!uniq.length) { toast('Add an asset first.'); return; }
-  const s = sheet(`<form id="ip"><label class="field"><span>Asset</span><select name="asset">${uniq.map((a) => `<option value="${esc(a.cur)}" ${a.cur === pre.sym ? 'selected' : ''}>${esc(((db.settings.tickers || {})[a.cur] || {}).ticker || a.cur)} ${esc(curName(a.cur) || '')}</option>`).join('')}</select></label>
+  const s = sheet(`<form id="ip">${selectField({ label: 'Asset', name: 'asset', aria: null, optionsHtml: uniq.map((a) => `<option value="${esc(a.cur)}" ${a.cur === pre.sym ? 'selected' : ''}>${esc(((db.settings.tickers || {})[a.cur] || {}).ticker || a.cur)} ${esc(curName(a.cur) || '')}</option>`).join('') })}
     <div class="two">${textField({ label: 'Your estimate (price per unit)', name: 'price', inputmode: 'decimal', attr: { 'required': true } })}${textField({ label: 'Currency', name: 'quote', value: 'USD', attr: { 'style': 'text-transform:uppercase' } })}</div>
     ${textField({ label: 'By when', name: 'by', type: 'date', value: addDays(today(), 90) })}
     ${textField({ label: 'Why (optional)', name: 'note' })}
@@ -800,7 +800,7 @@ ACT['inv-ticker'] = (el) => {
     <ul class="calfacts"><li><span>Price now</span><b>${now ? fmt(now.v, now.quote) : 'no price'}</b></li><li><span>Last update</span><b>${a ? esc(priceStamp(db, a)) : ''}</b></li></ul>
     ${spark}<small class="muted">Blue dots: live prices. Purple dots: prices you set or traded at.</small>
     <ul class="calfacts">${h.length ? h.map((p, k) => ({ p, k })).reverse().slice(0, 30).map(({ p, k }, i, arr) => { const prev = arr[i + 1] && arr[i + 1].p, ch = prev ? (p.price - prev.price) / prev.price * 100 : null, odd = oddPrices(h).has(k); return `<li class="${odd ? 'oddp' : ''}"><span>${esc(p.date)}${p.ts && p.src !== 'live' ? ' ' + esc(new Date(p.ts).toTimeString().slice(0, 5)) : ''} <small class="muted">${p.src === 'live' ? 'daily close' : p.src === 'trade' ? 'trade' : 'you set'}${odd ? ' · <b class="cr">looks off</b>' : ''}</small></span><b>${fmt(p.price, p.quote || tk.quote)}${ch != null ? ` <small class="${ch >= 0 ? 'cg' : 'cr'}">${ch >= 0 ? '+' : '−'}${Math.abs(ch).toFixed(1)}%</small>` : ''} ${button({ label: 'Delete', kind: 'link', cls: 'rmx', aria: 'Delete this price', attr: { 'data-hdel': k } })}</b></li>`; }).join('') : '<li><span>No history yet</span><b></b></li>'}</ul>
-    <label class="field"><span>Group</span><select name="rg">${[...new Set([...RISK_GROUPS, ...Object.values(db.settings.tickers || {}).map((t) => t.riskGroup).filter(Boolean)])].map((g) => `<option ${g === (a ? riskOf(db, a) : tk.riskGroup) ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></label>
+    ${selectField({ label: 'Group', name: 'rg', aria: null, optionsHtml: [...new Set([...RISK_GROUPS, ...Object.values(db.settings.tickers || {}).map((t) => t.riskGroup).filter(Boolean)])].map((g) => `<option ${g === (a ? riskOf(db, a) : tk.riskGroup) ? 'selected' : ''}>${esc(g)}</option>`).join('') })}
     <div class="btnrow">${button({ label: 'Set price', kind: 'ghost', attr: { 'data-pr': true } })}${button({ label: 'Rename', kind: 'ghost', attr: { 'data-rn': true } })}${button({ label: 'Add prediction', kind: 'ghost', attr: { 'data-pd': true } })}${button({ label: 'Close', kind: 'primary', attr: { 'data-x': true } })}</div>`, { title: 'Price History' });
   const setGroup = (g) => commit((d) => { const t = (d.settings.tickers || {})[sym]; if (t) t.riskGroup = g; });
   pickAll(s.el, { rg: { title: 'Group', addLabel: 'Add a new group', onAdd: async () => { const g = (await promptDialog('New group', '', { okLabel: 'Add', hint: 'For example: Long-term, Speculative, Retirement' }))?.trim(); if (!g) return; const sel = s.el.querySelector('select[name=rg]'); if (![...sel.options].some((o) => o.value === g)) sel.add(new Option(g, g)); sel.value = g; setGroup(g); } } });
@@ -830,7 +830,7 @@ export function invEntryMenu({ id = '', ex = '' } = {}) {
   const items = live(db.accounts).filter((x) => !x.archived && inInvest(x));
   // the middle + button arrives here without an account: the first thing offered is which account the entry is for
   const opts = items.map((x) => `<option value="${x.id}" ${a0 && a0.id === x.id ? 'selected' : ''}>${esc(accLabel(x))}</option>`).join('');
-  const s = sheet(`${a0 || plat0 ? '' : `<label class="field"><span>Which account is it for?</span><select name="acc"><option value="">Not sure yet, choose later</option>${opts}</select></label>`}
+  const s = sheet(`${a0 || plat0 ? '' : `${selectField({ label: 'Which account is it for?', name: 'acc', aria: null, optionsHtml: `<option value="">Not sure yet, choose later</option>${opts}` })}`}
     <div class="invopts">${[['trade', 'Trade', 'Buy, sell or convert; the fee is saved with it'], ['internal', 'Internal Transfer', 'Between wallets of the same platform (Spot, Earn, Futures, Margin). Free, no fee'], ['transfer', 'Transfer/Move', 'Between different platforms or accounts (Binance to Bybit, bank to exchange)'], ['expense', 'Expense', 'Buy goods, cashback, other costs'], ['income', 'Income', 'Yield, dividend, reward, or other income']].map(([k, l, h]) => `${button({ html: `<b>${l}</b><small>${h}</small>`, kind: 'plain', cls: `invopt ${k === 'trade' ? 'main' : ''}`, attr: { 'data-k': k } })}`).join('')}</div>`, { title: plat0 ? `Record activity on ${plat0}` : 'What do you want to record?' });
   pickAll(s.el, { acc: { title: 'Account', addLabel: 'Add a new asset', onAdd: () => { s.close(); addAsset({ onDone: (nid) => invEntryMenu({ id: nid }) }); } } });
   s.el.querySelectorAll('[data-k]').forEach((b) => { b.onclick = async () => { const k = b.dataset.k, sel = s.el.querySelector('select[name=acc]'), pick = sel ? sel.value : '';
