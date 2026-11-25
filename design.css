@@ -417,3 +417,17 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 .nfgroup.closed .nfghead .chev { transform: rotate(-90deg); }
 .nfgroup.closed .nfghead { margin-bottom: 0; }
 .nfghead:focus-visible { outline: 2px solid var(--line); }
+
+/* v16.34: Compare payment methods (estimates, never recorded as spending) */
+.pcsheet .two { align-items: end; margin-bottom: var(--sp-4); }
+.pcrow { border: 1px solid var(--rule); border-radius: var(--r-m); padding: var(--sp-4); margin-bottom: var(--sp-3); background: var(--sheet); display: grid; gap: var(--sp-2); }
+.pcrow.best { border-color: var(--in); }
+.pcrow.base { background: var(--tint); }
+.pchead { display: flex; align-items: center; gap: var(--sp-3); }
+.pchead .pcamt { margin-inline-start: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pcsub { display: flex; justify-content: space-between; gap: var(--sp-3); font-size: var(--fz-13); }
+.pcsub .bad { color: var(--bad); } .pcsub .good { color: var(--in); }
+.pctag { font-size: var(--fz-11); font-weight: 700; padding: 0 var(--sp-3); border-radius: var(--r-pill); border: 1px solid var(--in); color: var(--in); }
+.pcsrc { flex: 1; min-width: 0; }
+.pcconf { border: 1px dashed var(--line); border-radius: var(--r-m); padding: var(--sp-4); margin-bottom: var(--sp-3); display: grid; gap: var(--sp-2); font-size: var(--fz-13); }
+.paylink { font-size: var(--fz-13); font-weight: 700; }

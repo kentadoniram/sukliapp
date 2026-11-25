@@ -27,6 +27,11 @@ export function entryFacts(db, t) {
   else add('Account', a ? a.name : '');
   if (cat) add('Category', `${cat.name}${cat.group ? ' · ' + cat.group : ''}`);
   if (t.cur && t.cur !== HOME && t.fx) add('Rate used', `1 ${t.cur} = ${+homePer(db, t).toFixed(4)} ${HOME} (the rate saved with this entry)`);
+  if (t.orig && t.orig.amt > 0) {
+    add('Shop price', fmt(t.orig.amt, t.orig.cur));
+    const over = t.orig.mid > 0 ? (t.orig.rate - t.orig.mid) / t.orig.mid * 100 : null;
+    add('Posted rate', `1 ${t.orig.cur} = ${+t.orig.rate.toFixed(4)} ${HOME}${t.orig.mid > 0 ? ` (market then ${+t.orig.mid.toFixed(4)}${over != null ? `, ${over >= 0 ? '+' : ''}${over.toFixed(2)}%` : ''})` : ''}`);
+  }
   if (t.fee > 0) add('Fee', fmt(t.fee, t.feeCur || t.cur));
   if (t.merchant) add('Shop', t.merchant + (t.branch ? ' · ' + t.branch : ''));
   if (t.from || t.to) add('Trip', `${t.from || '?'} → ${t.to || '?'}`);

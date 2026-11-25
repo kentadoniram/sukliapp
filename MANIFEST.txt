@@ -1,15 +1,12 @@
-Sukli v16.33 - changed and added files only
+Sukli v16.34 - changed and added files only
 README.md
 design.css
 sw.js
-js/components.js
 js/entry.js
-js/goaltx.js
-js/modeldocs.js
-js/notify.js
-js/savings.js
+js/entryview.js
+js/paycompare.js
+js/paymath.js
 js/version.js
-tests/ui_test_component_rules.py
-tests/ui_test_v16_33_savings_goals.py
-tests/ui_test_v16_33_t1seg_bell_fold.py
+tests/unit_paymath.mjs
+tests/ui_test_v16_34_pay_compare.py
 MANIFEST.txt
