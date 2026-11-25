@@ -2,6 +2,7 @@
 // so every look lives in styles.css and a design change is made once. Use these for new and touched screens;
 // do not write a raw <button> by hand. Attributes: e → data-e, act → data-act, v → data-v, id, attr → anything else.
 import { esc, ic } from './ui.js';
+import { look } from './appearance.js';
 
 const attrs = (o) => Object.entries(o || {}).filter(([, v]) => v !== undefined && v !== null && v !== false).map(([k, v]) => (v === true ? ` ${k}` : ` ${k}="${esc(v)}"`)).join('');
 const KIND = { primary: 'btn', secondary: 'btn ghost', ghost: 'btn ghost', danger: 'btn danger', 'danger-ghost': 'btn danger ghost', link: 'linkbtn', 'danger-link': 'linkbtn danger', chip: 'chip', icon: 'iconbtn', toggle: 'tog', plain: '' };
@@ -17,7 +18,12 @@ export function button({ label = '', html = null, kind = 'secondary', size = '',
 }
 
 // seg({ options: [{ label, value }], value, e|act, aria, size: 'sm', cls }): a switch with one option on, equal widths
-export function seg({ options = [], value, e, act, data, aria = '', size = 'sm', cls = '', pack = (v) => v } = {}) {
+// t1: true → under Theme 1 the same switch is drawn as the sliding .t1seg (Legacy keeps the plain .seg buttons)
+export function seg({ options = [], value, e, act, data, aria = '', size = 'sm', cls = '', pack = (v) => v, t1 = false } = {}) {
+  if (t1 && look().design !== 'legacy') {
+    const idx = options.findIndex((o) => o.value === value);
+    return `<div class="t1seg ${cls}" role="group"${aria ? ` aria-label="${esc(aria)}"` : ''} data-sel="${idx}" style="--n:${options.length};--sel:${Math.max(0, idx)}">${options.map((o) => button({ html: esc(o.label), kind: 'plain', cls: `t1s-slot ${o.value === value ? 'on' : ''}`, e, act, data, v: pack(o.value), pressed: o.value === value, title: o.title, attr: o.attr })).join('')}</div>`;
+  }
   const n = options.length, w = n === 2 ? ' two' : n === 3 ? ' three' : '';
   const one = (o) => `<button type="button"${o.value === value ? ' class="on"' : ''}${dataOf({ e, act, data, v: pack(o.value), pressed: o.value === value, title: o.title, attr: o.attr })}>${esc(o.label)}</button>`;
   return `<div class="seg ${size}${w} ${cls}" role="group"${aria ? ` aria-label="${esc(aria)}"` : ''}>${options.map(one).join('')}</div>`;

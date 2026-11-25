@@ -66,16 +66,28 @@ const item = (db, n) => { const [lab, icon] = KINDS[n.kind];
       <h4>${esc(n.title)}</h4><p>${esc(n.text)}</p>
       <div class="btnrow tight">${button({ label: n.goLabel || 'Open', kind: n.tone === 'over' || n.tone === 'due' ? 'primary' : 'ghost', size: 'sm', act: 'nf-do', attr: { 'data-nf-go': n.go || '', 'data-nf-fn': n.fn || '', ...(n.attr || {}) } })}</div></div></article>`; };
 let cur = null;
+// the Budget group can be folded so the rest of the sheet (and Quick Glance) is reachable without scrolling; the fold is remembered on this device only
+const BKEY = 'sukli-nf-budget-closed';
+const budgetClosed = () => { try { return localStorage.getItem(BKEY) === '1'; } catch { return false; } };
+const setBudgetClosed = (v) => { try { localStorage.setItem(BKEY, v ? '1' : '0'); } catch { /* the fold is a convenience only */ } };
+const glanceRow = (g) => `<div class="nf nf-glance"><i class="nf-ic">${ic('spark')}</i><div class="nf-b"><div class="nf-top"><span class="nf-kind">Insight</span></div><h4>Quick Glance</h4><p>${g ? `${g} insight${g === 1 ? '' : 's'} you have not read yet.` : 'Everything has been read. You can read them again.'}</p><div class="btnrow tight">${button({ label: g ? 'Read insights' : 'Show again', kind: 'ghost', size: 'sm', act: 'nf-glance' })}</div></div></div>`;
+function budgetGroup(db, items) {
+  const closed = budgetClosed(), over = items.filter((n) => n.tone === 'over').length, fresh = items.filter((n) => isNew(db, n)).length;
+  const sum = `${items.length} alert${items.length === 1 ? '' : 's'}${over ? `, ${over} over` : ''}${fresh ? `, ${fresh} new` : ''}`;
+  return `<section class="nfgroup nf-budget-group${closed ? ' closed' : ''}">${button({ html: `<span class="nf-kind">Budget</span><span class="nfgsum">${esc(sum)}</span>${ic('chev')}`, kind: 'plain', cls: 'nfghead', act: 'nf-bgrp', attr: { 'aria-expanded': String(!closed), 'aria-controls': 'nf-budget-body' } })}
+    <div class="nflist" id="nf-budget-body"${closed ? ' hidden' : ''}>${items.map((n) => item(db, n)).join('')}</div></section>`;
+}
 export function openBell() {
   const db = get(), list = notifications(db), g = glanceUnread(db).length, fresh = list.filter((n) => isNew(db, n)).length;
-  const head = list.length ? `<p class="hint">${list.length} open${fresh ? `, ${fresh} new` : ''}. These stay here until you deal with them: pay, raise the budget or reach the goal. Reading them does not remove them.</p>` : '<p class="empty">Nothing needs your attention right now.</p>';
+  const head = list.length ? `<p class="hint">${list.length} open${fresh ? `, ${fresh} new` : ''}. These stay here until you deal with them: pay, raise the budget or reach the goal. Reading or folding them does not remove them.</p>` : '<p class="empty">Nothing needs your attention right now.</p>';
   if (cur) { try { cur.close(); } catch { /* already closed */ } }
-  cur = sheet(`${head}<div class="nflist">${list.map((n) => item(db, n)).join('')}</div>
-    <div class="nf nf-glance"><i class="nf-ic">${ic('spark')}</i><div class="nf-b"><div class="nf-top"><span class="nf-kind">Insight</span></div><h4>Quick Glance</h4><p>${g ? `${g} insight${g === 1 ? '' : 's'} you have not read yet.` : 'Everything has been read. You can read them again.'}</p><div class="btnrow tight">${button({ label: g ? 'Read insights' : 'Show again', kind: 'ghost', size: 'sm', act: 'nf-glance' })}</div></div></div>`, { title: 'Notifications', cls: 'nfsheet' });
+  const bud = list.filter((n) => n.kind === 'budget'), rest = list.filter((n) => n.kind !== 'budget');
+  cur = sheet(`${head}${glanceRow(g)}${bud.length ? budgetGroup(db, bud) : ''}<div class="nflist">${rest.map((n) => item(db, n)).join('')}</div>`, { title: 'Notifications', cls: 'nfsheet' });
   // mark what is on the list as seen (only the "New" tag changes, never the list); forget ids that are no longer open
   try { const seen = {}; for (const n of list) seen[n.id] = 1; commitQuiet((d) => { d.settings.notifSeen = seen; }); } catch { /* the tag is cosmetic */ }
   refreshBell();
 }
+ACT['nf-bgrp'] = (el) => { const grp = el.closest('.nfgroup'), body = grp && grp.querySelector('.nflist'); if (!body) return; const close = !body.hidden; body.hidden = close; grp.classList.toggle('closed', close); el.setAttribute('aria-expanded', String(!close)); setBudgetClosed(close); };
 ACT.notifbell = () => openBell();
 ACT['nf-glance'] = () => { if (cur) cur.close(); cur = null; if (!showGlance({ reopen: true })) toast('Nothing to show yet. Add a few more entries and check back.'); refreshBell(); };
 ACT['nf-do'] = (el) => { const go = el.dataset.nfGo, fn = el.dataset.nfFn; if (cur) cur.close(); cur = null; if (fn && ACT[fn]) ACT[fn](el); else if (go) location.hash = go; };

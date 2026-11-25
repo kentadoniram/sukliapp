@@ -30,7 +30,7 @@ export function goalStats(db, g, today = todayStr()) {
   const gc = goalCur(db, g), gr = gc === HOME ? 1 : homeFx(db, gc);   // the goal's own currency and what one unit of it is worth in home currency
   const linked = !!a, saved = linked ? (balances(db).get(a.id) || 0) * (homeFx(db, a.cur) || 1) / gr : (g.log || []).reduce((s, x) => s + (x.amt || 0), 0) + (g.start || 0) + goalTxTotal(db, g.id) / gr;
   const target = g.target || 0, left = Math.max(0, target - saved), pct = target > 0 ? Math.max(0, Math.min(100, (saved / target) * 100)) : 0, reached = target > 0 && saved >= target - 0.005;
-  const out = { cur: gc, rate: gr, linked, acct: a, saved, target, left, pct, reached, perMonth: null, monthsLeft: null, late: false, pace: null, eta: null };
+  const out = { cur: gc, rate: gr, noRate: !!(g.cur && g.cur !== HOME && gc === HOME), linked, acct: a, saved, target, left, pct, reached, perMonth: null, monthsLeft: null, late: false, pace: null, eta: null };
   if (g.due && !reached) {
     const days = dayNum(g.due) - dayNum(today);
     if (days < 0) out.late = true;
@@ -64,6 +64,7 @@ const card = (db, g) => {
     ${button({ label: 'Edit', kind: 'link', act: 'goal-edit', attr: { 'data-id': g.id } })}</div>
     <div class="goalbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(s.pct)}"><i style="width:${s.pct.toFixed(1)}%"></i></div>
     <p class="goalnum"><b>${M(s.saved)}</b> of ${M(s.target)} · ${Math.round(s.pct)}%${s.reached ? ' · Reached!' : ''}</p>
+    ${s.noRate ? `<p class="hint">There is no exchange rate for ${esc(g.cur)} right now, so this goal is shown in ${esc(HOME)} and its target is read as ${esc(HOME)}. Add a ${esc(g.cur)} account or rate to see it in ${esc(g.cur)}.</p>` : ''}
     <ul class="calfacts">${facts.join('')}</ul>
     ${check}
     <div class="btnrow tight">${s.linked ? `<span class="hint">Progress follows the balance of ${esc(s.acct.name)}.</span>` : `${button({ label: 'Add Money', kind: 'primary', size: 'sm', act: 'goal-add', attr: { 'data-id': g.id } })}${button({ label: 'Take Out', kind: 'ghost', size: 'sm', act: 'goal-take', attr: { 'data-id': g.id } })}${button({ label: 'History', kind: 'link', act: 'goal-hist', attr: { 'data-id': g.id } })}`}
@@ -103,12 +104,12 @@ function openGoal(id, name = '') {
     ${old ? '' : `<div class="chips">${IDEAS.map(([n]) => `${button({ label: n, kind: 'chip', attr: { 'data-idea': n } })}`).join('')}</div>`}
     <div class="field"><span>Picture</span>${button({ label: ``, kind: 'plain', cls: 'picbtn', id: 'g-pic', aria: 'Choose a picture for this goal' })}</div>
     ${selectField({ label: 'Currency of this goal', id: 'g-cur', name: 'c', value: g.cur || HOME, options: goalCurs(db, g).map((c) => ({ value: c, label: c === HOME ? `${c} (home currency)` : c })) })}
-    <label class="field"><span>Target amount</span><input name="t" inputmode="decimal" autocomplete="off" value="${g.target ? g.target : ''}" placeholder="0.00"></label>
+    ${textField({ label: 'Target amount', name: 't', value: g.target ? String(g.target) : '', placeholder: '0.00', inputmode: 'decimal' })}
     <div class="field"><span>Short or long term</span><div class="chips" data-term>${button({ label: 'Short-term (within a year)', kind: 'chip', v: 'short' })}${button({ label: 'Long-term', kind: 'chip', v: 'long' })}</div></div>
     <div class="field"><span>Target date (optional)</span><div class="btnrow tight">${button({ label: ``, kind: 'ghost', size: 'sm', attr: { 'data-due': true } })}${button({ label: 'No date', kind: 'ghost', size: 'sm', attr: { 'data-nodue': true } })}</div></div>
-    <label class="field"><span>Follow an account (optional)</span><select name="a"><option value="">No, I add money myself</option>${accts.map((a) => `<option value="${a.id}" ${g.acct === a.id ? 'selected' : ''}>${esc(a.name)} (${esc(a.cur)})</option>`).join('')}</select></label>
+    ${selectField({ label: 'Follow an account (optional)', name: 'a', value: g.acct || '', options: [{ value: '', label: 'No, I add money myself' }, ...accts.map((a) => ({ value: a.id, label: `${a.name} (${a.cur})` }))] })}
     <p class="hint">If you follow an account, progress is that account's balance. Otherwise you add and take out money by hand.</p>
-    <label class="field" id="g-startrow"><span>Already saved (optional)</span><input name="s" inputmode="decimal" autocomplete="off" value="${g.start || ''}" placeholder="0.00"></label>
+    <div id="g-startrow">${textField({ label: 'Already saved (optional)', name: 's', value: g.start ? String(g.start) : '', placeholder: '0.00', inputmode: 'decimal' })}</div>
     ${old ? button({ label: 'Remove This Goal', kind: 'danger-link', attr: { 'data-del': true } }) : ''}
     <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>`, { title: old ? 'Edit Goal' : 'New Goal' });
   const q = (sel) => s.el.querySelector(sel), form = q('form');
@@ -141,7 +142,7 @@ ACT['goal-edit'] = (el) => openGoal(el.dataset.id);
 function openMoney(id, sign) {
   const g = live(get().goals).find((x) => x.id === id); if (!g) return; let date = todayStr();
   const s = sheet(`<form novalidate><p class="hint">${sign > 0 ? 'Money you put aside for this goal.' : 'Money you took out of this goal.'} This only changes the goal's progress. It does not move money between your accounts.</p>
-    <label class="field"><span>Amount (${esc(goalCur(get(), g))})</span><input name="a" inputmode="decimal" autocomplete="off" placeholder="0.00" autofocus></label>
+    ${textField({ label: `Amount (${goalCur(get(), g)})`, name: 'a', placeholder: '0.00', inputmode: 'decimal', attr: { autofocus: true } })}
     <div class="field"><span>Date</span>${button({ label: ``, kind: 'ghost', size: 'sm', attr: { 'data-date': true } })}</div>
     ${textField({ label: 'Note (optional)', name: 'n' })}
     <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}${button({ html: `${sign > 0 ? 'Add' : 'Take Out'}`, kind: 'primary', submit: true })}</div></form>`, { title: `${sign > 0 ? 'Add Money to' : 'Take Money from'} ${g.name}` });

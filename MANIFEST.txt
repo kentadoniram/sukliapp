@@ -1,15 +1,15 @@
-Sukli v16.32 - budget fixes and entry improvements. Changed files only (unzip over v16.31)
-js/budgetsetup.js
-js/glance.js
-js/views.js
-js/notify.js
-js/screens.js
-js/invest.js
-js/itemcat.js
-js/entry.js
-design.css
-js/version.js
-sw.js
+Sukli v16.33 - changed and added files only
 README.md
-tests/ui_test_v16_32_budget_entry_fixes.py
-tests/ui_test_v16_29_models_lab_tax.py
+design.css
+sw.js
+js/components.js
+js/entry.js
+js/goaltx.js
+js/modeldocs.js
+js/notify.js
+js/savings.js
+js/version.js
+tests/ui_test_component_rules.py
+tests/ui_test_v16_33_savings_goals.py
+tests/ui_test_v16_33_t1seg_bell_fold.py
+MANIFEST.txt

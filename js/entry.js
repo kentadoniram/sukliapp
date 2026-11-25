@@ -17,7 +17,7 @@ import { parseTags, joinTags, tagCounts } from './tags.js';
 import { tipBtn } from './interest.js';
 import { captureLoc, hereWhy, permState, parsePt } from './loc.js';
 import { pickOnMap } from './mappick.js';
-import { goalChoices } from './goaltx.js';
+import { goalChoices, goalAdds } from './goaltx.js';
 import { suggestBranch, branchFar } from './merchantset.js';
 import { splitOf, openSplit, deleteWithMates } from './splitbill.js';
 import { guessItemCat, itemCatIndex, itemsForWhat, knownItemNames, rankItemNames, lastItemPrice } from './itemcat.js';
@@ -465,7 +465,7 @@ export function openEntry(opts = {}) {
       <p class="hint" id="aj-res"></p>
       <div class="btnrow">${button({ label: 'Apply', kind: 'primary', id: 'aj-ok' })}${a0 ? button({ label: 'Remove', kind: 'ghost', id: 'aj-rm' }) : ''}</div></div>`, { title: isCard() ? 'Tax, discount and card fees' : 'Tax or discount' });
     const q = (id) => s2.el.querySelector(id), cu = (x) => esc(fmt(x, cur));
-    const segs = () => { q('#aj-dseg').innerHTML = seg({ options: [{ label: 'Percent %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: st.disc.mode, act: 'aj-dm', aria: 'Discount type' }); q('#aj-tseg').innerHTML = seg({ options: [{ label: 'Rate %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: st.tax.mode, act: 'aj-tm', aria: 'Tax type' }); if (q('#aj-xseg')) q('#aj-xseg').innerHTML = seg({ options: [{ label: 'Percent %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: st.fees.x.mode, act: 'aj-xm', aria: 'Cross-border fee type' }); };
+    const segs = () => { q('#aj-dseg').innerHTML = seg({ options: [{ label: 'Percent %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: st.disc.mode, act: 'aj-dm', aria: 'Discount type', t1: true }); q('#aj-tseg').innerHTML = seg({ options: [{ label: 'Rate %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: st.tax.mode, act: 'aj-tm', aria: 'Tax type', t1: true }); if (q('#aj-xseg')) q('#aj-xseg').innerHTML = seg({ options: [{ label: 'Percent %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: st.fees.x.mode, act: 'aj-xm', aria: 'Cross-border fee type', t1: true }); };
     const calc = () => { const base = num(st.base) || 0, m = adjMath(base, st.disc, st.tax, st.fees); q('#aj-res').innerHTML = base > 0 ? `${cu(base)}${m.discAmt ? ` − discount ${cu(m.discAmt)}` : ''}${m.taxAmt && !st.tax.incl ? ` + tax ${cu(m.taxAmt)}` : ''}${m.taxAmt && st.tax.incl ? ` (includes tax ${cu(m.taxAmt)})` : ''}${m.feeX ? ` + cross-border fee ${cu(m.feeX)}` : ''}${m.feeO ? ` + other fees ${cu(m.feeO)}` : ''} = <b>${cu(m.total)}</b>` : 'Type the price to see the total.'; return m; };
     segs(); calc();
     s2.el.addEventListener('input', (e) => { if (e.target.id === 'aj-base') st.base = e.target.value; else if (e.target.id === 'aj-d') st.disc.v = e.target.value; else if (e.target.id === 'aj-t') st.tax.v = e.target.value; else if (e.target.id === 'aj-x') st.fees.x.v = e.target.value; else if (e.target.id === 'aj-o') st.fees.o = e.target.value; else if (e.target.id === 'aj-inc') return; calc(); });
@@ -575,16 +575,16 @@ export function openEntry(opts = {}) {
         <select class="in-c" aria-label="Item category"><option value="">Same as above</option>${catOptions(it.cat, 'expense', ctxCat(i))}</select>
         <div class="inamt"><input class="in-a" inputmode="decimal" placeholder="${esc(itemPh())}" value="${esc(it.amt)}" aria-label="Price of one, you can type a sum like 120+45">${button({ label: '=', kind: 'plain', cls: 'calcin', e: 'item-calc', aria: 'Calculator: type a sum such as 120+45*2, then tap = ', title: 'Calculator', attr: { 'data-v': i } })}</div>
         <div class="qty" role="group" aria-label="Quantity"><button type="button" data-e="item-q" data-v="${i}:-1" aria-label="One less">−</button><input class="in-q" data-noclear="1" inputmode="numeric" autocomplete="off" value="${it.q > 0 ? it.q : 1}" aria-label="Quantity, you can type it"><button type="button" data-e="item-q" data-v="${i}:1" aria-label="One more">+</button></div>
-        ${it.disc && it.disc.on ? `<div class="idisc">${seg({ options: [{ label: 'Amount', value: 'amt' }, { label: '%', value: 'pct' }], value: it.disc.mode === 'pct' ? 'pct' : 'amt', e: 'disc-mode', aria: 'Discount type', pack: (m) => `${i}:${m}` })}<input class="in-d" inputmode="decimal" autocomplete="off" placeholder="${it.disc.mode === 'pct' ? 'e.g. 20' : 'e.g. 50'}" value="${esc(it.disc.v)}" aria-label="Discount ${it.disc.mode === 'pct' ? 'percent' : 'amount'}"></div>` : ''}
-        ${it.tx && it.tx.on ? `<div class="itax">${seg({ options: [...(taxFirst8() ? [{ label: '8%', value: '8', title: 'Reduced rate: food and non-alcoholic drinks' }, { label: '10%', value: '10', title: 'Standard consumption tax' }] : [{ label: '10%', value: '10', title: 'Standard consumption tax' }, { label: '8%', value: '8', title: 'Reduced rate: food and non-alcoholic drinks' }])], value: ['10', '8'].includes(String(it.tx.v)) ? String(it.tx.v) : null, e: 'item-tax-set', aria: 'Tax rate', pack: (m) => `${i}:${m}` })}<input class="in-t" inputmode="decimal" autocomplete="off" placeholder="Other %" value="${esc(it.tx.v)}" aria-label="Tax rate percent for this item"></div>` : ''}
+        ${it.disc && it.disc.on ? `<div class="idisc">${seg({ options: [{ label: 'Amount', value: 'amt' }, { label: '%', value: 'pct' }], value: it.disc.mode === 'pct' ? 'pct' : 'amt', e: 'disc-mode', aria: 'Discount type', t1: true, pack: (m) => `${i}:${m}` })}<input class="in-d" inputmode="decimal" autocomplete="off" placeholder="${it.disc.mode === 'pct' ? 'e.g. 20' : 'e.g. 50'}" value="${esc(it.disc.v)}" aria-label="Discount ${it.disc.mode === 'pct' ? 'percent' : 'amount'}"></div>` : ''}
+        ${it.tx && it.tx.on ? `<div class="itax">${seg({ options: [...(taxFirst8() ? [{ label: '8%', value: '8', title: 'Reduced rate: food and non-alcoholic drinks' }, { label: '10%', value: '10', title: 'Standard consumption tax' }] : [{ label: '10%', value: '10', title: 'Standard consumption tax' }, { label: '8%', value: '8', title: 'Reduced rate: food and non-alcoholic drinks' }])], value: ['10', '8'].includes(String(it.tx.v)) ? String(it.tx.v) : null, e: 'item-tax-set', aria: 'Tax rate', t1: true, pack: (m) => `${i}:${m}` })}<input class="in-t" inputmode="decimal" autocomplete="off" placeholder="Other %" value="${esc(it.tx.v)}" aria-label="Tax rate percent for this item"></div>` : ''}
         <div class="itail"><small class="muted iline">${itemLine(it)}</small>${toggle({ label: 'Discount', on: !!(it.disc && it.disc.on), e: 'item-disc', v: i })}${toggle({ label: 'Tax', on: !!(it.tx && it.tx.on), e: 'item-tax', v: i })}${button({ label: 'Remove item', kind: 'link', cls: 'rm', e: 'item-del', v: i, aria: 'Remove this item' })}</div></div>`).join('')}</div>
       <div class="itemfoot">${button({ label: '+ Add item', kind: 'link', e: 'item-add' })}<span id="itemleft"></span></div>
       <div class="taxbox" id="wdbox"><div class="taxhead"><span class="feelab">Discount on the Whole Bill</span>${toggle({ label: 'Discount', on: f.wd.on, e: 'wd-toggle' })}</div>
-        ${f.wd.on ? `<div class="taxdet">${seg({ options: [{ label: 'Percent %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: f.wd.mode === 'pct' ? 'pct' : 'amt', e: 'wd-mode', aria: 'Discount type' })}
+        ${f.wd.on ? `<div class="taxdet">${seg({ options: [{ label: 'Percent %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: f.wd.mode === 'pct' ? 'pct' : 'amt', e: 'wd-mode', aria: 'Discount type', t1: true })}
           <input id="f-wdv" inputmode="decimal" autocomplete="off" placeholder="${f.wd.mode === 'pct' ? 'e.g. 10' : 'e.g. 100'}" value="${esc(f.wd.v)}" aria-label="Discount ${f.wd.mode === 'pct' ? 'percent' : 'amount'}">
           <small class="muted" id="wdcalc">${wdText()}</small></div>` : ''}</div>
       <div class="taxbox"><div class="taxhead"><span class="feelab">Tax on the Whole Bill</span>${toggle({ label: 'Tax', on: f.tax.on, e: 'tax-toggle' })}</div>
-        ${f.tax.on ? `<div class="taxdet">${seg({ options: [{ label: 'Rate %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: f.tax.mode === 'pct' ? 'pct' : 'amt', e: 'tax-mode', aria: 'Tax type' })}
+        ${f.tax.on ? `<div class="taxdet">${seg({ options: [{ label: 'Rate %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: f.tax.mode === 'pct' ? 'pct' : 'amt', e: 'tax-mode', aria: 'Tax type', t1: true })}
           <input id="f-taxv" inputmode="decimal" autocomplete="off" placeholder="${f.tax.mode === 'pct' ? 'e.g. 10' : 'e.g. 150'}" value="${esc(f.tax.v)}" aria-label="Tax ${f.tax.mode === 'pct' ? 'rate percent' : 'amount'}">
           ${f.tax.mode === 'pct' ? '<div class="chips taxchips">' + (taxFirst8() ? button({ label: '8% (reduced)', kind: 'chip', e: 'tax-set', v: '8' }) + button({ label: '10%', kind: 'chip', e: 'tax-set', v: '10' }) : button({ label: '10%', kind: 'chip', e: 'tax-set', v: '10' }) + button({ label: '8% (reduced)', kind: 'chip', e: 'tax-set', v: '8' })) + '</div>' : ''}
           <small class="muted" id="taxcalc">${taxText()}${ownTaxSum() ? ' (items with their own tax are left out)' : ''}</small></div>` : ''}</div>` });
@@ -808,7 +808,12 @@ export function openEntry(opts = {}) {
   // Savings: a transfer can count toward a savings goal that you add money to by hand (a goal that follows an account already follows its balance)
   function renderGoal() {
     const el = $f('goalrow'); if (!el) return; const gs = goalChoices(get(), f.goalId); el.hidden = f.kind !== 'transfer' || f.debt || !gs.length; if (el.hidden) return;
-    el.innerHTML = selectField({ label: 'Counts toward a savings goal (optional)', id: 'f-goal', value: f.goalId, options: [{ value: '', label: 'No goal' }, ...gs.map((g) => ({ value: g.id, label: g.name }))] });
+    el.innerHTML = `${selectField({ label: 'Counts toward a savings goal (optional)', id: 'f-goal', value: f.goalId, options: [{ value: '', label: 'No goal' }, ...gs.map((g) => ({ value: g.id, label: g.cur && g.cur !== HOME ? `${g.name} (${g.cur})` : g.name }))] })}<small class="muted" id="goalhint"></small>`; goalHint();
+  }
+  // a goal saved in another currency: say what this transfer adds to it (or that there is no rate to work it out)
+  function goalHint() {
+    const h = $f('goalhint'); if (!h) return; const db = get(), g = (db.goals || []).find((x) => x.id === f.goalId), a = db.accounts.find((x) => x.id === f.acct), r = g && a ? goalAdds(db, g, a.cur, num(f.amount)) : null;
+    h.textContent = !r ? '' : r.amt == null ? `There is no exchange rate for ${r.cur} yet, so this cannot be counted toward the goal in ${r.cur}.` : `Adds about ${fmt(r.amt, r.cur)} to this goal.`;
   }
   const updCb = () => { const c = $f('cbcalc'); if (c) c.textContent = cbText(); };
   // Branch of the merchant (Life > Tsukagoshi): below the keypad, shown once a merchant is chosen
@@ -943,7 +948,7 @@ export function openEntry(opts = {}) {
   form.addEventListener('input', (e) => {
     const id = e.target.id;
     if (id === 'f-amount') {
-      formatAmountInput(e.target); f.amount = e.target.value; if (f.feeMode === 'pct') { recalcFee(); const fc = $f('feecalc'); if (fc) fc.textContent = feeCalcTxt(); } showCalcRes(); syncX(); updateFxVal(); heavy(); othSum(); updCb(); updateItemLeft(); renderAdj();
+      formatAmountInput(e.target); f.amount = e.target.value; goalHint(); if (f.feeMode === 'pct') { recalcFee(); const fc = $f('feecalc'); if (fc) fc.textContent = feeCalcTxt(); } showCalcRes(); syncX(); updateFxVal(); heavy(); othSum(); updCb(); updateItemLeft(); renderAdj();
     }
     else if (e.target.classList.contains('oth-n')) { f.others.rows[+e.target.closest('.othrow').dataset.i].v = e.target.value; othSum(); }
     else if (id === 'f-cbv') { f.cb.v = e.target.value; updCb(); }
@@ -1031,7 +1036,7 @@ export function openEntry(opts = {}) {
     else if (e.target.classList.contains('in-q')) { const it = f.items[+e.target.closest('.item').dataset.i]; if (it) { it.q = Math.max(1, Math.min(99, parseInt(String(e.target.value).replace(/\D/g, ''), 10) || 1)); renderItems(); } }
     else if (e.target.classList.contains('in-c')) { const it = f.items[+e.target.closest('.item').dataset.i]; it.cat = e.target.value; if (!f._autoCat) it.catTouched = true; if (f.items.some((x, j) => j > +e.target.closest('.item').dataset.i)) renderItems(); }
     else if (e.target.classList.contains('oth-who')) { const i = +e.target.closest('.othrow').dataset.i; if (e.target.value === '__new') othNew(i); else { f.others.rows[i].who = e.target.value; renderCounts(); } }
-    else if (e.target.id === 'f-goal') { f.goalId = e.target.value; }
+    else if (e.target.id === 'f-goal') { f.goalId = e.target.value; goalHint(); }
     else if (e.target.classList.contains('oth-me')) { f.others.me = !e.target.checked; othSum(); }
     else if (e.target.classList.contains('cnt-g')) { const c = f.counts[+e.target.closest('.cnt').dataset.i]; c.g = e.target.value; const inp = e.target.closest('.cnt').querySelector('.cnt-n'); if (inp) inp.placeholder = c.g && unitOf(get(), c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'; }
   });

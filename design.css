@@ -402,3 +402,18 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 /* v16.32 tax sheet: smaller check box */
 #adjf .chk input[type=checkbox], #adjf .check input[type=checkbox], .taxbox .check input[type=checkbox] { width: 16px; height: 16px; min-height: 16px; flex: none; accent-color: var(--line); }
 #adjf .chk, #adjf .check { gap: var(--sp-2); font-size: var(--fz-13); }
+
+/* v16.33: Theme 1 sliding switch for Tax / Discount / Fee types (New Entry sheet and Split into items) */
+#adjf .t1seg, .taxdet .t1seg, .idisc .t1seg, .itax .t1seg { display: grid; width: 100%; }
+#adjf .t1seg .t1s-slot, .taxdet .t1seg .t1s-slot, .idisc .t1seg .t1s-slot, .itax .t1seg .t1s-slot { min-width: 0; }
+
+/* v16.33: the Budget group in the bell folds like Quick Glance; Quick Glance sits at the top */
+.nf-glance { margin-bottom: var(--sp-3); }
+.nfgroup { margin-bottom: var(--sp-3); }
+.nfghead { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: var(--sp-3); min-height: var(--h-36); padding: var(--sp-2) var(--sp-3); cursor: pointer; border-radius: var(--r-m); border: 1px solid var(--rule); border-inline-start: 4px solid var(--nf-budget); background: var(--sheet); margin-bottom: var(--sp-3); }
+.nfghead .nf-kind { color: var(--nf-budget); }
+.nfgsum { flex: 1; min-width: 0; font-size: var(--fz-12); color: var(--ink2); }
+.nfghead .chev { width: 18px; height: 18px; color: var(--ink2); transition: transform .15s; }
+.nfgroup.closed .nfghead .chev { transform: rotate(-90deg); }
+.nfgroup.closed .nfghead { margin-bottom: 0; }
+.nfghead:focus-visible { outline: 2px solid var(--line); }
