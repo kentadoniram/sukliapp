@@ -56,7 +56,7 @@ export function openSuggestions(kind0 = 'expense') {
         return `<details class="sugg-g" ${free.length ? 'open' : ''}><summary><i class="badge sm" style="background:${groupColor(g)}">${gsvg(guessGroupG(g))}</i> <b>${esc(g)}</b> <small class="muted">${free.length ? `${free.length} new` : 'all added'}</small></summary>
           <div class="sugg-list">${free.length > 1 ? `${button({ label: 'Tick all', kind: 'link', size: 'sm', attr: { 'data-all': g } })}` : ''}${names.map((n) => { const has = h.has(`${g.toLowerCase()}|${n.toLowerCase()}`), key = `${g}|${n}`;
             return `<label class="check sugg-i ${has ? 'have' : ''}"><input type="checkbox" data-k2="${esc(key)}" ${has ? 'checked disabled' : ''} ${picked.has(key) ? 'checked' : ''}> <span class="sugg-ic">${catIcon({ name: n, group: g })}</span> ${esc(n)}${has ? ' <small class="muted">✓</small>' : ''}</label>`; }).join('')}</div></details>`; }).join('')}
-      <div class="btnrow"><button type="button" class="btn" data-add ${picked.size ? '' : 'disabled'}>Add ${picked.size || ''} Selected</button></div>`; };
+      <div class="btnrow">${button({ label: `Add ${picked.size || ''} Selected`, kind: 'primary', attr: { 'data-add': true }, disabled: !picked.size })}</div>`; };
   draw();
   root.addEventListener('change', (e) => { const k = e.target.dataset.k2; if (!k) return; if (e.target.checked) picked.add(k); else picked.delete(k); const b = root.querySelector('[data-add]'); b.disabled = !picked.size; b.textContent = `Add ${picked.size || ''} Selected`; });
   root.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return;

@@ -27,7 +27,7 @@ export function openDatePicker(value, onPick, { time = true, title = 'Choose a d
     for (let i = 0; i < start; i++) cells.push('<span></span>');
     for (let d = 1; d <= dim; d++) {
       const ds = `${view}-${p2(d)}`, off = (min && ds < min) || (max && ds > max);
-      cells.push(`<button type="button" class="dpday ${ds === sel ? 'sel' : ''} ${ds === today ? 'today' : ''} ${marks && marks.has(ds) ? 'mark' : ''}" data-d="${ds}" ${off ? 'disabled' : ''} aria-label="${prettyDate(ds, false)}" aria-pressed="${ds === sel}">${d}</button>`);
+      cells.push(button({ label: String(d), kind: 'plain', cls: `dpday ${ds === sel ? 'sel' : ''} ${ds === today ? 'today' : ''} ${marks && marks.has(ds) ? 'mark' : ''}`, aria: prettyDate(ds, false), pressed: ds === sel, disabled: !!off, attr: { 'data-d': ds } }));
     }
     root.innerHTML = `<div class="dpquick">${button({ label: 'Today', kind: 'chip', attr: { 'data-q': '0' } })}${button({ label: 'Yesterday', kind: 'chip', attr: { 'data-q': '-1' } })}${button({ label: 'A week ago', kind: 'chip', attr: { 'data-q': '-7' } })}</div>
       ${time ? `<div class="dpquick dpago"><span class="muted">Hours ago</span>${[1, 2, 3, 6, 12].map((n) => `${button({ html: `${n} h`, kind: 'chip', attr: { 'data-ago': n } })}`).join('')}<input id="dp-ago" inputmode="numeric" placeholder="other" aria-label="Hours ago" data-noclear="1"></div>` : ''}

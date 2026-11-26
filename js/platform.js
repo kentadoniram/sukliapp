@@ -35,7 +35,7 @@ export function openPlatform(ex) {
       <div class="hidelist">${accts.slice().sort((a, b) => (walletOf(a) + a.cur).localeCompare(walletOf(b) + b.cur)).map((a) => `<label class="check"><input type="checkbox" data-p="hide" data-id="${a.id}" ${a.invHidden ? 'checked' : ''}> <span>${esc(a.cur)} <small class="muted">${esc(walletOf(a))}${(bal.get(a.id) || 0) ? ' · ' + esc(fmt(bal.get(a.id) || 0, a.cur)) : ''}</small></span></label>`).join('')}</div>` : ''}
       <h3>Platform</h3>
       <p class="hint">Rename Platform changes the name of the whole exchange. It does not rename your individual accounts (Spot, Margin, Earn…).</p>
-      <div class="btnrow left">${button({ label: 'Rename Platform', kind: 'ghost', size: 'sm', act: 'plat-do', attr: { 'data-do': 'inv-rename', 'data-ex': ex } })}${accts.length ? '' : `<button type="button" class="btn sm ghost danger" data-act="plat-do" data-do="inv-platdel" data-ex="${esc(ex)}">Remove Platform</button>`}</div>
+      <div class="btnrow left">${button({ label: 'Rename Platform', kind: 'ghost', size: 'sm', act: 'plat-do', attr: { 'data-do': 'inv-rename', 'data-ex': ex } })}${accts.length ? '' : button({ label: 'Remove Platform', kind: 'danger-ghost', size: 'sm', act: 'plat-do', attr: { 'data-do': 'inv-platdel', 'data-ex': ex } })}</div>
       <div class="btnrow">${button({ label: 'Done', kind: 'primary', cls: 'primary', attr: { 'data-p': 'done' } })}</div>`;
   };
   draw();

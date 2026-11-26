@@ -91,7 +91,7 @@ export function sheet(html, { title = '', onClose, wide = false, cls = '' } = {}
   const wrap = document.createElement('div');
   wrap.className = 'scrim';
   wrap.innerHTML = `<div class="sheet ${wide ? 'wide' : ''} ${cls}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
-    <div class="sheet-head"><h2>${esc(title)}</h2><button type="button" class="iconbtn" data-close aria-label="Close">${ic('x')}</button></div>
+    <div class="sheet-head"><h2>${esc(title)}</h2>${button({ kind: 'icon', icon: 'x', label: 'Close', attr: { 'data-close': true } })}</div>
     <div class="sheet-body">${html}</div></div>`;
   document.body.appendChild(wrap);
   hideTip();
@@ -129,8 +129,8 @@ document.addEventListener('keydown', (e) => {
 export function confirmDialog(message, okLabel = 'Confirm', danger = false, noLabel = 'Cancel') {
   return new Promise((res) => {
     const s = sheet(`<p class="confirm-text">${esc(message)}</p>
-      <div class="btnrow"><button type="button" class="btn ghost" data-no>${esc(noLabel)}</button>
-      <button type="button" class="btn ${danger ? 'danger' : ''}" data-yes>${esc(okLabel)}</button></div>`, { title: 'Please Confirm', onClose: () => res(false) });
+      <div class="btnrow">${button({ label: noLabel, kind: 'ghost', attr: { 'data-no': true } })}
+      ${button({ label: okLabel, kind: danger ? 'danger' : 'primary', attr: { 'data-yes': true } })}</div>`, { title: 'Please Confirm', onClose: () => res(false) });
     s.el.querySelector('[data-no]').onclick = () => s.close();
     s.el.querySelector('[data-yes]').onclick = () => { s.silent = true; s.dispose(); res(true); };
   });
@@ -140,7 +140,7 @@ export function promptDialog(label, value = '', { type = 'text', okLabel = 'Save
   return new Promise((res) => {
     const s = sheet(`<form>${textField({ label, name: 'v', type, value: String(value), inputmode: type === 'number' ? 'decimal' : undefined, attr: { ...(type === 'number' ? { step: 'any' } : {}), autofocus: true } })}
       ${hint ? `<p class="hint">${esc(hint)}</p>` : ''}
-      <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">${esc(okLabel)}</button></div></form>`,
+      <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}${button({ label: okLabel, kind: 'primary', submit: true })}</div></form>`,
       { title: label, onClose: () => res(null) });
     s.el.querySelector('[data-no]').onclick = () => s.close();
     s.el.querySelector('form').onsubmit = (e) => {

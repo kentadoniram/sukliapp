@@ -65,7 +65,7 @@ export function openEntryView(id) {
     ${g ? `<h4>Part of a Shared Bill</h4><ul class="calfacts">${billLine('Whole bill', g.total, g, hp)}${g.mine || mineAmt > 0.004 ? billLine('You', mineAmt, g, hp) : ''}${g.people.map((p) => billLine(p.who, p.amt, g, hp)).join('')}</ul>
       <p class="hint">This entry is one share of a single bill. Editing or deleting it changes the whole bill, all ${g.people.length + (g.mine ? 1 : 0)} entries together.</p>` : '<p class="hint">Read only. Tap Edit to change this entry.</p>'}
     ${payBox(db, t)}
-    <div class="btnrow"><button type="button" class="btn danger ghost" data-ev="del">${g ? 'Delete Whole Bill' : 'Delete'}</button>${button({ html: `${g ? 'Edit Whole Bill' : 'Edit'}`, kind: 'primary', attr: { 'data-ev': 'edit' } })}</div></div>`, { title: 'Entry', wide: true });
+    <div class="btnrow">${button({ label: g ? 'Delete Whole Bill' : 'Delete', kind: 'danger-ghost', attr: { 'data-ev': 'del' } })}${button({ html: `${g ? 'Edit Whole Bill' : 'Edit'}`, kind: 'primary', attr: { 'data-ev': 'edit' } })}</div></div>`, { title: 'Entry', wide: true });
   const drawPay = () => { const body = s.el.querySelector('#pc-body'), tx = get().txs.find((x) => x.id === id); if (body && tx) body.innerHTML = whatIfHtml(get(), tx) || priceFormHtml(get(), tx); };
   onPayChange(drawPay);
   s.el.addEventListener('click', async (e) => {

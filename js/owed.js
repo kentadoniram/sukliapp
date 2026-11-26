@@ -61,7 +61,7 @@ ACT['owed-edit'] = (el) => {
   const db = get(), a = db.accounts.find((x) => x.id === el.dataset.id); if (!a) return; let due = a.owedDue || '';
   const p = owedList(db).find((x) => x.id === a.id) || { owedCur: 0 };
   const s = sheet(`<form novalidate>${textField({ label: 'Name', name: 'n', value: a.name })}
-    <div class="field"><span>Expected back by (optional)</span><div class="btnrow tight">${button({ html: `${due ? esc(niceDate(due)) : 'Pick a date'}`, kind: 'ghost', size: 'sm', attr: { 'data-due': true } })}<button type="button" class="btn ghost sm" data-nodue ${due ? '' : 'hidden'}>Clear</button></div></div>
+    <div class="field"><span>Expected back by (optional)</span><div class="btnrow tight">${button({ html: `${due ? esc(niceDate(due)) : 'Pick a date'}`, kind: 'ghost', size: 'sm', attr: { 'data-due': true } })}${button({ label: 'Clear', kind: 'ghost', size: 'sm', attr: { 'data-nodue': true, hidden: !due } })}</div></div>
     <p class="hint">Only a reminder for you. Nothing is added to the account.</p>
     ${p.owedCur > 0.004 ? button({ label: 'Write off what is left (they will not pay it back)', kind: 'link', attr: { 'data-off': true } }) : ''}
     ${button({ label: 'Remove This Person', kind: 'danger-link', attr: { 'data-del': true } })}
@@ -134,5 +134,5 @@ ACT['owed-hist'] = (el) => {
     return `<li class="ohr">${button({ html: `<span class="ohl"><b>${esc(r.kind)}</b><small>${esc(niceDate(t.date))}${t.name ? ' · ' + esc(t.name) : ''}</small>${det ? `<small>${det}</small>` : ''}</span><span class="ohr-r"><b class="${inn ? 'oh-up' : 'oh-down'}">${inn ? '+' : '-'}${m(Math.abs(r.delta))}</b><small>owed after: ${m(r.after)}</small></span>`, kind: 'plain', cls: 'ohbtn', act: 'edit', attr: { 'data-id': t.id } })}</li>`; };
   sheet(`<ul class="calfacts"><li><span>Lent or paid for them</span><b>${m(h.lent)}</b></li><li><span>Paid back so far</span><b>${m(h.back)}</b></li>${h.off > 0.004 ? `<li><span>Written off</span><b>${m(h.off)}</b></li>` : ''}<li><span><b>Still owed</b></span><b>${m(h.owed)}</b></li>${a.cur !== HOME ? `<li><span>In ${HOME} (1 ${esc(a.cur)} = ${fmt(homeFx(db, a.cur) || 0, HOME)})</span><b>≈ ${fmt(h.owed * (homeFx(db, a.cur) || 0), HOME)}</b></li>` : ''}</ul>
     ${h.rows.length ? `<ul class="ohist">${h.rows.slice().reverse().map(li).join('')}</ul><p class="hint">Newest first. Tap a line to see or change that entry.</p>` : '<p class="empty">Nothing recorded with this person yet.</p>'}
-    <div class="btnrow left"><button type="button" class="btn ghost sm danger" data-act="owed-del" data-id="${a.id}">Remove This Person</button></div>`, { title: `${a.name}: History` });
+    <div class="btnrow left">${button({ label: 'Remove This Person', kind: 'danger-ghost', size: 'sm', act: 'owed-del', attr: { 'data-id': a.id } })}</div>`, { title: `${a.name}: History` });
 };

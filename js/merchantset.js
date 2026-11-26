@@ -69,7 +69,7 @@ function openBranch(m, b) {
   placeFields({ place: cur.place, loc }).then((pf) => {
     const s = sheet(`<form novalidate>${textField({ label: 'Branch Name', name: 'b', value: b })}${pf}
       <p class="hint">${n} ${n === 1 ? 'entry' : 'entries'} at this branch of ${esc(m)}. Renaming changes them all.</p>
-      <div class="btnrow"><button type="button" class="btn ghost danger" data-rm>Remove Branch</button>${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>`, { title: `${m}: ${b}` });
+      <div class="btnrow">${button({ label: 'Remove Branch', kind: 'danger-ghost', attr: { 'data-rm': true } })}${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>`, { title: `${m}: ${b}` });
     const q = s.el.querySelector('form');
     q.querySelector('[data-here]').onclick = async () => { const { hereWhy } = await import('./loc.js'); const r = await hereWhy(); if (r.p) { loc = r.p; q.querySelector('[data-pt]').textContent = `Saved location: ${ptTxt(r.p)}`; } else toast('Could not get your location. Type the place instead.'); };
     q.querySelector('[data-rm]').onclick = () => { s.dispose(); commit((d) => { for (const t of d.txs) if (!t.deleted && t.branch === b && t.merchant && norm(t.merchant) === norm(m)) { delete t.branch; stamp(t); } setInfo(d, m, (o) => { delete o.branches[b]; }); }); toast('Branch removed. Entries keep the merchant.'); };
@@ -89,7 +89,7 @@ ACT['mer-edit'] = (el) => {
     ${pf}
     ${bl.length ? `<h3>Branches</h3><div class="rows plain">${bl.map((b) => `${button({ html: `<span class="rmain"><strong>${esc(b.name)}</strong><small>${b.n} ${b.n === 1 ? 'entry' : 'entries'}${((infoOf(db, name).branches || {})[b.name] || {}).place ? ' · ' + esc(infoOf(db, name).branches[b.name].place) : ''}</small></span>`, kind: 'plain', cls: 'row cur', act: 'mer-branch', attr: { 'data-m': name, 'data-b': b.name } })}`).join('')}</div>` : ''}
     <div class="btnrow left">${button({ label: 'Add a Branch', kind: 'ghost', size: 'sm', attr: { 'data-addbr': true } })}</div>
-    <div class="btnrow"><button type="button" class="btn ghost danger" data-rm>${n ? 'Remove from entries' : 'Delete'}</button>${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>`, { title: name });
+    <div class="btnrow">${button({ label: n ? 'Remove from entries' : 'Delete', kind: 'danger-ghost', attr: { 'data-rm': true } })}${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>`, { title: name });
   const q = s.el.querySelector('form'); let ico = info.icon || '';
   q.querySelector('#mer-pic').onclick = async () => { const { openIconLibrary } = await import('./entry.js'); openIconLibrary(ico, (v) => { ico = v; q.querySelector('#mer-pic').innerHTML = `<i class="badge sm" style="background:${groupColor(name)}">${picHtml(ico, guessMerchIcon(q.m.value || name))}</i><span>${ico ? (isImg(ico) ? 'Your own image' : 'Chosen picture') : 'Automatic'} · tap to change</span>`; }, { own: true, title: 'Merchant Pictures', hint: 'Pick a picture for this merchant. It shows in the merchant list and pickers.', auto: 'Automatic (from the merchant name)' }); };
   q.querySelector('[data-here]').onclick = async () => { const { hereWhy } = await import('./loc.js'); const r = await hereWhy(); if (r.p) { loc = r.p; q.querySelector('[data-pt]').textContent = `Saved location: ${ptTxt(r.p)}`; } else toast('Could not get your location. Type the place instead.'); };

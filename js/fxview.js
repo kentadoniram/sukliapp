@@ -36,7 +36,7 @@ const sumLines = (from, to, amount, rate, always = false) => rate > 0
 // the compact viewer. `open` is the attribute that makes the text clickable (for example data-e="fxopen")
 export function fxBlockHtml({ from, to, amount, rate, open, plain = false, always = false, db = get() }) {
   const src = rateSource(db, from, to, rate);
-  return `<div class="fxblock"><div class="fxtop">${plain ? '<span class="fxlink plain">Exchange Rate</span>' : `<button type="button" class="fxlink" ${open}>Exchange Rate</button>`}<span class="fxsrc ${src.kind}" data-fxsrc>${esc(src.text)}</span></div><ul class="fxsum" data-fxsum aria-live="polite">${sumLines(from, to, amount, rate, always)}</ul></div>`;
+  return `<div class="fxblock"><div class="fxtop">${plain ? '<span class="fxlink plain">Exchange Rate</span>' : button({ label: 'Exchange Rate', kind: 'plain', cls: 'fxlink', attr: Object.fromEntries([...String(open || '').matchAll(/([\w-]+)="([^"]*)"/g)].map((m) => [m[1], m[2]])) })}<span class="fxsrc ${src.kind}" data-fxsrc>${esc(src.text)}</span></div><ul class="fxsum" data-fxsum aria-live="polite">${sumLines(from, to, amount, rate, always)}</ul></div>`;
 }
 // refresh an existing viewer without touching the layout
 export function fxBlockUpdate(root, { from, to, amount, rate, always = true, db = get() }) {

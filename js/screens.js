@@ -118,7 +118,7 @@ export function monthNav(title, o = {}) {
     <div class="mspanel" id="mspanel" role="group" aria-label="Choose month" ${MS.open ? '' : 'hidden'}>${MS.open ? monthPanel() : ''}</div>`;
   return `<header class="top"><div class="hl">${burger()}<div class="monthbox">${button({ html: `${ic('left')}`, kind: 'plain', cls: 'iconbtn', act: 'month', aria: 'Previous month', attr: { 'data-d': '-1' } })}
     <h1>${label}</h1>
-    <button class="iconbtn" data-act="month" data-d="1" aria-label="Next month" ${isNow ? 'disabled' : ''}>${ic('right')}</button></div></div>
+    ${button({ kind: 'icon', icon: 'right', label: 'Next month', act: 'month', attr: { 'data-d': '1' }, disabled: !!isNow })}</div></div>
     <div class="hact">${o.bell && get() ? bellBtn(get()) : ''}${helpBtn()}${eyeBtn()}</div></header>`;
 }
 const burger = () => { const n = reviewCount(get()); return `${button({ html: `${ic('menu')}${n ? '<em class="dot" aria-label="items to check"></em>' : ''}`, kind: 'plain', cls: 'iconbtn burger', act: 'menu', aria: 'Open menu' })}`; };
@@ -140,9 +140,9 @@ ACT.month = (el) => {
 export function strip(st) {
   const net = st.income - st.spent;
   return `<section class="strip" aria-label="Month totals">
-    <button data-act="flow" data-k="inflow"><span>Cash inflow</span><b class="in">${fmt(st.income, HOME, { round: true })}</b></button>
-    <button data-act="flow" data-k="outflow"><span>Cash outflow</span><b>${fmt(st.spent, HOME, { round: true })}</b></button>
-    <button data-act="flow" data-k="net"><span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${fmt(net, HOME, { round: true })}</b></button></section>`;
+    ${button({ kind: 'plain', act: 'flow', attr: { 'data-k': 'inflow' }, html: `<span>Cash inflow</span><b class="in">${fmt(st.income, HOME, { round: true })}</b>` })}
+    ${button({ kind: 'plain', act: 'flow', attr: { 'data-k': 'outflow' }, html: `<span>Cash outflow</span><b>${fmt(st.spent, HOME, { round: true })}</b>` })}
+    ${button({ kind: 'plain', act: 'flow', attr: { 'data-k': 'net' }, html: `<span>Net income</span><b class="${net < 0 ? 'neg' : ''}">${fmt(net, HOME, { round: true })}</b>` })}</section>`;
 }
 
 // MAIN HOME CARD (search "main-home-card" / mainHomeCard to find or change it).
@@ -298,11 +298,11 @@ export function row(t, accts, cats, sel, trail) {
   const signed = tr ? fmt(t.amount, t.cur, { cut2: true }) : fmt(t.kind === 'income' ? t.amount : -t.amount, t.cur, { cut2: true });
   const base = !tr && eq(t.amount, t.cur, t.fx, t.date) ? `<small>${eq(t.amount, t.cur, t.fx, t.date)}</small>` : '';
   const on = sel && ui.sel.has(t.id);
-  return `<button class="row ${sel ? 'selrow' : ''} ${on ? 'picked' : ''}" data-act="${sel ? 'sel-toggle' : 'edit'}" data-id="${t.id}" ${sel ? `role="checkbox" aria-checked="${!!on}"` : ''}>
+  return `${button({ kind: 'plain', cls: `row ${sel ? 'selrow' : ''} ${on ? 'picked' : ''}`, act: sel ? 'sel-toggle' : 'edit', attr: { 'data-id': t.id, ...(sel ? { role: 'checkbox', 'aria-checked': String(!!on) } : {}) }, html: `
     ${sel ? `<i class="selbox ${on ? 'on' : ''}">${on ? ic('check') : ''}</i>` : ''}
     <i class="badge" style="background:${tr ? 'var(--xfer)' : groupColor(group)}">${tr || !c ? groupLetter(group) : catIcon(c)}</i>
     <span class="rmain"><strong><span class="tt">${esc(title)}</span>${t.flag === 'review' ? '<em class="pill">Check</em>' : ''}${t.reimb ? `<em class="pill reimbpill ${t.reimb.st === 'paid' ? 'paid' : ''}">${t.reimb.st === 'paid' ? 'Reimbursed' : 'Reimbursable'}</em>` : ''}${tagPill}</strong><small>${sub2}</small><small class="eff">${effectLine(t, accts)}</small>${balLines(t, accts, trail)}</span>
-    <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}${arr}</span></button>`;
+    <span class="ramt ${t.kind}"><b>${t.kind === 'income' ? '+' : ''}${signed}</b>${base}${arr}</span>` })}`;
 }
 // a tapped entry opens to read only; Edit and Delete are separate buttons inside it
 ACT['edit-now'] = (el) => { const t = get().txs.find((x) => x.id === el.dataset.id); if (t && t.splitId && openSplit(t.id)) return; openEntry({ id: el.dataset.id }); };
@@ -322,7 +322,7 @@ ACT.bulk = () => openBulk();
 const sum = (a) => a.reduce((x, y) => x + y, 0);
 const R = (n) => fmt(n, HOME, { round: true });
 
-const homeTitles = (h) => h.replace(/(<button class="collhead"[^>]*><h2>)([^<]*)(<\/h2>)/g, (m, a, t, c) => a + titleCase(t) + c).replace(/(<h3 class="subh">)([^<]*)/g, (m, a, t) => a + titleCase(t));
+const homeTitles = (h) => h.replace(/(<(?:button) class="collhead"[^>]*><h2>)([^<]*)(<\/h2>)/g, (m, a, t, c) => a + titleCase(t) + c).replace(/(<h3 class="subh">)([^<]*)/g, (m, a, t) => a + titleCase(t));
 // the Home / Investments switch is for people who use Investments: they have an investment account, or the Investments tab is on their tab bar and they have started recording (a first-run Home stays short)
 const showAreaSwitch = (db) => db.accounts.some((a) => !a.deleted && inInvest(a)) || (tabIds(db).includes('invest') && db.txs.some((t) => !t.deleted));
 export function home(db) {
@@ -540,7 +540,7 @@ function wentPie(all, total) {
     acc += len; return el; }).join('');
   const labels = pieLabels(slices.map((x) => (total ? x.v / total : 0)));
   return `<div class="wentpie"><svg class="donut sm" viewBox="-30 -12 200 164" role="img" aria-label="Where the money went">${arcs}${labels}<text x="70" y="68" text-anchor="middle" class="dl">Spent</text><text x="70" y="86" text-anchor="middle" class="dv">${esc(compact(total, ''))}</text></svg>
-    <ul class="pielegend">${slices.map((x) => `<li><button type="button" data-act="${x.other ? 'went-mode' : 'grp'}" ${x.other ? 'data-v="bars"' : `data-g="${esc(x.g)}" data-k="expense"`}><i class="dot2" style="background:${groupColor(x.other ? 'Others' : x.g)}"></i><span class="pl">${esc(x.g)}</span><b class="pp">${total ? Math.round((x.v / total) * 100) : 0}%</b><small>${money(x.v)}</small></button></li>`).join('')}</ul></div><p class="hint tap">Tap a slice or a name for the detail.</p>`;
+    <ul class="pielegend">${slices.map((x) => `<li>${button({ kind: 'plain', act: x.other ? 'went-mode' : 'grp', attr: x.other ? { 'data-v': 'bars' } : { 'data-g': x.g, 'data-k': 'expense' }, html: `<i class="dot2" style="background:${groupColor(x.other ? 'Others' : x.g)}"></i><span class="pl">${esc(x.g)}</span><b class="pp">${total ? Math.round((x.v / total) * 100) : 0}%</b><small>${money(x.v)}</small>` })}</li>`).join('')}</ul></div><p class="hint tap">Tap a slice or a name for the detail.</p>`;
 }
 
 const esc0 = (t) => String(t);
@@ -813,7 +813,7 @@ export function ledger(db) {
   const f = [['all', 'All'], ['review', 'Check'], ['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']], t1 = look().design !== 'legacy';
   const head = t1 ? `<header class="top"><div class="hl">${burger()}<h1>Transactions</h1></div><div class="hact">${helpBtn()}${reviewBtn()}${eyeBtn()}</div></header>` : hdr('Transactions');
   const filt = t1 ? `<div class="filters t1f">${t1seg({ options: f.map(([v, l]) => ({ value: v, label: l, title: v === 'review' ? 'Entries with a guessed category or label that you have not confirmed yet' : '' })), value: ui.filter, act: 'filter', aria: 'Filter', wide: true })}</div>`
-    : `<div class="filters" role="group" aria-label="Filter">${f.map(([v, l]) => `<button class="chip ${ui.filter === v ? 'on' : ''}" data-act="filter" data-v="${v}" ${v === 'review' ? 'title="Entries with a guessed category or label that you have not confirmed yet"' : ''}>${l}</button>`).join('')}</div>`;
+    : `<div class="filters" role="group" aria-label="Filter">${f.map(([v, l]) => button({ kind: 'chip', on: ui.filter === v, act: 'filter', v, title: v === 'review' ? 'Entries with a guessed category or label that you have not confirmed yet' : undefined, html: l })).join('')}</div>`;
   const RQ = [['7', 'Last 7 days'], ['30', 'Last 30 days'], ['m', 'This month'], ['y', 'This year']];
   const quick = t1 ? `<div class="fquick t1q">${t1seg({ options: RQ.map(([v, l]) => ({ value: v, label: l })), value: rangeKey(), act: 'f-range', aria: 'Quick ranges', wide: true })}</div>`
     : `<div class="fquick" role="group" aria-label="Quick ranges">${RQ.map(([v, l]) => `${button({ html: `${l}`, kind: 'chip', act: 'f-range', attr: { 'data-v': v } })}`).join('')}</div>`;
@@ -846,7 +846,7 @@ const filterHint = () => esc(FILTER_HINTS[ui.filter] || '');
 function selBar() {
   if (!ui.selecting) return `<div class="btnrow left selstart">${button({ html: `${ic('check')} Select entries`, kind: 'ghost', size: 'sm', act: 'sel-start' })}${button({ label: 'Input history', kind: 'ghost', size: 'sm', act: 'ih-open' })}</div>`;
   const n = ui.sel.size;
-  return `<div class="selbar" role="toolbar" aria-label="Selected entries"><span><b>${n}</b> selected</span>${button({ html: `${n && n >= (ui.shown || []).length ? 'Clear' : 'Select all shown'}`, kind: 'ghost', size: 'sm', act: 'sel-all' })}<button type="button" class="btn sm" data-act="sel-edit" ${n ? '' : 'disabled'}>Edit (${n})</button><button type="button" class="btn sm danger" data-act="sel-del" ${n ? '' : 'disabled'}>${ic('trash')} Delete (${n})</button>${button({ label: 'Done', kind: 'ghost', size: 'sm', act: 'sel-end' })}</div>`;
+  return `<div class="selbar" role="toolbar" aria-label="Selected entries"><span><b>${n}</b> selected</span>${button({ html: `${n && n >= (ui.shown || []).length ? 'Clear' : 'Select all shown'}`, kind: 'ghost', size: 'sm', act: 'sel-all' })}${button({ html: `Edit (${n})`, kind: 'primary', size: 'sm', act: 'sel-edit', disabled: !n })}${button({ html: `${ic('trash')} Delete (${n})`, kind: 'danger', size: 'sm', act: 'sel-del', disabled: !n })}${button({ label: 'Done', kind: 'ghost', size: 'sm', act: 'sel-end' })}</div>`;
 }
 const selRefresh = () => { const l = document.getElementById('ledger-list'), w = document.getElementById('selbar-wrap'); if (!l) return window.dispatchEvent(new Event('sukli-render')); const y = window.scrollY; l.innerHTML = ledgerRows(get()); w.innerHTML = selBar(); window.scrollTo(0, y); };
 ACT['sel-start'] = () => { ui.selecting = true; ui.sel = new Set(); selRefresh(); };
@@ -1102,7 +1102,7 @@ export function settings(db) {
     <section><h2>Model Computation Guide</h2><p class="hint">How every model in the app works (purpose, maths, data, limits, status), plus the numbers the forecasts are using right now.</p><div class="btnrow left">${button({ label: 'Open the Model Computation Guide', kind: 'ghost', act: 'open-modelguide' })}</div></section>
     <section><h2>Models Lab</h2><p class="hint">Runs regression, forecasting, clustering, anomaly detection and Monte Carlo models on your own data. Read only; nothing changes.</p><div class="btnrow left">${button({ label: 'Open the Models Lab', kind: 'ghost', act: 'open-modelslab' })}</div></section>
     <section><h2>Put It on Your Phone</h2><p class="hint">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Install app. It then works without a connection.</p></section>
-    <section><h2>Erase</h2><button class="btn danger ghost" data-act="erase">Erase everything on this device</button>
+    <section><h2>Erase</h2>${button({ label: 'Erase everything on this device', kind: 'danger-ghost', act: 'erase' })}
       <p class="hint">Backups in your Google Drive are not touched.</p></section>`);
 }
 export function bindSettings() {
@@ -1381,12 +1381,12 @@ ACT['add-savelabel'] = (el) => commit((d) => { d.settings.addSaveLabel = !!el.ch
 ACT['inv-open'] = (el) => commit((d) => { d.settings.invOpen = el.value; });
 function arrangeSection(db) {
   const tb = tabIds(db), more = Object.keys(TAB_DEFS).filter((x) => !tb.includes(x)), lay = homeLayout(db);
-  const mv = (kind, id, i, n) => `<span class="mv"><button type="button" class="btn sm ghost" data-act="arr-up" data-kind="${kind}" data-id="${id}" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="btn sm ghost" data-act="arr-down" data-kind="${kind}" data-id="${id}" aria-label="Move down" ${i === n - 1 ? 'disabled' : ''}>↓</button></span>`;
+  const mv = (kind, id, i, n) => `<span class="mv">${button({ label: '↑', kind: 'ghost', size: 'sm', act: 'arr-up', aria: 'Move up', attr: { 'data-kind': kind, 'data-id': id }, disabled: i === 0 })}${button({ label: '↓', kind: 'ghost', size: 'sm', act: 'arr-down', aria: 'Move down', attr: { 'data-kind': kind, 'data-id': id }, disabled: i === n - 1 })}</span>`;
   return `<section id="arrange"><h2>Tabs and Home Cards</h2>
     <p class="hint">The bottom bar holds up to 5 tabs, with the + button always in the middle. Anything not in the bar is still reachable from Home and the menus.</p>
     <h3>Bottom Tabs (${tb.length}/${MAX_TABS})</h3>
-    ${tb.map((id, i) => `<div class="arow"><span>${ic(TAB_DEFS[id][1])} ${TAB_DEFS[id][0]}</span>${mv('tab', id, i, tb.length)}<button type="button" class="btn sm ghost" data-act="arr-tab-off" data-id="${id}" ${tb.length <= 2 ? 'disabled' : ''}>Remove</button></div>`).join('')}
-    ${more.length ? `<p class="hint">Add to the bar${tb.length >= MAX_TABS ? ' (remove one first)' : ''}:</p><div class="btnrow left">${more.map((id) => `<button type="button" class="btn sm ghost" data-act="arr-tab-on" data-id="${id}" ${tb.length >= MAX_TABS ? 'disabled' : ''}>+ ${TAB_DEFS[id][0]}</button>`).join('')}</div>` : ''}
+    ${tb.map((id, i) => `<div class="arow"><span>${ic(TAB_DEFS[id][1])} ${TAB_DEFS[id][0]}</span>${mv('tab', id, i, tb.length)}${button({ label: 'Remove', kind: 'ghost', size: 'sm', act: 'arr-tab-off', attr: { 'data-id': id }, disabled: tb.length <= 2 })}</div>`).join('')}
+    ${more.length ? `<p class="hint">Add to the bar${tb.length >= MAX_TABS ? ' (remove one first)' : ''}:</p><div class="btnrow left">${more.map((id) => button({ label: `+ ${TAB_DEFS[id][0]}`, kind: 'ghost', size: 'sm', act: 'arr-tab-on', attr: { 'data-id': id }, disabled: tb.length >= MAX_TABS })).join('')}</div>` : ''}
     <label class="check menudup"><input type="checkbox" data-act="menu-dup" ${((db.settings || {}).menuDupes) ? 'checked' : ''}> Also show Home, Entries, Calendar and Accounts in the burger menu <small class="muted">(they are already in the bottom bar, so they are left out by default)</small></label>
     <h3>Home Cards, Top to Bottom</h3>
     ${lay.order.map((id, i) => { const nm = (HOME_SECTIONS.find((x) => x[0] === id) || [])[1], off = lay.hidden.includes(id);

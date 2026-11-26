@@ -62,7 +62,7 @@ export function bin(db) {
   ${rows.length ? `<div class="binhead"><b>${rows.length} ${rows.length === 1 ? 'item' : 'items'}</b>${button({ label: 'Empty bin', kind: 'danger-ghost', size: 'sm', act: 'bin-empty' })}</div>
   <ul class="binlist">${rows.map((r, i) => { const l = left(db, r.at); return `${uiCard({ kind: 'binrow', tag: 'li', body: `<div class="binmain"><span class="pill">${r.type}</span><b>${esc(r.title)}</b><small>${esc(r.sub)}</small>
     <small class="${l.soon ? 'warnt' : 'muted'}">Deleted ${when(r.at)} · ${l.text}</small></div>
-    <div class="binbtn">${button({ label: 'Restore', kind: 'primary', size: 'sm', act: 'bin-restore', attr: { 'data-i': i } })}<button class="btn ghost danger sm" data-act="bin-purge" data-i="${i}">Delete forever</button></div>` })}`; }).join('')}</ul>`
+    <div class="binbtn">${button({ label: 'Restore', kind: 'primary', size: 'sm', act: 'bin-restore', attr: { 'data-i': i } })}${button({ label: 'Delete forever', kind: 'danger-ghost', size: 'sm', act: 'bin-purge', attr: { 'data-i': i } })}</div>` })}`; }).join('')}</ul>`
   : `<p class="empty">The recycle bin is empty.</p>`}`;
 }
 

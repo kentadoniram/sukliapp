@@ -269,7 +269,7 @@ function tradeDetail(t) {
     ${li('Transaction Value', f.valueText, [f.homeText, f.rateText].filter(Boolean).join(' · '))}
     ${li('Trading Fees', feeVal, f.feePct != null ? `${f.feePct.toFixed(f.feePct < 1 ? 3 : 2)}% of the transaction value` : '')}
     ${li('Date and Time', f.date)}</ul>
-    <div class="btnrow"><button type="button" class="btn danger ghost" data-del>Delete</button>${button({ label: 'Edit', kind: 'ghost', attr: { 'data-edit': true } })}${button({ label: 'Close', kind: 'primary', attr: { 'data-x': true } })}</div>`, { title: 'Trade' });
+    <div class="btnrow">${button({ label: 'Delete', kind: 'danger-ghost', attr: { 'data-del': true } })}${button({ label: 'Edit', kind: 'ghost', attr: { 'data-edit': true } })}${button({ label: 'Close', kind: 'primary', attr: { 'data-x': true } })}</div>`, { title: 'Trade' });
   s.el.querySelector('[data-edit]').onclick = () => { s.close(); openTrade({ edit: t.id }); };
   s.el.querySelector('[data-x]').onclick = () => s.close();
   s.el.querySelector('[data-del]').onclick = () => { commit((d) => { for (const q of d.txs) if (q.id === t.id || q.tradeOf === t.id) softDelete(q); }); s.close(); toast('Trade moved to the recycle bin.'); };

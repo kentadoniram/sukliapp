@@ -28,7 +28,7 @@ export function openEarn(id, focus = '') {
     const full = (t) => (t % H === 0 ? t : (Math.floor(t / H) + 1) * H);   // the first hour that starts after (or at) the change
     const sh = sheet(`${textField({ label: 'New Yearly Rate (APR, %)', id: 'ah-apy', inputmode: 'decimal', value: cur0 ? cur0.apy : '', placeholder: 'e.g. 4.5' })}
       ${first ? '<p class="hint">This is the first rate. It applies from the start.</p>' : `<div class="field"><span>When Did the Rate Change? (${esc(tzName(off))})</span>
-        <button type="button" class="btn ghost tbtn ahwhen" id="ah-when"></button>
+        ${button({ label: '', kind: 'ghost', cls: 'tbtn ahwhen', id: 'ah-when' })}
         <div class="btnrow left tight">${button({ label: 'Now', kind: 'link', id: 'ah-now' })}${button({ label: 'Earlier Today', kind: 'link', id: 'ah-today' })}</div></div>
       ${uiCard({ kind: 'cardbox', tag: 'div', attr: { 'id': 'ah-calc' }, body: `` })}`}
       <p class="hint">Earnings are worked out again from the moment the rate changes. Hours before it keep their old rate. A change in the middle of an hour never pays for that part-hour at the new rate.</p>
@@ -73,24 +73,24 @@ export function openEarn(id, focus = '') {
       ${aprHistory(db, a, c, off, tz, log, cur)}
       ${true ? `${selectField({ label: 'Pay Interest To', aria: null, attr: { 'data-ew': 'payTo' }, optionsHtml: `<option value="spot" ${c.payTo !== 'earn' ? 'selected' : ''}>Spot (same coin)</option><option value="earn" ${c.payTo === 'earn' ? 'selected' : ''}>This Earn account</option>` })}
       ${selectField({ label: 'When Does Earning Start?', aria: null, attr: { 'data-ew': 'startRule' }, optionsHtml: `<option value="nextHour" ${c.startRule !== 'midnight' ? 'selected' : ''}>At the next full hour</option><option value="midnight" ${c.startRule === 'midnight' ? 'selected' : ''}>At the next midnight (${tz})</option>` })}
-      <div class="two"><div class="field"><span>Deposit Time</span><button type="button" class="btn ghost sm tbtn" data-ew="pickdep">🕒 ${esc(depT)}</button></div>
+      <div class="two"><div class="field"><span>Deposit Time</span>${button({ label: `🕒 ${depT}`, kind: 'ghost', size: 'sm', cls: 'tbtn', attr: { 'data-ew': 'pickdep' } })}</div>
       ${textField({ label: 'First Accrual (Hours After Earning Starts)', value: String(c.firstLagH), inputmode: 'numeric', attr: { 'data-ew': 'firstLagH' } })}</div>
       ${uiCard({ kind: 'cardbox', tag: 'div', body: `<b>What These Mean</b>
         <p class="hint"><b>Deposit Time</b> is the clock time your coins really arrive in this Earn product at the exchange (in ${tz}). It is not when you tap here. The exchange never pays for the hour in progress, so earning starts later (next full hour, or the next midnight if you chose that).</p>
         <p class="hint"><b>First Accrual</b> is how many hours after earning starts the first payout is recorded. Most products record it 1 hour later, then every hour.</p>
         <p class="hint">Example: deposited at <b>${esc(depT)}</b> → earning starts <b>${esc(hm(dstart))}</b> → first accrual <b>${esc(hm(dfirst))}</b>.</p>` })}
-      <div class="subhead"><h3>Automatic Subscription</h3><div class="yn" role="group" aria-label="Automatic Subscription"><button type="button" class="chip ${c.subOn ? 'on' : ''}" data-ew="suby" aria-pressed="${!!c.subOn}">Yes</button><button type="button" class="chip ${!c.subOn ? 'on' : ''}" data-ew="subn" aria-pressed="${!c.subOn}">No</button></div></div>
+      <div class="subhead"><h3>Automatic Subscription</h3><div class="yn" role="group" aria-label="Automatic Subscription">${button({ label: 'Yes', kind: 'chip', on: !!c.subOn, pressed: !!c.subOn, attr: { 'data-ew': 'suby' } })}${button({ label: 'No', kind: 'chip', on: !c.subOn, pressed: !c.subOn, attr: { 'data-ew': 'subn' } })}</div></div>
       <p class="hint">${c.subOn ? 'At each time below, everything available in the account you move from is subscribed to Earn. No amount to set.' : 'Choose Yes to move all available coins into Earn on its own, at set times.'}</p>
       ${c.subOn ? `${selectField({ label: 'Move From', aria: null, attr: { 'data-ew': 'from' }, optionsHtml: srcs.map((x) => `<option value="${x.id}" ${x.id === fromId ? 'selected' : ''}>${esc(x.name)} (${esc(walletOf(x))})</option>`).join('') || '<option value="">No other account with this coin on this platform</option>' })}
-      <div class="chips">${(c.slots || []).slice().sort().map((t) => `<button type="button" class="chip" data-ew="delslot" data-v="${t}">${t} ✕</button>`).join('') || '<span class="muted">No times yet.</span>'}</div>
-      <div class="addtime"><span class="muted">Add a time (${tz})</span><button type="button" class="btn ghost sm tbtn" data-ew="pickslot">🕒 ${esc(pick)}</button>${button({ label: 'Add', kind: 'primary', size: 'sm', attr: { 'data-ew': 'addslot' } })}</div>
+      <div class="chips">${(c.slots || []).slice().sort().map((t) => button({ label: `${t} ✕`, kind: 'chip', attr: { 'data-ew': 'delslot', 'data-v': t } })).join('') || '<span class="muted">No times yet.</span>'}</div>
+      <div class="addtime"><span class="muted">Add a time (${tz})</span>${button({ label: `🕒 ${pick}`, kind: 'ghost', size: 'sm', cls: 'tbtn', attr: { 'data-ew': 'pickslot' } })}${button({ label: 'Add', kind: 'primary', size: 'sm', attr: { 'data-ew': 'addslot' } })}</div>
       <p class="hint">Sukli runs this when you open the app. If it was closed at a set time, the subscription is still recorded at that exact time, so earnings count from then.</p>` : ''}
-      <div class="btnrow"><button type="button" class="btn primary" data-ew="done">Done</button></div>
+      <div class="btnrow">${button({ label: 'Done', kind: 'primary', attr: { 'data-ew': 'done' } })}</div>
       ${subs.length ? `<h3>Latest Subscriptions</h3><ul class="calfacts">${subs.map((x) => `<li><span>${num(x.amt, cur)}${x.auto ? ' · auto' : ''}<br><small class="muted">Subscribed ${esc(e8Label(x.sub, off))} · earning starts ${esc(e8Label(x.start, off))} · first accrual ${esc(e8Label(x.first, off))}</small></span></li>`).join('')}</ul>` : ''}
       <h3>Today So Far <small class="muted">${esc(today)}</small></h3>
       <p><b>${num(tsum, cur)}</b> in ${todayH.length} hours. It becomes one entry after midnight (${tz}).</p>${todayH.length ? hrs(todayH) : ''}
       <h3>Daily History</h3>
-      ${log.days.length ? log.days.slice(0, 60).map((d) => `${uiCard({ kind: 'cardbox', tag: 'div', body: `<button type="button" class="linkbtn" data-ew="day" data-v="${d.day}">${open.has(d.day) ? '▾' : '▸'} ${esc(d.day)} · ${num(d.amt, cur)} · ${d.hours.length} hours</button>${open.has(d.day) ? hrs(d.hours.slice().reverse(), d.z != null ? d.z : off) : ''}` })}`).join('') : '<p class="empty">No finished days yet.</p>'}` : ''}`;
+      ${log.days.length ? log.days.slice(0, 60).map((d) => `${uiCard({ kind: 'cardbox', tag: 'div', body: `${button({ label: `${open.has(d.day) ? '▾' : '▸'} ${d.day} · ${num(d.amt, cur)} · ${d.hours.length} hours`, kind: 'link', attr: { 'data-ew': 'day', 'data-v': d.day } })}${open.has(d.day) ? hrs(d.hours.slice().reverse(), d.z != null ? d.z : off) : ''}` })}`).join('') : '<p class="empty">No finished days yet.</p>'}` : ''}`;
   };
   draw();
   if (focus === 'apr') setTimeout(() => { const t = root.querySelector('#aprhist'); if (t) t.scrollIntoView({ block: 'start' }); }, 60);

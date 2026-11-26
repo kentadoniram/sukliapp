@@ -54,8 +54,8 @@ export function restoreFromText(text) {
 const restoreBtn = (id) => `<label class="btn ghost wide filebtn">I already use Sukli: restore my backup file<input type="file" id="${id}" class="first-json" accept=".json,application/json" hidden></label>
   <p class="hint center">The .json file you saved from Settings. Use it after reinstalling.</p>`;
 const bar = () => `<p class="wzstep">Question ${wz.step + 1} of ${STEPS}</p><div class="wzbar" aria-hidden="true"><i style="width:${(wz.step + 1) / STEPS * 100}%"></i></div>`;
-const nav = (ok, last) => `<div class="btnrow wznav">${button({ label: 'Back', kind: 'ghost', act: 'wz-back' })}<button type="button" class="btn" id="wz-next" data-act="wz-next" ${ok ? '' : 'disabled'}>${last ? 'Save my first entry' : 'Next'}</button></div>`;
-const chips = (items, cur, act, attr) => `<div class="chips wzchips">${items.map(([v, l]) => `<button type="button" class="chip ${cur === v ? 'on' : ''}" data-act="${act}" data-${attr}="${esc(v)}" aria-pressed="${cur === v}">${esc(l)}</button>`).join('')}</div>`;
+const nav = (ok, last) => `<div class="btnrow wznav">${button({ label: 'Back', kind: 'ghost', act: 'wz-back' })}${button({ label: last ? 'Save my first entry' : 'Next', kind: 'primary', id: 'wz-next', act: 'wz-next', disabled: !ok })}</div>`;
+const chips = (items, cur, act, attr) => `<div class="chips wzchips">${items.map(([v, l]) => button({ label: l, kind: 'chip', on: cur === v, pressed: cur === v, act, attr: { [`data-${attr}`]: v } })).join('')}</div>`;
 const valid = () => [!!wz.what.trim(), num(wz.amount) > 0, !!wz.pay, num(wz.now) >= 0, !!wz.whenKind][wz.step];
 
 export function welcomeHtml(oldHtml) {

@@ -3,7 +3,7 @@ import re, glob
 from playwright.sync_api import sync_playwright
 res=[]
 def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
-BUTTONS_BASELINE=64      # hand-written <button in js/*.js outside components.js
+BUTTONS_BASELINE=0       # hand-written <button in js/*.js outside components.js
 FIELDS_BASELINE=0        # hand-written <label class="field in js/*.js outside components.js (use textField / selectField / field)
 CARDRULE_BASELINE=0     # rules in styles.css with their own fill + outline + corner (not using the card-kind table)
 HEX_BASELINE=21           # raw hex colours in styles.css outside :root blocks

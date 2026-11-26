@@ -113,7 +113,7 @@ function openFlowDetail(kind, ym, withGo) {
       ${netChart(tr, ym, false)}
       <h3>Cash Inflow</h3>${groupRows(db, ym, 'income', 6)}
       <h3>Cash Outflow</h3>${groupRows(db, ym, 'expense', 6)}
-      ${withGo ? '<div class="btnrow"><button class="btn" data-go>Open this month</button></div>' : ''}`;
+      ${withGo ? `<div class="btnrow">${button({ label: 'Open this month', kind: 'primary', attr: { 'data-go': true } })}</div>` : ''}`;
     const go = root.querySelector('[data-go]');
     if (go) go.onclick = () => { ui.month = ym; s.close(); location.hash = '#/home'; render(); };
   }
@@ -182,8 +182,8 @@ export function calendar(db) {
     if ((first + d) % 7 === 0 || d === dim) { weeks.push({ ...wk, to: d }); wk = { from: d + 1, out: 0 }; }
     const date = `${ym}-${String(d).padStart(2, '0')}`, heat = maxOut && x.out ? Math.max(0.1, Math.min(0.55, (x.out / maxOut) * 0.55)) : 0;
     const cls = [date === today ? 'today' : '', x.out ? 'o' : '', x.inc ? 'g' : '', x.tr ? 'b' : '', d > upto && upto ? 'later' : ''].join(' ');
-    cells += `<button class="cal-d ${cls}" ${heat ? `style="--heat:${heat.toFixed(2)}"` : ''} data-act="day" data-d="${date}" aria-label="${dayLabel(date)}"><span class="n">${d}</span>
-      ${x.out ? `<i class="o">−${compact(x.out, '')}</i>` : ''}${x.inc ? `<i class="g">+${compact(x.inc, '')}</i>` : ''}${x.tr ? `<i class="b">⇄${compact(x.tr, '')}</i>` : ''}</button>`;
+    cells += `${button({ kind: 'plain', cls: `cal-d ${cls}`, act: 'day', aria: dayLabel(date), attr: { 'data-d': date, ...(heat ? { style: `--heat:${heat.toFixed(2)}` } : {}) }, html: `<span class="n">${d}</span>
+      ${x.out ? `<i class="o">−${compact(x.out, '')}</i>` : ''}${x.inc ? `<i class="g">+${compact(x.inc, '')}</i>` : ''}${x.tr ? `<i class="b">⇄${compact(x.tr, '')}</i>` : ''}` })}`;
   }
   const maxW = Math.max(1, ...weeks.map((w) => w.out)), per = upto ? tOut / upto : 0, entries = db.txs.filter((t) => !t.deleted && t.date.startsWith(ym)).length;
   const st = monthStat(db, ym);

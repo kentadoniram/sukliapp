@@ -7,6 +7,7 @@ import { esc, ACT, toast } from './ui.js';
 import { norm, learnSame, learnApart, learnRelated, relStrength, nameRules, pairId } from './merchants.js';
 import { textWeight } from './simgraph.js';
 import { canon } from './textnorm.js';
+import { button } from './components.js';
 
 const med = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : 0; };
 export function facts(db, name) {
@@ -25,7 +26,7 @@ function why(a, b) {
   return `Looks alike: ${w}% spelling${common.length ? `, shared word${common.length > 1 ? 's' : ''} “${esc(common.join(' '))}”` : ''}.`;
 }
 export function compareCard(db, a, b) {
-  const fa = facts(db, a), fb = facts(db, b), at = `data-a="${esc(a)}" data-b="${esc(b)}"`;
+  const fa = facts(db, a), fb = facts(db, b), at = `data-a="${esc(a)}" data-b="${esc(b)}"`, ab = { 'data-a': a, 'data-b': b };
   const diffCat = fa.n && fb.n && fa.cat && fb.cat && fa.cat !== fb.cat;
   return `<div class="nmcard cmp" ${at}>
     <div class="cmpnames"><div><small class="muted">${fa.n ? 'Name' : 'You typed'}</small><b>${esc(a)}</b><span class="muted">${line(fa)}</span></div>
@@ -33,9 +34,9 @@ export function compareCard(db, a, b) {
       <div><small class="muted">In your history</small><b>${esc(b)}</b><span class="muted">${line(fb)}</span></div></div>
     <p class="cmpwhy">${why(a, b)}${diffCat ? ` They are in different categories (${esc(fa.cat)} and ${esc(fb.cat)}), so “Same” would mix them.` : ''}</p>
     <div class="cmpbtns">
-      <button type="button" class="cmpb" data-act="nm-same" ${at}><b>Same</b><small>One thing. Guesses are shared.</small></button>
-      <button type="button" class="cmpb" data-act="nm-rel" ${at}><b>Related</b><small>Same family, own category.</small></button>
-      <button type="button" class="cmpb" data-act="nm-diff" ${at}><b>Different</b><small>Unrelated. Don’t ask again.</small></button>
+      ${button({ kind: 'plain', cls: 'cmpb', act: 'nm-same', attr: ab, html: '<b>Same</b><small>One thing. Guesses are shared.</small>' })}
+      ${button({ kind: 'plain', cls: 'cmpb', act: 'nm-rel', attr: ab, html: '<b>Related</b><small>Same family, own category.</small>' })}
+      ${button({ kind: 'plain', cls: 'cmpb', act: 'nm-diff', attr: ab, html: '<b>Different</b><small>Unrelated. Don’t ask again.</small>' })}
     </div></div>`;
 }
 // names you called related to this one, for a quiet hint in the entry sheet
@@ -55,7 +56,7 @@ ACT['nm-rel'] = (el) => {
   const a = el.dataset.a, b = el.dataset.b; commitQuiet((d) => learnRelated(d, a, b, 0.6));
   const at = `data-a="${esc(a)}" data-b="${esc(b)}"`;
   done(el, `<p class="cmpwhy">✓ Related: each keeps its own category. How close are they?</p>
-    <div class="chips">${[['A little', 0.3], ['Somewhat', 0.6], ['Nearly the same', 0.85]].map(([l, w]) => `<button type="button" class="chip ${w === 0.6 ? 'on' : ''}" data-act="nm-relw" data-w="${w}" ${at}>${l}</button>`).join('')}</div>`);
+    <div class="chips">${[['A little', 0.3], ['Somewhat', 0.6], ['Nearly the same', 0.85]].map(([l, w]) => button({ label: l, kind: 'chip', on: w === 0.6, act: 'nm-relw', attr: { 'data-w': w, 'data-a': a, 'data-b': b } })).join('')}</div>`);
 };
 ACT['nm-relw'] = (el) => {
   commitQuiet((d) => learnRelated(d, el.dataset.a, el.dataset.b, +el.dataset.w));

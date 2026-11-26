@@ -1,3 +1,4 @@
+import { button } from './components.js';
 // Suggestion list that matches the app (16.37). Any <input list="…"> is shown with this instead of the phone's own suggestion strip.
 // The suggestions still come from the page's <datalist>, so every place that fills a datalist keeps working; the native list is switched off by moving the "list" attribute to data-list.
 const MAX = 7;
@@ -23,7 +24,7 @@ function place() {
   pop.style.top = room < h + 12 && r.top > room ? `${Math.max(8, r.top - h - 4)}px` : `${r.bottom + 4}px`;
 }
 function paint() {
-  pop.innerHTML = items.map((o, i) => `<button type="button" class="sgopt${i === at ? ' on' : ''}" role="option" data-i="${i}" aria-selected="${i === at}"><span class="sgv">${mark(o.v, inp.value)}</span>${o.l ? `<small class="muted">${esc(o.l)}</small>` : ''}</button>`).join('');
+  pop.innerHTML = items.map((o, i) => `${button({ kind: 'plain', cls: `sgopt${i === at ? ' on' : ''}`, attr: { role: 'option', 'data-i': i, 'aria-selected': String(i === at) }, html: `<span class="sgv">${mark(o.v, inp.value)}</span>${o.l ? `<small class="muted">${esc(o.l)}</small>` : ''}` })}`).join('');
 }
 function mark(v, q) { const t = q.trim(); if (!t) return esc(v); const i = v.toLowerCase().indexOf(t.toLowerCase()); return i < 0 ? esc(v) : `${esc(v.slice(0, i))}<b>${esc(v.slice(i, i + t.length))}</b>${esc(v.slice(i + t.length))}`; }
 function show(el) {

@@ -4,6 +4,7 @@ A private money tracker that runs entirely in the browser. Your data stays on yo
 
 ## What's new in v16
 
+- **16.41:** Components: all 58 remaining hand-written `<button` tags in 24 files (screens, earnui, entry, ui, compare, welcome, views, owed, accpage, acctpicker, picker, merchantpick and others) now go through `button()`. Hand-written buttons are 0 and the limit is 0. Two helpers changed shape: entry.js `chip()` now takes an attribute object, and the Exchange Rate link in fxview.js turns its `open` attribute string into attributes. Nothing visible changes.
 - **16.40:** Components: the last 8 hand-written field labels (backup, platform, safe, ui promptDialog, walletscan, bin, views) moved onto textField / selectField. Hand-written labels are now 0 and the limit is 0, so any new one fails the test. Nothing visible changes.
 - **16.39:** Components: every hand-written field label in internal.js (5), fxview.js (3), debts.js (3), reimburse.js (2) and interest.js (2) moved onto textField / selectField; the internal-transfer Amount row (input plus Max button) is a plain `div.field`. Hand-written labels are now 8 (limit lowered from 23). Nothing visible changes.
 - **16.38:** Components: every hand-written field label in earnui.js (6), screens.js (5), entry.js (5) and bulkedit.js (5) moved onto textField / selectField, plus a new areaField for text areas (notes, the lines box). Hand-written labels are now 23 (limit lowered from 44).
