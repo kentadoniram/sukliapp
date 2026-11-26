@@ -1,11 +1,9 @@
-Sukli v16.42 - changed files:
+Sukli v16.43 - changed files:
 README.md
 design.css
-styles.css
 sw.js
-js/appearance.js
+js/entry.js
 js/screens.js
-js/styleguide.js
 js/version.js
-tests/ui_test_component_rules.py
-tests/ui_test_v16_42_settings_colours.py
+tests/ui_test_v16_37_ui_fixes.py
+tests/ui_test_v16_43_new_entry_extras.py

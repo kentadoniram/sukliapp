@@ -276,9 +276,10 @@ export function effectLine(t, accts) {
   if (t.autoDebt) return 'Interest on a debt, added automatically';
   if (t.auto && t.kind === 'income') return 'Interest posted automatically';
   if (t.cashbackOf) return 'Cashback from a purchase, counted as income';
-  { const cb = t.cashback && db.txs.find((x) => x.id === t.cashback.id && !x.deleted); if (cb && t.kind === 'expense') return `Expense recorded · cashback ${m2(cb.amount, cb.cur)} saved as its own income`; }
-  return t.kind === 'income' ? 'Income recorded' : 'Expense recorded';
+  { const cb = t.cashback && db.txs.find((x) => x.id === t.cashback.id && !x.deleted); if (cb && t.kind === 'expense') return `Expense recorded${shopBit(t)} · cashback ${m2(cb.amount, cb.cur)} saved as its own income`; }
+  return t.kind === 'income' ? 'Income recorded' : `Expense recorded${shopBit(t)}`;
 }
+const shopBit = (t) => (t.kind === 'expense' && t.orig && t.orig.amt > 0 && t.orig.cur !== t.cur ? ` · shop price ${m2(t.orig.amt, t.orig.cur)}` : '');
 // "balance after": what each affected account holds right after this entry, with an arrow and colour for up or down
 function balLines(t, accts, trail) {
   if (!trail || t._feeOf) return '';

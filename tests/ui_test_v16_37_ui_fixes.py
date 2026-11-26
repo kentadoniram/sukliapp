@@ -32,11 +32,11 @@ def clear(pg): pg.evaluate("document.querySelectorAll('.scrim').forEach(e=>e.rem
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_context(service_workers='block',viewport={'width':390,'height':844}).new_page(); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached'); pg.set_input_files('#first-file','/home/claude/Transactions.csv'); pg.wait_for_timeout(1500); clear(pg)
-    # ---- 1 tax / discount / fee: switch and value on one row
+    # ---- 1 tax / discount / fee: value and switch on one row (value first since 16.43)
     pg.evaluate("""async()=>{const c=await import('/js/core.js');c.commit(db=>{db.accounts.push({id:'t-card',name:'T Card',cur:'JPY',type:'card',open:0,include:true,archived:false})});const m=await import('/js/entry.js');m.openEntry({preset:{acct:'t-card'}})}""")
     pg.wait_for_selector('#f-amount'); pg.fill('#f-amount','1000'); pg.wait_for_timeout(300); pg.click('.adjlink'); pg.wait_for_selector('#aj-base'); pg.wait_for_timeout(300)
     for sid,iid in [('aj-dseg','aj-d'),('aj-tseg','aj-t'),('aj-xseg','aj-x')]:
-        same=pg.evaluate("([a,b])=>{const x=document.getElementById(a).getBoundingClientRect(),y=document.getElementById(b).getBoundingClientRect();return Math.abs((x.top+x.bottom)/2-(y.top+y.bottom)/2)<6 && y.left>=x.right-1}",[sid,iid])
+        same=pg.evaluate("([a,b])=>{const x=document.getElementById(a).getBoundingClientRect(),y=document.getElementById(b).getBoundingClientRect();return Math.abs((x.top+x.bottom)/2-(y.top+y.bottom)/2)<6 && x.left>=y.right-1}",[sid,iid])
         ok('%s and %s on one row'%(sid,iid), same)
     ok('value box is not squeezed', pg.evaluate("document.getElementById('aj-t').getBoundingClientRect().width")>90)
     pg.screenshot(path='/tmp/v37_tax.png'); clear(pg)

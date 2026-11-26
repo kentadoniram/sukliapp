@@ -353,7 +353,7 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 .mdoc code { font-size: var(--fz-12); white-space: pre-wrap; overflow-wrap: anywhere; } .mdoc .mathl { list-style: none; padding-left: 0; } .mdoc .mathl li { margin: var(--sp-1) 0; }
 .mdh { margin: var(--sp-5) 0 var(--sp-2); }
 /* tax or discount on a plain entry */
-.adjrow { margin: calc(var(--sp-2) * -1) 0 var(--sp-3); } .adjlink { font-size: var(--fz-13); font-weight: 700; }
+.adjrow { margin: calc(var(--sp-2) * -1) 0 var(--sp-3); } .adjlink, .adjxlink { font-size: var(--fz-13); font-weight: 700; }
 .adjbtn { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 0; border-radius: var(--r-m); background: color-mix(in srgb, var(--line) 12%, transparent); color: var(--ink); font-size: var(--fz-13); text-align: left; cursor: pointer; } .adjbtn b { color: var(--line); }
 .chk { display: flex; gap: var(--sp-2); align-items: center; font-size: var(--fz-13); margin-top: var(--sp-2); }
 
@@ -487,3 +487,11 @@ details.sgroup[hidden], details.sgroup > section[hidden] { display: none; }
 .sgcolours .pv { min-height: 40px; }
 .sgcolours .pv-dot { width: 28px; height: 28px; }
 .sgcolours .sgtile > b { font-size: var(--fz-12); }
+
+/* ---- New entry (16.43): tax / cashback / shop price links share one row; the input comes before the switch ---- */
+.adjgroup { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-5); margin: calc(var(--sp-2) * -1) 0 var(--sp-3); }
+.adjgroup > .adjrow, .adjgroup > .adjx { margin: 0; }
+.adjgroup > .adjrow:has(.adjbtn), .adjgroup > .adjx:has(input) { flex: 1 1 100%; }
+.adjgroup > .adjx[hidden], .adjgroup > .adjrow:empty { display: none; }
+.adjgroup > .adjx:has(input) { display: grid; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--sheet); }
+.shoplab { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: var(--fz-13); }

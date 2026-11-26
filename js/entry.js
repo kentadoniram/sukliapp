@@ -8,6 +8,7 @@ import {
   findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt, r9, qtyR, commitQuiet, isEarnAcct, EARN_MSG,
 } from './core.js';
 import { buildGraph, makeResolver, explain } from './simgraph.js';
+import { priceCurs } from './paycompare.js';
 import { seg, toggle, box, button, textField, selectField, areaField } from './components.js';
 import { nameRules } from './merchants.js';
 import { compareCard, relatedNames } from './compare.js';
@@ -192,7 +193,7 @@ export function openEntry(opts = {}) {
     <div class="field amount" id="amountbox"><span class="amtlabel">Amount ${button({ html: `${priv.on ? 'Show' : 'Hide'} amounts`, kind: 'link', cls: 'eye', e: 'eye', aria: 'Hide or show amounts' })}</span>
       <div class="amtrow"><div class="amtwrap"><input id="f-amount" inputmode="${f.calc ? 'none' : 'decimal'}" autocomplete="off" placeholder="0" value="${esc(commasOn() ? withCommas(f.amount) : f.amount)}">${button({ label: '×', kind: 'plain', cls: 'amtx', e: 'amtclear', aria: 'Clear amount', attr: f.amount ? {} : { style: 'visibility:hidden' } })}${button({ label: 'All', kind: 'plain', cls: 'allin', id: 'f-all', e: 'allamt', title: 'Use the whole balance of the From account', attr: { 'hidden': true } })}${button({ html: `${ic('calc')}`, kind: 'plain', cls: 'calcbtn', e: 'calc', aria: 'Calculator', pressed: false, title: 'Calculator' })}</div><span id="curwrap" class="curwrap"></span></div>
       <div id="calcres" class="calcres" hidden></div><div id="keypad" class="keypad" hidden></div></div>
-    <div id="adjrow" class="adjrow"></div>
+    <div id="adjgroup" class="adjgroup"><div id="adjrow" class="adjrow"></div><div id="cbrow" class="adjx"></div><div id="shoprow" class="adjx"></div></div>
     <div id="fxline"></div>
     <div id="acctwhen" class="acctwhen"><div id="acctrow"></div><div class="field" id="whenrow"><span>When</span>${button({ label: ``, kind: 'plain', cls: 'whenbtn', id: 'f-when', e: 'when' })}</div></div>
     <div id="postedrow" class="postedrow" hidden></div>
@@ -207,7 +208,6 @@ export function openEntry(opts = {}) {
     <div class="field" id="tagsrow"></div>
     <div class="field" id="locrow"></div>
     <div class="field" id="branchrow"></div>
-    <div class="field" id="cbrow"></div>
     <div class="field" id="goalrow"></div>
     ${areaField({ label: 'Notes', lid: 'notesrow', id: 'f-notes', rows: 2, placeholder: 'Optional', value: f.notes })}
     <div id="safety" class="safety" aria-live="polite"></div>
@@ -218,8 +218,8 @@ export function openEntry(opts = {}) {
   const focusKeep = (el) => { if (el && document.activeElement !== el) el.focus(); };
   const acctOf = (id) => get().accounts.find((a) => a.id === id);
   const ORDER = {
-    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'adjrow', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'reimbrow', 'itemsrow', 'countsrow', 'othrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'cbrow', 'goalrow', 'safety', 'err', 'btns'],
-    transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'adjrow', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'safety', 'err', 'btns'],
+    flow: ['seg', 'freq', 'namefield', 'merchrow', 'amountbox', 'adjgroup', 'fxline', 'acctwhen', 'postedrow', 'catrow', 'triprow', 'reimbrow', 'itemsrow', 'countsrow', 'othrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'goalrow', 'safety', 'err', 'btns'],
+    transfer: ['seg', 'freq', 'namefield', 'acctrow', 'amountbox', 'adjgroup', 'convrow', 'fxline', 'feerow', 'whenrow', 'tagsrow', 'notesrow', 'locrow', 'branchrow', 'safety', 'err', 'btns'],
   };
   function arrange() {
     const ids = f.kind === 'transfer' ? ORDER.transfer : ORDER.flow;
@@ -395,6 +395,7 @@ export function openEntry(opts = {}) {
     showInv();
   }
   function renderFx() {
+    renderShop();
     const a = acctOf(f.acct);
     const el = $f('fxline');
     if (!a || a.cur === HOME || a.cur === BASE) { el.innerHTML = ''; return; }
@@ -457,10 +458,10 @@ export function openEntry(opts = {}) {
     const first8 = cur === 'JPY';
     const s2 = sheet(`<div id="adjf">
       <div class="field"><span>Price before tax and discount</span><input id="aj-base" inputmode="decimal" autocomplete="off" value="${esc(st.base)}"></div>
-      <div class="taxbox"><div class="taxhead"><span class="feelab">Discount</span></div><div class="taxrow"><div id="aj-dseg"></div><input id="aj-d" inputmode="decimal" autocomplete="off" placeholder="e.g. 10" value="${esc(st.disc.v)}" aria-label="Discount"></div></div>
-      <div class="taxbox"><div class="taxhead"><span class="feelab">Tax</span></div><div class="taxrow"><div id="aj-tseg"></div><input id="aj-t" inputmode="decimal" autocomplete="off" placeholder="e.g. 10" value="${esc(st.tax.v)}"></div>${first8 ? `<div class="chips" id="aj-tq">${button({ label: '8% food', kind: 'chip', attr: { 'data-q': '8' } })}${button({ label: '10%', kind: 'chip', attr: { 'data-q': '10' } })}</div>` : ''}<label class="chk"><input type="checkbox" id="aj-inc" ${st.tax.incl ? 'checked' : ''}> The price already includes the tax</label></div>
+      <div class="taxbox"><div class="taxhead"><span class="feelab">Discount</span></div><div class="taxrow"><input id="aj-d" inputmode="decimal" autocomplete="off" placeholder="e.g. 10" value="${esc(st.disc.v)}" aria-label="Discount"><div id="aj-dseg"></div></div></div>
+      <div class="taxbox"><div class="taxhead"><span class="feelab">Tax</span></div><div class="taxrow"><input id="aj-t" inputmode="decimal" autocomplete="off" placeholder="e.g. 10" value="${esc(st.tax.v)}" aria-label="Tax"><div id="aj-tseg"></div></div>${first8 ? `<div class="chips" id="aj-tq">${button({ label: '8% food', kind: 'chip', attr: { 'data-q': '8' } })}${button({ label: '10%', kind: 'chip', attr: { 'data-q': '10' } })}</div>` : ''}<label class="chk"><input type="checkbox" id="aj-inc" ${st.tax.incl ? 'checked' : ''}> The price already includes the tax</label></div>
       ${isCard() ? `<div class="taxbox"><div class="taxhead"><span class="feelab">Credit card charges</span></div><small class="muted">Added on top of the price. Check your statement for the exact fee.</small>
-        <div class="field"><span>Cross-border (foreign transaction) fee</span><div class="taxrow"><div id="aj-xseg"></div><input id="aj-x" inputmode="decimal" autocomplete="off" placeholder="e.g. 1.6" value="${esc(st.fees.x.v)}" aria-label="Cross-border fee"></div></div>
+        <div class="field"><span>Cross-border (foreign transaction) fee</span><div class="taxrow"><input id="aj-x" inputmode="decimal" autocomplete="off" placeholder="e.g. 1.6" value="${esc(st.fees.x.v)}" aria-label="Cross-border fee"><div id="aj-xseg"></div></div></div>
         <div class="field"><span>Other fees (amount)</span><input id="aj-o" inputmode="decimal" autocomplete="off" placeholder="e.g. 150" value="${esc(st.fees.o)}" aria-label="Other fees"></div></div>` : ''}
       <p class="hint" id="aj-res"></p>
       <div class="btnrow">${button({ label: 'Apply', kind: 'primary', id: 'aj-ok' })}${a0 ? button({ label: 'Remove', kind: 'ghost', id: 'aj-rm' }) : ''}</div></div>`, { title: isCard() ? 'Tax, discount and card fees' : 'Tax or discount' });
@@ -484,7 +485,7 @@ export function openEntry(opts = {}) {
         f.amount = tidy(m.total); const fa = $f('f-amount'); fa.value = commasOn() ? withCommas(f.amount) : f.amount; s2.close(); fa_sync(); }
     });
   }
-  function fa_sync() { const fa = $f('f-amount'); if (fa) fa.dispatchEvent(new Event('input', { bubbles: true })); renderAdj(); }
+  function fa_sync() { const fa = $f('f-amount'); if (fa) fa.dispatchEvent(new Event('input', { bubbles: true })); renderAdj(); renderShop(); }
   function renderFee() {
     const el = $f('feerow');
     if (f.kind !== 'transfer' || f.debt) { el.innerHTML = ''; return; }
@@ -801,9 +802,29 @@ export function openEntry(opts = {}) {
   function cbText() { const a = acctOf(f.acct), cur = a ? a.cur : HOME, v = cbAmount(); return v > 0 ? `Cashback: ${fmt(v, cur)}${f.cb.mode === 'pct' ? ` (${f.cb.v}% of ${fmt(num(f.amount) || 0, cur)})` : ''}` : 'Type the cashback you get.'; }
   function renderCb() {
     const el = $f('cbrow'); if (!el) return; el.hidden = f.kind !== 'expense' || f.debt; if (el.hidden) return;
-    if (!f.cb.on) { el.innerHTML = '' + button({ label: '+ Cashback', kind: 'link', e: 'cb-on' }) + ''; return; }
+    if (!f.cb.on) { el.innerHTML = button({ label: '+ Cashback', kind: 'link', cls: 'adjxlink', e: 'cb-on' }); return; }
     el.innerHTML = `<span>Cashback</span>${seg({ options: [{ label: 'Fixed Amount', value: 'fixed' }, { label: 'Percentage', value: 'pct' }], value: f.cb.mode, e: 'cb-mode', aria: 'Cashback type', cls: 'cbseg' })}
       <div class="two"><input id="f-cbv" inputmode="decimal" autocomplete="off" aria-label="${f.cb.mode === 'pct' ? 'Cashback percent' : 'Cashback amount'}" placeholder="${f.cb.mode === 'pct' ? 'e.g. 5' : 'e.g. 50'}" value="${esc(f.cb.v)}">${button({ label: 'Remove', kind: 'chip', e: 'cb-off' })}</div><small class="muted" id="cbcalc">${esc(cbText())}</small>`;
+  }
+  // Shop price: paid 1,500 JPY at the shop, but a card in another currency can only post, say, 613 PHP. Both are kept, the posted amount stays the amount.
+  const shopCurs = () => priceCurs(get()).filter((c) => c !== (acctOf(f.acct) || {}).cur);
+  function shopText() {
+    const a = acctOf(f.acct), o = f.orig, db = get(), price = o ? num(o.amt) : 0, paid = num(f.amount) || 0;
+    if (!a || !(price > 0)) return 'Type the price you saw at the shop. The amount above stays what your card posted.';
+    if (!(paid > 0)) return 'Type the amount your card posted above.';
+    const perP = homeFx(db, o.cur), perK = a.cur === HOME ? 1 : homeFx(db, a.cur), rate = paid / price;
+    let t = `Shop price ${fmt(price, o.cur)}, card posted ${fmt(paid, a.cur)} (1 ${o.cur} = ${+rate.toFixed(4)} ${a.cur}).`;
+    if (perP > 0 && perK > 0) { const eq = perP / perK, d = (rate - eq) / eq * 100; t += ` Market rate today ${+eq.toFixed(4)}: the card is ${Math.abs(d).toFixed(1)}% ${d >= 0 ? 'above' : 'below'} it. An estimate; the posted amount is what is recorded.`; }
+    return t;
+  }
+  function renderShop() {
+    const el = $f('shoprow'); if (!el) return; const a = acctOf(f.acct); el.hidden = f.kind !== 'expense' || !!f.debt || !a; if (el.hidden) return;
+    const curs = shopCurs(); if (f.orig && !curs.includes(f.orig.cur)) f.orig = Object.assign({}, f.orig, { cur: curs[0] || f.orig.cur });
+    const sig = `${!!f.orig}|${a.cur}|${f.orig ? f.orig.cur : ''}`; if (el.dataset.sig === sig) { const c = $f('shopcalc'); if (c) c.textContent = shopText(); return; } el.dataset.sig = sig;
+    if (!f.orig) { el.innerHTML = button({ label: '+ Shop price', kind: 'link', cls: 'adjxlink', e: 'shop-on', title: 'Paid in a shop price in another currency, for example 1,500 JPY posted as pesos' }); return; }
+    el.innerHTML = `<span class="shoplab">Shop price in another currency ${button({ label: 'Remove', kind: 'link', e: 'shop-off' })}</span>
+      <div class="two">${textField({ label: 'Price at the shop', id: 'f-shopamt', inputmode: 'decimal', placeholder: 'e.g. 1500', value: f.orig.amt > 0 ? String(f.orig.amt) : '' })}${selectField({ label: 'Currency', id: 'f-shopcur', value: f.orig.cur, options: curs.map((c) => ({ value: c, label: c })) })}</div>
+      <small class="muted" id="shopcalc">${esc(shopText())}</small>`;
   }
   // Savings: a transfer can count toward a savings goal that you add money to by hand (a goal that follows an account already follows its balance)
   function renderGoal() {
@@ -948,10 +969,11 @@ export function openEntry(opts = {}) {
   form.addEventListener('input', (e) => {
     const id = e.target.id;
     if (id === 'f-amount') {
-      formatAmountInput(e.target); f.amount = e.target.value; goalHint(); if (f.feeMode === 'pct') { recalcFee(); const fc = $f('feecalc'); if (fc) fc.textContent = feeCalcTxt(); } showCalcRes(); syncX(); updateFxVal(); heavy(); othSum(); updCb(); updateItemLeft(); renderAdj();
+      formatAmountInput(e.target); f.amount = e.target.value; goalHint(); if (f.feeMode === 'pct') { recalcFee(); const fc = $f('feecalc'); if (fc) fc.textContent = feeCalcTxt(); } showCalcRes(); syncX(); updateFxVal(); heavy(); othSum(); updCb(); updateItemLeft(); renderAdj(); renderShop();
     }
     else if (e.target.classList.contains('oth-n')) { f.others.rows[+e.target.closest('.othrow').dataset.i].v = e.target.value; othSum(); }
     else if (id === 'f-cbv') { f.cb.v = e.target.value; updCb(); }
+    else if (id === 'f-shopamt' && f.orig) { f.orig = Object.assign({}, f.orig, { amt: num(e.target.value) || 0 }); renderShop(); }
     else if (e.target.classList.contains('in-d')) { const it = f.items[+e.target.closest('.item').dataset.i]; if (it && it.disc) { it.disc.v = e.target.value; const ln = e.target.closest('.item').querySelector('.iline'); if (ln) ln.innerHTML = itemLine(it); updateItemLeft(); const tc = $f('taxcalc'); if (tc) tc.textContent = taxText(); } }
     else if (e.target.classList.contains('in-t')) { const it = f.items[+e.target.closest('.item').dataset.i]; if (it && it.tx) { it.tx.v = e.target.value; const ln = e.target.closest('.item').querySelector('.iline'); if (ln) ln.innerHTML = itemLine(it); const sg = e.target.closest('.itax').querySelector('.seg, .t1seg'); if (sg) { let sel = -1; sg.querySelectorAll('button').forEach((bt, k) => { const on = bt.dataset.v && bt.dataset.v.split(':')[1] === String(it.tx.v); bt.classList.toggle('on', !!on); bt.setAttribute('aria-pressed', String(!!on)); if (on) sel = k; }); if (sg.classList.contains('t1seg')) { sg.dataset.sel = String(sel); sg.style.setProperty('--sel', String(Math.max(0, sel))); } } updateItemLeft(); const tc = $f('taxcalc'); if (tc) tc.textContent = taxText(); } }
     else if (id === 'f-wdv') { f.wd.v = e.target.value; const wc = $f('wdcalc'); if (wc) wc.textContent = wdText(); const tc = $f('taxcalc'); if (tc) tc.textContent = taxText(); updateItemLeft(); }
@@ -1037,6 +1059,7 @@ export function openEntry(opts = {}) {
     else if (e.target.classList.contains('in-c')) { const it = f.items[+e.target.closest('.item').dataset.i]; it.cat = e.target.value; if (!f._autoCat) it.catTouched = true; if (f.items.some((x, j) => j > +e.target.closest('.item').dataset.i)) renderItems(); }
     else if (e.target.classList.contains('oth-who')) { const i = +e.target.closest('.othrow').dataset.i; if (e.target.value === '__new') othNew(i); else { f.others.rows[i].who = e.target.value; renderCounts(); } }
     else if (e.target.id === 'f-goal') { f.goalId = e.target.value; goalHint(); }
+    else if (e.target.id === 'f-shopcur' && f.orig) { f.orig = Object.assign({}, f.orig, { cur: e.target.value }); renderShop(); }
     else if (e.target.classList.contains('oth-me')) { f.others.me = !e.target.checked; othSum(); }
     else if (e.target.classList.contains('cnt-g')) { const c = f.counts[+e.target.closest('.cnt').dataset.i]; c.g = e.target.value; const inp = e.target.closest('.cnt').querySelector('.cnt-n'); if (inp) inp.placeholder = c.g && unitOf(get(), c.g) === 'kg' ? 'kg, e.g. 0.35' : 'how many'; }
   });
@@ -1068,7 +1091,7 @@ export function openEntry(opts = {}) {
         f.qtab = ''; f.qtabManual = false;
         if (!f.catTouched || f.kind === 'transfer') { f.cat = ''; f.catTouched = false; }
         else { const c = catMap(get()).get(f.cat); if (c && !(c.kind === f.kind || c.kind === 'both')) { f.cat = ''; f.catTouched = false; } }
-        arrange(); renderSeg(); renderMerch(); renderBranch(); renderCb(); renderGoal(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderCounts(); renderSugg(); renderSafety(); break;
+        arrange(); renderSeg(); renderMerch(); renderBranch(); renderCb(); renderShop(); renderGoal(); renderFreq(); renderAccts(); renderFx(); refreshPred(); renderCats(); renderItems(); renderCounts(); renderSugg(); renderSafety(); break;
       case 'flow': { setFlow(f, v); debtFix(f); f.feeTouched = true; f.fee = ''; f.convert = false; f.fx = ''; f.fxMode = 'rate'; f.peso = ''; renderSeg(); renderFreq(); renderAccts(); renderFx(); renderSugg(); renderSafety(); break; }
       case 'addperson': addPerson(); break;
       case 'debtamt': { f.amount = String(+(+v).toFixed(6)); const fa = $f('f-amount'); fa.value = commasOn() ? withCommas(f.amount) : f.amount; fa.dispatchEvent(new Event('input', { bubbles: true })); break; }
@@ -1138,6 +1161,8 @@ export function openEntry(opts = {}) {
       case 'oth-add': f.others.rows.push({ who: '', v: '' }); renderCounts(); break;
       case 'oth-del': f.others.rows.splice(+v, 1); renderCounts(); break;
       case 'cb-on': f.cb.on = true; renderCb(); break;
+      case 'shop-on': { const c = shopCurs(); f.orig = { cur: c.includes('JPY') ? 'JPY' : (c[0] || 'JPY'), amt: 0 }; renderShop(); const i = $f('f-shopamt'); if (i) i.focus(); break; }
+      case 'shop-off': f.orig = null; renderShop(); break;
       case 'cb-off': f.cb = { on: false, mode: 'pct', v: '' }; renderCb(); break;
       case 'cb-mode': f.cb.mode = b.dataset.v; renderCb(); break;
       case 'branchpick': pickBranch(); break;
@@ -1294,7 +1319,7 @@ export function openEntry(opts = {}) {
       else { label = guessLabel(db2, { kind: f.kind, cat, amount, acct: a.id, hour: hourOf(f.date) }).name; flag = 'review'; }
     }
     // a shop price added from the entry view stays with the entry; its posted rate follows the amount if that was edited
-    let orig; if (f.orig && f.kind === 'expense' && f.orig.cur !== a.cur && f.orig.amt > 0) { const ph = a.cur === HOME ? amount : amount * (hfxV > 0 ? hfxV : homeFx(db2, a.cur)); if (ph > 0) orig = Object.assign({}, f.orig, { rate: ph / f.orig.amt, home: ph }); }
+    let orig; if (f.orig && f.kind === 'expense' && f.orig.cur !== a.cur && f.orig.amt > 0) { const ph = a.cur === HOME ? amount : amount * (hfxV > 0 ? hfxV : homeFx(db2, a.cur)); if (ph > 0) orig = Object.assign({}, f.orig, { rate: ph / f.orig.amt, home: ph }, f.orig.mid > 0 ? {} : { mid: homeFx(db2, f.orig.cur) > 0 ? homeFx(db2, f.orig.cur) : undefined }, f.orig.at ? {} : { at: nowStamp() }); }
     const rec = { kind: f.kind, amount, cur: a.cur, fx, hfx: hfxV > 0 ? hfxV : undefined, orig, date: f.date, name: label, autoName, cat, acct: a.id,
       toAcct: f.kind === 'transfer' ? f.toAcct : '', toAmount, fee, feeBy: fee ? f.feeBy : '', feeFx, feeCur, notes: f.notes.trim(), labels: joinTags(parseTags(f.labels)), items: items && items.length ? items : [], counts, flag,
       adj: f.kind !== 'transfer' && !(items && items.length) && f.adj && Math.abs(f.adj.total - amount) < 1e-9 ? f.adj : undefined,
@@ -1362,7 +1387,7 @@ export function openEntry(opts = {}) {
 
   arrange(); renderSeg(); renderMerch(); renderFreq(); renderAccts(); renderFx(); renderItems(); renderCounts(); renderWhen(); renderBtns(); renderSafety();
   if (existing) { refreshPred(); f.cat = existing.cat || ''; renderCats(); } else renderCats();
-  renderTrip(); renderTags(); renderBranch(); renderCb(); renderGoal(); fillAddr(); renderLoc(); if (f.loc && !f.place) getAddr(); permState().then((st) => { (f.locUi || (f.locUi = { msg: '', edit: false })).perm = st; renderLoc(); });
+  renderTrip(); renderTags(); renderBranch(); renderCb(); renderShop(); renderGoal(); fillAddr(); renderLoc(); if (f.loc && !f.place) getAddr(); permState().then((st) => { (f.locUi || (f.locUi = { msg: '', edit: false })).perm = st; renderLoc(); });
   updateFxVal();
 }
 
