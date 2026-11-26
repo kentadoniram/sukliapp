@@ -407,16 +407,17 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 #adjf .t1seg, .taxdet .t1seg, .idisc .t1seg, .itax .t1seg { display: grid; width: 100%; }
 #adjf .t1seg .t1s-slot, .taxdet .t1seg .t1s-slot, .idisc .t1seg .t1s-slot, .itax .t1seg .t1s-slot { min-width: 0; }
 
-/* v16.33: the Budget group in the bell folds like Quick Glance; Quick Glance sits at the top */
+/* v16.37: the Budget group in the bell is ONE card: a header that folds, and the alerts as plain rows inside it */
 .nf-glance { margin-bottom: var(--sp-3); }
-.nfgroup { margin-bottom: var(--sp-3); }
-.nfghead { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: var(--sp-3); min-height: var(--h-36); padding: var(--sp-2) var(--sp-3); cursor: pointer; border-radius: var(--r-m); border: 1px solid var(--rule); border-inline-start: 4px solid var(--nf-budget); background: var(--sheet); margin-bottom: var(--sp-3); }
+.nfgroup { margin-bottom: var(--sp-3); border: 1px solid var(--rule); border-inline-start: 4px solid var(--nf-budget); border-radius: var(--r-m); background: var(--sheet); overflow: hidden; }
+.nfghead { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: var(--sp-3); min-height: var(--h-34); padding: var(--sp-3) var(--sp-4); cursor: pointer; }
 .nfghead .nf-kind { color: var(--nf-budget); }
 .nfgsum { flex: 1; min-width: 0; font-size: var(--fz-12); color: var(--ink2); }
 .nfghead .chev { width: 18px; height: 18px; color: var(--ink2); transition: transform .15s; }
 .nfgroup.closed .nfghead .chev { transform: rotate(-90deg); }
-.nfgroup.closed .nfghead { margin-bottom: 0; }
-.nfghead:focus-visible { outline: 2px solid var(--line); }
+.nfghead:focus-visible { outline: 2px solid var(--line); outline-offset: -2px; }
+.nfgroup .nflist { gap: 0; margin: 0; }
+.nfgroup .nf { border: 0; border-top: 1px solid var(--rule); border-radius: 0; background: transparent; }
 
 /* v16.34: Compare payment methods (estimates, never recorded as spending) */
 .pcsheet .two { align-items: end; margin-bottom: var(--sp-4); }
@@ -432,3 +433,25 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 .pcconf { border: 1px dashed var(--line); border-radius: var(--r-m); padding: var(--sp-4); margin-bottom: var(--sp-3); display: grid; gap: var(--sp-2); font-size: var(--fz-13); }
 .pcwrap { margin-top: var(--sp-4); display: grid; gap: var(--sp-3); }
 .pcwrap > .linkbtn { justify-self: start; font-weight: 700; }
+
+/* v16.37: the type switch and the value sit on one row (the values are short) */
+#adjf .taxrow { display: flex; align-items: center; gap: var(--sp-3); }
+#adjf .taxrow > [id$="seg"] { flex: 0 0 auto; }
+#adjf .taxrow .t1seg, #adjf .taxrow .seg { display: inline-grid; width: auto; }
+#adjf .taxrow .seg { display: inline-flex; }
+#adjf .taxrow input { flex: 1 1 auto; min-width: 0; }
+
+/* v16.37: suggestion list drawn by the app (js/suggest.js) instead of the phone's own strip */
+.sgpop { position: fixed; z-index: 90; background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-m); box-shadow: 0 6px 20px color-mix(in srgb, var(--ink) 20%, transparent); padding: var(--sp-2); display: grid; gap: var(--sp-1); max-height: 40vh; overflow-y: auto; }
+.sgopt { all: unset; box-sizing: border-box; display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); min-height: var(--h-34); padding: var(--sp-2) var(--sp-4); border-radius: var(--r-s); cursor: pointer; font-size: var(--fz-14); color: var(--ink); }
+.sgopt .sgv b { font-weight: 800; }
+.sgopt small { font-size: var(--fz-12); white-space: nowrap; }
+.sgopt:hover, .sgopt.on { background: var(--tint); }
+
+/* v16.37: the Add button of the Pasmo / Suica reader stays on screen while you scroll the rows */
+.wsstick { position: sticky; bottom: 0; z-index: 2; background: var(--sheet); padding-block: var(--sp-4); margin-block-end: calc(-1 * var(--sp-3)); border-top: 1px solid var(--rule); }
+.pcline { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); font-size: var(--fz-13); }
+.pcline b { font-variant-numeric: tabular-nums; }
+.pcline b.bad { color: var(--bad); } .pcline b.good { color: var(--in); }
+.pcgap { padding-top: var(--sp-2); border-top: 1px solid var(--rule); font-size: var(--fz-14); }
+.nfgroup .nf .nf-kind { display: none; }

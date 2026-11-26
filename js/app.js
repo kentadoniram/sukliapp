@@ -4,6 +4,7 @@ import { button } from './components.js';
 import { applyTypes } from './accpage.js';
 import { setNameRules } from './merchants.js';
 import { initBackup } from './backup.js';
+import './suggest.js';
 import { load, get, subscribe, commit, seedCategories, balances, reviewCount, latestMonth, thisMonth, monthOf, priv, undoLoad, appMode } from './core.js';
 import { importBluecoins } from './importer.js';
 import { scheduleSync, onStatus } from './drive.js';

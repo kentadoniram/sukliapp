@@ -17,6 +17,9 @@ import { parseTags, joinTags } from './tags.js';
 import { PASMO_GROUPS, groupCats, guessGroup, bestCats, guessMerchantBranch, rememberPlace } from './pasmomerch.js';
 import { canonMerchant } from './merchantpick.js';
 import { openEntry } from './entry.js';
+// suggestions for the merchant and branch boxes: what you have recorded before (branches of the merchant typed in that row first)
+const knownMerchants = (db) => { const c = new Map(); for (const t of db.txs) if (!t.deleted && t.merchant) c.set(t.merchant, (c.get(t.merchant) || 0) + 1); return [...c].sort((a, b) => b[1] - a[1]).map((x) => x[0]); };
+const branchesFor = (m) => { const c = new Map(); for (const t of get().txs) if (!t.deleted && t.branch && (!m || t.merchant === m)) c.set(t.branch, (c.get(t.branch) || 0) + 1); return [...c].sort((a, b) => b[1] - a[1]).map((x) => x[0]).slice(0, 40); };
 
 let cur = null, S = null, S0 = null;
 const live = (l) => l.filter((x) => !x.deleted);
@@ -100,7 +103,7 @@ function buyBox(db, r, i, cats) {
   const chips = quick.length ? `<div class="chips wsquick" role="group" aria-label="Quick categories">${quick.map((c) => button({ label: c.name, kind: 'chip', on: c.id === r.cat, act: 'ws-cat', v: `${i}:${c.id}` })).join('')}</div>` : '';
   return `<div class="wsbuy"><div class="chips wsgroups" role="group" aria-label="Kind of purchase">${PASMO_GROUPS.map((g) => button({ label: g.label, kind: 'chip', on: r.grp === g.id, act: 'ws-grp', v: `${i}:${g.id}` })).join('')}</div>${chips}
     <select class="wscat" data-i="${i}" aria-label="Category for ${esc(r.place)}">${catOpts(cats, r.cat)}</select>
-    <div class="mbpair wsmb">${textField({ label: 'Merchant', value: r.merchant || '', placeholder: 'e.g. 7-Eleven', attr: { 'data-i': i, 'data-k': 'merchant', class: 'wsmer' } })}${textField({ label: 'Branch', value: r.branch || '', placeholder: 'e.g. Shinjuku Nishiguchi', attr: { 'data-i': i, 'data-k': 'branch', class: 'wsmer' } })}</div>
+    <div class="mbpair wsmb">${textField({ label: 'Merchant', value: r.merchant || '', placeholder: 'e.g. 7-Eleven', attr: { 'data-i': i, 'data-k': 'merchant', class: 'wsmer', list: 'ws-mer' } })}${textField({ label: 'Branch', value: r.branch || '', placeholder: 'e.g. Shinjuku Nishiguchi', attr: { 'data-i': i, 'data-k': 'branch', class: 'wsmer', list: `ws-br-${i}` }, after: `<datalist id="ws-br-${i}">${branchesFor(r.merchant).map((m) => `<option value="${esc(m)}">`).join('')}</datalist>` })}</div>
     ${r.mwhy ? `<small class="muted wsmwhy">Suggested: ${esc(r.mwhy)}. Change it if it is wrong; Sukli remembers what you keep.</small>` : ''}
     <div class="btnrow tight">${button({ label: r.reimb ? 'Reimbursable: On' : 'Reimbursable', kind: 'toggle', size: 'sm', on: !!r.reimb, act: 'ws-reimb', v: i })}${button({ label: r.split ? 'Split into Items: On' : 'Split into Items', kind: 'toggle', size: 'sm', on: !!r.split, act: 'ws-split', v: i })}</div>${r.split ? '<small class="muted">After you add the entries, the items screen opens for this purchase (items, a discount or tax on the whole bill).</small>' : ''}</div>`;
 }
@@ -118,7 +121,7 @@ function render() {
   if (!S) return;
   const accts = cardAccts(db), rows = S.rows, cats = expenseCats(db);
   const shown = (r) => `${r.exactTime ? 'about ' + p2(r.when.getHours()) + ':' + p2(r.when.getMinutes()) + ' · ' : ''}${r.when.getMonth() + 1}/${r.when.getDate()}${r.exactTime ? '' : ' (time not shown)'}`;
-  body.innerHTML = `<p class="hint">Read from your screenshot${S.balance != null ? `. Wallet balance: <b>${yen(S.balance)}</b>` : ''}. Rides become <b>Train</b> entries with both stations. A <b>Purchase</b> is not a ride: pick what it was for. A <b>top-up</b> is a transfer into the card from the account you choose. Entries you already have are left unticked.</p>
+  body.innerHTML = `<datalist id="ws-mer">${knownMerchants(db).slice(0, 60).map((m) => `<option value="${esc(m)}">`).join('')}</datalist><p class="hint">Read from your screenshot${S.balance != null ? `. Wallet balance: <b>${yen(S.balance)}</b>` : ''}. Rides become <b>Train</b> entries with both stations. A <b>Purchase</b> is not a ride: pick what it was for. A <b>top-up</b> is a transfer into the card from the account you choose. Entries you already have are left unticked.</p>
     ${(() => { const co = S.reimbCo != null ? S.reimbCo : lastCompany(db); return `<div class="reimbbox wsreimb">${button({ label: 'Reimbursable (all rides)', kind: 'toggle', on: !!S.rides, act: 'ws-rides' })}${rows.some((r) => r.reimb) ? `${textField({ label: 'Who pays you back?', id: 'ws-co', value: co, placeholder: 'e.g. My Company' })}` : ''}<small class="muted">Rides marked this way are kept in Reimbursement and are not counted as your spending. For a purchase (a meal, supplies) use its own switch.</small></div>`; })()}
     <label class="field"><span>Card account</span><select id="ws-acct">${accts.map((a) => `<option value="${a.id}" ${a.id === S.acct ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
     <ul class="wslist">${rows.map((r, i) => `${dayHead(rows, i)}<li class="wsrow ${r.known ? 'known' : ''}"><label class="wsl"><input type="checkbox" data-i="${i}" ${r.on ? 'checked' : ''}>
@@ -130,7 +133,7 @@ function render() {
     ${S.skipped ? `<p class="hint">${S.skipped} row${S.skipped === 1 ? '' : 's'} at the edge of the screenshot could not be read fully and ${S.skipped === 1 ? 'was' : 'were'} skipped. Scroll the Wallet a little and take another screenshot to get them.</p>` : ''}
     ${(() => { const g = balanceGap(db); S.gap = g; if (!g) return S.balance != null ? `<p class="hint">The card balance in Sukli will match the wallet (${yen(S.balance)}).</p>` : ''; const a = accts.find((x) => x.id === S.acct), o = ((a && a.open) || 0) + g;
       return `<label class="check wsbal"><input type="checkbox" id="ws-bal" ${S.fixBal !== false ? 'checked' : ''}> <span>Set the starting balance of ${esc(a ? a.name : 'the card')} to <b>${yen(o)}</b> so it shows <b>${yen(S.balance)}</b> as in the wallet. Everything read here is then history; nothing double counts.</span></label>`; })()}
-    <div class="btnrow">${button({ label: 'Another screenshot', kind: 'ghost', act: 'ws-again' })}${button({ html: `Add ${rows.filter((r) => r.on).length} ${rows.filter((r) => r.on).length === 1 ? 'entry' : 'entries'}`, kind: 'primary', act: 'ws-add' })}</div>`;
+    <div class="btnrow wsstick">${button({ label: 'Another screenshot', kind: 'ghost', act: 'ws-again' })}${button({ html: `Add ${rows.filter((r) => r.on).length} ${rows.filter((r) => r.on).length === 1 ? 'entry' : 'entries'}`, kind: 'primary', act: 'ws-add' })}</div>`;
   const wco = body.querySelector('#ws-co'); if (wco) wco.oninput = (e) => { S.reimbCo = e.target.value; };
   body.querySelector('#ws-acct').onchange = (e) => { S.acct = e.target.value; render(); };
   const wb = body.querySelector('#ws-bal'); if (wb) wb.onchange = () => { S.fixBal = wb.checked; };

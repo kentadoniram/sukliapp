@@ -53,7 +53,7 @@ const billLine = (who, amt, g, hp) => `<li><span>${esc(who)}</span><b>${esc(fmt(
 function payBox(db, t) {
   if (t.kind !== 'expense' || t.lent || t.trade || t.reimbBack) return '';
   const wi = whatIfHtml(db, t);
-  return `<div class="pcwrap">${button({ label: 'If you had paid another way', kind: 'link', attr: { 'data-ev': 'pc-toggle', 'aria-expanded': String(!!wi) } })}<div id="pc-body"${wi ? '' : ' hidden'}>${wi || priceFormHtml(db, t)}</div></div>`;
+  return `<div class="pcwrap">${button({ label: 'Card rate vs market rate', kind: 'link', attr: { 'data-ev': 'pc-toggle', 'aria-expanded': String(!!wi) } })}<div id="pc-body"${wi ? '' : ' hidden'}>${wi || priceFormHtml(db, t)}</div></div>`;
 }
 export function openEntryView(id) {
   const db = get(), t = db.txs.find((x) => x.id === id); if (!t) return false;
