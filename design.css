@@ -39,13 +39,14 @@
 :root { --iv-rec: #1F7A4D; --iv-add: #3A5BD0; --iv-spot: #2F6FDE; --iv-earn: #1F9D6B; --iv-margin: #B45309; --iv-fut: #7C3AED; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --iv-rec: #4CC38A; --iv-add: #8DA2F5; --iv-spot: #7AB0EE; --iv-earn: #4CC38A; --iv-margin: #E0A04A; --iv-fut: #B39DF0; } }
 :root[data-theme="dark"] { --iv-rec: #4CC38A; --iv-add: #8DA2F5; --iv-spot: #7AB0EE; --iv-earn: #4CC38A; --iv-margin: #E0A04A; --iv-fut: #B39DF0; }
-.invpage [data-sec="i-perf"] { --pc: #1F9D6B; }
-.invpage [data-sec="i-inc"] { --pc: #B7791F; }
-.invpage [data-sec="i-fees"] { --pc: #C2410C; }
-.invpage [data-sec="i-gain"] { --pc: #2F6FDE; }
-.invpage [data-sec="i-pred"] { --pc: #7C3AED; }
-.invpage [data-sec="i-tick"] { --pc: #0E7490; }
-.invpage [data-sec="i-other"] { --pc: #64748B; }
+:root { --sec-perf: #1F9D6B; --sec-income: #B7791F; --sec-fees: #C2410C; --sec-gain: #2F6FDE; --sec-forecast: #7C3AED; --sec-ticker: #0E7490; --sec-other: #64748B; }
+.invpage [data-sec="i-perf"] { --pc: var(--sec-perf); }
+.invpage [data-sec="i-inc"] { --pc: var(--sec-income); }
+.invpage [data-sec="i-fees"] { --pc: var(--sec-fees); }
+.invpage [data-sec="i-gain"] { --pc: var(--sec-gain); }
+.invpage [data-sec="i-pred"] { --pc: var(--sec-forecast); }
+.invpage [data-sec="i-tick"] { --pc: var(--sec-ticker); }
+.invpage [data-sec="i-other"] { --pc: var(--sec-other); }
 @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) body.simple { --paper: #F7F3EA; --rule: #E3DCCB; --ink2: #6A6354; } :root:not([data-theme="dark"]) body:not(.simple) { --paper: #D4DBE6; --rule: #B3BECC; --ink2: #3F4C5A; } }
 :root[data-theme="light"] body.simple { --paper: #F7F3EA; --rule: #E3DCCB; --ink2: #6A6354; }
 :root[data-theme="light"] body:not(.simple) { --paper: #D4DBE6; --rule: #B3BECC; --ink2: #3F4C5A; }
@@ -455,3 +456,34 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 .pcline b.bad { color: var(--bad); } .pcline b.good { color: var(--in); }
 .pcgap { padding-top: var(--sp-2); border-top: 1px solid var(--rule); font-size: var(--fz-14); }
 .nfgroup .nf .nf-kind { display: none; }
+
+/* ---- Status and brand colours that used to be typed into styles.css (16.42). Every one has a name here, with a dark-mode value where it needs one. ---- */
+:root { --conf-hi: #2A8A4A; --conf-lo: #C0392B; --conf-hi-ink: var(--ok-ink); --conf-mid-ink: var(--amber-ink); --conf-lo-ink: var(--bad-ink);
+  --light-green: #2F9E5B; --light-yellow: #D9A21B; --brand-teal-light: #3E9C8F; --brand-navy-deep: #14325A; --brand-violet: #3A2A7A;
+  --coin-grey: #6B7280; --coin-grey-light: #8A8F98; --goal-gold: #D99A1E; --black: #000000; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --conf-hi-ink: #7FD69A; --conf-mid-ink: #F0C36A; --conf-lo-ink: #FF9A8E; } }
+:root[data-theme="dark"] { --conf-hi-ink: #7FD69A; --conf-mid-ink: #F0C36A; --conf-lo-ink: #FF9A8E; }
+
+/* ---- Settings redesign (16.42): find box, group rows with an icon tile, section count and a cleaner open state ---- */
+.setfind { position: sticky; top: 0; z-index: 3; background: var(--paper); padding: var(--sp-3) 0 var(--sp-1); margin: 0; }
+.setfind .field { margin: 0; }
+.setfind input { min-height: var(--h-44); border-radius: var(--r-pill); padding-inline: 16px; }
+details.sgroup > summary { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: var(--sp-4); padding: 12px 14px; }
+details.sgroup > summary::after { position: static; content: "›"; font-size: var(--fz-20, 1.25rem); line-height: 1; color: var(--ink2); transform: rotate(90deg); transition: transform .15s; }
+details.sgroup[open] > summary::after { content: "›"; transform: rotate(-90deg); }
+details.sgroup[open] > summary { border-bottom: 1px solid var(--rule); }
+.sgico { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--r-ctl); background: var(--tint); color: var(--accent); font-style: normal; }
+.sgico .ic { width: 20px; height: 20px; }
+.sgtx { display: grid; gap: var(--sp-0); min-width: 0; }
+.sgtx small { font-size: var(--fz-12); }
+.sgn { font-style: normal; font-size: var(--fz-12); font-weight: 700; min-width: 24px; text-align: center; padding: 2px 8px; border-radius: var(--r-pill); background: var(--tint); color: var(--ink2); }
+details.sgroup > section { border-top: 0; padding: 12px 14px; }
+details.sgroup > section + section { border-top: 1px solid var(--rule); }
+details.sgroup > section > h2, details.sgroup .ssub > summary h2 { font-size: var(--fz-14); font-weight: 700; letter-spacing: .01em; margin: 0 0 var(--sp-2); }
+details.sgroup .ssub > summary h2 { margin: 0; }
+details.sgroup[hidden], details.sgroup > section[hidden] { display: none; }
+.sgtiles.sgcolours { grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
+.sgcolours .sgtile { padding: var(--sp-1); gap: var(--sp-1); }
+.sgcolours .pv { min-height: 40px; }
+.sgcolours .pv-dot { width: 28px; height: 28px; }
+.sgcolours .sgtile > b { font-size: var(--fz-12); }

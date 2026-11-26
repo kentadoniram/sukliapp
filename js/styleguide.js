@@ -25,7 +25,7 @@ function measureGuide() {
 
 // ---- Design Studio: every look choice, with a small picture of each, in one place ----
 const tile = (k, v, label, preview, cur) => button({ html: `<span class="pv ${preview.cls || ''}">${preview.html || ''}</span><b>${esc(label)}</b>`, kind: 'plain', cls: `sgtile ${String(cur) === String(v) ? 'on' : ''}`, act: 'look', pressed: String(cur) === String(v), attr: { 'data-k': k, 'data-v': v } });
-const grp = (title, hint, k, opts, cur) => `<div class="sggrp"><h4>${esc(title)}</h4><p class="hint">${esc(hint)}</p><div class="sgtiles">${opts.map(([v, l, pv]) => tile(k, v, l, pv, cur)).join('')}</div></div>`;
+const grp = (title, hint, k, opts, cur) => `<div class="sggrp"><h4>${esc(title)}</h4><p class="hint">${esc(hint)}</p><div class="sgtiles${k === 'accent' ? ' sgcolours' : ''}">${opts.map(([v, l, pv]) => tile(k, v, l, pv, cur)).join('')}</div></div>`;
 const cardPv = (c) => ({ html: `<div class="pv-card ${c}"><i></i><i></i></div>` });
 const studio = () => {
   const lk = look(), dark = lk.theme === 'dark' || (lk.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);

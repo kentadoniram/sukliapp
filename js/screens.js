@@ -1308,11 +1308,30 @@ const SET_GROUPS = [
   ['adv', 'Advanced', 'Most people never need these', ['Exchange Rates', 'Live exchange rates', 'Coins and Tokens: Decimals', 'Cloud Sync', 'Erase']],
   ['help', 'Help', 'Glossary, how every model works, install on your phone', ['Glossary', 'Model Computation Guide', 'Models Lab', 'Style Guide', 'Put It on Your Phone']],
 ];
+const SET_ICON = { look: 'eye', money: 'wallet', organise: 'tag', data: 'redo', adv: 'gear', help: 'list' };
 const SET_OPEN = new Set(['look']);
 const SUB_OPEN = new Set((() => { try { return JSON.parse(localStorage.getItem('sukli-ssub') || '[]'); } catch { return []; } })());
 document.addEventListener('toggle', (e) => { const g = e.target.dataset && e.target.dataset.ssub; if (g) { if (e.target.open) SUB_OPEN.add(g); else SUB_OPEN.delete(g); try { localStorage.setItem('sukli-ssub', JSON.stringify([...SUB_OPEN])); } catch { /* optional */ } } }, true);
 document.addEventListener('toggle', (e) => { const g = e.target.dataset && e.target.dataset.sgroup; if (g) { if (e.target.open) SET_OPEN.add(g); else SET_OPEN.delete(g); } }, true);
 const titleCase = (t) => t.split(' ').map((w, i) => (i && ['and', 'or', 'of', 'the', 'to', 'on', 'in'].includes(w)) ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+// Find a setting: hides the groups and sections that do not contain the typed words, and opens the ones that do
+document.addEventListener('input', (e) => {
+  if (!e.target || e.target.id !== 'setfind') return;
+  const q = e.target.value.trim().toLowerCase(), words = q.split(/\s+/).filter(Boolean), root = e.target.closest('main, .view, body') || document;
+  let any = false;
+  root.querySelectorAll('details.sgroup').forEach((g) => {
+    const head = (g.querySelector('summary') || {}).textContent || '';
+    let hit = 0;
+    g.querySelectorAll(':scope > section').forEach((sec) => {
+      const t = (sec.textContent + ' ' + head).toLowerCase(), ok = !words.length || words.every((w) => t.includes(w));
+      sec.hidden = !ok; if (ok) hit++;
+      if (words.length && ok) sec.querySelectorAll('details.ssub').forEach((d) => { d.open = true; });
+    });
+    g.hidden = !!words.length && !hit; if (words.length && hit) g.open = true;
+    if (hit || !words.length) any = true;
+  });
+  const none = root.querySelector('#setfind-none'); if (none) none.hidden = any;
+});
 function settingsGrouped(html) {
   const i = html.indexOf('<section'); if (i < 0) return html;
   const head = html.slice(0, i), secs = [...html.slice(i).matchAll(/<section[\s\S]*?<\/section>/g)].map((m) => m[0]);
@@ -1326,7 +1345,8 @@ function settingsGrouped(html) {
     by.get(g[0]).push(out);
   }
   const ver = `<p class="hint verline" id="appver">Sukli version ${versionText()}</p>`;
-  return head + SET_GROUPS.filter((g) => by.get(g[0]).length).map(([k, name, desc]) => `<details class="sgroup" data-sgroup="${k}" ${SET_OPEN.has(k) ? 'open' : ''}><summary><b>${name}</b><small>${desc}</small></summary>${by.get(k).join('')}</details>`).join('') + ver;
+  const find = `<div class="setfind">${textField({ id: 'setfind', type: 'search', placeholder: 'Find a setting, e.g. currency, backup, colour', aria: 'Find a setting', cls: 'setfind-f' })}<p class="hint" id="setfind-none" hidden>No setting matches that. Try another word.</p></div>`;
+  return head + find + SET_GROUPS.filter((g) => by.get(g[0]).length).map(([k, name, desc]) => `<details class="sgroup" data-sgroup="${k}" ${SET_OPEN.has(k) ? 'open' : ''}><summary><i class="sgico" aria-hidden="true">${ic(SET_ICON[k] || 'gear')}</i><span class="sgtx"><b>${name}</b><small>${desc}</small></span><em class="sgn">${by.get(k).length}</em></summary>${by.get(k).join('')}</details>`).join('') + ver;
 }
 
 // ---------------- Arrange tabs and Home cards (Settings) ----------------

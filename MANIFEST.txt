@@ -1,28 +1,11 @@
-Sukli v16.41 - changed files:
+Sukli v16.42 - changed files:
 README.md
-js/accpage.js
-js/acctpicker.js
-js/bin.js
-js/budgetsetup.js
-js/catsuggest.js
-js/compare.js
-js/datepicker.js
-js/earnui.js
-js/entry.js
-js/entryview.js
-js/fxview.js
-js/merchantpick.js
-js/merchantset.js
-js/owed.js
-js/picker.js
-js/platform.js
-js/screens.js
-js/suggest.js
-js/trades.js
-js/ui.js
-js/undoui.js
-js/version.js
-js/views.js
-js/welcome.js
+design.css
+styles.css
 sw.js
+js/appearance.js
+js/screens.js
+js/styleguide.js
+js/version.js
 tests/ui_test_component_rules.py
+tests/ui_test_v16_42_settings_colours.py
