@@ -1,5 +1,5 @@
 // Recycle bin: review, restore or permanently delete accounts, expense groups, categories and entries.
-import { button, card as uiCard } from './components.js';
+import { button, selectField, card as uiCard } from './components.js';
 import { undoHistory, undoSteps, redoLast, undoWipe, get, commit, fmt, HOME, restoreRec, purgeRec, binItems, purgeExpired, catMap, accountMap } from './core.js';
 import { esc, ic, ACT, toast, confirmDialog, sheet } from './ui.js';
 import { hdr } from './screens.js';
@@ -58,7 +58,7 @@ export function bin(db) {
   const days = [7, 14, 30, 60, 90, 0];
   return `${hdr('Recycle Bin')}${binTabs(false, rows.length, nh)}
   <section class="card"><p class="hint">Deleted items wait here, so a slip is never final. Restore anything until its time runs out. After that it is removed for good (on every device).</p>
-    <label class="field"><span>Keep deleted items for</span><select data-act-change="bin-days">${days.map((d) => `<option value="${d}" ${(+s.binDays || 0) === d ? 'selected' : ''}>${d ? d + ' days' : 'Until I delete them'}</option>`).join('')}</select></label></section>
+    ${selectField({ label: 'Keep deleted items for', aria: null, attr: { 'data-act-change': 'bin-days' }, optionsHtml: days.map((d) => `<option value="${d}" ${(+s.binDays || 0) === d ? 'selected' : ''}>${d ? d + ' days' : 'Until I delete them'}</option>`).join('') })}</section>
   ${rows.length ? `<div class="binhead"><b>${rows.length} ${rows.length === 1 ? 'item' : 'items'}</b>${button({ label: 'Empty bin', kind: 'danger-ghost', size: 'sm', act: 'bin-empty' })}</div>
   <ul class="binlist">${rows.map((r, i) => { const l = left(db, r.at); return `${uiCard({ kind: 'binrow', tag: 'li', body: `<div class="binmain"><span class="pill">${r.type}</span><b>${esc(r.title)}</b><small>${esc(r.sub)}</small>
     <small class="${l.soon ? 'warnt' : 'muted'}">Deleted ${when(r.at)} · ${l.text}</small></div>

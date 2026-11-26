@@ -1,5 +1,5 @@
 // The extra windows: menu drawer, Calendar, Budget (donut), Cash flow, Categories, and the detail sheets.
-import { button, card as uiCard } from './components.js';
+import { button, selectField, card as uiCard } from './components.js';
 import { look } from './appearance.js';
 import { catIcon } from './caticons.js';
 import { commitQuiet, softDelete, scopeIds, scopeOptionsHtml, withScope, appMode } from './core.js';
@@ -261,7 +261,7 @@ ACT.pieby = (el) => {
 // Budget can be limited to one platform, wallet or account (platform › wallet › asset)
 export function budget(db) {
   const ids = scopeIds(db, ui.bscope || '');
-  return withScope(ids, () => budgetInner(db)).replace('<!--scope-->', `<label class="field bscope"><span>Spending from</span><select data-bscope aria-label="Platform, wallet or account">${scopeOptionsHtml(db, ui.bscope || '', esc)}</select></label>`);
+  return withScope(ids, () => budgetInner(db)).replace('<!--scope-->', selectField({ label: 'Spending from', cls: 'bscope', aria: 'Platform, wallet or account', attr: { 'data-bscope': true }, optionsHtml: scopeOptionsHtml(db, ui.bscope || '', esc) }));
 }
 // category budgets inside a group: each with its status, and, when passed, a suggestion based on what that category usually costs (never changed automatically)
 function catBudgetLines(db, ym, group) {

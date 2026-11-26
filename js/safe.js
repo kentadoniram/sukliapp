@@ -71,7 +71,7 @@ ACT['bill-edit'] = (el) => {
   const sh = cur = sheet(`${textField({ label: 'What Is It', id: 'bl-name', value: b.name, placeholder: 'e.g. Phone bill, Laptop installment' })}
     <div class="two">${textField({ label: `Amount Each Time (${HOME})`, id: 'bl-amt', inputmode: 'decimal', value: b.amount || '' })}${textField({ label: 'Next Due Date', id: 'bl-due', type: 'date', value: b.due })}</div>
     <div class="field"><span>How Often</span>${seg({ options: [{ label: 'Once', value: 'once' }, { label: 'Every month', value: 'month' }], value: b.every, aria: 'How often', data: 'bl-every', pack: (v) => v })}</div>
-    ${textField({ label: 'Payments Left (Installments, Optional)', id: 'bl-left', inputmode: 'numeric', value: b.left || '', placeholder: 'leave empty if it never ends', hidden: b.every !== 'month', attr: {} }).replace('<label class="field "', '<label class="field " id="bl-leftbox"')}
+    ${textField({ label: 'Payments Left (Installments, Optional)', id: 'bl-left', inputmode: 'numeric', value: b.left || '', placeholder: 'leave empty if it never ends', hidden: b.every !== 'month', lid: 'bl-leftbox' })}
     <div class="btnrow">${button({ label: 'Save', kind: 'primary', id: 'bl-save' })}</div>`, { title: id ? 'Edit Bill' : 'Add a Bill or Installment' });
   let every = b.every;
   sh.el.addEventListener('click', (e) => { const x = e.target.closest('[data-bl-every]'); if (!x) return; every = x.dataset.blEvery; sh.el.querySelectorAll('[data-bl-every]').forEach((y) => { const on = y === x; y.classList.toggle('on', on); y.setAttribute('aria-pressed', String(on)); }); sh.el.querySelector('#bl-leftbox').hidden = every !== 'month'; });

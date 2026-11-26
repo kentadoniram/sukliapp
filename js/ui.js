@@ -1,4 +1,4 @@
-import { button } from './components.js';
+import { button, textField } from './components.js';
 // Small UI helpers: escaping, icons, toast, bottom sheet, action registry.
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -138,8 +138,7 @@ export function confirmDialog(message, okLabel = 'Confirm', danger = false, noLa
 
 export function promptDialog(label, value = '', { type = 'text', okLabel = 'Save', hint = '' } = {}) {
   return new Promise((res) => {
-    const s = sheet(`<form><label class="field"><span>${esc(label)}</span>
-      <input name="v" type="${type}" ${type === 'number' ? 'inputmode="decimal" step="any"' : ''} value="${esc(value)}" autofocus></label>
+    const s = sheet(`<form>${textField({ label, name: 'v', type, value: String(value), inputmode: type === 'number' ? 'decimal' : undefined, attr: { ...(type === 'number' ? { step: 'any' } : {}), autofocus: true } })}
       ${hint ? `<p class="hint">${esc(hint)}</p>` : ''}
       <div class="btnrow"><button type="button" class="btn ghost" data-no>Cancel</button><button class="btn">${esc(okLabel)}</button></div></form>`,
       { title: label, onClose: () => res(null) });

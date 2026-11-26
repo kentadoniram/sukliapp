@@ -1,6 +1,6 @@
 // Read a screenshot of a transit card in Apple Wallet (Pasmo, Suica...): there is no CSV to export, so the picture is read on the phone
 // (nothing is uploaded), each ride becomes an entry with its two stations, and a "Purchase" row stays a purchase, not a ride.
-import { button, textField } from './components.js';
+import { button, textField, selectField } from './components.js';
 import { lastCompany, rememberCompany } from './reimburse.js';
 import { get, commit, stamp, uid, nowStamp, homeFx, balances } from './core.js';
 import { esc, ACT, sheet, toast } from './ui.js';
@@ -123,7 +123,7 @@ function render() {
   const shown = (r) => `${r.exactTime ? 'about ' + p2(r.when.getHours()) + ':' + p2(r.when.getMinutes()) + ' · ' : ''}${r.when.getMonth() + 1}/${r.when.getDate()}${r.exactTime ? '' : ' (time not shown)'}`;
   body.innerHTML = `<datalist id="ws-mer">${knownMerchants(db).slice(0, 60).map((m) => `<option value="${esc(m)}">`).join('')}</datalist><p class="hint">Read from your screenshot${S.balance != null ? `. Wallet balance: <b>${yen(S.balance)}</b>` : ''}. Rides become <b>Train</b> entries with both stations. A <b>Purchase</b> is not a ride: pick what it was for. A <b>top-up</b> is a transfer into the card from the account you choose. Entries you already have are left unticked.</p>
     ${(() => { const co = S.reimbCo != null ? S.reimbCo : lastCompany(db); return `<div class="reimbbox wsreimb">${button({ label: 'Reimbursable (all rides)', kind: 'toggle', on: !!S.rides, act: 'ws-rides' })}${rows.some((r) => r.reimb) ? `${textField({ label: 'Who pays you back?', id: 'ws-co', value: co, placeholder: 'e.g. My Company' })}` : ''}<small class="muted">Rides marked this way are kept in Reimbursement and are not counted as your spending. For a purchase (a meal, supplies) use its own switch.</small></div>`; })()}
-    <label class="field"><span>Card account</span><select id="ws-acct">${accts.map((a) => `<option value="${a.id}" ${a.id === S.acct ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
+    ${selectField({ label: 'Card account', id: 'ws-acct', aria: null, optionsHtml: accts.map((a) => `<option value="${a.id}" ${a.id === S.acct ? 'selected' : ''}>${esc(a.name)}</option>`).join('') })}
     <ul class="wslist">${rows.map((r, i) => `${dayHead(rows, i)}<li class="wsrow ${r.known ? 'known' : ''}"><label class="wsl"><input type="checkbox" data-i="${i}" ${r.on ? 'checked' : ''}>
       <span class="wst"><b>${r.kind === 'transit' ? `${esc(r.from)} to ${esc(r.to)}` : r.kind === 'topup' ? `Top-up of the card (a transfer, not spending)` : `Purchase: ${esc(r.place)}`}</b><small class="muted">${yen(r.amount)} · ${esc(shown(r))}${r.known ? ' · already in your entries' : ''}</small></span></label>
       ${(() => { if (r.kind !== 'transit') return ''; const n = fareNote(S.fares, r); return n ? `<p class="hint wsfare">${esc(n.text)}${n.differs ? ` ${button({ html: `Use ${yen(n.usual)}`, kind: 'link', act: 'ws-fare', attr: { 'data-i': i, 'data-v': n.usual } })}` : ''}</p>` : ''; })()}

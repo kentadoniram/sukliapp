@@ -1,9 +1,11 @@
-Sukli v16.39 - changed files:
-js/internal.js
-js/fxview.js
-js/debts.js
-js/reimburse.js
-js/interest.js
+Sukli v16.40 - changed files:
+js/backup.js
+js/platform.js
+js/safe.js
+js/ui.js
+js/walletscan.js
+js/bin.js
+js/views.js
 js/version.js
 sw.js
 README.md

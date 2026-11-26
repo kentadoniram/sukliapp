@@ -1,6 +1,6 @@
 // Exchange settings: tap an exchange's name on its card in Investments to see and change everything for the whole exchange at once
 // (instead of opening each asset account one by one).
-import { button } from './components.js';
+import { button, selectField } from './components.js';
 import { get, commit, stamp, walletOf, fmt, HOME, balances, homeFx } from './core.js';
 import { ACT, sheet, esc, toast } from './ui.js';
 import { exchangeOf, inInvest, typeHidden } from './invest.js';
@@ -28,7 +28,7 @@ export function openPlatform(ex) {
       <p class="hint">Exchanges add new products from time to time. Add the name here (for example Copy Trading) and it appears in From, To and when adding assets for ${esc(ex)}.</p>
       <h3>Actions</h3>
       <div class="btnrow left">${button({ label: 'Record', kind: 'primary', size: 'sm', act: 'plat-do', attr: { 'data-do': 'inv-add', 'data-ex': ex } })}${button({ label: '+ Asset', kind: 'ghost', size: 'sm', act: 'plat-do', attr: { 'data-do': 'inv-coin', 'data-ex': ex } })}${button({ label: 'Internal Transfer', kind: 'ghost', size: 'sm', act: 'plat-do', attr: { 'data-do': 'inv-internal', 'data-ex': ex } })}</div>
-      <label class="field"><span>Timezone of ${esc(ex)}</span><select data-p="tz">${Array.from({ length: 27 }, (_, i) => i - 12).map((z) => `<option value="${z}" ${z === off ? 'selected' : ''}>${tzName(z)}</option>`).join('')}</select></label>
+      ${selectField({ label: `Timezone of ${ex}`, aria: null, attr: { 'data-p': 'tz' }, optionsHtml: Array.from({ length: 27 }, (_, i) => i - 12).map((z) => `<option value="${z}" ${z === off ? 'selected' : ''}>${tzName(z)}</option>`).join('') })}
       <p class="hint">Used for every Earn product here: subscription times and hourly earnings follow this clock.</p>
       ${earn.length ? `<h3>Earn Products</h3><ul class="calfacts">${earn.map((a) => `<li><span>${esc(a.cur)} <small class="muted">${a.earn && a.earn.on ? 'On' : 'Off'}</small></span>${button({ label: 'Subscription Settings', kind: 'ghost', size: 'sm', act: 'plat-do', attr: { 'data-do': 'earn-open', 'data-id': a.id } })}</li>`).join('')}</ul>` : ''}
       ${accts.length ? `<h3>Hide Accounts</h3><p class="hint">A hidden account stays in Sukli with its entries and balance. It is only left out of the Investments tab. Tick the ones to hide, even if they hold something.</p>
