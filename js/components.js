@@ -60,6 +60,10 @@ export function textField({ label = '', id, name, value = '', placeholder, input
   const inp = `<input${attrs({ id, name, type, inputmode, placeholder, autocomplete: 'off', 'aria-label': aria, ...(attr || {}) })} value="${esc(value)}">`;
   return `<label class="field ${cls}"${lid ? ` id="${esc(lid)}"` : ''}${hidden ? ' hidden' : ''}>${fieldHead(label, tip, spanId)}${inp}${fieldTail(hint, after)}</label>`;
 }
+// areaField({ label, id, name, value, rows, placeholder, lid, attr }): label + textarea (notes, lists of lines)
+export function areaField({ label = '', id, name, value = '', rows = 2, placeholder, cls = '', hint = '', attr, tip, lid, spanId, after } = {}) {
+  return `<label class="field ${cls}"${lid ? ` id="${esc(lid)}"` : ''}>${fieldHead(label, tip, spanId)}<textarea${attrs({ id, name, rows, placeholder, ...(attr || {}) })}>${esc(value)}</textarea>${fieldTail(hint, after)}</label>`;
+}
 // selectField({ label, id, name, options: [{ value, label }] | ['a','b'], optionsHtml, value, hint, cls, hidden, attr }): label + select (the app swaps it for its own picker)
 // optionsHtml: ready-made <option>/<optgroup> markup, used instead of options when the list has groups or is built elsewhere
 export function selectField({ label = '', id, name, options = [], optionsHtml, value, hint = '', cls = '', hidden = false, aria, attr, tip, lid, spanId, after } = {}) {

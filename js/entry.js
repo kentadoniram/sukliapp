@@ -8,7 +8,7 @@ import {
   findOrAddCategory, groupColor, groupLetter, accLabel, BASE, HOME, homeFx, homeRate, balances, CUR, priv, softDelete, exactAmt, r9, qtyR, commitQuiet, isEarnAcct, EARN_MSG,
 } from './core.js';
 import { buildGraph, makeResolver, explain } from './simgraph.js';
-import { seg, toggle, box, button, textField, selectField } from './components.js';
+import { seg, toggle, box, button, textField, selectField, areaField } from './components.js';
 import { nameRules } from './merchants.js';
 import { compareCard, relatedNames } from './compare.js';
 import { smartKind, openLoanPlanner } from './loans.js';
@@ -209,7 +209,7 @@ export function openEntry(opts = {}) {
     <div class="field" id="branchrow"></div>
     <div class="field" id="cbrow"></div>
     <div class="field" id="goalrow"></div>
-    <label class="field" id="notesrow"><span>Notes</span><textarea id="f-notes" rows="2" placeholder="Optional">${esc(f.notes)}</textarea></label>
+    ${areaField({ label: 'Notes', lid: 'notesrow', id: 'f-notes', rows: 2, placeholder: 'Optional', value: f.notes })}
     <div id="safety" class="safety" aria-live="polite"></div>
     <p class="err" id="err" role="alert" hidden></p>
     <div class="btnrow" id="btns"></div>`;
@@ -497,7 +497,7 @@ export function openEntry(opts = {}) {
     const md = f.feeMode, who = (f.feeBy === 'to' ? b : a).name;
     el.innerHTML = `<div class="field feebox ${sug ? 'suggested' : ''}"><div class="feehead"><span class="feelab">Fee (optional)</span>${seg({ options: [['none', '0 Fee'], ['fixed', 'Fixed Amount'], ['pct', '% of the Transfer']].map(([value, label]) => ({ value, label })), value: md, e: 'feemode', aria: 'Fee' })}</div>
       ${sug && md !== 'none' ? '<small class="sugnote">usual fee for this route · change if different</small>' : ''}
-      ${md === 'none' ? '' : `<div class="feedet"><label class="field"><span>${md === 'pct' ? 'Fee % of the Transfer (e.g. 0.1)' : `Fee Amount (${esc(cur)})`}</span><input id="f-fee" inputmode="decimal" autocomplete="off" aria-label="Fee" placeholder="0" value="${esc(md === 'pct' ? f.feePct : f.fee)}"></label>
+      ${md === 'none' ? '' : `<div class="feedet">${textField({ label: md === 'pct' ? 'Fee % of the Transfer (e.g. 0.1)' : `Fee Amount (${cur})`, id: 'f-fee', inputmode: 'decimal', aria: 'Fee', placeholder: '0', value: String(md === 'pct' ? f.feePct : f.fee) })}
         ${md === 'pct' ? `<small class="muted" id="feecalc">${feeCalcTxt()}</small>` : ''}
         <div class="field"><span>Fee Responsibility</span>${seg({ options: [{ value: 'from', label: 'Taken from Maker', title: `Taken from the sender (${a.name})` }, { value: 'to', label: 'Taken from Taker', title: `Taken from the receiver (${b.name})` }], value: f.feeBy === 'to' ? 'to' : 'from', e: 'feeby', aria: 'Fee responsibility' })}</div>
         <select id="f-feecat" aria-label="Fee type">${f.feeCat ? '' : '<option value="">Fee type</option>'}${feeCatOptions(f.feeCat)}</select>
@@ -1403,7 +1403,7 @@ export function openCategoryForm({ id = null, kind = 'expense', group = '', name
   const s = sheet(`<form id="catform">
     ${textField({ label: 'Group (the bigger heading)', name: 'g', value: c ? c.group : group, placeholder: isInc ? 'e.g. Employer, Side income' : 'e.g. Food &amp; Drinks, Health', attr: { 'required': true } })}
     <div class="chips pickchips" id="gchips" aria-label="Existing groups"></div>
-    <label class="field"><span>Category (the detail)</span><input name="n" value="${esc(c ? c.name : name)}" placeholder="${isInc ? 'e.g. Bonus, Freelance, Refund' : 'e.g. Gym, Vet, Gifts'}" required autocomplete="off" ${id ? '' : 'autofocus'}></label>
+    ${textField({ label: 'Category (the detail)', name: 'n', value: c ? c.name : name, placeholder: isInc ? 'e.g. Bonus, Freelance, Refund' : 'e.g. Gym, Vet, Gifts', attr: { required: true, autofocus: id ? undefined : true } })}
     <div class="chips pickchips" id="nchips" aria-label="Existing categories in this group"></div>
     <div class="field"><span>Picture</span>${button({ label: ``, kind: 'plain', cls: 'acctbtn icopick', id: 'icopick' })}<input type="hidden" name="ico" value="${esc(c && c.icon ? c.icon : '')}"></div>
     ${textField({ label: 'Words that should land here (optional)', name: 'k', value: c ? c.keywords || '' : keywords, placeholder: isInc ? 'e.g. bonus, 13th month' : 'e.g. gym, fitness, anytime', attr: { 'autocapitalize': 'off' } })}
@@ -1492,9 +1492,9 @@ export function openBulk() {
   const db = get();
   const s = sheet(`<form id="bulk"><p class="hint">One entry per line: a name, then the amount. Start a line with + for money received.
 Example:<br><code>bus 30<br>mcdo 358.5<br>+ refund 1200</code>The app guesses categories and puts anything it is unsure about in Review.</p>
-    <label class="field"><span>Account for all of them</span><select id="b-acct">${acctOptions(db.settings.lastAcct)}</select></label>
+    ${selectField({ label: 'Account for all of them', id: 'b-acct', aria: null, optionsHtml: acctOptions(db.settings.lastAcct) })}
     ${textField({ label: 'Date', id: 'b-date', type: 'date', value: nowStamp().slice(0, 10) })}
-    <label class="field"><span>Lines</span><textarea id="b-text" rows="8" placeholder="bus 30&#10;pandesal 45" autofocus></textarea></label>
+    ${areaField({ label: 'Lines', id: 'b-text', rows: 8, placeholder: 'bus 30\npandesal 45', attr: { autofocus: true } })}
     <p class="err" id="b-err" hidden></p>
     <div class="btnrow">${button({ label: 'Add all', kind: 'primary', submit: true })}</div></form>`, { title: 'Add Many at Once' });
   s.el.querySelector('form').onsubmit = (e) => {

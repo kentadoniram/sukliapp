@@ -1,7 +1,7 @@
 // The Earn schedule window of an Earn account: settings, subscriptions, today's hours and the daily history. Times follow each platform’s own clock.
 import { get, commit, commitQuiet, stamp, fmt, CUR, walletOf } from './core.js';
 import { esc, sheet, toast, ACT } from './ui.js';
-import { button, textField, card as uiCard } from './components.js';
+import { button, textField, selectField, card as uiCard } from './components.js';
 import { syncEarnRates, apyHistOf, apyAt, dayHours, cfgOf, e8, e8Ms, e8Label, logOf, subscriptions, H, runEarn, tzOf, tzName, earnStartOf, defaultFrom } from './earn.js';
 const dec = (cur) => Math.max(2, Math.min(8, (CUR[cur] || { dec: 8 }).dec));
 const num = (n, cur) => fmt(n, cur);
@@ -67,21 +67,21 @@ export function openEarn(id, focus = '') {
     root.innerHTML = `
       
       <p class="hint">${esc(a.name)} · every time here uses the clock of ${esc(a.exchange || 'this platform')}, not this phone’s clock. Now: <b>${esc(e8Label(now, off))} (${tz})</b>. Hourly earnings are worked out while the On/Off switch beside Subscription Settings (on the account page) is On. It is now <b>${c.on ? 'On' : 'Off'}</b>.</p>
-      <div class="two"><label class="field"><span>Timezone</span><select data-ew="tz">${Array.from({ length: 27 }, (_, i) => i - 12).map((z) => `<option value="${z}" ${z === off ? 'selected' : ''}>${tzName(z)}</option>`).join('')}</select></label>
-      <label class="field"><span>Current Yearly Rate (APR, %)</span><input data-ew="apy" inputmode="decimal" value="${c.apy || ''}" placeholder="e.g. 4.5"></label></div>
+      <div class="two">${selectField({ label: 'Timezone', aria: null, attr: { 'data-ew': 'tz' }, optionsHtml: Array.from({ length: 27 }, (_, i) => i - 12).map((z) => `<option value="${z}" ${z === off ? 'selected' : ''}>${tzName(z)}</option>`).join('') })}
+      ${textField({ label: 'Current Yearly Rate (APR, %)', value: String(c.apy || ''), inputmode: 'decimal', placeholder: 'e.g. 4.5', attr: { 'data-ew': 'apy' } })}</div>
       <p class="hint">Binance and Bybit use UTC+0, Bitget UTC+8. Changing the rate here starts a new period from now and keeps the earlier ones. To fix a past rate or its time, use APR History below: the hours after it are worked out again.</p>
       ${aprHistory(db, a, c, off, tz, log, cur)}
-      ${true ? `<label class="field"><span>Pay Interest To</span><select data-ew="payTo"><option value="spot" ${c.payTo !== 'earn' ? 'selected' : ''}>Spot (same coin)</option><option value="earn" ${c.payTo === 'earn' ? 'selected' : ''}>This Earn account</option></select></label>
-      <label class="field"><span>When Does Earning Start?</span><select data-ew="startRule"><option value="nextHour" ${c.startRule !== 'midnight' ? 'selected' : ''}>At the next full hour</option><option value="midnight" ${c.startRule === 'midnight' ? 'selected' : ''}>At the next midnight (${tz})</option></select></label>
+      ${true ? `${selectField({ label: 'Pay Interest To', aria: null, attr: { 'data-ew': 'payTo' }, optionsHtml: `<option value="spot" ${c.payTo !== 'earn' ? 'selected' : ''}>Spot (same coin)</option><option value="earn" ${c.payTo === 'earn' ? 'selected' : ''}>This Earn account</option>` })}
+      ${selectField({ label: 'When Does Earning Start?', aria: null, attr: { 'data-ew': 'startRule' }, optionsHtml: `<option value="nextHour" ${c.startRule !== 'midnight' ? 'selected' : ''}>At the next full hour</option><option value="midnight" ${c.startRule === 'midnight' ? 'selected' : ''}>At the next midnight (${tz})</option>` })}
       <div class="two"><div class="field"><span>Deposit Time</span><button type="button" class="btn ghost sm tbtn" data-ew="pickdep">🕒 ${esc(depT)}</button></div>
-      <label class="field"><span>First Accrual (Hours After Earning Starts)</span><input data-ew="firstLagH" inputmode="numeric" value="${c.firstLagH}"></label></div>
+      ${textField({ label: 'First Accrual (Hours After Earning Starts)', value: String(c.firstLagH), inputmode: 'numeric', attr: { 'data-ew': 'firstLagH' } })}</div>
       ${uiCard({ kind: 'cardbox', tag: 'div', body: `<b>What These Mean</b>
         <p class="hint"><b>Deposit Time</b> is the clock time your coins really arrive in this Earn product at the exchange (in ${tz}). It is not when you tap here. The exchange never pays for the hour in progress, so earning starts later (next full hour, or the next midnight if you chose that).</p>
         <p class="hint"><b>First Accrual</b> is how many hours after earning starts the first payout is recorded. Most products record it 1 hour later, then every hour.</p>
         <p class="hint">Example: deposited at <b>${esc(depT)}</b> → earning starts <b>${esc(hm(dstart))}</b> → first accrual <b>${esc(hm(dfirst))}</b>.</p>` })}
       <div class="subhead"><h3>Automatic Subscription</h3><div class="yn" role="group" aria-label="Automatic Subscription"><button type="button" class="chip ${c.subOn ? 'on' : ''}" data-ew="suby" aria-pressed="${!!c.subOn}">Yes</button><button type="button" class="chip ${!c.subOn ? 'on' : ''}" data-ew="subn" aria-pressed="${!c.subOn}">No</button></div></div>
       <p class="hint">${c.subOn ? 'At each time below, everything available in the account you move from is subscribed to Earn. No amount to set.' : 'Choose Yes to move all available coins into Earn on its own, at set times.'}</p>
-      ${c.subOn ? `<label class="field"><span>Move From</span><select data-ew="from">${srcs.map((x) => `<option value="${x.id}" ${x.id === fromId ? 'selected' : ''}>${esc(x.name)} (${esc(walletOf(x))})</option>`).join('') || '<option value="">No other account with this coin on this platform</option>'}</select></label>
+      ${c.subOn ? `${selectField({ label: 'Move From', aria: null, attr: { 'data-ew': 'from' }, optionsHtml: srcs.map((x) => `<option value="${x.id}" ${x.id === fromId ? 'selected' : ''}>${esc(x.name)} (${esc(walletOf(x))})</option>`).join('') || '<option value="">No other account with this coin on this platform</option>' })}
       <div class="chips">${(c.slots || []).slice().sort().map((t) => `<button type="button" class="chip" data-ew="delslot" data-v="${t}">${t} ✕</button>`).join('') || '<span class="muted">No times yet.</span>'}</div>
       <div class="addtime"><span class="muted">Add a time (${tz})</span><button type="button" class="btn ghost sm tbtn" data-ew="pickslot">🕒 ${esc(pick)}</button>${button({ label: 'Add', kind: 'primary', size: 'sm', attr: { 'data-ew': 'addslot' } })}</div>
       <p class="hint">Sukli runs this when you open the app. If it was closed at a set time, the subscription is still recorded at that exact time, so earnings count from then.</p>` : ''}

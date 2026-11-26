@@ -4,7 +4,7 @@ import { sheet, esc, toast } from './ui.js';
 import { parseTags, joinTags } from './tags.js';
 import { openDatePicker } from './datepicker.js';
 import { merchantList, canonMerchant } from './merchantpick.js';
-import { button } from './components.js';
+import { button, textField, selectField } from './components.js';
 
 const BEFORE = ['kind', 'date', 'name', 'amount', 'cur', 'fx', 'acct', 'toAcct', 'toAmount', 'cat', 'notes', 'fee', 'feeCat', 'feeBy'];
 const distinct = (l) => [...new Set(l)];
@@ -19,14 +19,14 @@ export function openBulkEdit(ids, onDone) {
   const accts = db.accounts.filter((a) => !a.deleted && !a.archived);
   const tagCount = new Map(); for (const t of txs) for (const x of parseTags(t.labels)) tagCount.set(x, (tagCount.get(x) || 0) + 1);
   const s = sheet(`<form id="be"><p class="hint">Changing <b>${n}</b> ${n === 1 ? 'entry' : 'entries'}. Only the boxes you change are applied, to all of them. Amounts are not changed here.</p>
-    <label class="field"><span>Name</span><input id="be-name" placeholder="Keep as is" autocomplete="off">${info(txs.map((t) => t.name || ''), (v) => v)}</label>
-    <label class="field"><span>Category (group and name)</span><select id="be-cat"><option value="">Keep as is</option>${groups.map((g) => `<optgroup label="${esc(g)}">${cats.filter((c) => c.group === g).sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</optgroup>`).join('')}</select>${nonT.length ? info(nonT.map((t) => t.cat || ''), (v) => { const c = cm.get(v); return c ? `${c.group} · ${c.name}` : 'none'; }) : '<small class="muted">Transfers have no category.</small>'}</label>
+    ${textField({ label: 'Name', id: 'be-name', placeholder: 'Keep as is', after: info(txs.map((t) => t.name || ''), (v) => v) })}
+    ${selectField({ label: 'Category (group and name)', id: 'be-cat', aria: null, optionsHtml: `<option value="">Keep as is</option>${groups.map((g) => `<optgroup label="${esc(g)}">${cats.filter((c) => c.group === g).sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</optgroup>`).join('')}`, after: `${nonT.length ? info(nonT.map((t) => t.cat || ''), (v) => { const c = cm.get(v); return c ? `${c.group} · ${c.name}` : 'none'; }) : '<small class="muted">Transfers have no category.</small>'}` })}
     <div class="field"><span>Tags</span><div class="seg sm three" role="group" aria-label="Tag action">${[['add', 'Add'], ['replace', 'Replace all'], ['remove', 'Remove']].map(([v, l], i) => `${button({ html: `${l}`, kind: 'plain', cls: `${i ? '' : 'on'}`, pressed: i ? 'false' : 'true', attr: { 'data-tm': v } })}`).join('')}</div>
       <input id="be-tags" placeholder="Keep as is, or type tags separated by commas" autocomplete="off">
       <small class="muted">${tagCount.size ? `In the selection: ${[...tagCount].map(([k, c]) => `#${esc(k)} (${c})`).join(', ')}` : 'No tags on these entries yet.'}</small></div>
-    <label class="field"><span>Merchant (expenses)</span><input id="be-merch" placeholder="Keep as is" autocomplete="off" list="be-merchl">${info(nonT.filter((t) => t.kind === 'expense').map((t) => t.merchant || ''), (v) => v)}<datalist id="be-merchl">${merchantList(db).map((m) => `<option value="${esc(m.name)}">`).join('')}</datalist></label>
-    <label class="field"><span>Notes</span><input id="be-notes" placeholder="Keep as is" autocomplete="off">${info(txs.map((t) => t.notes || ''), (v) => v)}</label>
-    <label class="field"><span>Account (not for transfers)</span><select id="be-acct"><option value="">Keep as is</option>${accts.map((a) => `<option value="${a.id}">${esc(accLabel(a))} · ${esc(a.cur)}</option>`).join('')}</select>${nonT.length ? info(nonT.map((t) => t.acct), (v) => (am.get(v) ? accLabel(am.get(v)) : '?')) : ''}<small class="muted">Only entries in the same currency as that account are moved.</small></label>
+    ${textField({ label: 'Merchant (expenses)', id: 'be-merch', placeholder: 'Keep as is', attr: { list: 'be-merchl' }, after: `${info(nonT.filter((t) => t.kind === 'expense').map((t) => t.merchant || ''), (v) => v)}<datalist id="be-merchl">${merchantList(db).map((m) => `<option value="${esc(m.name)}">`).join('')}</datalist>` })}
+    ${textField({ label: 'Notes', id: 'be-notes', placeholder: 'Keep as is', after: info(txs.map((t) => t.notes || ''), (v) => v) })}
+    ${selectField({ label: 'Account (not for transfers)', id: 'be-acct', aria: null, optionsHtml: `<option value="">Keep as is</option>${accts.map((a) => `<option value="${a.id}">${esc(accLabel(a))} · ${esc(a.cur)}</option>`).join('')}`, after: `${nonT.length ? info(nonT.map((t) => t.acct), (v) => (am.get(v) ? accLabel(am.get(v)) : '?')) : ''}<small class="muted">Only entries in the same currency as that account are moved.</small>` })}
     <div class="field"><span>Day</span>${button({ label: 'Keep as is', kind: 'plain', cls: 'whenbtn', id: 'be-date' })}${info(txs.map((t) => String(t.date).slice(0, 10)), (v) => dayLabel(v + ' 00:00:00'))}<small class="muted">Each entry keeps its own time of day.</small></div>
     <p class="err" id="be-err" hidden></p>
     <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-x': true } })}${button({ html: `Change ${n}`, kind: 'primary', submit: true, id: 'be-go', disabled: true })}</div></form>`, { title: `Edit ${n} ${n === 1 ? 'entry' : 'entries'}` });

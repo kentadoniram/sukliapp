@@ -1,14 +1,11 @@
-Sukli v16.37 - changed and added files only (on top of v16.36)
+Sukli v16.38 - changed files only (on top of v16.37)
 README.md
-design.css
 sw.js
-js/app.js
+js/bulkedit.js
+js/components.js
+js/earnui.js
 js/entry.js
-js/entryview.js
-js/paycompare.js
-js/suggest.js
+js/screens.js
 js/version.js
-js/walletscan.js
-tests/ui_test_v16_34_pay_compare.py
-tests/ui_test_v16_37_ui_fixes.py
+tests/ui_test_component_rules.py
 MANIFEST.txt
