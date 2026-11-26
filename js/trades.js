@@ -2,7 +2,7 @@
 // marked as a trade (not ordinary spending), with fees saved as a financial loss and gains or losses worked out by average cost.
 import { typeNames } from './accpage.js';
 import { accLabel, assetName, isEarnAcct, get, commit, uid, stamp, nowStamp, rateFor, homeFx, walletOf, fmt, HOME, balances, findOrAddCategory, softDelete, exactAmt } from './core.js';
-import { seg, button } from './components.js';
+import { seg, button, textField, selectField } from './components.js';
 import { look } from './appearance.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { isLiability } from './finance.js';
@@ -59,24 +59,24 @@ export function openTrade(pre = {}) {
   const feeSeg = t1 ? t1Seg('fm', feeOpts, 'none', 'Trading fee') : seg({ options: feeOpts, value: 'none', data: 'fm', aria: 'Trading fee' });
   const feeBlock = `<div class="feehead"><span class="feelab">Trading Fee</span>${feeSeg}</div>
     <select name="feeMode" hidden aria-hidden="true"><option value="none">0 Fee</option><option value="fixed">Fixed Amount</option><option value="pct">% of the Trade</option></select>
-    <div id="feedet" class="feedet" hidden><label class="field"><span id="l-fee">Fee Amount</span><input name="fee" inputmode="decimal" placeholder="0"></label>
+    <div id="feedet" class="feedet" hidden>${textField({ label: 'Fee Amount', spanId: 'l-fee', name: 'fee', inputmode: 'decimal', placeholder: '0' })}
       <div class="field"><span>Fee Responsibility</span>${(() => { const ro = [{ label: t1 ? 'Maker' : 'Taken from Maker', value: 'maker', title: 'Fee taken from the maker side' }, { label: t1 ? 'Taker' : 'Taken from Taker', value: 'taker', title: 'Fee taken from the taker side' }, { label: t1 ? 'Other asset' : 'Other Asset', value: 'other', title: 'Pay the fee with another asset you hold, for example BGB on Bitget' }]; return t1 ? t1Seg('resp', ro, null, 'Fee responsibility') : seg({ options: ro, value: null, data: 'resp', aria: 'Fee responsibility' }); })()}</div>
-      <label class="field" id="f-feeacct" hidden><span>Pay the Fee With</span><select name="feeAcct"></select><small class="hint" id="feeacct-hint"></small></label></div>
+      ${selectField({ label: 'Pay the Fee With', lid: 'f-feeacct', hidden: true, name: 'feeAcct', aria: null, optionsHtml: '', after: '<small class="hint" id="feeacct-hint"></small>' })}</div>
     <select name="feeIn" hidden aria-hidden="true"></select>
     <div id="slot-fee"></div>`;
-  const amtRows = `<div class="two"><label class="field hasall"><span id="l-qty">Quantity</span><input name="qty" inputmode="decimal" placeholder="e.g. 0.01">${button({ label: t1 ? 'Max' : 'All', kind: 'plain', cls: 'allbtn', attr: { 'data-all': 'qty', 'hidden': true } })}</label><label class="field" id="f-price"><span id="l-price">Price</span><input name="price" inputmode="decimal"></label></div>
-    <label class="field hasall" id="f-total"><span id="l-total">Total paid</span><input name="total" inputmode="decimal">${button({ label: t1 ? 'Max' : 'All', kind: 'plain', cls: 'allbtn', attr: { 'data-all': 'total', 'hidden': true } })}</label>
-    <div id="f-conv2" class="two" hidden><label class="field"><span id="l-qty2">Quantity</span><input name="qty2" inputmode="decimal"></label><label class="field"><span id="l-worth">Value in ${HOME} (Optional)</span><input name="worth" inputmode="decimal"></label></div>`;
+  const amtRows = `<div class="two">${textField({ label: 'Quantity', spanId: 'l-qty', cls: 'hasall', name: 'qty', inputmode: 'decimal', placeholder: 'e.g. 0.01', after: button({ label: t1 ? 'Max' : 'All', kind: 'plain', cls: 'allbtn', attr: { 'data-all': 'qty', 'hidden': true } }) })}${textField({ label: 'Price', spanId: 'l-price', lid: 'f-price', name: 'price', inputmode: 'decimal' })}</div>
+    ${textField({ label: 'Total paid', spanId: 'l-total', lid: 'f-total', cls: 'hasall', name: 'total', inputmode: 'decimal', after: button({ label: t1 ? 'Max' : 'All', kind: 'plain', cls: 'allbtn', attr: { 'data-all': 'total', 'hidden': true } }) })}
+    <div id="f-conv2" class="two" hidden>${textField({ label: 'Quantity', spanId: 'l-qty2', name: 'qty2', inputmode: 'decimal' })}${textField({ label: `Value in ${HOME} (Optional)`, spanId: 'l-worth', name: 'worth', inputmode: 'decimal' })}</div>`;
   const know = `<div class="tr-know" id="tr-know"><span>I know the…</span><div class="seg" role="group" aria-label="I know the">${button({ label: 'Quantity', kind: 'plain', cls: 'on', attr: { 'data-know': 'qty' } })}${button({ label: 'Total', kind: 'plain', attr: { 'data-know': 'total' } })}</div></div>`;
   const s = sheet(`<form id="tr" novalidate class="${t1 ? 'trade2' : ''}" data-side="${pre.side || 'buy'}">
     ${sideSeg}
     ${t1 ? button({ html: '', kind: 'plain', cls: 'tr-plat', id: 'tr-platbar' }) : ''}
-    <label class="field${hide}"><span>Platform</span><select name="plat">${platOpt(plat0)}</select></label>
+    ${selectField({ label: 'Platform', cls: hide.trim(), name: 'plat', aria: null, optionsHtml: platOpt(plat0) })}
     ${t1 ? `<div class="tr-card tr-tiles">${tile('a', 'YOU GET')}${tile('b', 'CONVERT INTO')}${tile('c', 'YOU PAY WITH')}</div>` : ''}
-    <label class="field${hide}"><span id="l-asset">Holding</span><select name="asset">${opt(holdFor(plat0), pre.asset)}</select></label>
+    ${selectField({ label: 'Holding', spanId: 'l-asset', cls: hide.trim(), name: 'asset', aria: null, optionsHtml: opt(holdFor(plat0), pre.asset) })}
     <p class="pairline${hide}" id="pair" aria-live="polite"></p>
-    <div id="f-conv" hidden><label class="field${hide}"><span>Convert Into</span><select name="asset2">${opt(hold, (hold.find((a) => a.id !== (pre.asset || hold[0].id)) || hold[0]).id)}</select></label></div>
-    <div id="slot-a"><div id="f-cash"><label class="field${hide}" id="lab-cash"><span id="l-cash">Paid From</span><select name="cash"></select></label></div></div>
+    <div id="f-conv" hidden>${selectField({ label: 'Convert Into', cls: hide.trim(), name: 'asset2', aria: null, optionsHtml: opt(hold, (hold.find((a) => a.id !== (pre.asset || hold[0].id)) || hold[0]).id) })}</div>
+    <div id="slot-a"><div id="f-cash">${selectField({ label: 'Paid From', spanId: 'l-cash', lid: 'lab-cash', cls: hide.trim(), name: 'cash', aria: null, optionsHtml: '' })}</div></div>
     ${t1 ? `<div class="tr-card tr-amt">${know}${amtRows}</div>` : amtRows}
     ${t1 ? `<div class="tr-card tr-fee"><b class="tr-feetitle">Fee</b>${feeBlock}</div><div class="tr-rows">${button({ html: '<span class="k">When</span><b class="v"></b><em>Edit</em>', kind: 'plain', cls: 'tr-row', id: 'tr-when' })}</div>`
       : `${feeBlock.replace('<div id="slot-fee"></div>', '<div id="slot-b"></div>')}<div class="field"><span>When</span>${button({ label: ``, kind: 'plain', cls: 'whenbtn', id: 'tr-when' })}</div>`}

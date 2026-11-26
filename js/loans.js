@@ -14,23 +14,23 @@ const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/,/
 const m2 = (n) => (Math.round(n * 100) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 import { tipBtn, calcHtml, bindCalc } from './interest.js';
-import { button, textField, card as uiCard } from './components.js';
+import { button, textField, selectField, card as uiCard } from './components.js';
 export function openLoanPlanner(pre = {}) {
   const db = get(), live = db.accounts.filter((a) => !a.deleted && !a.archived);
   const recv = live.filter((a) => !isLiability(a)), debts = live.filter((a) => a.type === 'loan');
   const s = sheet(`<form id="lp" novalidate>
     <p class="hint">See what a loan really costs before you take it. Nothing is saved until you press Record.</p>
-    <label class="field"><span>What kind</span><select name="kind">${Object.entries(LOAN_KINDS).map(([k, l]) => `<option value="${k}" ${pre.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-    <div class="two"><label class="field"><span>Amount borrowed ${tipBtn('principal')}</span><input name="principal" inputmode="decimal" value="${pre.principal || ''}" placeholder="e.g. 500000"></label>
-      <label class="field"><span>Interest % a year ${tipBtn('rate')}${tipBtn('effective')}${tipBtn('addon')}</span><input name="rate" inputmode="decimal" value="${pre.rate || ''}" placeholder="e.g. 8.5"></label></div>
-    <div class="two"><label class="field"><span>Length (months) ${tipBtn('term')}</span><input name="months" inputmode="numeric" value="${pre.months || ''}" placeholder="e.g. 60"></label>
+    ${selectField({ label: 'What kind', name: 'kind', aria: null, optionsHtml: Object.entries(LOAN_KINDS).map(([k, l]) => `<option value="${k}" ${pre.kind === k ? 'selected' : ''}>${l}</option>`).join('') })}
+    <div class="two">${textField({ label: 'Amount borrowed', tip: tipBtn('principal'), name: 'principal', inputmode: 'decimal', value: String(pre.principal || ''), placeholder: 'e.g. 500000' })}
+      ${textField({ label: 'Interest % a year', tip: `${tipBtn('rate')}${tipBtn('effective')}${tipBtn('addon')}`, name: 'rate', inputmode: 'decimal', value: String(pre.rate || ''), placeholder: 'e.g. 8.5' })}</div>
+    <div class="two">${textField({ label: 'Length (months)', tip: tipBtn('term'), name: 'months', inputmode: 'numeric', value: String(pre.months || ''), placeholder: 'e.g. 60' })}
       ${textField({ label: 'Due day of month', name: 'dueDay', inputmode: 'numeric', value: pre.dueDay || '', placeholder: '1–31' })}</div>
     <div class="two">${textField({ label: 'Upfront fees', name: 'fees', inputmode: 'decimal', value: pre.fees || '', placeholder: 'processing, other' })}
       ${textField({ label: 'Late fee % of the payment', name: 'lateFee', inputmode: 'decimal', value: pre.lateFee || '', placeholder: 'e.g. 3' })}</div>
     ${calcHtml('monthly')}
     <div id="lp-out" class="lpout" aria-live="polite"></div>
-    ${recv.length ? `<label class="field"><span>Money arrives in</span><select name="recv">${recv.map((a) => `<option value="${a.id}">${esc(a.name)} · ${a.cur}</option>`).join('')}</select></label>
-    <label class="field"><span>Record the debt in</span><select name="debt"><option value="">A new loan account</option>${debts.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select></label>` : '<p class="hint">Add an account first to record a loan.</p>'}
+    ${recv.length ? `${selectField({ label: 'Money arrives in', name: 'recv', aria: null, optionsHtml: recv.map((a) => `<option value="${a.id}">${esc(a.name)} · ${a.cur}</option>`).join('') })}
+    ${selectField({ label: 'Record the debt in', name: 'debt', aria: null, optionsHtml: `<option value="">A new loan account</option>${debts.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}` })}` : '<p class="hint">Add an account first to record a loan.</p>'}
     <div class="btnrow">${button({ label: 'Close', kind: 'ghost', attr: { 'data-close2': true } })}${recv.length ? button({ label: 'Record this loan', kind: 'primary', attr: { 'data-rec': true } }) : ''}</div></form>`, { title: 'Loan Planner', wide: true });
   pickAll(s.el);
   const form = s.el.querySelector('#lp'), out = s.el.querySelector('#lp-out');
@@ -76,8 +76,8 @@ ACT['loan-plan'] = () => openLoanPlanner();
 // a charge on a debt: interest, late fee, penalty. It raises what you owe and counts as a financial loss.
 export function openLoanCharge(acctId) {
   const a = get().accounts.find((x) => x.id === acctId); if (!a) return;
-  const s = sheet(`<form id="lc"><label class="field"><span>What was charged</span><select name="what"><option>Interest charge</option><option>Late fee</option><option>Penalty</option><option>Annual fee</option><option>Other charge</option></select></label>
-    <label class="field"><span>Amount (${esc(a.cur)})</span><input name="amt" inputmode="decimal" autofocus></label>
+  const s = sheet(`<form id="lc">${selectField({ label: 'What was charged', name: 'what', aria: null, optionsHtml: '<option>Interest charge</option><option>Late fee</option><option>Penalty</option><option>Annual fee</option><option>Other charge</option>' })}
+    ${textField({ label: `Amount (${a.cur})`, name: 'amt', inputmode: 'decimal', attr: { autofocus: true } })}
     <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-close2': true } })}${button({ label: 'Add charge', kind: 'primary', submit: true })}</div></form>`, { title: `Charge on ${a.name}` });
   s.el.querySelector('[data-close2]').onclick = () => s.close();
   pickAll(s.el);

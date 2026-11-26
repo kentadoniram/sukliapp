@@ -22,7 +22,8 @@ with sync_playwright() as p:
     ok('Earn is not offered as a destination (Internal Transfer only)', 'k2' not in ids)
     ok('the From account stays visible but greyed (never "missing")', 'k1' in ids and dict(names)['k1'] is True)
     heads=pg.evaluate("[...document.querySelectorAll('#aclist h3')].map(h=>h.textContent)")
-    ok('picker is grouped Platform · wallet, without Earn', 'KuCoin · Earn' not in heads and 'KuCoin · Spot' in heads and 'KuCoin · Futures' in heads)
+    has=lambda t: any(h.endswith(t) for h in heads)   # each heading starts with the platform's logo letter
+    ok('picker is grouped Platform · wallet, without Earn', not has('KuCoin · Earn') and has('KuCoin · Spot') and has('KuCoin · Futures'))
     pg.fill('#acq','kucoin futures'); pg.wait_for_timeout(300)
     rows=pg.evaluate("[...document.querySelectorAll('#aclist .row:not([disabled])')].map(r=>r.innerText.replace(/\\n/g,' '))")
     ok('search "kucoin futures" finds BOTH Futures lines: SOL, and the USDT line every trading account has (%s)'%rows, len(rows)==2 and any('USDT' in r for r in rows) and any('SOL' in r for r in rows))

@@ -1,16 +1,10 @@
-Sukli v16.35 - changed and added files only (on top of v16.34)
+Sukli v16.36 - changed files only (on top of v16.35)
 README.md
-design.css
 sw.js
-js/accpage.js
-js/components.js
-js/entry.js
-js/entryview.js
-js/invest.js
-js/paycompare.js
+js/loans.js
+js/splitbill.js
+js/trades.js
 js/version.js
 tests/ui_test_component_rules.py
-tests/ui_test_fee_asset_interest_dest_item_tax.py
-tests/ui_test_v16_34_pay_compare.py
-tests/ui_test_v16_35_field_components.py
+tests/ui_test_invest_wallets.py
 MANIFEST.txt
