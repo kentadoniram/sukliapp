@@ -1,11 +1,10 @@
-Sukli v16.38 - changed files only (on top of v16.37)
-README.md
-sw.js
-js/bulkedit.js
-js/components.js
-js/earnui.js
-js/entry.js
-js/screens.js
+Sukli v16.39 - changed files:
+js/internal.js
+js/fxview.js
+js/debts.js
+js/reimburse.js
+js/interest.js
 js/version.js
+sw.js
+README.md
 tests/ui_test_component_rules.py
-MANIFEST.txt

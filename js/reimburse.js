@@ -2,7 +2,7 @@
 // Not the same as "Owed to You" (a person who owes you). Here the money was spent for the company.
 // A flagged expense carries t.reimb = { co, st: 'pending' | 'paid', got, on, rid }. While it is pending it is not your spending (see reimbKeep in core.js);
 // when the company pays, an income entry flagged reimbBack records the money coming in (it is not income) and the flagged expenses become 'paid'.
-import { button, card as uiCard } from './components.js';
+import { button, textField, selectField, card as uiCard } from './components.js';
 import { get, commit, stamp, softDelete, fmt, HOME, uid, factorFor, homeFx, nowStamp, catMap } from './core.js';
 import { ACT, sheet, esc, toast, confirmDialog } from './ui.js';
 import { hdr, coll } from './screens.js';
@@ -86,8 +86,8 @@ ACT['reimb-paid'] = (el) => {
   const db = get(), claimed = rows.reduce((q, x) => q + x.home, 0), accts = live(db.accounts).filter((a) => !a.archived && !['card', 'loan', 'owed'].includes(a.type) && a.type !== 'crypto' && a.type !== 'invest'), first = accts.find((a) => a.id === rows[0].t.acct) || accts.find((a) => a.id === db.settings.lastAcct) || accts[0];
   if (!first) { toast('Add an account first.'); return; }
   const s = sheet(`<form novalidate><p class="hint"><b>${esc(co)}</b> · ${rows.length} line${rows.length === 1 ? '' : 's'} · claimed about <b>${esc(money(claimed))}</b>.</p>
-    <label class="field"><span>Received into</span><select name="acct">${accts.map((a) => `<option value="${a.id}" ${a.id === first.id ? 'selected' : ''}>${esc(a.name)} (${esc(a.cur)})</option>`).join('')}</select></label>
-    <label class="field"><span>Amount received <small class="muted" id="rb-cur"></small></span><input name="amt" inputmode="decimal" autocomplete="off" placeholder="0"></label>
+    ${selectField({ label: 'Received into', name: 'acct', aria: null, optionsHtml: accts.map((a) => `<option value="${a.id}" ${a.id === first.id ? 'selected' : ''}>${esc(a.name)} (${esc(a.cur)})</option>`).join('') })}
+    ${textField({ label: 'Amount received', tip: '<small class="muted" id="rb-cur"></small>', name: 'amt', inputmode: 'decimal', placeholder: '0' })}
     <p class="hint" id="rb-note"></p>
     <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', id: 'rb-no' })}${button({ label: 'Save', kind: 'primary', id: 'rb-ok' })}</div></form>`, { title: 'Mark Paid Back' });
   const f = s.el.querySelector('form'), acctOf = () => accts.find((a) => a.id === f.acct.value) || first;

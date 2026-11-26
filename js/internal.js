@@ -1,7 +1,7 @@
 // Internal Transfer: move one coin between two wallets (Spot, Earn, Futures, Margin…) of the SAME platform.
 // Free, same coin, no fee. Both balances change; the destination account is only made when that wallet has no account for the coin yet.
 // Moving between DIFFERENT platforms (Binance to Bybit) is Transfer/Move in the + menu.
-import { button } from './components.js';
+import { button, selectField } from './components.js';
 import { softDelete, r9, qtyR, get, commit, uid, stamp, nowStamp, balances, exactAmt, walletOf, WALLETS, HOME, fmt, rateFor } from './core.js';
 import { sheet, esc, toast } from './ui.js';
 import { inInvest, exchangeOf } from './invest.js';
@@ -46,10 +46,10 @@ export function openInternal({ asset = '', platform = '', replaceId = '', amount
   let cur = a0 && exchangeOf(a0) === plat ? a0.cur : '', from = a0 && exchangeOf(a0) === plat ? walletOf(a0) : '', to = '', when = nowStamp();
   if (!cur) { const hasU = live(db0.accounts).some((x) => inInvest(x) && exchangeOf(x) === plat && x.cur === 'USDT'); if (hasU) { cur = 'USDT'; const u = live(db0.accounts).find((x) => inInvest(x) && exchangeOf(x) === plat && x.cur === 'USDT' && walletOf(x) === 'Spot'); if (u && !from) from = 'Spot'; } }   // USDT first when the platform has it
   const s = sheet(`<div id="itf" class="itx">
-    ${fixed ? `<p class="hint">Inside <b>${esc(plat)}</b> only, free, no fee. To move between platforms use Transfer/Move.</p>` : `<label class="field"><span>Platform</span><select name="plat">${plats.map((p) => `<option ${p === plat ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label><p class="hint">Inside one platform only, free, no fee.</p>`}
-    <div class="itrow"><label class="field"><span>From</span><select name="from"></select></label><div class="field itmid"><span aria-hidden="true">&nbsp;</span>${button({ label: '⇄', kind: 'ghost', cls: 'itrev', id: 'it-rev', aria: 'Reverse From and To', title: 'Reverse' })}</div><label class="field"><span>To</span><select name="to"></select></label></div>
-    <label class="field"><span>Coin or Asset</span><select name="cur"></select></label>
-    <label class="field"><span>Amount</span><div class="itamt"><input name="amt" inputmode="decimal" placeholder="0" autocomplete="off"><b id="it-cur"></b>${button({ label: 'Max', kind: 'primary', size: 'sm', id: 'it-all' })}</div><small class="muted" id="it-bal"></small></label>
+    ${fixed ? `<p class="hint">Inside <b>${esc(plat)}</b> only, free, no fee. To move between platforms use Transfer/Move.</p>` : `${selectField({ label: 'Platform', name: 'plat', aria: null, optionsHtml: plats.map((p) => `<option ${p === plat ? 'selected' : ''}>${esc(p)}</option>`).join('') })}<p class="hint">Inside one platform only, free, no fee.</p>`}
+    <div class="itrow">${selectField({ label: 'From', name: 'from', aria: null, optionsHtml: '' })}<div class="field itmid"><span aria-hidden="true">&nbsp;</span>${button({ label: '⇄', kind: 'ghost', cls: 'itrev', id: 'it-rev', aria: 'Reverse From and To', title: 'Reverse' })}</div>${selectField({ label: 'To', name: 'to', aria: null, optionsHtml: '' })}</div>
+    ${selectField({ label: 'Coin or Asset', name: 'cur', aria: null, optionsHtml: '' })}
+    <div class="field"><span>Amount</span><div class="itamt"><input name="amt" inputmode="decimal" placeholder="0" autocomplete="off" aria-label="Amount"><b id="it-cur"></b>${button({ label: 'Max', kind: 'primary', size: 'sm', id: 'it-all' })}</div><small class="muted" id="it-bal"></small></div>
     ${button({ label: ``, kind: 'ghost', id: 'it-when' })}
     <p class="hint" id="it-eff"></p>
     <div class="btnrow">${button({ label: 'Move', kind: 'primary', cls: 'primary', id: 'it-save' })}</div></div>`, { title: 'Internal Transfer' });

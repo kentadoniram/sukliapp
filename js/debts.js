@@ -1,6 +1,6 @@
 // Debts tab: every loan and card you owe on, its interest, terms and due date, and which one to pay first and how much.
 // Plain arithmetic on your own figures (no advice engine). Typed figures (monthly money for debts, a debt's rate or minimum) can always be changed or removed.
-import { button, textField, card as uiCard } from './components.js';
+import { button, textField, selectField, card as uiCard } from './components.js';
 import { get, commit, stamp, balances, homeFx, factorFor, fmt, HOME, nowStamp, thisMonth, shiftMonth, catMap, lastDay, p2 } from './core.js';
 import { classOf } from './budgetsetup.js';
 import { ACT, sheet, esc, toast, confirmDialog, ic } from './ui.js';
@@ -193,7 +193,7 @@ ACT['debt-mode'] = (el) => commit((d) => { d.settings.debtMode = el.dataset.m ==
 ACT['debt-budget'] = () => {
   const db = get(), cur = db.settings.debtBudget || '', b = budgetInfo(db);
   const s = sheet(`<form novalidate><p class="hint">The most you want to put toward all your debts together each month, in ${HOME}. ${b.room != null ? `Your entries leave about ${money(b.room)} after your usual spending. Sukli will not plan more than that unless you choose “Use my figure anyway”.` : ''}</p>
-    <label class="field"><span>Each month (${HOME})</span><input name="v" inputmode="decimal" value="${cur}" placeholder="e.g. 15000" autofocus></label>
+    ${textField({ label: `Each month (${HOME})`, name: 'v', inputmode: 'decimal', value: String(cur), placeholder: 'e.g. 15000', attr: { autofocus: true } })}
     <div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>`, { title: 'Money for Debts' });
   s.el.querySelector('[data-no]').onclick = () => s.close();
   s.el.querySelector('form').onsubmit = (e) => { e.preventDefault(); const n = num(e.target.v.value); s.dispose(); commit((d) => { if (n > 0) d.settings.debtBudget = n; else delete d.settings.debtBudget; }); toast(n > 0 ? 'Saved.' : 'Removed. Sukli will use your entries.'); };
@@ -206,10 +206,10 @@ ACT['debt-edit'] = (el) => {
   const d = debtList(db).find((x) => x.id === a.id) || {}, dm = a.dm || {}, hasDm = dm.rate > 0 || dm.min > 0 || dm.flex != null || dm.early > 0;
   const s = sheet(`<form novalidate><p class="hint">These figures are only used for the plan on this tab. They do not add anything to the account.</p>
     <div class="two">${textField({ label: 'Interest % a year', name: 'rate', inputmode: 'decimal', value: dm.rate || (d.rateKnown && !d.addon && d.src !== 'yours' ? +(+d.rate).toFixed(2) : ''), placeholder: 'e.g. 36', attr: { 'autofocus': true } })}
-    <label class="field"><span>Minimum payment (${esc(a.cur)})</span><input name="min" inputmode="decimal" value="${dm.min || (d.min && !d.minEst ? +(d.min / (homeFx(db, a.cur) || 1)).toFixed(2) : '')}" placeholder="from your statement"></label></div>
+    ${textField({ label: `Minimum payment (${a.cur})`, name: 'min', inputmode: 'decimal', value: String(dm.min || (d.min && !d.minEst ? +(d.min / (homeFx(db, a.cur) || 1)).toFixed(2) : '')), placeholder: 'from your statement' })}</div>
     <p class="hint">3% a month is about 42.6% a year (36% if you do not count compounding). Either is fine for a rough plan.</p>
     ${textField({ label: 'Payment due on day of month', name: 'due', inputmode: 'numeric', value: a.dueDay || '', placeholder: '1–31' })}
-    <label class="field"><span>Deadline</span><select name="flex"><option value="" ${dm.flex == null ? 'selected' : ''}>Automatic (no due date means no deadline)</option><option value="fixed" ${dm.flex === false ? 'selected' : ''}>Fixed: has a deadline</option><option value="flex" ${dm.flex === true ? 'selected' : ''}>No deadline (friend or family)</option></select></label>
+    ${selectField({ label: 'Deadline', name: 'flex', aria: null, optionsHtml: `<option value="" ${dm.flex == null ? 'selected' : ''}>Automatic (no due date means no deadline)</option><option value="fixed" ${dm.flex === false ? 'selected' : ''}>Fixed: has a deadline</option><option value="flex" ${dm.flex === true ? 'selected' : ''}>No deadline (friend or family)</option>` })}
     ${textField({ label: 'Fee for paying early, % of the amount (optional)', name: 'early', inputmode: 'decimal', value: dm.early || '', placeholder: '0 if none or not sure' })}
     <div class="btnrow">${hasDm ? button({ label: 'Remove my figures', kind: 'ghost', attr: { 'data-rm': true } }) : button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}${button({ label: 'Save', kind: 'primary', submit: true })}</div></form>`, { title: a.name });
   const no = s.el.querySelector('[data-no]'); if (no) no.onclick = () => s.close();

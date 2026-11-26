@@ -1,4 +1,4 @@
-import { button } from './components.js';
+import { button, textField, selectField } from './components.js';
 // Interest helpers shared by savings, debts and the loan planner: the maths, the tap-to-open explanations and a small calculator.
 // Pure functions only (no imports) so finance.js and the screens can both use them.
 export const PER_YEAR = { daily: 365, monthly: 12, quarterly: 4, yearly: 1 };
@@ -76,12 +76,12 @@ if (typeof document !== 'undefined') document.addEventListener('click', (e) => {
 
 // ---- small calculator: fill in any box and the others follow; missing pieces are named ----
 export function calcHtml(comp = 'monthly') {
-  const f = (id, label, tip, ph, mode = 'decimal') => `<label class="field"><span>${label} ${tipBtn(tip)}</span><input data-ic="${id}" inputmode="${mode}" placeholder="${ph}" autocomplete="off"></label>`;
+  const f = (id, label, tip, ph, mode = 'decimal') => textField({ label, tip: tipBtn(tip), inputmode: mode, placeholder: ph, attr: { 'data-ic': id } });
   return `<details class="icalc"><summary>Interest calculator</summary>
     <p class="hint">Fill in any box and the others are worked out. Boxes that cannot be worked out yet are named below.</p>
     ${f('P', 'Principal', 'principal', 'e.g. 100000')}
     <div class="two">${f('nom', 'Yearly rate %', 'rate', 'e.g. 6')}${f('ear', 'Effective rate %', 'effective', 'worked out')}</div>
-    <label class="field"><span>Compounding ${tipBtn('compounding')}</span><select data-ic="comp">${Object.entries(COMP_LABEL).map(([v, l]) => `<option value="${v}" ${v === comp ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    ${selectField({ label: 'Compounding', tip: tipBtn('compounding'), aria: null, attr: { 'data-ic': 'comp' }, optionsHtml: Object.entries(COMP_LABEL).map(([v, l]) => `<option value="${v}" ${v === comp ? 'selected' : ''}>${l}</option>`).join('') })}
     <div class="two">${f('add', 'Add-on rate % a year', 'addon', 'flat rate')}${f('term', 'Term (months)', 'term', 'e.g. 12')}</div>
     ${f('int', 'Interest for the whole term', 'interest', 'worked out')}
     <p class="hint icnote" data-ic-note aria-live="polite"></p>
