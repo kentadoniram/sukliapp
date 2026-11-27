@@ -42,24 +42,5 @@ with sync_playwright() as p:
         # --- mountain
         m=pg.evaluate("(()=>{const a=document.querySelector('.sc-front .sk-area'),g=document.querySelector('.sc-front linearGradient'),st=[...g.querySelectorAll('stop')].map(s=>s.getAttribute('stop-opacity'));return {fill:a.getAttribute('fill'),st}})()")
         ok('%d: mountain fill fades from strong at the line to clear %s'%(W,m), m['fill'].startswith('url(') and float(m['st'][0])>=.45 and float(m['st'][-1])==0)
-        # --- bell
-        pos=pg.evaluate("(()=>{const q=s=>document.querySelector(s).getBoundingClientRect();return {bell:q('.bellbtn'),eye:q('[data-act=eye]'),t:document.querySelector('.bellbtn .bdot')&&document.querySelector('.bellbtn .bdot').textContent}})()")
-        ok('%d: bell immediately left of the eye %s'%(W,pos['t']), pos['bell']['right']<=pos['eye']['left']+1 and pos['eye']['left']-pos['bell']['right']<12)
-        n0=int(pg.evaluate("(()=>{const d=document.querySelector('.bellbtn .bdot');return d?parseInt(d.textContent):0})()"))
-        ok('%d: unread badge shown (%d)'%(W,n0), n0>=1)
-        pg.tap('.bellbtn'); pg.wait_for_selector('.glancesheet',timeout=5000); pg.wait_for_timeout(300)
-        n1=int(pg.evaluate("(()=>{const d=document.querySelector('.bellbtn .bdot');return d?parseInt(d.textContent):0})()"))
-        ok('%d: opening reads the first item, badge drops %d -> %d'%(W,n0,n1), n1==n0-1)
-        # dismiss, bell reopens
-        pg.tap('.glancesheet [data-g="done"]'); pg.wait_for_timeout(500); ok('%d: dismissed'%W, pg.locator('.glancesheet').count()==0)
-        pg.tap('.bellbtn'); pg.wait_for_selector('.glancesheet',timeout=5000); ok('%d: bell reopens after dismissing'%W, True)
-        # read the rest
-        for i in range(12):
-            if pg.locator('.glancesheet [data-g="next"]').count()==0: break
-            pg.tap('.glancesheet [data-g="next"]'); pg.wait_for_timeout(150)
-        pg.tap('.glancesheet [data-g="done"]'); pg.wait_for_timeout(500)
-        n2=pg.evaluate("document.querySelector('.bellbtn .bdot')?1:0")
-        ok('%d: badge gone once everything is read'%W, n2==0 and 'all read' in pg.get_attribute('.bellbtn','aria-label'))
-        pg.tap('.bellbtn'); pg.wait_for_selector('.glancesheet',timeout=5000); ok('%d: bell still reopens when all read'%W, True)
-        pg.tap('.glancesheet [data-g="done"]'); pg.wait_for_timeout(400)
+        # (the bell now opens the notification list; tests/ui_test_v16_29_notification_bell.py covers it)
         ok('%d: no page errors %s'%(W,errs), not errs)

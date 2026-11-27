@@ -44,7 +44,7 @@ def patch_reveal():
                 try: self.evaluate(REVEAL, selector)
                 except Exception: pass
             if name == 'click' and isinstance(selector, str) and 'data-e' in selector and 'save' in selector:
-                try: self.evaluate("document.querySelectorAll('.popwin [data-e=items-done],.popwin [data-e=oth-done]').forEach(b=>b.click())")
+                try: self.evaluate("document.querySelectorAll('.popwin [data-e=items-done],.popwin [data-e=oth-done],.popwin [data-e=cb-done],.popwin [data-e=shop-done]').forEach(b=>b.click())")
                 except Exception: pass
             return orig(self, selector, *a, **kw)
         f._revealed = True; setattr(Page, name, f)

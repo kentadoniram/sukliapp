@@ -492,6 +492,7 @@ details.sgroup[hidden], details.sgroup > section[hidden] { display: none; }
 .adjgroup { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-5); margin: calc(var(--sp-2) * -1) 0 var(--sp-3); }
 .adjgroup > .adjrow, .adjgroup > .adjx { margin: 0; }
 .adjgroup > .adjrow:has(.adjbtn), .adjgroup > .adjx:has(input) { flex: 1 1 100%; }
+.adjgroup > .adjx:has(.itemsum) { flex: 1 1 100%; }
 .adjgroup > .adjx[hidden], .adjgroup > .adjrow:empty { display: none; }
 .adjgroup > .adjx:has(input) { display: grid; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--sheet); }
 .shoplab { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: var(--fz-13); }
@@ -499,6 +500,7 @@ details.sgroup[hidden], details.sgroup > section[hidden] { display: none; }
 /* ---- 16.44: pop-up windows for Items and Paid for Others, one row for value + switch, lighter checkboxes, no dotted dividers ---- */
 .itemsum { margin: 0; }
 .itemsumbtn { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--sp-4); width: 100%; text-align: left; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--sheet); color: var(--ink); min-height: var(--h-46); }
+.itemsumbtn:not(:has(.ic)) { grid-template-columns: 1fr auto; }
 .itemsumbtn .ic { width: 20px; height: 20px; color: var(--accent); }
 .itemsumbtn .sumtx { display: grid; gap: var(--sp-0); min-width: 0; }
 .itemsumbtn .sumtx small { font-size: var(--fz-12); color: var(--ink2); }

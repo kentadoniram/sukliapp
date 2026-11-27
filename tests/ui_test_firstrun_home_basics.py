@@ -47,13 +47,13 @@ with sync_playwright() as p:
     print('item left:',pg.inner_text('#itemleft'))
     pg.screenshot(path=S+'s8-items.png')
     pg.fill('.item >> nth=1 >> .in-a','1034.5'); print('item left now:',pg.inner_text('#itemleft'))
-    pg.evaluate("document.querySelectorAll('.popwin [data-e=items-done],.popwin [data-e=oth-done]').forEach(b=>b.click())"); pg.click('[data-e="save"]'); pg.wait_for_timeout(400)
+    pg.evaluate("document.querySelectorAll('.popwin [data-e=items-done],.popwin [data-e=oth-done],.popwin [data-e=cb-done],.popwin [data-e=shop-done]').forEach(b=>b.click())"); pg.click('[data-e="save"]'); pg.wait_for_timeout(400)
     tx=pg.evaluate("()=>{const d=window.sukli.get();const t=d.txs.filter(t=>!t.deleted).sort((a,b)=>b.updatedAt-a.updatedAt)[0];const c=d.categories.find(c=>c.id===t.cat);const a=d.accounts.find(a=>a.id===t.acct);return {name:t.name,amount:t.amount,cat:c&&c.name,acct:a&&a.name,cur:t.cur,fx:t.fx,items:t.items.length,flag:t.flag}}")
     print('saved tx:',tx)
     # new unknown name -> review
     pg.click('.fab'); pg.wait_for_selector('#entry')
     pg.fill('#f-amount','850'); pg.fill('#f-what','zzqx widget'); pg.wait_for_timeout(200)
-    pg.evaluate("document.querySelectorAll('.popwin [data-e=items-done],.popwin [data-e=oth-done]').forEach(b=>b.click())"); pg.click('[data-e="save"]'); pg.wait_for_timeout(400)
+    pg.evaluate("document.querySelectorAll('.popwin [data-e=items-done],.popwin [data-e=oth-done],.popwin [data-e=cb-done],.popwin [data-e=shop-done]').forEach(b=>b.click())"); pg.click('[data-e="save"]'); pg.wait_for_timeout(400)
     print('review count:',pg.evaluate("()=>window.sukli.get().txs.filter(t=>!t.deleted&&t.flag==='review').length"))
     # bulk add
     pg.goto('http://localhost:8123/index.html#/review'); pg.wait_for_timeout(500)

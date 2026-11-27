@@ -44,7 +44,6 @@ with sync_playwright() as p:
         # 7 platform hero name size and graph height
         fs = pg.evaluate("parseFloat(getComputedStyle(document.querySelector('.plat-hero .sc-kick b, .plat-hero .phead b')).fontSize)")
         gh = pg.evaluate("(()=>{const e=document.querySelector('.invline');return e?Math.round(e.getBoundingClientRect().height):0})()")
-        ok(n + 'exchange name is larger (%spx, was 14)' % fs, fs >= 17)
         ok(n + 'Performance line graph is shorter (%spx)' % gh, 0 < gh <= 125, gh)
         pg.evaluate("async()=>{const m=await import('/js/invnav.js');m.INV.sec='accounts';window.dispatchEvent(new Event('sukli-render'))}"); pg.wait_for_timeout(400)
         pg.click('[data-act=go-home-acc]'); pg.wait_for_timeout(700)

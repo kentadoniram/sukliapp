@@ -40,9 +40,9 @@ with sync_playwright() as p:
     pg.keyboard.press('Escape'); pg.evaluate("document.querySelectorAll('.scrim').forEach(e=>e.remove())")
     # ---- Cashback
     opn(); pg.fill('#f-amount','1000'); pg.click('#cbrow [data-e=cb-on]'); pg.wait_for_selector('#f-cbv')
-    ok('cashback uses t1seg', pg.locator('#cbrow .t1seg').count()==1)
-    r=pg.evaluate("(()=>{const i=document.querySelector('#f-cbv').getBoundingClientRect(),s=document.querySelector('#cbrow .t1seg').getBoundingClientRect(),rm=document.querySelector('#cbrow [data-e=cb-off]'),l=document.querySelector('#cbrow .shoplab').getBoundingClientRect();const q=rm.getBoundingClientRect();return {same:Math.abs((i.top+i.height/2)-(s.top+s.height/2))<4,right:q.right>l.left+l.width*0.5,hdr:Math.abs(q.top-l.top)<l.height}})()")
-    ok('cashback input+segment share one row, Remove in header %s'%r, r['same'] and r['hdr'])
+    ok('cashback uses t1seg', pg.locator('#cbbox .t1seg').count()==1)
+    r=pg.evaluate("(()=>{const i=document.querySelector('#f-cbv').getBoundingClientRect(),s=document.querySelector('#cbbox .t1seg').getBoundingClientRect();return {same:Math.abs((i.top+i.height/2)-(s.top+s.height/2))<4}})()")
+    ok('cashback opens a pop-up; input+segment share one row; Remove and Done in its footer %s'%r, r['same'] and pg.locator('#cbbox .popfoot [data-e=cb-off]').count()==1 and pg.locator('#cbbox .popfoot [data-e=cb-done]').count()==1)
     # ---- checkbox colour
     ok('checkbox fill token is defined', pg.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--check-fill').trim().length>0"))
     pg.evaluate("document.querySelectorAll('.scrim').forEach(e=>e.remove())")

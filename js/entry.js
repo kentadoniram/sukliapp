@@ -808,8 +808,9 @@ export function openEntry(opts = {}) {
   function renderCb() {
     const el = $f('cbrow'); if (!el) return; el.hidden = f.kind !== 'expense' || f.debt; if (el.hidden) return;
     if (!f.cb.on) { el.innerHTML = button({ label: '+ Cashback', kind: 'link', cls: 'adjxlink', e: 'cb-on' }); return; }
-    patchHtml(el, `<span class="shoplab">Cashback ${button({ label: 'Remove', kind: 'link', e: 'cb-off' })}</span>
-      <div class="taxrow"><input id="f-cbv" inputmode="decimal" autocomplete="off" aria-label="${f.cb.mode === 'pct' ? 'Cashback percent' : 'Cashback amount'}" placeholder="${f.cb.mode === 'pct' ? 'e.g. 5' : 'e.g. 50'}" value="${esc(f.cb.v)}">${seg({ options: [{ label: 'Amount', value: 'fixed' }, { label: 'Percent %', value: 'pct' }], value: f.cb.mode, e: 'cb-mode', aria: 'Cashback type', t1: true })}</div><small class="muted" id="cbcalc">${esc(cbText())}</small>`);
+    const sum = `<div class="itemsum">${button({ kind: 'plain', cls: 'itemsumbtn', e: 'cb-open', html: `<span class="sumtx"><b>Cashback</b><small id="cbsumline">${esc(cbText())}</small></span><em>Edit</em>` })}</div>`;
+    if (!f.cbOpen) { el.innerHTML = sum; return; }
+    patchHtml(el, sum + popBox({ fresh: !el.querySelector('#cbbox'), title: 'Cashback', hint: 'Money the card or shop gives back. It is recorded on this entry.', done: { e: 'cb-done' }, remove: { label: 'Remove cashback', e: 'cb-off' }, cls: 'cbbox', id: 'cbbox', body: `<div class="taxrow"><input id="f-cbv" inputmode="decimal" autocomplete="off" aria-label="${f.cb.mode === 'pct' ? 'Cashback percent' : 'Cashback amount'}" placeholder="${f.cb.mode === 'pct' ? 'e.g. 5' : 'e.g. 50'}" value="${esc(f.cb.v)}">${seg({ options: [{ label: 'Amount', value: 'fixed' }, { label: 'Percent %', value: 'pct' }], value: f.cb.mode, e: 'cb-mode', aria: 'Cashback type', t1: true })}</div><small class="muted" id="cbcalc">${esc(cbText())}</small>` }));
   }
   // Shop price: paid 1,500 JPY at the shop, but a card in another currency can only post, say, 613 PHP. Both are kept, the posted amount stays the amount.
   const shopCurs = () => priceCurs(get()).filter((c) => c !== (acctOf(f.acct) || {}).cur);
@@ -822,14 +823,15 @@ export function openEntry(opts = {}) {
     if (perP > 0 && perK > 0) { const eq = perP / perK, d = (rate - eq) / eq * 100; t += ` Market rate today ${+eq.toFixed(4)}: the card is ${Math.abs(d).toFixed(1)}% ${d >= 0 ? 'above' : 'below'} it. An estimate; the posted amount is what is recorded.`; }
     return t;
   }
+  const shopSum = () => { const o = f.orig; return o && num(o.amt) > 0 ? `Shop price ${fmt(num(o.amt), o.cur)}` : 'Type the price you saw at the shop.'; };
   function renderShop() {
     const el = $f('shoprow'); if (!el) return; const a = acctOf(f.acct); el.hidden = f.kind !== 'expense' || !!f.debt || !a; if (el.hidden) return;
     const curs = shopCurs(); if (f.orig && !curs.includes(f.orig.cur)) f.orig = Object.assign({}, f.orig, { cur: curs[0] || f.orig.cur });
-    const sig = `${!!f.orig}|${a.cur}|${f.orig ? f.orig.cur : ''}`; if (el.dataset.sig === sig) { const c = $f('shopcalc'); if (c) c.textContent = shopText(); return; } el.dataset.sig = sig;
+    const sig = `${!!f.orig}|${a.cur}|${f.orig ? f.orig.cur : ''}|${!!f.shopOpen}`; if (el.dataset.sig === sig) { const c = $f('shopcalc'); if (c) c.textContent = shopText(); const l = $f('shopsumline'); if (l) l.textContent = shopSum(); return; } el.dataset.sig = sig;
     if (!f.orig) { el.innerHTML = button({ label: '+ Shop price', kind: 'link', cls: 'adjxlink', e: 'shop-on', title: 'Paid in a shop price in another currency, for example 1,500 JPY posted as pesos' }); return; }
-    el.innerHTML = `<span class="shoplab">Shop price in another currency ${button({ label: 'Remove', kind: 'link', e: 'shop-off' })}</span>
-      <div class="two">${textField({ label: 'Price at the shop', id: 'f-shopamt', inputmode: 'decimal', placeholder: 'e.g. 1500', value: f.orig.amt > 0 ? String(f.orig.amt) : '' })}${selectField({ label: 'Currency', id: 'f-shopcur', value: f.orig.cur, options: curs.map((c) => ({ value: c, label: c })) })}</div>
-      <small class="muted" id="shopcalc">${esc(shopText())}</small>`;
+    const sum = `<div class="itemsum">${button({ kind: 'plain', cls: 'itemsumbtn', e: 'shop-open', html: `<span class="sumtx"><b>Shop price in another currency</b><small id="shopsumline">${esc(shopSum())}</small></span><em>Edit</em>` })}</div>`;
+    if (!f.shopOpen) { el.innerHTML = sum; return; }
+    el.innerHTML = sum + popBox({ fresh: true, title: 'Shop Price', hint: 'Paid in a shop price in another currency, for example 1,500 JPY posted as pesos. The amount above stays what your card posted.', done: { e: 'shop-done' }, remove: { label: 'Remove shop price', e: 'shop-off' }, cls: 'shopbox', id: 'shopbox', body: `<div class="two">${textField({ label: 'Price at the shop', id: 'f-shopamt', inputmode: 'decimal', placeholder: 'e.g. 1500', value: f.orig.amt > 0 ? String(f.orig.amt) : '' })}${selectField({ label: 'Currency', id: 'f-shopcur', value: f.orig.cur, options: curs.map((c) => ({ value: c, label: c })) })}</div><small class="muted" id="shopcalc">${esc(shopText())}</small>` });
   }
   // Savings: a transfer can count toward a savings goal that you add money to by hand (a goal that follows an account already follows its balance)
   function renderGoal() {
@@ -841,7 +843,7 @@ export function openEntry(opts = {}) {
     const h = $f('goalhint'); if (!h) return; const db = get(), g = (db.goals || []).find((x) => x.id === f.goalId), a = db.accounts.find((x) => x.id === f.acct), r = g && a ? goalAdds(db, g, a.cur, num(f.amount)) : null;
     h.textContent = !r ? '' : r.amt == null ? `There is no exchange rate for ${r.cur} yet, so this cannot be counted toward the goal in ${r.cur}.` : `Adds about ${fmt(r.amt, r.cur)} to this goal.`;
   }
-  const updCb = () => { const c = $f('cbcalc'); if (c) c.textContent = cbText(); };
+  const updCb = () => { const c = $f('cbcalc'); if (c) c.textContent = cbText(); const l = $f('cbsumline'); if (l) l.textContent = cbText(); };
   // Branch of the merchant (Life > Tsukagoshi): below the keypad, shown once a merchant is chosen
   function renderBranch() {
     const bh = $f('branchrow'); if (bh) bh.hidden = true;   // the old separate row is no longer used
@@ -1083,7 +1085,7 @@ export function openEntry(opts = {}) {
   form.addEventListener('focusout', () => setTimeout(() => { const el = $f('sugg'); if (el && !el.contains(document.activeElement) && document.activeElement !== $f('f-what')) el.hidden = true; }, 150));
   form.addEventListener('submit', (e) => { e.preventDefault(); save(false); });
   // Escape closes an open Items / Paid for Others window first, not the whole entry
-  document.addEventListener('keydown', (e) => { if (e.key !== 'Escape' || !form.isConnected) return; const w = form.querySelector('.popwin'); if (!w) return; e.stopImmediatePropagation(); if (f.othOpen) { f.othOpen = false; renderCounts(); } else { f.itemsOpen = false; renderItems(); } }, true);
+  document.addEventListener('keydown', (e) => { if (e.key !== 'Escape' || !form.isConnected) return; const w = form.querySelector('.popwin'); if (!w) return; e.stopImmediatePropagation(); if (f.othOpen) { f.othOpen = false; renderCounts(); } else if (f.cbOpen) { f.cbOpen = false; if (!(cbAmount() > 0)) f.cb = { on: false, mode: f.cb.mode, v: '' }; renderCb(); } else if (f.shopOpen) { f.shopOpen = false; if (!(f.orig && num(f.orig.amt) > 0)) f.orig = null; renderShop(); } else { f.itemsOpen = false; renderItems(); } }, true);
   form.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-e]');
     if (!b) return;
@@ -1171,10 +1173,14 @@ export function openEntry(opts = {}) {
       case 'oth-mode': f.others.mode = v; renderCounts(); break;
       case 'oth-add': f.others.rows.push({ who: '', v: '' }); renderCounts(); break;
       case 'oth-del': f.others.rows.splice(+v, 1); renderCounts(); break;
-      case 'cb-on': f.cb.on = true; renderCb(); break;
-      case 'shop-on': { const c = shopCurs(); f.orig = { cur: c.includes('JPY') ? 'JPY' : (c[0] || 'JPY'), amt: 0 }; renderShop(); const i = $f('f-shopamt'); if (i) i.focus(); break; }
-      case 'shop-off': f.orig = null; renderShop(); break;
-      case 'cb-off': f.cb = { on: false, mode: 'pct', v: '' }; renderCb(); break;
+      case 'cb-on': f.cb.on = true; f.cbOpen = true; renderCb(); break;
+      case 'cb-open': f.cbOpen = true; renderCb(); break;
+      case 'cb-done': f.cbOpen = false; if (!(cbAmount() > 0)) f.cb = { on: false, mode: f.cb.mode, v: '' }; renderCb(); break;
+      case 'shop-on': { const c = shopCurs(); f.orig = { cur: c.includes('JPY') ? 'JPY' : (c[0] || 'JPY'), amt: 0 }; f.shopOpen = true; renderShop(); break; }
+      case 'shop-open': f.shopOpen = true; renderShop(); break;
+      case 'shop-done': f.shopOpen = false; if (!(f.orig && num(f.orig.amt) > 0)) f.orig = null; renderShop(); break;
+      case 'shop-off': f.orig = null; f.shopOpen = false; renderShop(); break;
+      case 'cb-off': f.cb = { on: false, mode: 'pct', v: '' }; f.cbOpen = false; renderCb(); break;
       case 'cb-mode': f.cb.mode = b.dataset.v; renderCb(); break;
       case 'branchpick': pickBranch(); break;
       case 'loc-get': getLoc(); break;

@@ -48,7 +48,7 @@ with sync_playwright() as p:
     ok('Paid for others is offered on the PASMO split screen', 'Paid for others' in pg.inner_text('.sheet'))
     ok('split screen carries merchant and branch', 'Shinjuku Nishiguchi' in pg.inner_text('#merchrow') or '7-Eleven' in pg.inner_text('#merchrow'))
     ok('split screen category lists are grouped', pg.evaluate("document.querySelectorAll('#itemlist select.in-c optgroup').length")>0 or pg.evaluate("document.querySelectorAll('#cats .cattile, .grptiles, .chips.cattiles').length")>=0)
-    pg.evaluate("document.querySelectorAll('.popwin [data-e=items-done],.popwin [data-e=oth-done]').forEach(b=>b.click())"); pg.click('[data-e=save]'); pg.wait_for_timeout(1700)
+    pg.evaluate("document.querySelectorAll('.popwin [data-e=items-done],.popwin [data-e=oth-done],.popwin [data-e=cb-done],.popwin [data-e=shop-done]').forEach(b=>b.click())"); pg.click('[data-e=save]'); pg.wait_for_timeout(1700)
     T=pg.evaluate("(async()=>{const c=await import('/js/core.js');const t=c.get().txs.find(x=>/Eleven/i.test(x.name)&&/^Purchase/.test(x.name));return t})()")
     ok('saved items: Onigiri, Tea, Discount -35, Tax 5 %s'%[(i['n'],i['amt']) for i in T['items']], [(i['n'],i['amt']) for i in T['items']]==[('Onigiri',250),('Tea',100),('Discount',-35),('Tax',5)] and T['items'][2].get('wd'))
     ok('entry total still 320 and not flagged for items mismatch', T['amount']==320)
