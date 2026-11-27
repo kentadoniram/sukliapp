@@ -506,10 +506,10 @@ details.sgroup[hidden], details.sgroup > section[hidden] { display: none; }
 .itemsumbtn .sumtx small { font-size: var(--fz-12); color: var(--ink2); }
 .itemsumbtn .sumtx small.ok { color: var(--in); } .itemsumbtn .sumtx small.off { color: var(--warn); font-weight: 600; }
 .itemsumbtn em { font-style: normal; font-weight: 700; font-size: var(--fz-13); color: var(--accent); }
-.popwin { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; }
+.popwin { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; }
 .popback { position: absolute; inset: 0; background: color-mix(in srgb, var(--ink) 50%, transparent); }
-.popcard, .popwin .popcard.items { position: relative; width: 100%; max-width: 560px; max-height: 92dvh; display: flex; flex-direction: column; background: var(--paper); border: 0; border-radius: var(--r-xl); padding: 0; gap: 0; box-shadow: var(--shadow); }
-.popcard.fresh { animation: pop .16s ease-out; }
+.popcard, .popwin .popcard.items { position: relative; width: 100%; max-width: 560px; max-height: 92dvh; display: flex; flex-direction: column; background: var(--paper); border: 0; border-radius: var(--r-xl) var(--r-xl) 0 0; padding: 0; gap: 0; box-shadow: var(--shadow); }
+.popcard.fresh { animation: up .18s ease-out; }
 .pophead { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-4) var(--sp-5) var(--sp-1); }
 .pophead h3 { margin: 0; font-size: var(--fz-19); }
 .pophint { padding: 0 var(--sp-5); }
@@ -586,3 +586,10 @@ input[type=checkbox]:not([switch]):not(.switch input):checked, #acct-form .check
 input[type=checkbox]:not([switch]):not(.switch input):checked::after { content: ""; width: 28%; height: 52%; border: solid var(--on-color); border-width: 0 2px 2px 0; transform: translateY(-8%) rotate(45deg); }
 input[type=checkbox]:not([switch]):not(.switch input):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 input[type=checkbox]:not([switch]):disabled { opacity: .5; cursor: default; }
+
+/* v16.48 only the small windows (Tax / Discount / Card fees, Cashback, Shop price) float in the middle; large ones (Items, Paid with others, pickers, forms) stay attached to the bottom */
+.scrim:has(#adjf) { align-items: center; padding: 12px; box-sizing: border-box; }
+.scrim:has(#adjf) .sheet { border-radius: var(--r-xl); animation: pop .16s ease-out; }
+.popwin:has(#cbbox), .popwin:has(#shopbox) { align-items: center; padding: 12px; box-sizing: border-box; }
+.popwin:has(#cbbox) .popcard, .popwin:has(#shopbox) .popcard { border-radius: var(--r-xl); }
+.popwin:has(#cbbox) .popcard.fresh, .popwin:has(#shopbox) .popcard.fresh { animation: pop .16s ease-out; }

@@ -30,11 +30,18 @@ with sync_playwright() as p:
     e2=earned(); ok('interest on a non-investment account is not counted', e2==e)
     pg.evaluate(add,[['zq-inv','t-ea',f'{y}-04-01 12:00:00',{'invIncome':{'type':'Staking','asset':'t-ea'}}]])
     e3=earned(); ok('recorded asset income moves it too', e3['yr']!=e['yr'])
+    # ---- interest on a normal bank / wallet account (Maya) is shown, apart from Earned
+    pg.evaluate("localStorage.setItem('sukli-dpanels','[\"i-gain\"]')"); pg.evaluate("location.hash='#/home'"); pg.wait_for_timeout(200); pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(900)
+    sv=pg.evaluate("(()=>{const h=[...document.querySelectorAll('h3.subh')].find(x=>/Savings interest/.test(x.textContent));if(!h)return null;return h.nextElementSibling.innerText})()")
+    ok('Savings interest block lists bank interest %s'%sv, sv and 'This year' in sv and '10' in sv)
+    pg.evaluate("async()=>{const c=await import('/js/core.js');c.commit(d=>{const a=d.accounts.find(x=>x.id==='t-ebank');a.apy=5;a.interestFrom='2099-01-01'})}")
+    pg.evaluate("async()=>{const m=await import('/js/accpage.js');m.openAccountDetail('t-ebank')}"); pg.wait_for_timeout(900)
+    ok('account page shows Earned this year', 'Earned this year' in pg.inner_text('body'))
     # ---- pop-ups are centred, unchecked box is light
     pg.evaluate("location.hash='#/home'"); pg.wait_for_timeout(300)
     pg.evaluate("async()=>{const m=await import('/js/entry.js');m.openEntry({})}"); pg.wait_for_selector('#f-amount'); pg.fill('#f-amount','500'); pg.click('.adjlink'); pg.wait_for_selector('#adjf'); pg.wait_for_timeout(400)
     r=pg.evaluate("(()=>{const e=document.querySelectorAll('.sheet'),s=e[e.length-1].getBoundingClientRect();return {top:s.top,bottom:innerHeight-s.bottom,left:s.left,right:innerWidth-s.right}})()")
-    ok('sheet floats in the middle, not on the bottom edge %s'%r, r['top']>8 and r['bottom']>8 and abs(r['top']-r['bottom'])<60)
+    ok('tax / discount sheet floats in the middle %s'%r, r['top']>8 and r['bottom']>8 and abs(r['top']-r['bottom'])<60)
     bc=pg.evaluate("getComputedStyle(document.querySelector('#adjf input[type=checkbox]')).borderTopColor")
     import re
     v=[float(x)*(255 if 'srgb' in bc else 1) for x in re.findall(r'[\d.]+',bc.split('(')[1])[:3]]
@@ -42,6 +49,6 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelectorAll('.scrim').forEach(e=>e.remove())")
     pg.evaluate("async()=>{const m=await import('/js/entry.js');m.openEntry({})}"); pg.wait_for_selector('#f-amount'); pg.fill('#f-amount','500'); pg.click('[data-e=items-on]'); pg.wait_for_selector('#itembox'); pg.wait_for_timeout(300)
     r=pg.evaluate("(()=>{const s=document.querySelector('#itembox').getBoundingClientRect();return {top:s.top,bottom:innerHeight-s.bottom}})()")
-    ok('items pop-up is centred %s'%r, r['bottom']>8 and r['top']>8)
+    ok('large Items pop-up stays attached to the bottom %s'%r, r['bottom']<=1)
     ok('no errors %s'%errs, not errs)
 print('%d/%d passed'%(sum(res),len(res)))
