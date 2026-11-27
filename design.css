@@ -506,7 +506,8 @@ details.sgroup[hidden], details.sgroup > section[hidden] { display: none; }
 .itemsumbtn em { font-style: normal; font-weight: 700; font-size: var(--fz-13); color: var(--accent); }
 .popwin { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; }
 .popback { position: absolute; inset: 0; background: color-mix(in srgb, var(--ink) 50%, transparent); }
-.popcard, .popwin .popcard.items { position: relative; width: 100%; max-width: 560px; max-height: 92dvh; display: flex; flex-direction: column; background: var(--paper); border: 0; border-radius: var(--r-xl) var(--r-xl) 0 0; padding: 0; gap: 0; box-shadow: var(--shadow); animation: up .18s ease-out; }
+.popcard, .popwin .popcard.items { position: relative; width: 100%; max-width: 560px; max-height: 92dvh; display: flex; flex-direction: column; background: var(--paper); border: 0; border-radius: var(--r-xl) var(--r-xl) 0 0; padding: 0; gap: 0; box-shadow: var(--shadow); }
+.popcard.fresh { animation: up .18s ease-out; }
 .pophead { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-4) var(--sp-5) var(--sp-1); }
 .pophead h3 { margin: 0; font-size: var(--fz-19); }
 .pophint { padding: 0 var(--sp-5); }
@@ -554,3 +555,21 @@ input[type=checkbox], .check input, #adjf .chk input[type=checkbox], #adjf .chec
 .astags { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .seg.asfilter { display: grid; grid-template-columns: repeat(4, 1fr); }
 .asact .btn, .asact .chip { min-height: var(--h-34); padding-inline: var(--sp-3); font-size: var(--fz-13); }
+
+/* v16.44 category picture styles (Settings > Pictures). --c is the badge colour, copied by icstyle.js. Solid is the original look and needs no rules. */
+:is(html[data-icstyle="duotone"] [data-ic]:not([data-pv]), [data-ic][data-pv="duotone"]) { background: color-mix(in srgb, var(--c) 17%, var(--sheet)) !important; color: var(--c) !important; border-radius: 30% !important; }
+:is(html[data-icstyle="duotone"] [data-ic]:not([data-pv]), [data-ic][data-pv="duotone"]) > svg.cico { fill: color-mix(in srgb, var(--c) 30%, transparent); stroke-width: 1.7; }
+:is(html[data-icstyle="gradient"] [data-ic]:not([data-pv]), [data-ic][data-pv="gradient"]) { background: linear-gradient(145deg, color-mix(in srgb, var(--c) 70%, var(--on-color)), var(--c) 55%, color-mix(in srgb, var(--c) 75%, var(--ink))) !important; border-radius: 32% !important; position: relative; box-shadow: 0 5px 10px -4px color-mix(in srgb, var(--c) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--on-color) 55%, transparent), inset 0 -2px 3px color-mix(in srgb, var(--ink) 18%, transparent) !important; }
+:is(html[data-icstyle="gradient"] [data-ic]:not([data-pv]), [data-ic][data-pv="gradient"]) > svg.cico { filter: drop-shadow(0 1.5px 1px color-mix(in srgb, var(--ink) 30%, transparent)); }
+:is(html[data-icstyle="sticker"] [data-ic]:not([data-pv]), [data-ic][data-pv="sticker"]) { background: color-mix(in srgb, var(--c) 22%, var(--sheet)) !important; color: var(--ink) !important; border-radius: 26% !important; border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink) !important; }
+:is(html[data-icstyle="sticker"] [data-ic]:not([data-pv]), [data-ic][data-pv="sticker"]) > svg.cico { fill: color-mix(in srgb, var(--c) 70%, var(--sheet)); }
+:is(html[data-icstyle="clay"] [data-ic]:not([data-pv]), [data-ic][data-pv="clay"]) { background: radial-gradient(circle at 32% 26%, color-mix(in srgb, var(--c) 45%, var(--on-color)), var(--c) 55%, color-mix(in srgb, var(--c) 70%, var(--ink))) !important; box-shadow: 0 5px 8px -4px color-mix(in srgb, var(--c) 65%, transparent), inset -2px -3px 6px color-mix(in srgb, var(--ink) 22%, transparent), inset 2px 3px 5px color-mix(in srgb, var(--on-color) 45%, transparent) !important; }
+:is(html[data-icstyle="clay"] [data-ic]:not([data-pv]), [data-ic][data-pv="clay"]) > svg.cico { fill: color-mix(in srgb, var(--on-color) 18%, transparent); stroke-width: 2.1; filter: drop-shadow(0 1.5px 1px color-mix(in srgb, var(--ink) 25%, transparent)); }
+:is(html[data-icstyle="glass"] [data-ic]:not([data-pv]), [data-ic][data-pv="glass"]) { background: linear-gradient(160deg, color-mix(in srgb, var(--c) 26%, var(--sheet)), color-mix(in srgb, var(--c) 8%, var(--sheet))) !important; color: var(--c) !important; border: 1px solid color-mix(in srgb, var(--c) 35%, transparent); border-radius: 32% !important; box-shadow: 0 3px 8px -5px var(--c), inset 0 1px 0 color-mix(in srgb, var(--on-color) 45%, transparent) !important; }
+:is(html[data-icstyle="glass"] [data-ic]:not([data-pv]), [data-ic][data-pv="glass"]) > svg.cico { filter: drop-shadow(0 2px 2px color-mix(in srgb, var(--c) 40%, transparent)); }
+:is(html[data-icstyle="ring"] [data-ic]:not([data-pv]), [data-ic][data-pv="ring"]) { background: transparent !important; color: var(--c) !important; border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent); box-shadow: none !important; }
+:is(html[data-icstyle="ring"] [data-ic]:not([data-pv]), [data-ic][data-pv="ring"]) > svg.cico { stroke-width: 1.5; }
+.icstiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); gap: var(--sp-2); }
+.icstile { display: grid; justify-items: center; gap: var(--sp-1); padding: var(--sp-2); border: 1.5px solid var(--rule); border-radius: var(--r-m); background: var(--sheet); font-size: var(--fz-12); color: var(--ink2); }
+.icstile[aria-pressed="true"] { border-color: var(--accent); color: var(--ink); font-weight: 650; }
+.icstile .icrow { display: flex; gap: var(--sp-1); }

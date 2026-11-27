@@ -38,7 +38,7 @@ export const SIZES = [['xs', 'Extra small', 0.8], ['s', 'Small', 0.9], ['m', 'Me
 let simpleNow = false;
 // "Match the mode": calm teal in Simple, blue in Advanced (a colour you pick yourself always wins)
 export const setLookMode = (simple) => { if (simple !== simpleNow) { simpleNow = simple; applyLook(); } };
-const DEFAULT = { accent: 'auto', theme: 'auto', size: 's', pcase: 'upper', design: 'theme1', font: 'auto', bg: 'auto', card: 'auto', radius: 'auto', density: 'auto', btn: 'auto', nav: 'auto', bars: 'auto', lead: 'auto', dsel: 'seg', logo: 'initials' };
+const DEFAULT = { accent: 'auto', theme: 'auto', size: 's', pcase: 'upper', design: 'theme1', font: 'auto', bg: 'auto', card: 'auto', radius: 'auto', density: 'auto', btn: 'auto', nav: 'auto', bars: 'auto', lead: 'auto', dsel: 'seg', logo: 'initials', icons: 'duotone' };
 export const FONTS = [['auto', 'Automatic'], ['rounded', 'Rounded'], ['standard', 'Standard'], ['system', 'System'], ['serif', 'Serif'], ['humanist', 'Humanist'], ['mono', 'Mono']];
 // Design Studio choices (Style Guide): each is one data attribute on <html>; 'auto' removes it so the app looks as it always did
 export const STUDIO = { bg: ['warm', 'cool', 'black'], card: ['flat', 'outline', 'lifted', 'tinted'], radius: ['sharp', 'round'], density: ['compact', 'roomy'], btn: ['pill', 'square', 'soft'], nav: ['icons', 'pill'], bars: ['square', 'slim', 'accent'], lead: ['tight', 'airy'] };
@@ -62,6 +62,7 @@ export function applyLook() {
   root.dataset.design = v.design === 'legacy' ? 'legacy' : 'theme1';
   root.dataset.font = ['system', 'serif', 'humanist', 'mono'].includes(v.font) ? v.font : v.font === 'standard' || (v.font !== 'rounded' && v.design === 'legacy') ? 'standard' : 'rounded';
   for (const [k, ok] of Object.entries(STUDIO)) { if (ok.includes(v[k])) root.dataset[k === 'card' ? 'cardlook' : k] = v[k]; else delete root.dataset[k === 'card' ? 'cardlook' : k]; }   // Automatic: rounded in Theme 1, the old font in Legacy Theme
+  root.dataset.icstyle = ['solid', 'duotone', 'gradient', 'sticker', 'clay', 'glass', 'ring'].includes(v.icons) ? v.icons : 'duotone';
   root.dataset.pcase = ['upper', 'title', 'lower'].includes(v.pcase) ? v.pcase : 'upper';
   const sz = SIZES.find((s) => s[0] === v.size) || SIZES[1];
   root.style.setProperty('--fs', String(sz[2]));

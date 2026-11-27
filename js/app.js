@@ -18,6 +18,7 @@ import { openEntry } from './entry.js';
 import { calendar, budget, cashflow, categories, outlook } from './views.js';
 import { accountSettings } from './acctset.js';
 import { ACT, ic, toast, $ } from './ui.js';
+import { initIconStyle } from './icstyle.js';
 import { initAppearance, applyHide, applyLook } from './appearance.js';
 import { runEarn, earnDue, syncEarnRates } from './earn.js';
 import { postInterest, postDebtInterest, hasDebtInt } from './finance.js';
@@ -139,7 +140,7 @@ function runInterest() {
 const queue = () => { if (!pending) { pending = true; requestAnimationFrame(render); } };
 
 (async function boot() {
-  initAppearance();
+  initAppearance(); initIconStyle();
   await load();
   const oauthMsg = await handleOAuthReturn();
   runInterest();

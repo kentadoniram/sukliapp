@@ -119,7 +119,7 @@ export function sheet(html, { title = '', onClose, wide = false, cls = '' } = {}
   stack.push(api);
   if (ignorePop > 0) { api.pend = true; pending.push(api); } else pushFor(api);
   const first = wrap.querySelector('[autofocus]') || wrap.querySelector('input,select,textarea,button:not([data-close])');
-  if (first && matchMedia('(pointer:fine)').matches) first.focus();
+  if (first && !wrap.querySelector('[data-nofocus]') && matchMedia('(pointer:fine)').matches) first.focus();
   return api;
 }
 document.addEventListener('keydown', (e) => {

@@ -44,8 +44,8 @@ export const field = ({ label = '', control = '', cls = '', hint = '' } = {}) =>
 
 // popBox({ title, hint, done: { e|act }, remove: { label, e|act }, body, cls, id }): the same content as box(), shown as a pop-up window over the form (like Tax, discount and card fees).
 // Because it stays inside the form, the form's own click and input handling keeps working. The dark backdrop closes it like Done.
-export function popBox({ title = '', hint = '', done = {}, remove = null, body = '', cls = '', id = '' } = {}) {
-  return `<div class="popwin" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="popback" data-e="${esc(done.e || '')}"></div><div class="popcard ${cls}"${id ? ` id="${esc(id)}"` : ''}><div class="pophead"><h3>${esc(title)}</h3>${button({ kind: 'icon', icon: 'x', label: 'Close', e: done.e, act: done.act })}</div>${hint ? `<small class="hint pophint">${esc(hint)}</small>` : ''}<div class="popbody">${body}</div><div class="popfoot">${remove ? button({ label: remove.label, kind: 'danger-ghost', e: remove.e, act: remove.act }) : '<span></span>'}${button({ label: 'Done', kind: 'primary', e: done.e, act: done.act })}</div></div></div>`;
+export function popBox({ fresh = true, title = '', hint = '', done = {}, remove = null, body = '', cls = '', id = '' } = {}) {
+  return `<div class="popwin" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="popback" data-e="${esc(done.e || '')}"></div><div class="popcard ${fresh ? 'fresh ' : ''}${cls}"${id ? ` id="${esc(id)}"` : ''}><div class="pophead"><h3>${esc(title)}</h3>${button({ kind: 'icon', icon: 'x', label: 'Close', e: done.e, act: done.act })}</div>${hint ? `<small class="hint pophint">${esc(hint)}</small>` : ''}<div class="popbody">${body}</div><div class="popfoot">${remove ? button({ label: remove.label, kind: 'danger-ghost', e: remove.e, act: remove.act }) : '<span></span>'}${button({ label: 'Done', kind: 'primary', e: done.e, act: done.act })}</div></div></div>`;
 }
 
 // box({ title, hint, cancel: { e|act, label }, body, cls }): the darker box with a green border, title and Cancel
