@@ -2,12 +2,19 @@
 // what it cost, profit on paper (unrealized), profit locked in by selling (realized), what it paid you (Earn interest and other income), the fees it cost,
 // and the total return. All in your home currency. Costs are only known for units bought through Buy / sell (or a figure you typed); the rest is left out, never guessed.
 import { balances, homeFx, factorFor } from './core.js';
+import { inInvest } from './finance.js';
+// What counts as "earned" everywhere (Investments totals, per-platform chips, token performance, units that came free): an Earn-product day, income recorded on an asset,
+// or the automatic daily interest / an Interest or Crypto earned entry on an investment account.
+export function earnedPred(db) {
+  const cats = new Set(db.categories.filter((c) => !c.deleted && c.group === 'Earn').map((c) => c.id)), ids = new Set(db.accounts.filter((a) => !a.deleted && inInvest(a)).map((a) => a.id));
+  return (t) => !t.deleted && t.kind === 'income' && !!(t.earnDay || t.invIncome || (ids.has(t.acct) && (t.auto || cats.has(t.cat))));
+}
 import { DEFAULT_SELL_FEE, MAX_LEARNED_FEE } from './config.js';
 
 // Units an account received as interest or income (they have no purchase cost, and are counted as "earned", never as profit on paper).
 export function earnedUnits(db) {
-  const m = new Map();
-  for (const t of db.txs) if (!t.deleted && t.kind === 'income' && (t.earnDay || t.invIncome)) m.set(t.acct, (m.get(t.acct) || 0) + (t.amount || 0));
+  const m = new Map(), ok = earnedPred(db);
+  for (const t of db.txs) if (ok(t)) m.set(t.acct, (m.get(t.acct) || 0) + (t.amount || 0));
   return m;
 }
 // What the units we know the cost of cost, and how many they are: units bought by trades, or else the cost typed on the account (minus interest units, which came free).
@@ -36,10 +43,11 @@ export function tokenPerformance(db, book, accts, home) {
     if (t.fee > 0) r.fees += t.fee * factorFor(db, t, t.feeCur || t.cur, t.feeFx || t.fx);
     if (t.trade.side === 'buy') r.trades++;
   }
+  const isEarn = earnedPred(db);
   for (const t of db.txs) {
     if (t.deleted) continue;
     if (t.tradeOf && tIds.has(t.tradeOf)) { const tr = tIds.get(t.tradeOf), cur = ids.get(tr.trade.asset) || ids.get(tr.trade.asset2); if (cur) row(cur).fees += t.amount * factorFor(db, t); }
-    else if (t.kind === 'income' && (t.earnDay || t.invIncome)) { const cur = t.invIncome ? ids.get(t.invIncome.asset) : t.cur; if (!cur || !by.has(cur)) continue; const v = t.amount * factorFor(db, t); const r = row(cur); if (t.earnDay) r.earned += v; else r.income += v; }
+    else if (isEarn(t)) { const cur = t.invIncome ? ids.get(t.invIncome.asset) : t.cur; if (!cur || !by.has(cur)) continue; const v = t.amount * factorFor(db, t); const r = row(cur); if (t.earnDay) r.earned += v; else r.income += v; }
   }
   // the selling fee assumed for breakeven: what you really paid on this token's trades (fees / value traded), else the default (config.js)
   const feeIn = new Map(), valIn = new Map();

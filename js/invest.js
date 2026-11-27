@@ -16,7 +16,7 @@ import { hdr, backHdr, coll, pieLabels, ui, investCard, t1seg } from './screens.
 import { openAccountDetail, openAccount } from './accpage.js';
 import { tradeBook } from './tradecalc.js';
 import { pendingReview } from './tradereview.js';
-import { tokenPerformance, earnedUnits, openCost } from './tokenperf.js';
+import { tokenPerformance, earnedUnits, openCost, earnedPred } from './tokenperf.js';
 import { apyAt } from './earn.js';
 import { button, tabs, segChoice, textField, selectField, areaSwitch } from './components.js';
 import { ensureUsdt, TRADING_WALLETS } from './tokens.js';
@@ -295,7 +295,10 @@ export function investments(db) {
   // Unrealized profit (still held, on paper), Realized profit (locked in by selling) and Earned (interest paid by Earn products). Earned counts as realized income.
   // Earned = interest paid by Earn products (earnDay) plus income you recorded on an asset (dividends, staking, interest: invIncome).
   // Valued in HOME at the rate saved with the entry (factorFor), the same way the earned chip and Token performance do. (Before v16.7 this multiplied by the raw rate, which is in PHP, so with another home currency the figure was wrong.)
-  const earnedTx = db.txs.filter((t) => !t.deleted && t.kind === 'income' && (t.earnDay || t.invIncome)), eVal = (t) => (t.amount || 0) * factorFor(db, t), earnAcctOf = (t) => t.earnAcct || (t.invIncome && t.invIncome.asset) || t.acct;
+  // v16.47: one rule for "earned", shared by the totals and the per-platform chips. Before, the totals counted only Earn-product days and recorded asset income,
+  // while the chips also counted the daily automatic interest and Interest / Crypto earned entries on investment accounts, so the totals stayed still when those arrived.
+  const isEarned = earnedPred(db), earnCats = new Set(db.categories.filter((c) => !c.deleted && c.group === 'Earn').map((c) => c.id));
+  const earnedTx = db.txs.filter(isEarned), eVal = (t) => (t.amount || 0) * factorFor(db, t), earnAcctOf = (t) => t.earnAcct || (t.invIncome && t.invIncome.asset) || t.acct;
   const earned = earnedTx.reduce((q, t) => q + eVal(t), 0), earnedYr = earnedTx.filter((t) => String(t.date).startsWith(yr)).reduce((q, t) => q + eVal(t), 0);
   const got = earnedUnits(db), accIn = items.filter(isAsset);
   const unreal = accIn.reduce((q, a) => { const px = homeFx(db, a.cur) || 0, o = openCost(a, bal.get(a.id) || 0, book.pos.get(a.id), got); return o.cost > 0 && px ? q + o.qty * px - o.cost : q; }, 0);
@@ -306,8 +309,7 @@ export function investments(db) {
     <h3 class="subh">Recent</h3><ul class="calfacts">${recent.map((x) => `<li><span>${esc(String(x.date).slice(0, 10))} · ${esc(x.label)}</span><b class="${cl(x.v)}">${sg(x.v)}</b></li>`).join('')}</ul><p class="hint">Average-cost method, after fees. Units you held before using Sukli have no known cost and are left out of gains. Earned is the interest and income your assets paid, kept apart from trading.</p>`, '') : '';
   // inside a platform: its wallets (Spot, Futures, Margin, Earn…), each with its own assets, when there is more than one wallet or a wallet other than Spot
   // what a wallet has earned so far (interest, staking, dividends), counted in your home currency
-  const earnCats = new Set(db.categories.filter((c) => !c.deleted && c.group === 'Earn').map((c) => c.id));
-  const earnedTxt = (l) => { const ids = new Set(l.map((a) => a.id)); let e = 0; for (const t of db.txs) if (!t.deleted && t.kind === 'income' && ids.has(t.acct) && (t.auto || t.invIncome || earnCats.has(t.cat))) e += t.amount * factorFor(db, t); return e > 0 ? ` · earned ${money(e)}` : ''; };
+  const earnedTxt = (l) => { const ids = new Set(l.map((a) => a.id)); let e = 0; for (const t of db.txs) if (ids.has(t.acct) && isEarned(t)) e += t.amount * factorFor(db, t); return e > 0 ? ` · earned ${money(e)}` : ''; };
   // Overview of one platform: each coin once, its wallets (Spot, Earn, Futures...) added together; open a coin to see the wallets
   // price of one unit in the Investments currency; it is why the units and the value differ (14,334.91 USDC is worth 14,340.74 because 1 USDC = 1.0004)
   const unitPx = (a) => `@ ${px(homeFx(db, a.cur) || 0)}`;
