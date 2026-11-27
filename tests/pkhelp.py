@@ -43,6 +43,9 @@ def patch_reveal():
             if isinstance(selector, str) and not selector.startswith(('xpath=', 'text=')):
                 try: self.evaluate(REVEAL, selector)
                 except Exception: pass
+            if name == 'click' and isinstance(selector, str) and 'data-e' in selector and 'save' in selector:
+                try: self.evaluate("document.querySelectorAll('.popwin [data-e=items-done],.popwin [data-e=oth-done]').forEach(b=>b.click())")
+                except Exception: pass
             return orig(self, selector, *a, **kw)
         f._revealed = True; setattr(Page, name, f)
     for n in ('click', 'fill', 'tap', 'check', 'uncheck', 'press', 'dblclick', 'type', 'hover'): wrap(n)

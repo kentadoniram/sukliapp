@@ -16,6 +16,7 @@ import { currentPlatform } from './invest.js';
 import { home, ledger, review, accounts, reports, settings, bindLedger, bindSettings, openAccountSetup, ui, fillDeferred, tabIds, TAB_DEFS, setLookMode } from './screens.js';
 import { openEntry } from './entry.js';
 import { calendar, budget, cashflow, categories, outlook } from './views.js';
+import { accountSettings } from './acctset.js';
 import { ACT, ic, toast, $ } from './ui.js';
 import { initAppearance, applyHide, applyLook } from './appearance.js';
 import { runEarn, earnDue, syncEarnRates } from './earn.js';
@@ -45,7 +46,7 @@ import './loanwizard.js';
 import './trades.js';
 import { commitQuiet } from './core.js';
 
-const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, outlook, bin, analytics, invest: investments, debts, owed, reimburse, savings, spend, trips, styleguide, modelguide, modelslab, rates: () => { setTimeout(() => bindRateCompare(document), 30); return rateCompare(); } };
+const routes = { home, ledger, review, accounts, reports, settings, calendar, budget, cashflow, categories, accountset: accountSettings, outlook, bin, analytics, invest: investments, debts, owed, reimburse, savings, spend, trips, styleguide, modelguide, modelslab, rates: () => { setTimeout(() => bindRateCompare(document), 30); return rateCompare(); } };
 let lastRoute = null, pending = false;
 // remember where you were on each screen so Back returns there instead of the top
 const seen = new Map(), stack = []; let curKey = '', backTo = null;

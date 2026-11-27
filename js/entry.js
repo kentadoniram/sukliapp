@@ -9,7 +9,7 @@ import {
 } from './core.js';
 import { buildGraph, makeResolver, explain } from './simgraph.js';
 import { priceCurs } from './paycompare.js';
-import { seg, toggle, box, button, textField, selectField, areaField } from './components.js';
+import { seg, toggle, box, popBox, button, textField, selectField, areaField } from './components.js';
 import { nameRules } from './merchants.js';
 import { compareCard, relatedNames } from './compare.js';
 import { smartKind, openLoanPlanner } from './loans.js';
@@ -173,7 +173,7 @@ export function openEntry(opts = {}) {
   if (opts.id && !opts.preset && splitOf(db, opts.id) && openSplit(opts.id)) return;      // a part of a shared bill is always managed as the whole bill
   const existing = opts.id ? db.txs.find((t) => t.id === opts.id) : null;
   const f = existing ? fromTx(existing) : { ...blank(), ...(opts.preset || {}) };
-  if (opts.showItems) { f.showItems = true; if (!f.items.length) f.items.push({ n: '', amt: '', q: 1, cat: '' }); }
+  if (opts.showItems) { f.showItems = true; f.itemsOpen = true; if (!f.items.length) f.items.push({ n: '', amt: '', q: 1, cat: '' }); }
   if (f.debt && !f.flow) f.flow = 'pay'; if (f.flow) f.debt = true;
   if (f.debt && f.kind === 'transfer') debtFix(f);
   if (!db.accounts.some((a) => !a.deleted)) {
@@ -569,24 +569,25 @@ export function openEntry(opts = {}) {
     const el = $f('itemsrow');
     if (f.kind !== 'expense') { el.innerHTML = ''; return; }
     if (!f.showItems) { el.innerHTML = `${button({ html: `${ic('split')} Split into items (groceries, receipts)`, kind: 'link', cls: 'split', e: 'items-on' })}`; return; }
-    el.innerHTML = box({ title: 'Items on This Receipt', hint: 'Price of one, then tap + for more of the same.', cancel: { e: 'items-off' }, cls: 'items itembox', body: `
+    const nIt = f.items.filter((x) => x.n || x.amt).length || f.items.length;
+    const sumRow = `<div class="itemsum">${button({ kind: 'plain', cls: 'itemsumbtn', e: 'items-open', html: `${ic('split')}<span class="sumtx"><b>${nIt} item${nIt === 1 ? '' : 's'} on this receipt</b><small id="itemsumline"></small></span><em>Edit</em>` })}</div>`;
+    if (!f.itemsOpen) { el.innerHTML = sumRow; updateItemLeft(); return; }
+    el.innerHTML = sumRow + popBox({ title: 'Items on This Receipt', hint: 'Price of one, then tap + for more of the same.', done: { e: 'items-done' }, remove: { label: 'Remove items', e: 'items-off' }, cls: 'items itembox', id: 'itembox', body: `
       <div class="chips itemsugg" id="itemsugg" aria-label="Items you often add"></div><datalist id="itemnames">${rankItemNames(get(), '', f.name, f.cat, f.items.map((x) => x.n), 40).map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
       <div id="itemlist">${f.items.map((it, i) => `<div class="item" data-i="${i}">
         <input class="in-n" list="itemnames" autocomplete="off" placeholder="Item" value="${esc(it.n)}" aria-label="Item name">
         <select class="in-c" aria-label="Item category"><option value="">Same as above</option>${catOptions(it.cat, 'expense', ctxCat(i))}</select>
         <div class="inamt"><input class="in-a" inputmode="decimal" placeholder="${esc(itemPh())}" value="${esc(it.amt)}" aria-label="Price of one, you can type a sum like 120+45">${button({ label: '=', kind: 'plain', cls: 'calcin', e: 'item-calc', aria: 'Calculator: type a sum such as 120+45*2, then tap = ', title: 'Calculator', attr: { 'data-v': i } })}</div>
         <div class="qty" role="group" aria-label="Quantity">${button({ label: '−', kind: 'plain', e: 'item-q', v: `${i}:-1`, aria: 'One less' })}<input class="in-q" data-noclear="1" inputmode="numeric" autocomplete="off" value="${it.q > 0 ? it.q : 1}" aria-label="Quantity, you can type it">${button({ label: '+', kind: 'plain', e: 'item-q', v: `${i}:1`, aria: 'One more' })}</div>
-        ${it.disc && it.disc.on ? `<div class="idisc">${seg({ options: [{ label: 'Amount', value: 'amt' }, { label: '%', value: 'pct' }], value: it.disc.mode === 'pct' ? 'pct' : 'amt', e: 'disc-mode', aria: 'Discount type', t1: true, pack: (m) => `${i}:${m}` })}<input class="in-d" inputmode="decimal" autocomplete="off" placeholder="${it.disc.mode === 'pct' ? 'e.g. 20' : 'e.g. 50'}" value="${esc(it.disc.v)}" aria-label="Discount ${it.disc.mode === 'pct' ? 'percent' : 'amount'}"></div>` : ''}
-        ${it.tx && it.tx.on ? `<div class="itax">${seg({ options: [...(taxFirst8() ? [{ label: '8%', value: '8', title: 'Reduced rate: food and non-alcoholic drinks' }, { label: '10%', value: '10', title: 'Standard consumption tax' }] : [{ label: '10%', value: '10', title: 'Standard consumption tax' }, { label: '8%', value: '8', title: 'Reduced rate: food and non-alcoholic drinks' }])], value: ['10', '8'].includes(String(it.tx.v)) ? String(it.tx.v) : null, e: 'item-tax-set', aria: 'Tax rate', t1: true, pack: (m) => `${i}:${m}` })}<input class="in-t" inputmode="decimal" autocomplete="off" placeholder="Other %" value="${esc(it.tx.v)}" aria-label="Tax rate percent for this item"></div>` : ''}
+        ${it.disc && it.disc.on ? `<div class="idisc"><input class="in-d" inputmode="decimal" autocomplete="off" placeholder="${it.disc.mode === 'pct' ? 'e.g. 20' : 'e.g. 50'}" value="${esc(it.disc.v)}" aria-label="Discount ${it.disc.mode === 'pct' ? 'percent' : 'amount'}">${seg({ options: [{ label: 'Amount', value: 'amt' }, { label: '%', value: 'pct' }], value: it.disc.mode === 'pct' ? 'pct' : 'amt', e: 'disc-mode', aria: 'Discount type', t1: true, pack: (m) => `${i}:${m}` })}</div>` : ''}
+        ${it.tx && it.tx.on ? `<div class="itax"><input class="in-t" inputmode="decimal" autocomplete="off" placeholder="Other %" value="${esc(it.tx.v)}" aria-label="Tax rate percent for this item">${seg({ options: [...(taxFirst8() ? [{ label: '8%', value: '8', title: 'Reduced rate: food and non-alcoholic drinks' }, { label: '10%', value: '10', title: 'Standard consumption tax' }] : [{ label: '10%', value: '10', title: 'Standard consumption tax' }, { label: '8%', value: '8', title: 'Reduced rate: food and non-alcoholic drinks' }])], value: ['10', '8'].includes(String(it.tx.v)) ? String(it.tx.v) : null, e: 'item-tax-set', aria: 'Tax rate', t1: true, pack: (m) => `${i}:${m}` })}</div>` : ''}
         <div class="itail"><small class="muted iline">${itemLine(it)}</small>${toggle({ label: 'Discount', on: !!(it.disc && it.disc.on), e: 'item-disc', v: i })}${toggle({ label: 'Tax', on: !!(it.tx && it.tx.on), e: 'item-tax', v: i })}${button({ label: 'Remove item', kind: 'link', cls: 'rm', e: 'item-del', v: i, aria: 'Remove this item' })}</div></div>`).join('')}</div>
       <div class="itemfoot">${button({ label: '+ Add item', kind: 'link', e: 'item-add' })}<span id="itemleft"></span></div>
       <div class="taxbox" id="wdbox"><div class="taxhead"><span class="feelab">Discount on the Whole Bill</span>${toggle({ label: 'Discount', on: f.wd.on, e: 'wd-toggle' })}</div>
-        ${f.wd.on ? `<div class="taxdet">${seg({ options: [{ label: 'Percent %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: f.wd.mode === 'pct' ? 'pct' : 'amt', e: 'wd-mode', aria: 'Discount type', t1: true })}
-          <input id="f-wdv" inputmode="decimal" autocomplete="off" placeholder="${f.wd.mode === 'pct' ? 'e.g. 10' : 'e.g. 100'}" value="${esc(f.wd.v)}" aria-label="Discount ${f.wd.mode === 'pct' ? 'percent' : 'amount'}">
+        ${f.wd.on ? `<div class="taxdet"><div class="taxrow"><input id="f-wdv" inputmode="decimal" autocomplete="off" placeholder="${f.wd.mode === 'pct' ? 'e.g. 10' : 'e.g. 100'}" value="${esc(f.wd.v)}" aria-label="Discount ${f.wd.mode === 'pct' ? 'percent' : 'amount'}">${seg({ options: [{ label: 'Percent %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: f.wd.mode === 'pct' ? 'pct' : 'amt', e: 'wd-mode', aria: 'Discount type', t1: true })}</div>
           <small class="muted" id="wdcalc">${wdText()}</small></div>` : ''}</div>
       <div class="taxbox"><div class="taxhead"><span class="feelab">Tax on the Whole Bill</span>${toggle({ label: 'Tax', on: f.tax.on, e: 'tax-toggle' })}</div>
-        ${f.tax.on ? `<div class="taxdet">${seg({ options: [{ label: 'Rate %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: f.tax.mode === 'pct' ? 'pct' : 'amt', e: 'tax-mode', aria: 'Tax type', t1: true })}
-          <input id="f-taxv" inputmode="decimal" autocomplete="off" placeholder="${f.tax.mode === 'pct' ? 'e.g. 10' : 'e.g. 150'}" value="${esc(f.tax.v)}" aria-label="Tax ${f.tax.mode === 'pct' ? 'rate percent' : 'amount'}">
+        ${f.tax.on ? `<div class="taxdet"><div class="taxrow"><input id="f-taxv" inputmode="decimal" autocomplete="off" placeholder="${f.tax.mode === 'pct' ? 'e.g. 10' : 'e.g. 150'}" value="${esc(f.tax.v)}" aria-label="Tax ${f.tax.mode === 'pct' ? 'rate percent' : 'amount'}">${seg({ options: [{ label: 'Rate %', value: 'pct' }, { label: 'Amount', value: 'amt' }], value: f.tax.mode === 'pct' ? 'pct' : 'amt', e: 'tax-mode', aria: 'Tax type', t1: true })}</div>
           ${f.tax.mode === 'pct' ? '<div class="chips taxchips">' + (taxFirst8() ? button({ label: '8% (reduced)', kind: 'chip', e: 'tax-set', v: '8' }) + button({ label: '10%', kind: 'chip', e: 'tax-set', v: '10' }) : button({ label: '10%', kind: 'chip', e: 'tax-set', v: '10' }) + button({ label: '8% (reduced)', kind: 'chip', e: 'tax-set', v: '8' })) + '</div>' : ''}
           <small class="muted" id="taxcalc">${taxText()}${ownTaxSum() ? ' (items with their own tax are left out)' : ''}</small></div>` : ''}</div>` });
     el.querySelectorAll('select.in-c').forEach((sel) => enhanceSelect(sel, { title: 'Category', addLabel: 'Add a new category', onAdd: () => openCategoryForm({ kind: 'expense', onDone: (c) => { sel.add(new Option(c.name, c.id)); sel.value = c.id; sel.dispatchEvent(new Event('change', { bubbles: true })); } }) }));
@@ -600,11 +601,11 @@ export function openEntry(opts = {}) {
     el._list = list;
   }
   function updateItemLeft() {
-    const el = $f('itemleft'); if (!el) return;
+    const el = $f('itemleft');
     const a = acctOf(f.acct); const total = num(f.amount) || 0; const left = total - itemSum();
-    const cur = a ? a.cur : HOME;
-    el.className = Math.abs(left) < 0.005 ? 'ok' : 'off';
-    el.textContent = Math.abs(left) < 0.005 ? 'Items add up to the total' : (left > 0 ? `${fmt(left, cur)} not assigned yet` : `Items are ${fmt(-left, cur)} over the total`);
+    const cur = a ? a.cur : HOME, okk = Math.abs(left) < 0.005, msg = okk ? 'Items add up to the total' : (left > 0 ? `${fmt(left, cur)} not assigned yet` : `Items are ${fmt(-left, cur)} over the total`);
+    if (el) { el.className = okk ? 'ok' : 'off'; el.textContent = msg; }
+    const sl = $f('itemsumline'); if (sl) { sl.className = okk ? 'ok' : 'off'; sl.textContent = msg; }
   }
   // Count by group (Advanced): how many drinks, snacks... no names, no prices. Sukli works out roughly what each group costs from many receipts.
   function partsHint() {
@@ -637,20 +638,23 @@ export function openEntry(opts = {}) {
     return { total: T, list, mine, err };
   }
   function othSum() {
-    const el = $f('oth-sum'); if (!el) return; const a = acctOf(f.acct), c = (a && a.cur) || HOME, P = othParts(), nm = (id) => { const x = acctOf(id); return x ? x.name : '?'; }, m = (n) => esc(fmt(n, c, { force: true }));
-    el.innerHTML = P.total > 0 ? `${f.others.me ? `You (spending): <b>${m(P.mine)}</b> · ` : 'You paid it all and are not part of it · '}${P.list.map((x) => `${esc(nm(x.who))}: <b>${m(x.amt)}</b>`).join(' · ') || 'choose who you paid for'}${P.err ? `<br><span class="oth-err">${esc(P.err)}</span>` : ''}` : 'Type the total first.';
+    const sl = $f('othsumline'), el = $f('oth-sum'); if (!el && !sl) return; const a = acctOf(f.acct), c = (a && a.cur) || HOME, P = othParts(), nm = (id) => { const x = acctOf(id); return x ? x.name : '?'; }, m = (n) => esc(fmt(n, c, { force: true }));
+    const line = P.total > 0 ? `${f.others.me ? `You (spending): <b>${m(P.mine)}</b> · ` : 'You paid it all and are not part of it · '}${P.list.map((x) => `${esc(nm(x.who))}: <b>${m(x.amt)}</b>`).join(' · ') || 'choose who you paid for'}` : 'Type the total first.';
+    if (el) el.innerHTML = line + (P.total > 0 && P.err ? `<br><span class="oth-err">${esc(P.err)}</span>` : '');
+    if (sl) sl.innerHTML = line + (P.total > 0 && P.err ? ` · <span class="oth-err">${esc(P.err)}</span>` : '');
   }
   function othersHtml() {
     if (f.kind !== 'expense' || (existing && (existing.splitId || existing.paidFor || existing.lent))) return '';
     if (!f.others || !f.others.on) return `${button({ html: `${ic('split')} Paid for others? (they pay you back later)`, kind: 'link', cls: 'split', e: 'oth-on' })}`;
     const o = f.others, ppl = owedPeople(), mode = o.mode, ph = mode === 'pct' ? '%' : 'Amount';
-    return `<div class="field items othbox" id="othbox"><div class="othhead"><b>Paid for Others</b>${button({ label: 'Cancel', kind: 'ghost', size: 'sm', e: 'oth-off' })}</div><small class="hint">Their parts are not your spending. Each waits under Owed to You until that person pays you back.</small>
+    const nP = o.rows.filter((x) => x.who).length, sumRow = `<div class="itemsum">${button({ kind: 'plain', cls: 'itemsumbtn', e: 'oth-open', html: `${ic('split')}<span class="sumtx"><b>Paid for ${nP || 'others'}${nP ? (nP === 1 ? ' person' : ' people') : ''}</b><small id="othsumline"></small></span><em>Edit</em>` })}</div>`;
+    if (!f.othOpen) return sumRow;
+    return sumRow + popBox({ title: 'Paid for Others', hint: 'Their parts are not your spending. Each waits under Owed to You until that person pays you back.', done: { e: 'oth-done' }, remove: { label: 'Remove', e: 'oth-off' }, cls: 'items othbox', id: 'othbox', body: `
       <div class="chips othmode">${[['equal', 'Split Equally'], ['amount', 'Set Each Amount'], ['pct', 'Percentages']].map(([k, l]) => `${button({ html: `${l}`, kind: 'chip', cls: `${mode === k ? 'on' : ''}`, e: 'oth-mode', attr: { 'data-v': k } })}`).join('')}</div>
       <div id="othrows">${o.rows.map((r, i) => `<div class="cnt othrow" data-i="${i}"><select class="oth-who" aria-label="Who owes you"><option value="">Choose a person</option>${ppl.filter((x) => x.id === r.who || !o.rows.some((q, j) => j !== i && q.who === x.id)).map((x) => `<option value="${x.id}" ${r.who === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}<option value="__new">+ Add a new person</option></select>${mode === 'equal' ? '' : `<div class="inamt othamt"><input class="oth-n" data-noclear="1" inputmode="decimal" placeholder="${ph}" value="${esc(r.v || '')}" aria-label="${mode === 'pct' ? 'Percent they owe, you can type a sum' : 'Amount they owe, you can type a sum like 120+45'}">${button({ label: '=', kind: 'plain', cls: 'calcin', e: 'oth-calc', aria: 'Calculator: type a sum such as 120+45, then tap =', title: 'Calculator', attr: { 'data-v': i } })}</div>`}${o.rows.length > 1 ? `${button({ html: `${ic('x')}`, kind: 'plain', cls: 'iconbtn', e: 'oth-del', aria: 'Remove person', attr: { 'data-v': i } })}` : ''}</div>`).join('')}</div>
       <div class="itemfoot">${button({ label: '+ Add another person', kind: 'link', e: 'oth-add' })}</div>
       <label class="check"><input type="checkbox" class="oth-me" ${o.me ? '' : 'checked'}> <span>I paid the bill but I am not part of it (I did not use any of it)</span></label>
-      <p class="hint" id="oth-sum"></p>
-</div>`;
+      <p class="hint" id="oth-sum"></p>` });
   }
   /* each person can be in the bill only once: choosing someone again takes them out of the row they were in before */
   function othOnce(i) { const w = f.others.rows[i].who; if (!w) return; const gone = []; f.others.rows.forEach((r, j) => { if (j !== i && r.who === w) gone.push(j); });
@@ -803,8 +807,8 @@ export function openEntry(opts = {}) {
   function renderCb() {
     const el = $f('cbrow'); if (!el) return; el.hidden = f.kind !== 'expense' || f.debt; if (el.hidden) return;
     if (!f.cb.on) { el.innerHTML = button({ label: '+ Cashback', kind: 'link', cls: 'adjxlink', e: 'cb-on' }); return; }
-    el.innerHTML = `<span>Cashback</span>${seg({ options: [{ label: 'Fixed Amount', value: 'fixed' }, { label: 'Percentage', value: 'pct' }], value: f.cb.mode, e: 'cb-mode', aria: 'Cashback type', cls: 'cbseg' })}
-      <div class="two"><input id="f-cbv" inputmode="decimal" autocomplete="off" aria-label="${f.cb.mode === 'pct' ? 'Cashback percent' : 'Cashback amount'}" placeholder="${f.cb.mode === 'pct' ? 'e.g. 5' : 'e.g. 50'}" value="${esc(f.cb.v)}">${button({ label: 'Remove', kind: 'chip', e: 'cb-off' })}</div><small class="muted" id="cbcalc">${esc(cbText())}</small>`;
+    el.innerHTML = `<span class="shoplab">Cashback ${button({ label: 'Remove', kind: 'link', e: 'cb-off' })}</span>
+      <div class="taxrow"><input id="f-cbv" inputmode="decimal" autocomplete="off" aria-label="${f.cb.mode === 'pct' ? 'Cashback percent' : 'Cashback amount'}" placeholder="${f.cb.mode === 'pct' ? 'e.g. 5' : 'e.g. 50'}" value="${esc(f.cb.v)}">${seg({ options: [{ label: 'Amount', value: 'fixed' }, { label: 'Percent %', value: 'pct' }], value: f.cb.mode, e: 'cb-mode', aria: 'Cashback type', t1: true })}</div><small class="muted" id="cbcalc">${esc(cbText())}</small>`;
   }
   // Shop price: paid 1,500 JPY at the shop, but a card in another currency can only post, say, 613 PHP. Both are kept, the posted amount stays the amount.
   const shopCurs = () => priceCurs(get()).filter((c) => c !== (acctOf(f.acct) || {}).cur);
@@ -1077,6 +1081,8 @@ export function openEntry(opts = {}) {
     if (b !== d.b || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return; sgDone = Date.now(); applyPick(b.dataset.v); });
   form.addEventListener('focusout', () => setTimeout(() => { const el = $f('sugg'); if (el && !el.contains(document.activeElement) && document.activeElement !== $f('f-what')) el.hidden = true; }, 150));
   form.addEventListener('submit', (e) => { e.preventDefault(); save(false); });
+  // Escape closes an open Items / Paid for Others window first, not the whole entry
+  document.addEventListener('keydown', (e) => { if (e.key !== 'Escape' || !form.isConnected) return; const w = form.querySelector('.popwin'); if (!w) return; e.stopImmediatePropagation(); if (f.othOpen) { f.othOpen = false; renderCounts(); } else { f.itemsOpen = false; renderItems(); } }, true);
   form.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-e]');
     if (!b) return;
@@ -1136,11 +1142,13 @@ export function openEntry(opts = {}) {
         pickerList(list.map((c) => ({ value: c.id, label: c.name, group: '' })), { title: g, addLabel: `Add a new category in ${g}`, onAdd: () => openCategoryForm({ kind: f.kind, group: g, name: f.name.trim().replace(/\b\w/g, (x) => x.toUpperCase()).slice(0, 40), keywords: f.name.trim().toLowerCase(), onDone: (c) => { pickCat(c.id); refreshPred(); renderCats(); } }), onPick: (id) => { pickCat(id); renderCats(); renderTrip(); renderSafety(); } }); break; }
       case 'allcats': openCategoryPicker(f.kind, (id) => { pickCat(id); renderCats(); }); break;
       case 'adj-open': openAdj(); break;
-      case 'items-on': f.showItems = true; if (!f.items.length) f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); break;
+      case 'items-on': f.showItems = true; f.itemsOpen = true; if (!f.items.length) f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); break;
+      case 'items-open': f.itemsOpen = true; renderItems(); break;
+      case 'items-done': f.itemsOpen = false; renderItems(); break;
       case 'item-add': f.items.push({ n: '', amt: '', q: 1, cat: '' }); renderItems(); form.querySelectorAll('.item .in-n')[f.items.length - 1].focus(); break;
       case 'item-sug': { const s = ($f('itemsugg')._list || [])[+v]; if (!s) break; const blank = f.items.findIndex((x) => !x.n && !x.amt); const row = { n: s.n, amt: '', q: 1, cat: s.cat || '', catTouched: !!s.cat }; if (blank >= 0) f.items[blank] = row; else f.items.push(row); renderItems(); break; }
-      case 'items-off': f.showItems = false; f.items = []; renderItems(); break;
-      case 'item-del': f.items.splice(+v, 1); if (!f.items.length) f.showItems = false; renderItems(); break;   // removing the last row closes the section, back to the Split into items link
+      case 'items-off': f.showItems = false; f.itemsOpen = false; f.items = []; renderItems(); break;
+      case 'item-del': f.items.splice(+v, 1); if (!f.items.length) { f.showItems = false; f.itemsOpen = false; } renderItems(); break;   // removing the last row closes the section, back to the Split into items link
       case 'item-calc': { const it = f.items[+v], inp = form.querySelector(`.item[data-i="${v}"] .in-a`); if (!it || !inp) break; if (isExpr(it.amt) && num(it.amt) > 0) { it.amt = tidy(num(it.amt)); renderItems(); updateItemLeft(); } else { inp.inputMode = 'text'; inp.focus(); toast('Type a sum like 120+45, then tap = again.'); } break; }
       case 'item-disc': { const it = f.items[+v]; if (it) { it.disc = it.disc && it.disc.on ? { ...it.disc, on: false } : { on: true, mode: (it.disc && it.disc.mode) || 'amt', v: (it.disc && it.disc.v) || '' }; renderItems(); const di = form.querySelector(`.item[data-i="${v}"] .in-d`); if (di) di.focus(); } break; }
       case 'item-tax': { const it = f.items[+v]; if (it) { it.tx = it.tx && it.tx.on ? { ...it.tx, on: false } : { on: true, v: (it.tx && it.tx.v) || (taxFirst8() ? '8' : '10') }; renderItems(); } break; }
@@ -1154,9 +1162,11 @@ export function openEntry(opts = {}) {
       case 'item-q': { const [i, dq] = v.split(':').map(Number), it = f.items[i]; if (it) { it.q = Math.max(1, Math.min(99, (it.q > 0 ? it.q : 1) + dq)); renderItems(); } break; }
       case 'parts-use': { const pts = splitParts(f.name) || []; f.parts = pts; f.counts = countsFromParts(get(), pts); f.showCounts = true; renderCounts(); const open = f.counts.filter((c) => !c.g).length; toast(open ? `Pick a group for ${open} of them.` : 'Counted by group. Check it, then save.'); break; }
       case 'parts-off': f.partsOff = f.name; f.parts = []; renderCounts(); break;
-      case 'oth-on': f.others = newOth(); renderCounts(); break;
+      case 'oth-on': f.others = newOth(); f.othOpen = true; renderCounts(); break;
+      case 'oth-open': f.othOpen = true; renderCounts(); break;
+      case 'oth-done': f.othOpen = false; renderCounts(); break;
       case 'oth-calc': { const r = f.others.rows[+v], inp = form.querySelector(`.othrow[data-i="${v}"] .oth-n`); if (!r || !inp) break; if (isExpr(r.v) && num(r.v) > 0) { r.v = tidy(num(r.v)); renderCounts(); } else { inp.inputMode = 'text'; inp.focus(); toast('Type a sum like 120+45, then tap = again.'); } break; }
-      case 'oth-off': f.others = { on: false, mode: 'equal', me: true, rows: [] }; renderCounts(); break;
+      case 'oth-off': f.others = { on: false, mode: 'equal', me: true, rows: [] }; f.othOpen = false; renderCounts(); break;
       case 'oth-mode': f.others.mode = v; renderCounts(); break;
       case 'oth-add': f.others.rows.push({ who: '', v: '' }); renderCounts(); break;
       case 'oth-del': f.others.rows.splice(+v, 1); renderCounts(); break;

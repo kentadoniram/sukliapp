@@ -1013,6 +1013,9 @@ export function settings(db) {
     ${picturesSection()}
     ${undoSection()}
     ${locSection(db)}
+    <section><h2>Accounts</h2>
+      <p class="hint">Add, edit, hide and delete your accounts, assets and liabilities in one place. Give them tags and choose what counts as Spendable.</p>
+      <div class="btnrow left"><a class="btn" href="#/accountset">Manage accounts</a></div></section>
     <section><h2>Categories</h2>
       <p class="hint">Add, rename and delete your expense and income categories, with keywords so the app guesses them.</p>
       <div class="btnrow left"><a class="btn" href="#/categories?k=expense">Expense categories</a><a class="btn ghost" href="#/categories?k=income">Income categories</a></div></section>
@@ -1304,7 +1307,7 @@ ACT['nm-focus'] = (el) => mapSheet(el.dataset.k);
 const SET_GROUPS = [
   ['look', 'Look and Feel', 'Simple or Advanced, tabs, Home cards, colours, text size', ['Mode', 'Tabs and Home Cards', 'Add Button', 'Quick Glance', 'Investments', 'Appearance', 'Display']],
   ['money', 'Money and Alerts', 'Home currency, spending warnings', ['Currency', 'Spending Safety', 'Left Out of Cash Outflow', 'Compare Rates']],
-  ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Categories', 'Merchants', 'Pictures', 'Account Types', 'Name Matching', 'Yearly Events']],
+  ['organise', 'Accounts and Names', 'How things are sorted and matched', ['Accounts', 'Categories', 'Merchants', 'Pictures', 'Account Types', 'Name Matching', 'Yearly Events']],
   ['data', 'Backup and Data', 'Undo, reminders, backups, export', ['Undo', 'Backup Reminder', 'Your Data', 'Google Backup (Optional)']],
   ['adv', 'Advanced', 'Most people never need these', ['Exchange Rates', 'Live exchange rates', 'Coins and Tokens: Decimals', 'Cloud Sync', 'Erase']],
   ['help', 'Help', 'Glossary, how every model works, install on your phone', ['Glossary', 'Model Computation Guide', 'Models Lab', 'Style Guide', 'Put It on Your Phone']],

@@ -61,6 +61,27 @@ export function pickerList(options, { value = '', title = 'Choose', onAdd = null
   if (onAdd) s.el.querySelector('.pk-add').onclick = () => { s.close(); onAdd(); };
   draw(); return s;
 }
+// Short, flat choices open as a small list right under the field (the same look as the typing suggestions); long, grouped or "add new" lists keep the full window with search.
+export const DROPDOWN_MAX = 10;
+let dd = null;
+export function closeDropdown() { if (dd) { dd.remove(); dd = null; } }
+export function dropdownList(anchor, options, { value = '', onPick }) {
+  closeDropdown();
+  const pop = document.createElement('div'); pop.className = 'sgpop sgdrop'; pop.setAttribute('role', 'listbox'); dd = pop;
+  pop.innerHTML = options.map((o, i) => button({ kind: 'plain', cls: `sgopt pk-opt${o.value === value ? ' on' : ''}`, disabled: !!o.off, attr: { role: 'option', 'data-v': o.value, 'data-i': i, 'aria-selected': String(o.value === value) }, html: `<span class="sgv">${esc(o.label)}</span>${o.value === value ? '<span class="sgck" aria-hidden="true">✓</span>' : ''}` })).join('');
+  document.body.appendChild(pop);
+  const r = anchor.getBoundingClientRect(), h = pop.offsetHeight, room = window.innerHeight - r.bottom;
+  pop.style.width = `${Math.max(r.width, 160)}px`; pop.style.left = `${Math.min(r.left, Math.max(8, window.innerWidth - Math.max(r.width, 160) - 8))}px`;
+  pop.style.top = room < h + 12 && r.top > room ? `${Math.max(8, r.top - h - 4)}px` : `${r.bottom + 4}px`;
+  const off = (e) => { if (!pop.contains(e.target)) { closeDropdown(); cleanup(); } };
+  const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeDropdown(); cleanup(); anchor.focus(); } };
+  const cleanup = () => { document.removeEventListener('pointerdown', off, true); document.removeEventListener('keydown', key, true); window.removeEventListener('resize', off); };
+  pop.addEventListener('click', (e) => { const b = e.target.closest('.pk-opt'); if (!b || b.disabled) return; closeDropdown(); cleanup(); onPick(b.dataset.v); });
+  setTimeout(() => { document.addEventListener('pointerdown', off, true); }, 0);
+  document.addEventListener('keydown', key, true); window.addEventListener('resize', off);
+  const cur = pop.querySelector('.on'); if (cur) cur.scrollIntoView({ block: 'nearest' });
+  return pop;
+}
 export function enhanceSelect(sel, { title, onAdd, addLabel, collapse = false, tree = false, levels = {} } = {}) {
   if (!sel || sel.dataset.picked) return sel && sel._pk;
   sel.dataset.picked = '1';
@@ -68,7 +89,7 @@ export function enhanceSelect(sel, { title, onAdd, addLabel, collapse = false, t
   sel.style.display = 'none'; sel.after(btn);
   const lab = sel.closest('label'), cap = lab && lab.querySelector('span');
   const paint = () => { const o = sel.selectedOptions[0]; btn.innerHTML = `<span class="pkval">${esc(o ? o.textContent : 'Choose…')}</span><span class="pkcar" aria-hidden="true">▾</span>`; btn.disabled = sel.disabled; };
-  const open = (e) => { if (e) e.preventDefault(); pickerList(readOptions(sel), { value: sel.value, title: title || (cap ? cap.textContent : 'Choose'), onAdd, addLabel, collapse, tree, levels, onPick: (v) => { sel.value = v; paint(); sel.dispatchEvent(new Event('change', { bubbles: true })); } }); };
+  const open = (e) => { if (e) e.preventDefault(); const opts = readOptions(sel); if (!tree && !collapse && !onAdd && opts.length <= DROPDOWN_MAX && !opts.some((o) => o.group || o.sub || o.leaf)) { dropdownList(btn, opts, { value: sel.value, onPick: (v) => { sel.value = v; paint(); sel.dispatchEvent(new Event('change', { bubbles: true })); } }); return; } pickerList(readOptions(sel), { value: sel.value, title: title || (cap ? cap.textContent : 'Choose'), onAdd, addLabel, collapse, tree, levels, onPick: (v) => { sel.value = v; paint(); sel.dispatchEvent(new Event('change', { bubbles: true })); } }); };
   btn.onclick = open;
   if (lab) lab.addEventListener('click', (e) => { if (e.target === lab || e.target === cap) open(e); });   // tapping the caption opens the list too
   new MutationObserver(paint).observe(sel, { childList: true, subtree: true });

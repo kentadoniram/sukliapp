@@ -47,7 +47,7 @@ document.addEventListener('focusin', (e) => {
 });
 document.addEventListener('input', (e) => { if (isField(e.target) && e.target === document.activeElement) show(e.target); });
 document.addEventListener('focusout', (e) => { if (e.target === inp) setTimeout(() => { if (document.activeElement !== inp) hide(); }, 120); });
-document.addEventListener('pointerdown', (e) => { const b = e.target.closest && e.target.closest('.sgopt'); if (b) { e.preventDefault(); pick(+b.dataset.i); } });
+document.addEventListener('pointerdown', (e) => { const b = e.target.closest && e.target.closest('.sgpop:not(.sgdrop) .sgopt'); if (b) { e.preventDefault(); pick(+b.dataset.i); } });
 document.addEventListener('keydown', (e) => {
   if (!pop || e.target !== inp) return;
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); at = (at + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length; paint(); }

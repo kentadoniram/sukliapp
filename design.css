@@ -438,7 +438,7 @@ input, select, textarea { --ct-bg: var(--sheet); --ct-bd: var(--rule); --ct-r: v
 /* v16.37: the type switch and the value sit on one row (the values are short) */
 #adjf .taxrow { display: flex; align-items: center; gap: var(--sp-3); }
 #adjf .taxrow > [id$="seg"] { flex: 0 0 auto; }
-#adjf .taxrow .t1seg, #adjf .taxrow .seg { display: inline-grid; width: auto; }
+#adjf .taxrow .t1seg, #adjf .taxrow .seg { display: inline-grid; width: 100%; }
 #adjf .taxrow .seg { display: inline-flex; }
 #adjf .taxrow input { flex: 1 1 auto; min-width: 0; }
 
@@ -495,3 +495,62 @@ details.sgroup[hidden], details.sgroup > section[hidden] { display: none; }
 .adjgroup > .adjx[hidden], .adjgroup > .adjrow:empty { display: none; }
 .adjgroup > .adjx:has(input) { display: grid; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--sheet); }
 .shoplab { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: var(--fz-13); }
+
+/* ---- 16.44: pop-up windows for Items and Paid for Others, one row for value + switch, lighter checkboxes, no dotted dividers ---- */
+.itemsum { margin: 0; }
+.itemsumbtn { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--sp-4); width: 100%; text-align: left; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--sheet); color: var(--ink); min-height: var(--h-46); }
+.itemsumbtn .ic { width: 20px; height: 20px; color: var(--accent); }
+.itemsumbtn .sumtx { display: grid; gap: var(--sp-0); min-width: 0; }
+.itemsumbtn .sumtx small { font-size: var(--fz-12); color: var(--ink2); }
+.itemsumbtn .sumtx small.ok { color: var(--in); } .itemsumbtn .sumtx small.off { color: var(--warn); font-weight: 600; }
+.itemsumbtn em { font-style: normal; font-weight: 700; font-size: var(--fz-13); color: var(--accent); }
+.popwin { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; }
+.popback { position: absolute; inset: 0; background: color-mix(in srgb, var(--ink) 50%, transparent); }
+.popcard, .popwin .popcard.items { position: relative; width: 100%; max-width: 560px; max-height: 92dvh; display: flex; flex-direction: column; background: var(--paper); border: 0; border-radius: var(--r-xl) var(--r-xl) 0 0; padding: 0; gap: 0; box-shadow: var(--shadow); animation: up .18s ease-out; }
+.pophead { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-4) var(--sp-5) var(--sp-1); }
+.pophead h3 { margin: 0; font-size: var(--fz-19); }
+.pophint { padding: 0 var(--sp-5); }
+.popbody { overflow: auto; padding: var(--sp-3) var(--sp-5); display: grid; gap: var(--sp-4); align-content: start; }
+.popfoot { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-5) calc(var(--sp-4) + env(safe-area-inset-bottom)); border-top: 1px solid var(--rule); }
+.popwin .items .item { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-m); padding: var(--sp-3); margin: 0; }
+.popwin .items .item:last-child { border: 1px solid var(--rule); }
+.popwin .othrow { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-m); padding: var(--sp-3); }
+/* value first, switch after: same row, same widths for Tax, Discount and Cashback */
+.taxrow, .idisc, .itax { display: grid; grid-template-columns: minmax(0, 1fr) 13rem; align-items: center; gap: var(--sp-3); }
+#adjf .taxrow, .adjx .taxrow { display: grid; }
+.taxrow input, .idisc input, .itax input { width: 100%; min-width: 0; box-sizing: border-box; }
+.taxrow .t1seg, .taxrow .seg, .idisc .t1seg, .itax .t1seg, .idisc .seg, .itax .seg { width: 100%; display: grid; }
+.taxrow .seg, .idisc .seg, .itax .seg { grid-auto-flow: column; grid-auto-columns: 1fr; }
+.items.itembox .item .idisc, .items.itembox .item .itax { grid-template-columns: minmax(0, 1fr) 13rem; }
+.taxbox, #adjf .taxbox { border-top: 0; padding-top: 0; }
+#adjf .taxbox + .taxbox, .popwin .taxbox + .taxbox { margin-top: var(--sp-4); }
+.popwin .taxbox { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-m); padding: var(--sp-3); }
+.items.itembox .item { border-bottom: 0; padding-bottom: var(--sp-3); }
+/* lighter check mark fill */
+:root { --check-fill: color-mix(in srgb, var(--accent) 52%, var(--sheet)); }
+input[type=checkbox], .check input, #adjf .chk input[type=checkbox], #adjf .check input[type=checkbox], .taxbox .check input[type=checkbox], #acct-form .check input { accent-color: var(--check-fill); }
+.sgdrop { max-height: 40dvh; overflow: auto; }
+.sgdrop .sgopt { justify-content: space-between; }
+.sgck { color: var(--accent); font-weight: 800; }
+.sgopt:disabled { opacity: .45; }
+
+/* ---- Accounts settings page (16.44) ---- */
+.assum { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); }
+.assum span { display: grid; text-align: center; padding: var(--sp-3) var(--sp-1); background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-m); }
+.assum b { font-size: var(--fz-19); } .assum small { color: var(--ink2); font-size: var(--fz-12); }
+.assec { display: grid; gap: var(--sp-3); }
+.assec > h2 { font-size: var(--fz-14); margin: var(--sp-3) 0 0; }
+.asrow { display: grid; gap: var(--sp-2); padding: var(--sp-3); background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-m); }
+.asrow.dim { opacity: .65; }
+.ashead { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--sp-3); }
+.astx { display: grid; min-width: 0; } .astx b { overflow-wrap: anywhere; } .astx small { color: var(--ink2); font-size: var(--fz-12); }
+.asbal { font-weight: 700; font-variant-numeric: tabular-nums; } .asbal.neg { color: var(--bad); }
+.aschips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.aschips .chip { font-size: var(--fz-12); min-height: 0; padding: 2px 8px; }
+.aschips .chip.flag { background: var(--tint); }
+.asact { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.astag { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-2) 0; }
+.astag > span { display: flex; gap: var(--sp-2); }
+.astags { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.seg.asfilter { display: grid; grid-template-columns: repeat(4, 1fr); }
+.asact .btn, .asact .chip { min-height: var(--h-34); padding-inline: var(--sp-3); font-size: var(--fz-13); }

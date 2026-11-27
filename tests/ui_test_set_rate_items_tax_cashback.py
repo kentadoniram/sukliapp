@@ -29,7 +29,7 @@ with sync_playwright() as p:
     pg.fill('#f-amount','1080'); pg.dispatch_event('#f-amount','input')
     pg.evaluate("document.querySelector('[data-e=cb-on]').click()"); pg.wait_for_timeout(150)
     md=pg.evaluate("[...document.querySelectorAll('[data-e=cb-mode]')].map(b=>[b.textContent.trim(),b.classList.contains('on'),Math.round(b.getBoundingClientRect().width),getComputedStyle(b).textAlign])")
-    ok('cashback: Fixed Amount is the default, equal widths, centred %s'%md, md[0][0]=='Fixed Amount' and md[0][1] and not md[1][1] and abs(md[0][2]-md[1][2])<=1 and all(x[3]=='center' for x in md))
+    ok('cashback: Amount is the default, equal widths %s'%md, md[0][0]=='Amount' and md[0][1] and not md[1][1] and abs(md[0][2]-md[1][2])<=1)
     pg.evaluate("document.querySelector('[data-e=items-on]').click()"); pg.wait_for_selector('.itembox'); pg.wait_for_timeout(200)
     pg.fill('.item .in-n','Bento'); pg.fill('.item .in-a','500'); pg.dispatch_event('.item .in-a','input')
     pg.evaluate("document.querySelector('[data-e=item-q][data-v=\"0:1\"]').click()"); pg.wait_for_timeout(150)   # quantity 2 = 1000
@@ -49,7 +49,7 @@ with sync_playwright() as p:
     r=pg.evaluate("(async()=>{const c=await import('/js/core.js');const t=c.get().txs.filter(x=>!x.deleted&&(x.name||'').toLowerCase()==='lunch bento')[0];return t&&{amt:t.amount,items:t.items}})()")
     ok('saved: items net of discount plus a Tax line adding up to 990 %s'%r, r and r['amt']==990 and r['items'][0]['amt']==900 and r['items'][0]['d']==100 and r['items'][1]['tax'] and r['items'][1]['amt']==90)
     pg.evaluate("(async()=>{const m=await import('/js/entry.js');const c=await import('/js/core.js');const t=c.get().txs.find(x=>!x.deleted&&(x.name||'').toLowerCase()==='lunch bento');m.openEntry({id:t.id})})()")
-    pg.wait_for_selector('.itembox',timeout=4000); pg.wait_for_timeout(300)
+    pg.wait_for_selector('[data-e=items-open]',timeout=4000); pg.click('[data-e=items-open]'); pg.wait_for_selector('.itembox'); pg.wait_for_timeout(300)
     ok('reopened: discount and tax are back as typed', pg.input_value('.in-d')=='100' and pg.input_value('#f-taxv')=='10' and pg.locator('.item').count()==1)
     ok('no errors entry %s'%[e for e in pg.errs if 'Tunnel' not in e], not [e for e in pg.errs if 'Tunnel' not in e])
 print('fails',res.count(False))

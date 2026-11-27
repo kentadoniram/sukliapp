@@ -279,7 +279,7 @@ ACT['acct-new'] = () => openAccount(null);
 
 // a new transfer from an account page: this account on its usual side, the usual other account on the other side.
 // Cards and loans usually receive money, otherwise the most used route decides (this account can be the receiver).
-const inInvestAcct = (a) => !!a && !a.archived && (a.type === 'crypto' || a.type === 'invest' || !!a.invtab);
+export const inInvestAcct = (a) => !!a && !a.archived && (a.type === 'crypto' || a.type === 'invest' || !!a.invtab);
 export function transferPreset(db, id) {
   const a = db.accounts.find((x) => x.id === id), h = transferHints(db), ok = (x) => { const o = db.accounts.find((q) => q.id === x); return o && !o.deleted && !o.archived; };
   const mine = h.routes.filter((r) => (r.from === id && ok(r.to)) || (r.to === id && ok(r.from))).sort((x, y) => y.n - x.n || (x.last < y.last ? 1 : -1))[0];
@@ -504,6 +504,7 @@ export function openAccount(id, preset = {}) {
       ${calcHtml(a.compound || 'monthly')}</div>
     <div id="debtfields" ${isLiability(a) ? '' : 'hidden'}>${debtInt(a)}</div>
     <p class="hint" id="liabnote" hidden>Debts do not earn interest. Record interest charges, late fees and penalties from the account page with “Add charge”.</p>
+    ${textField({ label: 'Tags (optional)', name: 'tags', value: (a.tags || []).join(', '), placeholder: 'e.g. Daily, Travel, Savings', hint: 'Separate with commas. Manage every tag in Settings, Accounts.' })}
     <label class="check"><input type="checkbox" name="include" ${a.include ? 'checked' : ''}> Count in spendable total</label>
     <label class="check"><input type="checkbox" name="invtab" ${a.invtab || ['crypto', 'invest'].includes(a.type) ? 'checked' : ''}> Show in the Investments tab (crypto, funds, MP2…)</label>
     ${id ? `<label class="check"><input type="checkbox" name="archived" ${a.archived ? 'checked' : ''}> Hide this account (archive)</label>` : ''}
@@ -562,6 +563,7 @@ export function openAccount(id, preset = {}) {
       interestFrom: fd.get('interestFrom') || today(),
       openDate: fd.get('openDate') || '',
       icon: ownImg || fd.get('icon') || '',
+      tags: [...new Set(String(fd.get('tags') || '').split(/[,;，]/).map((x) => x.trim().replace(/^#+/, '').trim()).filter(Boolean))],
     };
     const rcF = fd.getAll('rc-from'), rcR = fd.getAll('rc-rate'), pF = fd.getAll('pr-from'), pT = fd.getAll('pr-to'), pR = fd.getAll('pr-rate'), pU = fd.getAll('pr-until'), pL = fd.getAll('pr-lock'), pLE = fd.getAll('pr-lockend');
     extra.compound = fd.get('compound') || 'daily';
