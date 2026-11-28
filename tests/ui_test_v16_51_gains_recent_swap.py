@@ -38,7 +38,7 @@ with sync_playwright() as p:
         pg.click('#tr-swap-p'); pg.wait_for_timeout(300)
         ok(theme+': swap works from the middle button', pg.evaluate("document.querySelector('#tr [name=asset]').value")!='wA')
         pg.evaluate("document.querySelector('#tr [data-side=buy]').click()"); pg.wait_for_timeout(300)
-        ok(theme+': leaving Convert puts the fields back', pg.evaluate("document.querySelector('#tr-pair').hidden && !document.querySelector('#tp-from [name=qty]') && !!document.querySelector('#tr [name=qty]')"))
+        ok(theme+': leaving Convert puts the amount fields back', pg.evaluate("!document.querySelector('#tp-from [name=qty]') && !document.querySelector('#tp-to [name=qty2]') && !!document.querySelector('#tr [name=qty]')"))
         pg.evaluate("document.querySelector('#tr [data-x]')?.click()"); pg.wait_for_timeout(300)
     ok('no page errors %s'%errs, not errs)
     b.close()

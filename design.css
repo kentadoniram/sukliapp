@@ -677,7 +677,7 @@ li.ohr > b { flex: none; text-align: right; }
 .tr-pair[hidden] { display: none; }
 .tr-pair .tp-cell { display: grid; gap: var(--sp-2); min-width: 0; align-content: start; }
 .tr-pair .tp-cell > .tr-cap { font-size: var(--fz-12); font-weight: 600; letter-spacing: .04em; color: var(--ink2); }
-.tr-pair .tr-swap { margin: calc(var(--fz-12) + var(--sp-1) + (var(--h-56) - var(--h-34)) / 2) 0 0; align-self: start; }
+.tr-pair .tr-swap { width: var(--h-56); height: var(--h-56); margin: calc(var(--fz-12) * 1.5 + var(--sp-1)) 0 0; align-self: start; border-radius: var(--r-l); font-size: var(--fz-20); flex: none; }
 .tr-pair .tr-slot { margin: 0; }
 .tr-pair .tr-tile { padding-inline: var(--sp-2); gap: var(--sp-2); }
 .tr-pair .tr-tt { min-width: 0; overflow: hidden; }
@@ -687,3 +687,17 @@ li.ohr > b { flex: none; text-align: right; }
 .tr-pair .field, .tr-pair label { display: grid; min-width: 0; max-width: 100%; overflow: hidden; }
 .tr-pair .pkbtn, .tr-pair select { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
 .tr-pair .pkval { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* v16.52: Investments cards are already cards, so no accent border down the left side and no divider lines inside them */
+.invpage .coll, .invpage .coll.ui-card, .invpage .nwcard.one div.nwmain, .invpage .wlt, .invpage .plathero, .invpage .row.acct.invprod, .invpage .invacc > .coll { border-left: 0; }
+.invpage .wlt, .invpage .row.acct.invprod { padding-left: 0; }
+.invpage .coll .perf, .invpage .coll .pricesrc { border-top: 0; border-bottom: 0; }
+.invpage .coll li, .invpage .coll .dsrow, .invpage .coll .kvrow, .invpage .coll .calfacts li + li { border-top: 0; border-bottom: 0; }
+
+/* v16.52: the Gains card holds two separate blocks (trading, interest), each with its own heading and total */
+.gblk + .gblk { margin-top: var(--sp-5); }
+.gblk .gh { display: flex; align-items: baseline; gap: var(--sp-3); margin: 0 0 var(--sp-2); font-size: var(--fz-15); }
+.gblk .gh b { font-variant-numeric: tabular-nums; margin-left: auto; }
+.gblk .subh { margin-top: var(--sp-3); }
+
+.gblk { background: var(--tint); border-radius: var(--r-ctl); padding: var(--sp-3); }

@@ -19,20 +19,19 @@ ACT['inv-earned'] = (el) => {
     <h3 class="subh">Largest entries</h3><ul class="calfacts">${big.map((r) => li(r.date, `${r.acct} · ${r.kind}`, money(r.v))).join('') || '<li><span>Nothing earned yet</span></li>'}</ul>
     <p class="hint">Every daily interest or staking payment is one entry, so a long-running Earn product adds up to a large number of small ones.</p>`, { title: yrOnly ? 'Earned This Year' : 'Earned All Time', wide: true });
 };
-// Recent earnings, one block per day: the day's total first, the individual records inside (tap the day to open it)
+// Recent earnings or recent sales, one block per day: the day's total first, the individual records inside (tap the day to open it)
 const dayName = (d) => { const t = new Date(`${String(d).slice(0, 10)}T00:00:00`); return Number.isNaN(+t) ? String(d).slice(0, 10) : t.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); };
-ACT['inv-recent'] = () => {
-  const days = new Map(); for (const x of DETAIL.recent) { const k = String(x.date).slice(0, 10); (days.get(k) || days.set(k, []).get(k)).push(x); }
-  const list = [...days].sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 90), earnTot = DETAIL.recent.filter((x) => x.kind === 'earn').reduce((q, x) => q + x.v, 0);
-  const blocks = list.map(([d, rows], i) => {
-    const earn = rows.filter((x) => x.kind === 'earn').reduce((q, x) => q + x.v, 0), gain = rows.filter((x) => x.kind === 'gain').reduce((q, x) => q + x.v, 0), n = rows.length;
-    const parts = [rows.some((x) => x.kind === 'earn') ? `Earned <b class="${cls(earn)}">${sg(earn)}</b>` : '', rows.some((x) => x.kind === 'gain') ? `Sold <b class="${cls(gain)}">${sg(gain)}</b>` : ''].filter(Boolean).join(' · ');
-    return `<details class="dayblk"${i === 0 ? ' open' : ''}><summary><span class="dayd">${esc(dayName(d))}</span><span class="dayt">${parts}<small>${n} record${n === 1 ? '' : 's'}</small></span></summary>
-      <ul class="calfacts">${rows.map((x) => li(x.date, x.label, sg(x.v), cls(x.v))).join('')}</ul></details>`;
-  }).join('');
-  sheet(`<div class="debtsum"><div class="dsrow"><span>Earned in these ${list.length} days</span><b>${money(list.reduce((q, [, r]) => q + r.filter((x) => x.kind === 'earn').reduce((a, x) => a + x.v, 0), 0))}</b></div><div class="dsrow"><span>All earnings on record</span><b>${money(earnTot)}</b></div></div>
-    ${blocks || '<p class="hint">Nothing yet.</p>'}`, { title: 'Recent Earnings by Day', wide: true });
+const byDay = (kind, title, word) => {
+  const all = DETAIL.recent.filter((x) => x.kind === kind), days = new Map(); for (const x of all) { const k = String(x.date).slice(0, 10); (days.get(k) || days.set(k, []).get(k)).push(x); }
+  const list = [...days].sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 90), tot = all.reduce((q, x) => q + x.v, 0), shown = list.reduce((q, [, r]) => q + r.reduce((a, x) => a + x.v, 0), 0);
+  const blocks = list.map(([d, rows], i) => { const t = rows.reduce((q, x) => q + x.v, 0), n = rows.length;
+    return `<details class="dayblk"${i === 0 ? ' open' : ''}><summary><span class="dayd">${esc(dayName(d))}</span><span class="dayt"><b class="${cls(t)}">${sg(t)}</b><small>${n} record${n === 1 ? '' : 's'}</small></span></summary>
+      <ul class="calfacts">${rows.map((x) => li(x.date, x.label, sg(x.v), cls(x.v))).join('')}</ul></details>`; }).join('');
+  sheet(`<div class="debtsum"><div class="dsrow"><span>${word} in the last ${list.length} days with records</span><b>${money(shown)}</b></div><div class="dsrow"><span>${word} on record</span><b>${money(tot)}</b></div></div>
+    ${blocks || '<p class="hint">Nothing yet.</p>'}`, { title, wide: true });
 };
+ACT['inv-recent'] = () => byDay('earn', 'Recent Earnings by Day', 'Earned');
+ACT['inv-sales'] = () => byDay('gain', 'Recent Sales by Day', 'Realized');
 ACT['inv-fees'] = () => {
   const yr = DETAIL.yr, all = DETAIL.fees, tot = all.reduce((q, p) => q + p.v, 0), thisYr = all.filter((p) => String(p.date).startsWith(yr)).reduce((q, p) => q + p.v, 0);
   sheet(`<div class="debtsum"><div class="dsrow"><span>All time</span><b>${money(tot)}</b></div><div class="dsrow"><span>This year</span><b>${money(thisYr)}</b></div><div class="dsrow"><span>Records</span><b>${all.length}</b></div></div>

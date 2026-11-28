@@ -156,17 +156,22 @@ export function openTrade(pre = {}) {
   };
   // Swap layout (16.50/16.51): when converting, the two assets sit side by side in one row, each with its own amount, and the swap button sits between them.
   // The existing fields are moved, not copied, so every calculation keeps working; leaving Convert puts each one back where it was.
-  const homes = new Map(), pairOf = () => ({ from: [t1 ? s.el.querySelector('#tslot-a') : f.asset.closest('.field, label'), f.qty.closest('label')], to: [t1 ? s.el.querySelector('#tslot-b') : f.asset2.closest('.field, label'), f.qty2.closest('label')] });
-  const placePair = (conv) => {
-    const { from, to } = pairOf(), cells = [[from, s.el.querySelector('#tp-from')], [to, s.el.querySelector('#tp-to')]];
-    for (const [els, cell] of cells) for (const el of els) { if (!el) continue;
-      if (conv) { if (!homes.has(el)) { const ph = document.createComment('home'); el.before(ph); homes.set(el, ph); } if (el.parentNode !== cell) cell.appendChild(el); }
-      else if (homes.has(el) && el.parentNode === cell) homes.get(el).after(el); }
-    s.el.querySelector('#tr-pair').hidden = !conv;
-    f.querySelectorAll('.tr-tiles, .tr-swaprow').forEach((x) => { x.hidden = conv; });
+  const homes = new Map(), fld = (el) => el && el.closest('.field, label');
+  const part = () => ({ a: t1 ? s.el.querySelector('#tslot-a') : fld(f.asset), b: t1 ? s.el.querySelector('#tslot-b') : fld(f.asset2), c: t1 ? s.el.querySelector('#tslot-c') : fld(f.cash), qa: fld(f.qty), qb: fld(f.qty2) });
+  const placePair = () => {
+    const P = part(), L = s.el.querySelector('#tp-from'), R = s.el.querySelector('#tp-to'), conv = side === 'convert';
+    // Buy: pay with (cash) on the left, get (asset) on the right. Sell: sell (asset) on the left, get paid in (cash) on the right. Convert: send / receive, each with its amount.
+    const want = new Map(conv ? [[P.a, L], [P.qa, L], [P.b, R], [P.qb, R]] : side === 'buy' ? [[P.c, L], [P.a, R]] : [[P.a, L], [P.c, R]]);
+    for (const el of Object.values(P)) { if (!el) continue; const cell = want.get(el);
+      if (cell) { if (!homes.has(el)) { const ph = document.createComment('home'); el.before(ph); homes.set(el, ph); } if (el.parentNode !== cell) cell.appendChild(el); }
+      else if (homes.has(el) && (el.parentNode === L || el.parentNode === R)) homes.get(el).after(el); }
+    // keep the order inside each cell: the asset or account first, its amount under it
+    for (const cell of [L, R]) { const q = [P.qa, P.qb].find((x) => x && x.parentNode === cell); if (q) cell.appendChild(q); }
+    s.el.querySelector('#tr-pair').hidden = false;
+    f.querySelectorAll('.tr-tiles, .tr-swaprow').forEach((x) => { x.hidden = true; });
   };
   const sync = (from) => {
-    placePair(side === 'convert');
+    placePair();
     if (from === 'price' || from === 'total') { priceTouched = true; f.price.dataset.auto = ''; } else if (from === '' || from === 'qty') autoPrice();
     const byTotal = t1 && known === 'total' && side !== 'convert';   // "I know the Total": the quantity is worked out from the total and the price
     if (byTotal && num(f.total.value) > 0 && num(f.price.value) > 0 && from !== 'qty') f.qty.value = String(r6(num(f.total.value) / num(f.price.value)));

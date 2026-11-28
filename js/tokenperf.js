@@ -5,9 +5,17 @@ import { balances, homeFx, factorFor } from './core.js';
 import { inInvest } from './finance.js';
 // What counts as "earned" everywhere (Investments totals, per-platform chips, token performance, units that came free): an Earn-product day, income recorded on an asset,
 // or the automatic daily interest / an Interest or Crypto earned entry on an investment account.
+// Earned = interest and income an asset paid. NOT earned: the first thing recorded on an investment account, when it is a plain income entry.
+// People start an account such as MP2 by typing the amount they put in; that is the starting asset (its cost), not interest. Daily interest (auto / earnDay)
+// and income recorded on an asset (invIncome) are always earned, wherever they fall. (v16.52)
+export function firstFunding(db) {
+  const ids = new Set(db.accounts.filter((a) => !a.deleted && inInvest(a) && !(a.open > 0)).map((a) => a.id)), first = new Map();
+  for (const t of db.txs) { if (t.deleted || !ids.has(t.acct)) continue; const f = first.get(t.acct); if (!f || String(t.date) < String(f.date) || (String(t.date) === String(f.date) && String(t.id) < String(f.id))) first.set(t.acct, t); }
+  const out = new Set(); for (const t of first.values()) if (t.kind === 'income' && !t.auto && !t.earnDay && !t.invIncome) out.add(t.id); return out;
+}
 export function earnedPred(db) {
-  const cats = new Set(db.categories.filter((c) => !c.deleted && c.group === 'Earn').map((c) => c.id)), ids = new Set(db.accounts.filter((a) => !a.deleted && inInvest(a)).map((a) => a.id));
-  return (t) => !t.deleted && t.kind === 'income' && !!(t.earnDay || t.invIncome || (ids.has(t.acct) && (t.auto || cats.has(t.cat))));
+  const cats = new Set(db.categories.filter((c) => !c.deleted && c.group === 'Earn').map((c) => c.id)), ids = new Set(db.accounts.filter((a) => !a.deleted && inInvest(a)).map((a) => a.id)), start = firstFunding(db);
+  return (t) => !t.deleted && t.kind === 'income' && !!(t.earnDay || t.invIncome || (ids.has(t.acct) && !start.has(t.id) && (t.auto || cats.has(t.cat))));
 }
 import { DEFAULT_SELL_FEE, MAX_LEARNED_FEE } from './config.js';
 
