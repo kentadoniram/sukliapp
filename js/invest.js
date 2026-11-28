@@ -8,6 +8,7 @@ import { isCoin, coinIcon, flagOf, assetIcon } from './curpicker.js';
 import { enhanceSelect, pickAll, pickerList } from './picker.js';
 import { tipBtn } from './interest.js';
 import { DETAIL, selectBtn, rowBtn } from './investdetail.js';
+import { oddsBlock } from './probview.js';
 import { addDays } from './rolling.js';
 import { INV_RANGES } from './config.js';
 import { priceDay, platformDay, zoneFor, zoneLabel } from './timezone.js';
@@ -763,7 +764,10 @@ function predictCard(db) {
   const list = allPreds(db).sort((a, b) => (a.by < b.by ? -1 : 1)), held = db.accounts.some((a) => !a.deleted && inInvest(a) && isAsset(a));
   if (!held) return '';
   const actual = (sym) => { const a = db.accounts.find((x) => !x.deleted && x.cur === sym); return a ? priceNow(db, a) : null; };
-  return panel('i-pred', 'My Predictions <small class="muted gsum">your estimates</small>', `${list.length ? list.map((p) => { const act = actual(p.sym), gap = act && act.quote === p.quote ? (p.price - act.v) / act.v * 100 : null, a = db.accounts.find((x) => !x.deleted && x.cur === p.sym);
+  const bal0 = balances(db), hold = new Map();
+  for (const a of db.accounts) { if (a.deleted || !inInvest(a) || !isAsset(a) || a.cur === HOME) continue; const q = bal0.get(a.id) || 0, hv = homeFx(db, a.cur) || 0; if (!(q > 0) || !(hv > 0)) continue;
+    const h = hold.get(a.cur) || { cur: a.cur, name: ((db.settings.tickers || {})[a.cur] || {}).ticker || a.cur, value: 0, hist: ((db.settings.tickers || {})[a.cur] || {}).history || [] }; h.value += q * hv; hold.set(a.cur, h); }
+  return panel('i-pred', 'Predictions <small class="muted gsum">outcomes and your estimates</small>', `${oddsBlock([...hold.values()])}<h3 class="subh">My Predictions <small class="muted gsum">your estimates</small></h3>${list.length ? list.map((p) => { const act = actual(p.sym), gap = act && act.quote === p.quote ? (p.price - act.v) / act.v * 100 : null, a = db.accounts.find((x) => !x.deleted && x.cur === p.sym);
       return `<div class="pred"><div class="predtop"><b>${esc(p.t.ticker || p.sym)}</b>${button({ label: 'Remove', kind: 'link', act: 'inv-pdel', data: 'sym', v: p.sym, attr: { 'data-id': p.id } })}</div>
         <div><span class="estbadge">Your estimate</span> ${fmt(p.price, p.quote)} by ${esc(p.by)}${p.note ? ` <small class="muted">· ${esc(p.note)}</small>` : ''}</div>
         <div>${act ? `<span class="actbadge">Actual</span> ${fmt(act.v, act.quote)} <small class="muted">· ${a ? esc(priceStamp(db, a)) : ''}</small>${gap != null ? ` · <b class="${gap >= 0 ? 'cg' : 'cr'}">${gap >= 0 ? '+' : '−'}${Math.abs(gap).toFixed(1)}% to reach it</b>` : ''}` : '<span class="actbadge">Actual</span> <small class="muted">no price yet</small>'}</div></div>`; }).join('') : '<p class="hint">Write down where you think an asset will be, and by when. Your estimate is always shown apart from the real price.</p>'}` + `<div class="btnrow">${button({ label: '+ Add', kind: 'ghost', size: 'sm', act: 'inv-predict' })}</div>`);

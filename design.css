@@ -616,3 +616,37 @@ input[type=checkbox]:not([switch]):disabled { opacity: .5; cursor: default; }
 .tokgrp { border: 1px solid var(--rule); border-radius: var(--r-ctl); padding: var(--sp-2) var(--sp-3) var(--sp-1); background: var(--paper); min-width: 0; }
 .tokgrp .tokgh { margin: 0 0 var(--sp-1); font-size: var(--fz-12); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink2); }
 .tokgrp .calfacts { margin: 0; }
+
+/* v16.50: no full-width block buttons. Actions are compact pills sized to their label. */
+:root .btn.wide { width: auto; max-width: 100%; display: inline-flex; margin: var(--sp-3) var(--sp-3) var(--sp-3) 0; padding-inline: var(--sp-5); }
+:root .wsstick { background: transparent; border-top: 0; pointer-events: none; justify-content: flex-end; gap: var(--sp-3); padding-block: var(--sp-2) var(--sp-3); }
+:root .wsstick .btn { pointer-events: auto; width: auto; flex: 0 0 auto; border-radius: var(--r-pill); min-height: var(--h-42); padding-inline: var(--sp-5); box-shadow: var(--sh-float); }
+:root .wsstick .btn.ghost { background: var(--sheet); }
+
+/* v16.50: one checkbox everywhere: 20px square, 6px corners, same tick, same gap to its label (overrides the older 16/18/22px variants) */
+:root input[type=checkbox]:not([switch]):not(.switch input) { width: 20px !important; height: 20px !important; min-width: 20px !important; min-height: 20px !important; max-width: 20px !important; flex: none; margin: 0; padding: 0; border-radius: 6px; -webkit-appearance: none; appearance: none; }
+:root input[type=checkbox]:not([switch]):not(.switch input):checked::after { content: ""; box-sizing: border-box; width: 6px; height: 11px; border: solid var(--on-color); border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg); }
+:root .check, :root .chk, :root .wsl, :root .rbl, :root .sugg-i, :root label.wsbal { display: flex; gap: var(--sp-3); align-items: flex-start; font-size: var(--fz-14); line-height: 1.35; }
+:root .check input[type=checkbox], :root .chk input[type=checkbox], :root .wsl input[type=checkbox], :root .rbl input[type=checkbox], :root .sugg-i input[type=checkbox], :root label.wsbal input[type=checkbox] { margin-top: 1px; }
+:root .wsl { flex: 1 1 auto; min-width: 0; cursor: pointer; }
+:root .check.realsw { align-items: center; }
+
+/* v16.50: swap button between the two sides of a trade */
+.tr-swap { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); width: var(--h-34); height: var(--h-34); min-height: 0; padding: 0; margin: var(--sp-1) auto; border: 1px solid var(--rule); border-radius: var(--r-pill); background: var(--sheet); color: var(--ink); font-size: var(--fz-16); line-height: 1; cursor: pointer; }
+.tr-swap:hover { background: var(--tint); }
+.tr-swaprow { display: flex; justify-content: center; }
+.tr-swaprow .tr-swap { width: auto; padding-inline: var(--sp-4); font-size: var(--fz-13); }
+.tr-tiles > .tr-swap { justify-self: center; }
+
+/* v16.50: probability distribution (Investments > Prediction, Analytics > Odds) */
+.oddsctl { display: grid; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.oddsctl .field { margin: 0; }
+.oddsctl .segm { flex-wrap: nowrap; }
+.oddsctl .segm .segi { flex: 1 1 0; min-width: 0; white-space: nowrap; }
+.oddswrap { border: 1px solid var(--rule); border-radius: var(--r-ctl); background: var(--paper); padding: var(--sp-2); margin: var(--sp-3) 0; }
+.oddsvg { display: block; width: 100%; height: auto; }
+.oddsblock .subh { margin-top: var(--sp-4); }
+li.ohr { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
+li.ohr .ohl { display: grid; gap: 2px; min-width: 0; }
+li.ohr .ohl small { display: block; font-size: var(--fz-12); color: var(--ink2); overflow-wrap: anywhere; }
+li.ohr > b { flex: none; text-align: right; }

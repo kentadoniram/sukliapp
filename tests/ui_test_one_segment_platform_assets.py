@@ -33,7 +33,7 @@ with sync_playwright() as p:
     go_invest(pg,'ZzEx',sec='overview'); pg.wait_for_selector('.dashcard',timeout=8000); pg.wait_for_timeout(300)
     labs=pg.locator('.dashcard [aria-label]:is(button,.segi,[role=tab],[role=radio])').evaluate_all('e=>e.map(x=>x.getAttribute("aria-label")||x.innerText)')
     ok('all five dashboard sections are always listed %s'%labs, {'Performance','Per-Token Performance','Fees and Losses','Prediction','Realized Gains'}<=set(labs))
-    pg.click('.dashcard .t1s-slot:has-text("Gains"), .dashcard .segi:has-text("Realized Gains")'); pg.wait_for_timeout(300)
+    pg.click('.dashcard .t1s-slot:has-text("Gains"), .dashcard .segi[aria-label="Realized Gains"]'); pg.wait_for_timeout(300)
     ok('a section without data shows a plain message, not nothing', ('Realized Gains' in pg.inner_text('.dashcard') or 'Profit and Loss' in pg.inner_text('.dashcard')))
     pg.evaluate("document.querySelectorAll('.collbody[hidden]').forEach(e=>e.hidden=false)")
     if pg.locator('.dashcard > .coll').count():   # legacy card; Theme 1 is flat since v16.7

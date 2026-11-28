@@ -27,8 +27,8 @@ with sync_playwright() as p:
     ok('trading profit and loss (64500) and total incl. interest (66000)', abs(A['gain']-64500)<1 and abs(A['total']-66000)<1 and abs(A['pct']-64500/240500*100)<1e-6)
     ok('token with no known cost shows no percent and no made-up profit %s'%B, abs(B['value']-20)<1e-6 and B['pct'] is None and B['gain']==0)
     pg.goto('http://localhost:8123/#/invest'); pg.wait_for_selector('.nwcard, .inv-card'); pg.wait_for_timeout(600)
-    if pg.locator('[data-act=tok-open]').count()==0 and pg.locator('.dashcard .segi:has-text("Per-Token Performance"), .dashcard .t1s-slot:has-text("Per-Token")').count():
-        pg.click('.dashcard .segi:has-text("Per-Token Performance"), .dashcard .t1s-slot:has-text("Per-Token")'); pg.wait_for_timeout(400)
+    if pg.locator('[data-act=tok-open]').count()==0 and pg.locator('.dashcard .segi[aria-label="Per-Token Performance"], .dashcard .t1s-slot:has-text("Per-Token")').count():
+        pg.click('.dashcard .segi[aria-label="Per-Token Performance"], .dashcard .t1s-slot:has-text("Per-Token")'); pg.wait_for_timeout(400)
     if pg.locator('[data-act=tok-open]').count()==0:
         pg.evaluate("[...document.querySelectorAll('summary,.collh,[data-coll]')].find(e=>/Per-Token/.test(e.textContent))?.click()"); pg.wait_for_timeout(300)
     ok('Per-Token Performance card lists both tokens', pg.locator('[data-act=tok-open]').count()>=2 and 'ZZA' in pg.inner_text('body'))

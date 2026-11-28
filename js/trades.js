@@ -72,8 +72,9 @@ export function openTrade(pre = {}) {
     ${sideSeg}
     ${t1 ? button({ html: '', kind: 'plain', cls: 'tr-plat', id: 'tr-platbar' }) : ''}
     ${selectField({ label: 'Platform', cls: hide.trim(), name: 'plat', aria: null, optionsHtml: platOpt(plat0) })}
-    ${t1 ? `<div class="tr-card tr-tiles">${tile('a', 'YOU GET')}${tile('b', 'CONVERT INTO')}${tile('c', 'YOU PAY WITH')}</div>` : ''}
+    ${t1 ? `<div class="tr-card tr-tiles">${tile('a', 'YOU GET')}${button({ html: '<span aria-hidden="true">⇅</span>', kind: 'plain', cls: 'tr-swap', id: 'tr-swap', aria: 'Swap the two sides', attr: { type: 'button', title: 'Swap the two sides' } })}${tile('b', 'CONVERT INTO')}${tile('c', 'YOU PAY WITH')}</div>` : ''}
     ${selectField({ label: 'Holding', spanId: 'l-asset', cls: hide.trim(), name: 'asset', aria: null, optionsHtml: opt(holdFor(plat0), pre.asset) })}
+    ${t1 ? '' : `<div class="tr-swaprow">${button({ html: '<span aria-hidden="true">⇅</span> Swap', kind: 'plain', cls: 'tr-swap', id: 'tr-swap-l', aria: 'Swap the two sides', attr: { type: 'button' } })}</div>`}
     <p class="pairline${hide}" id="pair" aria-live="polite"></p>
     <div id="f-conv" hidden>${selectField({ label: 'Convert Into', cls: hide.trim(), name: 'asset2', aria: null, optionsHtml: opt(hold, (hold.find((a) => a.id !== (pre.asset || hold[0].id)) || hold[0]).id) })}</div>
     <div id="slot-a"><div id="f-cash">${selectField({ label: 'Paid From', spanId: 'l-cash', lid: 'lab-cash', cls: hide.trim(), name: 'cash', aria: null, optionsHtml: '' })}</div></div>
@@ -193,6 +194,19 @@ export function openTrade(pre = {}) {
     if (!(v > 0)) { toast(`There is nothing in ${src ? src.name : 'that account'} to use.`); return; }
     const inp = f[b.dataset.all]; inp.value = exactAmt(v); inp.dispatchEvent(new Event('input', { bubbles: true }));
   }; });
+  // Swap (16.50): Convert flips From and Into (and their quantities); Buy and Sell flip into each other, so the same asset and account swap roles
+  const doSwap = () => {
+    if (side === 'convert') {
+      const a1 = f.asset.value, a2 = f.asset2.value, q1 = f.qty.value, q2 = f.qty2.value; if (!a2) return;
+      f.asset.value = a2; if (f.asset.value !== a2) return;
+      f.asset.dispatchEvent(new Event('change', { bubbles: true }));   // may switch the platform when the other coin lives elsewhere
+      f.asset2.innerHTML = grp(hold.filter((x) => x.id !== f.asset.value), f.plat.value, a1); f.asset2.value = a1;
+      if (f.asset2.value !== a1) f.asset2.value = (hold.find((x) => x.id !== f.asset.value) || {}).id || '';
+      f.qty.value = q2; f.qty2.value = q1; f.asset2.dispatchEvent(new Event('change', { bubbles: true }));
+    } else { side = side === 'buy' ? 'sell' : 'buy'; }
+    sync('');
+  };
+  f.querySelectorAll('.tr-swap').forEach((b) => { b.onclick = doSwap; });
   f.querySelectorAll('[data-side]').forEach((b) => { b.onclick = () => { side = b.dataset.side; if (t1 && side === 'convert') feeOpen = true; sync(''); }; });
   if (t1) {
     const $ = (id) => s.el.querySelector(id);

@@ -26,10 +26,10 @@ with sync_playwright() as p:
     hh = pg.evaluate("(()=>{const e=document.querySelector('.inv-upd');return [e.getBoundingClientRect().height,parseFloat(getComputedStyle(e).lineHeight)||0,e.scrollWidth<=e.clientWidth+1]})()")
     ok('live price line is a single line %s' % hh, hh[0] < 22 and hh[2])
     # 2. the dashboard: one row switch, section in its own card, collapsible
-    tops = pg.evaluate("[...document.querySelectorAll('.dashstrip .t1s-slot')].map(e=>Math.round(e.getBoundingClientRect().top))")
+    tops = pg.evaluate("[...document.querySelectorAll('.dashstrip .segi')].map(e=>Math.round(e.getBoundingClientRect().top))")
     ok('section switch is one row %s' % tops, len(tops) == 5 and len(set(tops)) == 1)
     ok('the chosen section is its own card', pg.locator('.dashcardsec > section.coll.ui-card').count() == 1)
-    pg.click('.dashstrip .t1s-slot[aria-label="Per-Token Performance"]'); pg.wait_for_timeout(500)
+    pg.click('.dashstrip .segi[aria-label="Per-Token Performance"]'); pg.wait_for_timeout(500)
     ok('Per-Token Performance is a card with asset tiles', pg.locator('.dashcardsec .coll .tokrow').count() >= 1)
     bgs = pg.evaluate("(()=>{const e=document.querySelector('.dashcardsec .tokrow');const c=getComputedStyle(e);return [c.backgroundColor,c.borderBottomWidth]})()")
     ok('each asset is a soft tile %s' % bgs, bgs[0] != 'rgba(0, 0, 0, 0)' and bgs[1] == '0px')

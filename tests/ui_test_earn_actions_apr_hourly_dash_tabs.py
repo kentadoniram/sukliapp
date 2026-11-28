@@ -20,7 +20,7 @@ with sync_playwright() as p:
     ys=pg.evaluate("[...document.querySelectorAll('.dashcard :is(.segi,.t1s-slot)')].map(e=>'pressed:'+e.getAttribute('aria-pressed'))")
     ok('they are segments (aria-pressed) and only the first section is on at first %s'%ys, ys[0]=='pressed:true' and all(y=='pressed:false' for y in ys[1:]))
     ok('only the switched-on section is shown', pg.locator('.dashcard .dashbody').count()==1)
-    pg.click('.dashcard :is(.segi:has-text("Fees and Losses"),.t1s-slot[aria-label="Fees and Losses"])'); pg.wait_for_timeout(400)
+    pg.click('.dashcard :is(.segi[aria-label="Fees and Losses"],.t1s-slot[aria-label="Fees and Losses"])'); pg.wait_for_timeout(400)
     print('DBG',pg.locator('.dashcard .dashbody').count(),'Trading fees' in pg.inner_text('.dashcard'),pg.locator('.dashcard .dashbody .coll').count())
     ok('choosing Fees and Losses REPLACES the first section (only one shown; Theme 1 is flat since v16.7)', pg.locator('.dashcard .dashbody').count()==1 and pg.locator('.dashcard :is(.segi,.t1s-slot).on').count()==1 and 'Fees and Losses' in pg.locator('.dashcard :is(.segi,.t1s-slot).on').evaluate("e=>e.getAttribute('aria-label')||e.innerText") and 'Trading fees' in pg.inner_text('.dashcard') and pg.locator('.dashcard .dashbody').count()>=1)
     pg.reload(); pg.wait_for_selector('.dashcard'); pg.wait_for_timeout(400)

@@ -57,7 +57,7 @@ with sync_playwright() as p:
     # 1000 + 8% = 1080; cross-border 2% of 1080 = 21.6 -> 22 (JPY has no decimals); other 100 => 1202
     ok('total includes tax and both fees (1,202)', '1,202' in txt)
     sz=pg.evaluate("(()=>{const e=document.getElementById('aj-inc');const r=e.getBoundingClientRect();return [r.width,r.height]})()")
-    ok('checkbox is small %s'%sz, sz[0]<=18 and sz[1]<=18)
+    ok('checkbox is the one standard size (20px) %s'%sz, sz[0]==20 and sz[1]==20)
     pg.click('#aj-ok'); pg.wait_for_timeout(400)
     ok('amount = total', pg.input_value('#f-amount').replace(',','')=='1202')
     ok('summary mentions fees', 'fees' in pg.locator('.adjbtn').inner_text())

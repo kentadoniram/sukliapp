@@ -1,4 +1,5 @@
 // Analytics dashboard: interactive replacement for Reports. Every number can be tapped to see the entries behind it.
+import { spendOddsBlock } from './probview.js';
 import { scopeIds, scopeOptionsHtml, get, fmt, HOME, partsBetween, balances, homeFx, live, catMap, accountMap, shiftMonth, groupColor, monthLabel, CUR } from './core.js';
 import { today, cardBilling, isLiability, safetyCfg } from './finance.js';
 import { esc, ic, ACT, sheet } from './ui.js';
@@ -186,7 +187,7 @@ export function analytics(db) {
   LAST = { parts, P };
   return `${backHdr('Analytics')}${filters}${kpis}
     ${coll('an-ie', 'Income vs Spending', incExp)}${coll('an-cf', 'Cash Flow (Running Net)', line(cf, 'Running net cash flow'))}${coll('an-nw', 'Net Worth', line(nwS, 'Net worth'))}
-    ${coll('an-by', 'Where the Money Went', breakdown)}${coll('an-merch', 'By Merchant', merchHtml)}${coll('an-bud', 'Budgets and Limit', budgets)}${coll('an-card', 'Credit Cards', cardsHtml)}${coll('an-cmp', 'Compared with the Earlier Period', compare)}${coll('an-top', 'Biggest Expenses', topHtml)}`;
+    ${coll('an-by', 'Where the Money Went', breakdown)}${coll('an-merch', 'By Merchant', merchHtml)}${coll('an-odds', 'Odds: Spending and Saving', spendOddsBlock(partsBetween(db, '0000-01-01', '9999-12-31').filter((p) => p.kind === 'income' || p.kind === 'expense')))}${coll('an-bud', 'Budgets and Limit', budgets)}${coll('an-card', 'Credit Cards', cardsHtml)}${coll('an-cmp', 'Compared with the Earlier Period', compare)}${coll('an-top', 'Biggest Expenses', topHtml)}`;
 }
 
 const redraw = () => window.dispatchEvent(new Event('sukli-render'));
