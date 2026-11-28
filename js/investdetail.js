@@ -13,11 +13,13 @@ const block = (title, g) => (g.length ? `<h3 class="subh">${title}</h3><div clas
 // Earned, this year / all time: where the figure comes from, so a surprisingly large total can be traced
 ACT['inv-earned'] = (el) => {
   const yrOnly = el && el.dataset && el.dataset.r === 'yr', rows = DETAIL.earned.filter((r) => !yrOnly || String(r.date).startsWith(DETAIL.yr)), tot = rows.reduce((q, r) => q + r.v, 0);
-  const big = rows.slice().sort((a, b) => b.v - a.v).slice(0, 15);
-  sheet(`<div class="debtsum"><div class="dsrow"><span>Earned, ${yrOnly ? 'this year' : 'all time'}</span><b>${money(tot)}</b></div><div class="dsrow"><span>Entries</span><b>${rows.length}</b></div></div>
+  const ds = rows.map((r) => String(r.date).slice(0, 10)).sort(), days = new Set(ds).size, list = rows.slice().sort((a, b) => (String(a.date) < String(b.date) ? 1 : -1)).slice(0, 400);
+  const amt = (r) => `${r.amt.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${esc(r.cur || '')}`;
+  sheet(`<div class="debtsum"><div class="dsrow"><span>Earned, ${yrOnly ? `this year (${DETAIL.yr})` : 'all time'}</span><b>${money(tot)}</b></div><div class="dsrow"><span>Entries</span><b>${rows.length}</b></div>
+    <div class="dsrow"><span>Days with interest</span><b>${days}</b></div>${days ? `<div class="dsrow"><span>First / last entry</span><b>${esc(ds[0])} · ${esc(ds[ds.length - 1])}</b></div><div class="dsrow"><span>Average per day with interest</span><b>${money(tot / days)}</b></div>` : ''}</div>
     ${block('By account', group(rows, (r) => r.acct))}${block('By kind', group(rows, (r) => r.kind))}${block('By month', group(rows, (r) => String(r.date).slice(0, 7)).sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 18))}
-    <h3 class="subh">Largest entries</h3><ul class="calfacts">${big.map((r) => li(r.date, `${r.acct} · ${r.kind}`, money(r.v))).join('') || '<li><span>Nothing earned yet</span></li>'}</ul>
-    <p class="hint">Every daily interest or staking payment is one entry, so a long-running Earn product adds up to a large number of small ones.</p>`, { title: yrOnly ? 'Earned This Year' : 'Earned All Time', wide: true });
+    <h3 class="subh">Entries, newest first${rows.length > list.length ? ` (latest ${list.length} of ${rows.length})` : ''}</h3><ul class="calfacts">${list.map((r) => li(r.date, `${r.acct} · ${r.kind}`, `${money(r.v)} <small class="muted">${amt(r)}</small>`)).join('') || '<li><span>Nothing earned yet</span></li>'}</ul>
+    <p class="hint">Each entry is one interest, staking or income record, valued at the rate saved with it. Interest on ordinary bank and wallet accounts is not included, and neither is the first amount put into an account.</p>`, { title: yrOnly ? 'Earned This Year' : 'Earned All Time', wide: true });
 };
 // Recent earnings or recent sales, one block per day: the day's total first, the individual records inside (tap the day to open it)
 const dayName = (d) => { const t = new Date(`${String(d).slice(0, 10)}T00:00:00`); return Number.isNaN(+t) ? String(d).slice(0, 10) : t.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); };

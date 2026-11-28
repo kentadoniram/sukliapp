@@ -32,8 +32,8 @@ with sync_playwright() as p:
     e3=earned(); ok('recorded asset income moves it too', e3['yr']!=e['yr'])
     # ---- interest on a normal bank / wallet account (Maya) is shown, apart from Earned
     pg.evaluate("localStorage.setItem('sukli-dpanels','[\"i-gain\"]')"); pg.evaluate("location.hash='#/home'"); pg.wait_for_timeout(200); pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(900)
-    sv=pg.evaluate("(()=>{const h=[...document.querySelectorAll('h3.subh')].find(x=>/Savings interest/.test(x.textContent));if(!h)return null;return h.nextElementSibling.innerText})()")
-    ok('Savings interest block lists bank interest %s'%sv, sv and 'This year' in sv and '10' in sv)
+    sv=pg.evaluate("[...document.querySelectorAll('h3.subh')].some(x=>/Savings interest/.test(x.textContent))")
+    ok('bank interest is not shown in Investments (v16.53)', sv==False)
     pg.evaluate("async()=>{const c=await import('/js/core.js');c.commit(d=>{const a=d.accounts.find(x=>x.id==='t-ebank');a.apy=5;a.interestFrom='2099-01-01'})}")
     pg.evaluate("async()=>{const m=await import('/js/accpage.js');m.openAccountDetail('t-ebank')}"); pg.wait_for_timeout(900)
     ok('account page shows Earned this year', 'Earned this year' in pg.inner_text('body'))

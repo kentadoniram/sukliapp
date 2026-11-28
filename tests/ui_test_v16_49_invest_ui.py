@@ -12,7 +12,7 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelectorAll('details').forEach(d=>d.open=true)")
     ok('Earned rows are buttons', pg.locator('.rowbtn[data-act=\"inv-earned\"], .rowbtn[data-a=\"inv-earned\"]').count()==2 or pg.locator('.rowbtn').count()>=2)
     pg.locator('.rowbtn').first.click(); pg.wait_for_timeout(300)
-    ok('Earned window shows breakdown', 'By account' in pg.inner_text('body') and 'Largest entries' in pg.inner_text('body'))
+    ok('Earned window shows breakdown', 'By account' in pg.inner_text('body') and 'Entries, newest first' in pg.inner_text('body'))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     if pg.locator('.sheet, .popcard').count(): pg.evaluate("document.querySelector('.sheet [data-no], .sheet .x, .sheet .close')?.click()")
     pg.evaluate("location.hash='#/home'"); pg.wait_for_timeout(200); pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(600)
