@@ -21,6 +21,9 @@ ok('wider horizon is wider', P.summarize(P.simulate(st,[1000],120)).p95-P.summar
 const j=P.jointSteps([s,s]), sj=P.summarize(P.simulate(j,[500,500],30));
 ok('two identical coins = one coin', Math.abs(sj.p05-sm.p05)/sm.p05<0.03, [sj.p05,sm.p05]);
 ok('lack of data is reported', P.lacks(P.stepsOf(s.slice(0,5)))!=='' && P.lacks(st)==='');
+ok('flicker points do not blow up', (()=>{const r2=P.rng(3);let p=100;const s2=[{t:0,p}];for(let i=1;i<=60;i++){p*=Math.exp((r2()-.5)*0.06);s2.push({t:i,p});if(i%5==0)s2.push({t:i+0.0000007,p:p*1.01});}const m=P.summarize(P.simulate(P.stepsOf(s2),[1000],90,{drift:'past'}));return m.p95<5000 && Number.isFinite(m.mean) && m.mean<3000;})());
+ok('unreasonable() flags a wild spread', P.unreasonable({end:[1,2,3,50000],start:100,horizonDays:30})!=='');
+ok('unreasonable() accepts a normal one', P.unreasonable(P.simulate(st,[1000],30))==='');
 const e=P.empirical([100,120,90,200,110,95],{target:115});
 ok('empirical: median and share above', e.median===105 && Math.abs(e.above-2/6)<1e-9, e);
 console.log(bad?'FAILED':'ALL PASS'); process.exit(bad?1:0);

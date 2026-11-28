@@ -37,6 +37,19 @@ ok('no raw single gap of 2/4/6/8/10/12px, use the spacing scale (%d)'%raw_g, raw
 # v16.12: a card-like rule (fill + outline + corner) must take its look from the card-kind table in design.css (var(--cd-*)); controls are the ones left
 nc=len([1 for sel,body in re.findall(r'(?m)^([^\n{}@]+?)\s*\{([^{}]*)\}',styles_only) if re.search(r'(?<![-\w])border:\s*1px solid',body) and 'border-radius' in body and re.search(r'background:\s*var\(--(sheet|tint)\b',body) and 'var(--cd-' not in body])
 ok('rules that draw their own fill + outline + corner instead of the card-kind or control-kind table: %d (limit %d)'%(nc,CARDRULE_BASELINE), nc<=CARDRULE_BASELINE)
+# v16.51 ratchets from the design audit (docs/DESIGN_AUDIT.md). They may only go DOWN; lower the numbers when you consolidate.
+FONTSIZE_VALUES_BASELINE=80   # distinct font-size values (the scale has 12 steps: --fz-N)
+IMPORTANT_BASELINE=59         # !important declarations (each one is a specificity fight that was lost)
+INLINE_STYLE_BASELINE=126     # style=" attributes written inside js/*.js
+SPACEBETWEEN_BASELINE=79      # rules that lay out a label-and-figure row by hand (the one row is .kvrow / rowHtml)
+_all=[(a,b) for a,b in re.findall(r'([^{}]+)\{([^{}]*)\}',css)]
+_fz=set(m.strip() for _,b in _all for m in re.findall(r'font-size:\s*([^;]+)',b))
+ok('distinct font-size values %d (limit %d)'%(len(_fz),FONTSIZE_VALUES_BASELINE), len(_fz)<=FONTSIZE_VALUES_BASELINE)
+ok('!important declarations %d (limit %d)'%(css.count('!important'),IMPORTANT_BASELINE), css.count('!important')<=IMPORTANT_BASELINE)
+_inl=sum(len(re.findall(r'style="',t)) for t in js.values())
+ok('inline style attributes in js %d (limit %d)'%(_inl,INLINE_STYLE_BASELINE), _inl<=INLINE_STYLE_BASELINE)
+_sb=sum(1 for _,b in _all if 'space-between' in b)
+ok('hand-made space-between rules %d (limit %d)'%(_sb,SPACEBETWEEN_BASELINE), _sb<=SPACEBETWEEN_BASELINE)
 # 3. the helpers produce the classes the CSS expects
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_context(service_workers='block').new_page(); errs=[]

@@ -99,3 +99,6 @@ export const AREAS = [['home', 'Home', 'home'], ['invest', 'Investments', 'spark
 export const areaTitle = (cur) => `<nav class="arealabs" aria-label="${esc((AREAS.find(([r]) => r === cur) || [0, cur])[1])}"><span class="areatitle on" aria-current="page">${esc((AREAS.find(([r]) => r === cur) || [0, cur])[1])}</span></nav>`;
 export const areaLabels = (cur) => `<nav class="arealabs" aria-label="Home or Investments">${AREAS.map(([r, l]) => `<a href="#/${r}" class="areatitle${cur === r ? ' on' : ''}" ${cur === r ? 'aria-current="page"' : ''}>${esc(l)}</a>`).join('')}</nav>`;
 export const areaSwitch = (cur) => `<nav class="areasw" data-area-switch="${esc(cur)}" aria-label="Switch between Home and Investments">${AREAS.map(([r, l, i]) => `<a href="#/${r}" class="${cur === r ? 'on' : ''}" ${cur === r ? 'aria-current="page"' : ''}>${ic(i)}<span>${l}</span></a>`).join('')}</nav>`;
+
+// The one label-and-figure row (v16.51). `value` is already-formatted HTML; `sub` is an optional small line under the label.
+export const rowHtml = ({ label, value, sub = '', cls = '', tag = 'div' }) => `<${tag} class="kvrow${cls ? ' ' + cls : ''}"><span class="kvl"><b>${label}</b>${sub ? `<small class="hint">${sub}</small>` : ''}</span><b class="kvv">${value}</b></${tag}>`;

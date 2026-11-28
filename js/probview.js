@@ -1,16 +1,16 @@
 // Probability distribution screens (16.50): the maths is in prob.js, this file only draws it.
 import { esc, ACT, sheet } from './ui.js';
 import { money } from './screens.js';
-import { segChoice } from './components.js';
+import { segChoice, selectField } from './components.js';
 import { button } from './components.js';
-import { stepsOf, jointSteps, simulate, summarize, lacks, fit, empirical, MIN_STEPS, MIN_DAYS, PATHS } from './prob.js';
+import { stepsOf, jointSteps, simulate, summarize, lacks, unreasonable, fit, empirical, MIN_STEPS, MIN_DAYS, PATHS } from './prob.js';
 
 const O = { coin: 'all', days: 30, drift: 'none' };
 const HORIZONS = [[7, '1 Week'], [30, '1 Month'], [90, '3 Months']];
 const day0 = Date.UTC(2000, 0, 1), dnum = (p) => (Date.parse(`${p.date}T00:00:00Z`) - day0) / 864e5 + (p.ts ? (p.ts % 864e5) / 864e5 : 0);
 const rerender = () => window.dispatchEvent(new Event('sukli-render'));
 const inHundred = (p) => { const n = Math.round(p * 100); return n === 0 && p > 0 ? 'fewer than 1 in 100' : n >= 100 && p < 1 ? 'almost every one in 100' : `about ${n} in 100`; };
-const sgn = (v) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`;
+const sgn = (v) => (Number.isFinite(v) ? `${v >= 0 ? '+' : '−'}${Math.abs(v) >= 1000 ? Math.round(Math.abs(v)).toLocaleString('en-US') : Math.abs(v).toFixed(1)}%` : 'n/a');
 
 // bars from a histogram: green on the side at or above today's value, red below, a dashed line for today and a tick for the middle
 function histSvg(bins, start, median, lo, hi, fmt, label) {
@@ -39,12 +39,14 @@ export function oddsBlock(holdings) {
   const noData = lacks(usable.length ? steps : []);
   const skipped = picked.length - usable.length;
   const controls = `<div class="oddsctl">
-    <label class="field"><span>Asset</span><select data-odds-coin aria-label="Asset for the probability distribution"><option value="all" ${O.coin === 'all' ? 'selected' : ''}>All my holdings (${list.length})</option>${list.map((h) => `<option value="${esc(h.cur)}" ${O.coin === h.cur ? 'selected' : ''}>${esc(h.name)}</option>`).join('')}</select></label>
+    ${selectField({ label: 'Asset', optionsHtml: `<option value="all" ${O.coin === 'all' ? 'selected' : ''}>All my holdings (${list.length})</option>${list.map((h) => `<option value="${esc(h.cur)}" ${O.coin === h.cur ? 'selected' : ''}>${esc(h.name)}</option>`).join('')}`, aria: 'Asset for the probability distribution', attr: { 'data-odds-coin': '' } })}
     <div class="field"><span>Look ahead</span><div class="segm" role="group" aria-label="Look ahead">${HORIZONS.map(([d, l]) => segChoice({ label: l, on: O.days === d, act: 'odds-days', v: d })).join('')}</div></div>
     <div class="field"><span>Average trend</span><div class="segm" role="group" aria-label="Average trend">${segChoice({ label: 'No trend', on: O.drift === 'none', act: 'odds-drift', v: 'none' })}${segChoice({ label: 'Past trend', on: O.drift === 'past', act: 'odds-drift', v: 'past' })}</div></div></div>`;
   const head = `<h3 class="subh">Possible Outcomes <small class="muted gsum">probability distribution</small></h3>`;
   if (noData) return `${head}${controls}<p class="hint">${esc(noData)}</p>`;
-  const values = usable.map((x) => x.h.value), sim = simulate(steps, values, O.days, { drift: O.drift }), S = summarize(sim), f = fit(steps);
+  const values = usable.map((x) => x.h.value), sim = simulate(steps, values, O.days, { drift: O.drift }), bad = unreasonable(sim);
+  if (bad) return `${head}${controls}<p class="hint warnline">${esc(bad)}</p>`;
+  const S = summarize(sim), f = fit(steps);
   const span = HORIZONS.find((x) => x[0] === O.days)[1].toLowerCase(), fm = (v) => money(v);
   return `${head}${controls}
     <p class="hint">${esc(span.replace(/^1 /, 'In 1 ').replace(/^3 /, 'In 3 '))}: the possible values of ${O.coin === 'all' ? 'everything you hold' : esc(picked[0].name)}, today ${fm(S.start)}. Taller bars are outcomes that come up more often.</p>

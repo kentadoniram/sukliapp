@@ -19,7 +19,7 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelectorAll('details').forEach(d=>d.open=true)")
     ok('Recent is a select-style button', pg.locator('.pkbtn:has-text("Recent")').count()>=1)
     pg.locator('.pkbtn:has-text("Recent")').first.click(); pg.wait_for_timeout(300)
-    ok('Recent window opens', 'Recent Earnings and Gains' in pg.inner_text('body'))
+    ok('Recent window opens', 'Recent Earnings by Day' in pg.inner_text('body'))
     ok('no page errors', not errs)
     b.close()
 print(sum(res),'/',len(res)); raise SystemExit(0 if all(res) else 1)

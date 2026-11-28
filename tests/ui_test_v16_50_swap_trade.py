@@ -18,6 +18,7 @@ with sync_playwright() as p:
         pg.reload(); pg.wait_for_timeout(1500)
         pg.evaluate("async()=>{const m=await import('/js/trades.js');m.openTrade({asset:'wA',platform:'Binance',side:'convert'})}"); pg.wait_for_selector('#tr'); pg.wait_for_timeout(500)
         sw=pg.locator('#tr .tr-swap:visible')
+        pg.evaluate("document.querySelector('#tr [data-side=convert]').click()"); pg.wait_for_timeout(300)
         ok(theme+': a swap button is shown', sw.count()>=1)
         pg.evaluate("document.querySelector('#tr [name=asset2]').value='wB'; document.querySelector('#tr [name=asset2]').dispatchEvent(new Event('change',{bubbles:true}))"); a0=pg.evaluate("document.querySelector('#tr [name=asset]').value"); b0=pg.evaluate("document.querySelector('#tr [name=asset2]').value")
         sw.first.click(); pg.wait_for_timeout(300)

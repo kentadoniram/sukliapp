@@ -70,6 +70,7 @@ export function openTrade(pre = {}) {
   const know = `<div class="tr-know" id="tr-know"><span>I know the…</span><div class="seg" role="group" aria-label="I know the">${button({ label: 'Quantity', kind: 'plain', cls: 'on', attr: { 'data-know': 'qty' } })}${button({ label: 'Total', kind: 'plain', attr: { 'data-know': 'total' } })}</div></div>`;
   const s = sheet(`<form id="tr" novalidate class="${t1 ? 'trade2' : ''}" data-side="${pre.side || 'buy'}">
     ${sideSeg}
+    <div id="tr-pair" class="tr-pair" hidden><div class="tp-cell" id="tp-from"></div>${button({ html: '<span aria-hidden="true">⇄</span>', kind: 'plain', cls: 'tr-swap', id: 'tr-swap-p', aria: 'Swap the two assets', attr: { type: 'button', title: 'Swap the two assets' } })}<div class="tp-cell" id="tp-to"></div></div>
     ${t1 ? button({ html: '', kind: 'plain', cls: 'tr-plat', id: 'tr-platbar' }) : ''}
     ${selectField({ label: 'Platform', cls: hide.trim(), name: 'plat', aria: null, optionsHtml: platOpt(plat0) })}
     ${t1 ? `<div class="tr-card tr-tiles">${tile('a', 'YOU GET')}${button({ html: '<span aria-hidden="true">⇅</span>', kind: 'plain', cls: 'tr-swap', id: 'tr-swap', aria: 'Swap the two sides', attr: { type: 'button', title: 'Swap the two sides' } })}${tile('b', 'CONVERT INTO')}${tile('c', 'YOU PAY WITH')}</div>` : ''}
@@ -117,8 +118,8 @@ export function openTrade(pre = {}) {
     const pbH = `<span class="tr-pico" aria-hidden="true">${esc((plat || '?')[0].toUpperCase())}</span><span class="tr-pn"><b>${esc(plat || 'No platform')}</b>${plat ? ` <span>· ${esc(wl)} wallet</span>` : ''}</span><em>Change</em>`; { const pb = $('#tr-platbar'); if (pb._h !== pbH) { pb._h = pbH; pb.innerHTML = pbH; } }   // only repaint when it changed, so a tap that starts while a field blurs is not lost
     const T = (id, on, cap, html) => { $(`#tslot-${id}`).hidden = !on; if (on) { $(`#cap-${id}`).textContent = cap; const tl = $(`#tile-${id}`); if (tl._h !== html) { tl._h = html; tl.innerHTML = html; } } };
     const heldOn = (x) => `You hold ${shortQty(bals.get(x.id) || 0)} on ${exchangeOf(x) || 'this account'}`;
-    T('a', !!a, conv ? 'CONVERT FROM' : side === 'buy' ? 'YOU GET' : 'YOU SELL', a ? tileHtml(a.cur, a.cur, conv ? `Balance ${shortQty(bals.get(a.id) || 0)}` : heldOn(a)) : '');
-    T('b', conv && !!b2, 'CONVERT INTO', b2 ? tileHtml(b2.cur, b2.cur, heldOn(b2)) : '');
+    T('a', !!a, conv ? 'YOU SEND' : side === 'buy' ? 'YOU GET' : 'YOU SELL', a ? tileHtml(a.cur, a.cur, conv ? `Balance ${shortQty(bals.get(a.id) || 0)}` : heldOn(a)) : '');
+    T('b', conv && !!b2, 'YOU RECEIVE', b2 ? tileHtml(b2.cur, b2.cur, heldOn(b2)) : '');
     T('c', !conv && !!c, side === 'buy' ? 'YOU PAY WITH' : 'YOU GET PAID IN', c ? tileHtml(c.cur, `${c.cur} · ${walletOf(c) || typeNames[c.type] || 'Account'}`, `Balance ${shortQty(bals.get(c.id) || 0)}`) : '');
     $('#tr-know').hidden = conv; $('#tr-know').querySelectorAll('[data-know]').forEach((b) => { const on = b.dataset.know === known; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
     $('#f-total').classList.toggle('derived', !conv && known === 'qty'); f.qty.closest('label').classList.toggle('derived', !conv && known === 'total');
@@ -153,7 +154,19 @@ export function openTrade(pre = {}) {
       root.querySelectorAll('[data-q]').forEach((x) => { const hit = !qy || x.dataset.q.includes(qy); x.hidden = !hit || (!qy && x.classList.contains('more')); if (qy && hit && x.classList.contains('more')) x.hidden = false; });
       const mb = root.querySelector('[data-more]'); if (mb) mb.hidden = !!qy; if (qy) showOthers(true); else showOthers(false); });
   };
+  // Swap layout (16.50/16.51): when converting, the two assets sit side by side in one row, each with its own amount, and the swap button sits between them.
+  // The existing fields are moved, not copied, so every calculation keeps working; leaving Convert puts each one back where it was.
+  const homes = new Map(), pairOf = () => ({ from: [t1 ? s.el.querySelector('#tslot-a') : f.asset.closest('.field, label'), f.qty.closest('label')], to: [t1 ? s.el.querySelector('#tslot-b') : f.asset2.closest('.field, label'), f.qty2.closest('label')] });
+  const placePair = (conv) => {
+    const { from, to } = pairOf(), cells = [[from, s.el.querySelector('#tp-from')], [to, s.el.querySelector('#tp-to')]];
+    for (const [els, cell] of cells) for (const el of els) { if (!el) continue;
+      if (conv) { if (!homes.has(el)) { const ph = document.createComment('home'); el.before(ph); homes.set(el, ph); } if (el.parentNode !== cell) cell.appendChild(el); }
+      else if (homes.has(el) && el.parentNode === cell) homes.get(el).after(el); }
+    s.el.querySelector('#tr-pair').hidden = !conv;
+    f.querySelectorAll('.tr-tiles, .tr-swaprow').forEach((x) => { x.hidden = conv; });
+  };
   const sync = (from) => {
+    placePair(side === 'convert');
     if (from === 'price' || from === 'total') { priceTouched = true; f.price.dataset.auto = ''; } else if (from === '' || from === 'qty') autoPrice();
     const byTotal = t1 && known === 'total' && side !== 'convert';   // "I know the Total": the quantity is worked out from the total and the price
     if (byTotal && num(f.total.value) > 0 && num(f.price.value) > 0 && from !== 'qty') f.qty.value = String(r6(num(f.total.value) / num(f.price.value)));

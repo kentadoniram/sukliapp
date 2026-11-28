@@ -30,6 +30,14 @@ with sync_playwright() as p:
     ok('assumptions window opens', 'geometric Brownian motion' in pg.inner_text('body'))
     pg.screenshot(path='/tmp/claude-0/odds50.png')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    # v16.51: price records minutes apart plus one wrong price must not produce absurd or exponent-notation numbers
+    pg.evaluate("""async()=>{const c=await import('/js/core.js');c.commit(d=>{const h=d.settings.tickers.ZED.history; const day=new Date(Date.now()-5*864e5).toISOString().slice(0,10);
+      for(let i=0;i<12;i++) h.push({date:day,price:h[h.length-1].price*(i%2?1.02:0.98),ts:5000+i*60000}); h.push({date:day,price:h[0].price*1e6,ts:900000});});}""")
+    pg.evaluate("location.hash='#/home'"); pg.wait_for_timeout(300); pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(1500)
+    t=pg.inner_text('body'); import re
+    ok('no exponent notation in the prediction card', not re.search(r'\de[+-]\d', t), re.findall(r'\S*e[+-]\d+\S*', t)[:2])
+    big=pg.evaluate("()=>[...document.querySelectorAll('.calfacts li')].map(l=>l.innerText).filter(x=>/\\d{1,3}(,\\d{3}){4,}/.test(x))")
+    ok('no figure with more than 12 digits', not big, big[:2])
     pg.evaluate("location.hash='#/analytics'"); pg.wait_for_timeout(1500)
     pg.evaluate("document.querySelectorAll('details').forEach(d=>d.open=true)")
     t=pg.inner_text('body')
