@@ -21,6 +21,7 @@ import { applyHide, look } from './appearance.js';
 import { money, eq, hdr, coll, ui, tradeKids, effectLine, t1seg } from './screens.js';
 import { openEntry } from './entry.js';
 import './earnui.js';
+import { earnedBtn } from './earnedsofar.js';
 import './platform.js';
 import './tradereview.js';
 
@@ -186,10 +187,12 @@ export function accounts(db) {
     ${look().design === 'legacy' ? `<section class="nwcard">${button({ html: `<span>Net worth</span><b class="${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b>
       <small>Assets ${money(nw.assets)} · Debts ${money(nw.debts)}</small>
       ${nw.assets + nw.debts > 0 ? `<span class="nwbar" role="img" aria-label="Assets against debts"><i style="width:${Math.round(nw.assets / (nw.assets + nw.debts) * 100)}%"></i></span>` : ''}`, kind: 'plain', cls: 'nwmain', act: 'nw', aria: 'Net worth details' })}
-      ${button({ html: `<span>Spendable now</span><b>${money(sp)}</b>`, kind: 'plain', cls: 'nwsp', act: 'acct-sp' })}</section>` : `<section class="nwcard t1nw">${button({ html: `<span class="nwk">Net worth</span><b class="nwv ${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b>
+      <div class="nwside">${button({ html: `<span>Spendable now</span><b>${money(sp)}</b>`, kind: 'plain', cls: 'nwsp', act: 'acct-sp' })}
+      ${earnedBtn(db, inInvestAcct)}</div></section>` : `<section class="nwcard t1nw">${button({ html: `<span class="nwk">Net worth</span><b class="nwv ${nw.net < 0 ? 'neg' : ''}">${money(nw.net)}</b>
       <span class="nwrow"><i class="nwdot up"></i>Assets: <b>${money(nw.assets)}</b></span><span class="nwrow"><i class="nwdot dn"></i>Debts: <b>${money(nw.debts)}</b></span>
       ${nw.assets + nw.debts > 0 ? `<span class="nwbar" role="img" aria-label="Assets against debts"><i style="width:${Math.round(nw.assets / (nw.assets + nw.debts) * 100)}%"></i></span>` : ''}`, kind: 'plain', cls: 'nwmain', act: 'nw', aria: 'Net worth details' })}
-      ${button({ html: `<span class="nwk">Spendable now</span><b class="nwv">${money(sp)}</b>`, kind: 'plain', cls: 'nwsp', act: 'acct-sp' })}</section>`}
+      <div class="nwside">${button({ html: `<span class="nwk">Spendable now</span><b class="nwv">${money(sp)}</b>`, kind: 'plain', cls: 'nwsp', act: 'acct-sp' })}
+      ${earnedBtn(db, inInvestAcct)}</div></section>`}
     ${nw.missing ? `<p class="hint">Some accounts have no exchange rate yet, so they are left out of these totals. Set rates in Settings.</p>` : ''}
     <div class="accside">${sideSwitch(side, nonInv.filter((a) => !isLiability(a)).length + (invAccts.length ? 1 : 0), nonInv.filter((a) => isLiability(a)).length)}</div>
     <div class="aview compact"><label>Group <select data-aview="group" aria-label="Group accounts by">${[['class', 'Assets / debts'], ['cur', 'Currency'], ['type', 'Category'], ['exchange', 'Exchange'], ['none', 'None']].map(([v, l]) => `<option value="${v}" ${grp === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>

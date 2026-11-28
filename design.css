@@ -593,3 +593,26 @@ input[type=checkbox]:not([switch]):disabled { opacity: .5; cursor: default; }
 .popwin:has(#cbbox), .popwin:has(#shopbox) { align-items: center; padding: 12px; box-sizing: border-box; }
 .popwin:has(#cbbox) .popcard, .popwin:has(#shopbox) .popcard { border-radius: var(--r-xl); }
 .popwin:has(#cbbox) .popcard.fresh, .popwin:has(#shopbox) .popcard.fresh { animation: pop .16s ease-out; }
+
+/* v16.49 Investments section switch: the standard segmented control, five equal parts on one row */
+.segm.dsegm { flex-wrap: nowrap; gap: 2px; }
+.segm.dsegm .segi { flex: 1 1 0; min-width: 0; padding-inline: 4px; font-size: var(--fz-12); white-space: nowrap; }
+
+/* Accounts: "Spendable now" with "Earned so far" underneath, in the right-hand column of the card */
+.nwcard .nwside { display: grid; align-content: center; min-width: 0; }
+.nwcard.t1nw .nwside { border-left: 1px solid var(--rule); }
+.nwcard.t1nw .nwside .nwsp { border-left: 0; }
+.nwcard .nwside .nwearn { border-top: 1px solid var(--rule); }
+.nwcard .nwside .nwearn .nwv, .nwcard .nwside .nwearn b { font-size: var(--fz-16); }
+
+/* Investments > Gains / Fees: a row you can open, and the select-like buttons for Recent and Latest Fees */
+.calfacts li:has(> .rowbtn) { padding: 0; }
+.calfacts .rowbtn { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); width: 100%; padding: 10px 0; background: none; border: 0; text-align: left; color: inherit; font: inherit; }
+.calfacts .rowbtn::after { content: "›"; color: var(--ink2); margin-left: var(--sp-2); }
+.subh + .pkbtn, .calfacts + .pkbtn, .pkbtn.invsel { margin: var(--sp-3) 0; }
+
+/* Investments > asset performance: every related group in its own bordered box */
+.tokgroups { display: grid; gap: var(--sp-3); }
+.tokgrp { border: 1px solid var(--rule); border-radius: var(--r-ctl); padding: var(--sp-2) var(--sp-3) var(--sp-1); background: var(--paper); min-width: 0; }
+.tokgrp .tokgh { margin: 0 0 var(--sp-1); font-size: var(--fz-12); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink2); }
+.tokgrp .calfacts { margin: 0; }

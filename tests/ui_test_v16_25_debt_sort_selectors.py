@@ -49,9 +49,9 @@ for design in ('theme1', 'legacy'):
         pg.evaluate("document.querySelectorAll('.scrim').forEach(e=>e.remove())")
         pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(900)
         for sty, sel in (('tabs', '.dsel-tabs'), ('chips', '.dsel-chips'), ('drop', '.dsel-drop'), ('tiles', '.dsel-tiles'), ('seg', '.t1seg, .segm')):
-            pg.evaluate("s=>localStorage.setItem('sukli-look',JSON.stringify({dsel:s}))", sty); pg.reload(); pg.wait_for_timeout(600); pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(900)
+            pg.evaluate("s=>localStorage.setItem('sukli-look',JSON.stringify({dsel2:s}))", sty); pg.reload(); pg.wait_for_timeout(600); pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(900)
             ok(n + 'style %s renders' % sty, pg.locator(sel).count() >= 1, pg.locator('.dstybar').count())
-        pg.evaluate("localStorage.setItem('sukli-look',JSON.stringify({dsel:'tabs'}))"); pg.reload(); pg.wait_for_timeout(600); pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(900)
+        pg.evaluate("localStorage.setItem('sukli-look',JSON.stringify({dsel2:'tabs'}))"); pg.reload(); pg.wait_for_timeout(600); pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(900)
         pg.locator('.dsel-i').nth(1).click(); pg.wait_for_timeout(500)
         ok(n + 'picking a tab switches the section', pg.locator('.dsel-i.on').count() == 1 and pg.locator('[data-dsec="i-tok"], [data-sec="i-tok"]').count() >= 1)
         # 6: accounts header

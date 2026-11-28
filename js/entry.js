@@ -265,7 +265,7 @@ export function openEntry(opts = {}) {
   // they paid back more than they owed: say what the extra is (never silently negative)
   function askExtra(extra, cur, onPick) {
     const s2 = sheet(`<p class="confirm-text">They paid ${esc(fmt(extra, cur, { force: true }))} more than they owed you. What is the extra?</p>
-      <div class="chips">${button({ label: 'Interest earned', kind: 'chip', attr: { 'data-x': 'Interest earned' } })}${button({ label: 'Other income', kind: 'chip', attr: { 'data-x': 'Other income' } })}</div>
+      <div class="chips">${button({ label: 'Interest earned', kind: 'chip', attr: { 'data-x': 'Interest earned' } })}${button({ label: 'Other income', kind: 'chip', attr: { 'data-x': 'Other income' } })}${button({ label: 'A gift', kind: 'chip', attr: { 'data-x': 'Gift' } })}</div>
       <p class="hint">The extra is counted as income. The rest only lowers what they owe you.</p><div class="btnrow">${button({ label: 'Cancel', kind: 'ghost', attr: { 'data-no': true } })}</div>`, { title: 'Paid Back Extra' });
     s2.el.querySelector('[data-no]').onclick = () => s2.close();
     s2.el.addEventListener('click', (e) => { const b = e.target.closest('[data-x]'); if (b) { s2.close(); onPick(b.dataset.x); } });
@@ -1386,7 +1386,7 @@ export function openEntry(opts = {}) {
         addLents(d);
       }
       else { savedAs = stamp({ id: uid(), ...rec, createdAt: Date.now() }); d.txs.push(savedAs);
-        if (extraAmt > 0) d.txs.push(stamp({ id: uid(), kind: 'income', date: rec.date, name: `${f.extraKind} from ${a.name}`, amount: extraAmt, cur: a.cur, fx, cat: findOrAddCategory(d, 'Income', f.extraKind, 'income').id, acct: f.toAcct, toAcct: '', toAmount: null, fee: 0, notes: '', labels: '', items: [], flag: null, createdAt: Date.now() })); }
+        if (extraAmt > 0) d.txs.push(stamp({ id: uid(), kind: 'income', date: rec.date, name: `${f.extraKind} from ${a.name}`, overpaid: true, amount: extraAmt, cur: a.cur, fx, cat: findOrAddCategory(d, 'Income', f.extraKind, 'income').id, acct: f.toAcct, toAcct: '', toAmount: null, fee: 0, notes: '', labels: '', items: [], flag: null, createdAt: Date.now() })); }
       if (savedAs) { const sa = d.txs.find((q) => q.id === savedAs.id) || savedAs, old = d.txs.find((q) => q.id === cbId);
         if (!rec.cashback) { delete sa.cashback; if (old && !old.deleted) softDelete(old); }
         else { const base = { kind: 'income', date: sa.date, acct: sa.acct, cur: sa.cur, amount: cbAmt, fx: sa.fx, cat: findOrAddCategory(d, 'Earn', 'Cashback', 'income').id, name: `Cashback: ${sa.name || 'purchase'}`, cashbackOf: sa.id, auto: false };

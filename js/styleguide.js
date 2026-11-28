@@ -29,7 +29,7 @@ const grp = (title, hint, k, opts, cur) => `<div class="sggrp"><h4>${esc(title)}
 const cardPv = (c) => ({ html: `<div class="pv-card ${c}"><i></i><i></i></div>` });
 const studio = () => {
   const lk = look(), dark = lk.theme === 'dark' || (lk.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  const dsel = lk.dsel || 'seg';
+  const dsel = lk.dsel2 || 'seg';
   const sel = (c, on) => `<div class="pv-sel ${c}">${['Perf', 'Fees', 'Gains'].map((x, i) => `<span class="${i === on ? 'on' : ''}">${x}</span>`).join('')}</div>`;
   return [
     grp('Design', 'Theme 1 is the newer look. Legacy Theme is the original.', 'design', [['theme1', 'Theme 1', cardPv('')], ['legacy', 'Legacy', cardPv('outline')]], lk.design === 'legacy' ? 'legacy' : 'theme1'),
@@ -44,7 +44,7 @@ const studio = () => {
     grp('Spacing', 'How much room there is inside cards. Compact fits more on one screen.', 'density', [['compact', 'Compact', cardPv('compact')], ['auto', 'Standard', cardPv('')], ['roomy', 'Roomy', cardPv('roomy')]], lk.density === 'compact' || lk.density === 'roomy' ? lk.density : 'auto'),
     grp('Buttons', 'The shape of buttons. Soft turns the main button into a gentle tint instead of a solid colour.', 'btn', [['auto', 'Rounded', { html: '<span class="pv-btn">Save</span>' }], ['pill', 'Pill', { html: '<span class="pv-btn pill">Save</span>' }], ['square', 'Square', { html: '<span class="pv-btn square">Save</span>' }], ['soft', 'Soft', { html: '<span class="pv-btn soft">Save</span>' }]], lk.btn),
     grp('Bottom navigation', 'The bar at the bottom of the screen. Icons only hides the words, Floating pill lifts it off the edge.', 'nav', [['auto', 'Icons + words', { html: '<div class="pv-nav"><span><i class="on"></i><small></small></span><span><i></i><small></small></span><span><i></i><small></small></span></div>' }], ['icons', 'Icons only', { html: '<div class="pv-nav icons"><i class="on"></i><i></i><i></i></div>' }], ['pill', 'Floating pill', { html: '<div class="pv-nav pill"><i class="on"></i><i></i><i></i></div>' }]], lk.nav),
-    grp('Investment sections selector', 'How you switch between Performance, Per-Token, Fees, Prediction and Gains on the Investments tab.', 'dsel', DSTYLES.map(([v, n]) => [v, n, { html: sel(v, 0) }]), dsel),
+    grp('Investment sections selector', 'How you switch between Performance, Per-Token, Fees, Prediction and Gains on the Investments tab.', 'dsel2', DSTYLES.map(([v, n]) => [v, n, { html: sel(v, 0) }]), dsel),
     grp('Charts: bars', 'The seven daily bars on Home and similar bar charts.', 'bars', [['auto', 'Rounded', { html: '<div class="pv-bars"><i style="height:50%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:65%"></i></div>' }], ['square', 'Square', { html: '<div class="pv-bars square"><i style="height:50%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:65%"></i></div>' }], ['slim', 'Slim', { html: '<div class="pv-bars slim"><i style="height:50%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:65%"></i></div>' }], ['accent', 'All accent', { html: '<div class="pv-bars accent"><i style="height:50%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:65%"></i></div>' }]], lk.bars),
     grp('Platform names (Investments)', 'Always bold. Only the capital letters change.', 'pcase', [['upper', 'UPPERCASE', { html: '<b>BYBIT</b>' }], ['title', 'Title Case', { html: '<b>Bybit</b>' }], ['lower', 'lowercase', { html: '<b>bybit</b>' }]], lk.pcase),
   ].join('');

@@ -1,0 +1,25 @@
+# v16.49: Investments sections are a segmented control; Earned / Recent / Latest Fees open windows; asset performance groups are bordered
+from playwright.sync_api import sync_playwright
+res=[]
+def ok(n,c): res.append(bool(c)); print(('PASS ' if c else 'FAIL ')+n)
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':402,'height':874},service_workers='block'); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto('http://localhost:8123/'); pg.wait_for_selector('#first-file',state='attached'); pg.set_input_files('#first-file','/home/claude/Transactions.csv'); pg.wait_for_selector('#setup',timeout=20000)
+    pg.evaluate("localStorage.setItem('sukli-look',JSON.stringify({dsel:'drop'}))")
+    pg.evaluate("localStorage.setItem('sukli-dpanels','[\"i-gain\"]')"); pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(1200)
+    ok('sections are segment buttons, not a select', pg.locator('.dsegm .segi').count()>=4 and pg.locator('.dsegm select, .dsegm .pkbtn').count()==0)
+    ok('strip fits at 402px', pg.evaluate("()=>{const e=document.querySelector('.dsegm');return !!e&&e.scrollWidth<=e.clientWidth+1}"))
+    pg.evaluate("document.querySelectorAll('details').forEach(d=>d.open=true)")
+    ok('Earned rows are buttons', pg.locator('.rowbtn[data-act=\"inv-earned\"], .rowbtn[data-a=\"inv-earned\"]').count()==2 or pg.locator('.rowbtn').count()>=2)
+    pg.locator('.rowbtn').first.click(); pg.wait_for_timeout(300)
+    ok('Earned window shows breakdown', 'By account' in pg.inner_text('body') and 'Largest entries' in pg.inner_text('body'))
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    if pg.locator('.sheet, .popcard').count(): pg.evaluate("document.querySelector('.sheet [data-no], .sheet .x, .sheet .close')?.click()")
+    pg.evaluate("location.hash='#/home'"); pg.wait_for_timeout(200); pg.evaluate("location.hash='#/invest'"); pg.wait_for_timeout(600)
+    pg.evaluate("document.querySelectorAll('details').forEach(d=>d.open=true)")
+    ok('Recent is a select-style button', pg.locator('.pkbtn:has-text("Recent")').count()>=1)
+    pg.locator('.pkbtn:has-text("Recent")').first.click(); pg.wait_for_timeout(300)
+    ok('Recent window opens', 'Recent Earnings and Gains' in pg.inner_text('body'))
+    ok('no page errors', not errs)
+    b.close()
+print(sum(res),'/',len(res)); raise SystemExit(0 if all(res) else 1)

@@ -7,6 +7,7 @@ import { inMarketTab, marketBar } from './market.js';
 import { isCoin, coinIcon, flagOf, assetIcon } from './curpicker.js';
 import { enhanceSelect, pickAll, pickerList } from './picker.js';
 import { tipBtn } from './interest.js';
+import { DETAIL, selectBtn, rowBtn } from './investdetail.js';
 import { addDays } from './rolling.js';
 import { INV_RANGES } from './config.js';
 import { priceDay, platformDay, zoneFor, zoneLabel } from './timezone.js';
@@ -100,20 +101,22 @@ ACT['inv-dsw'] = (el) => { const id = el.dataset.v, cur = dshown(PANELS_LAST), n
 const DSTYLES = [['seg', 'Segmented'], ['tabs', 'Underline tabs'], ['chips', 'Pill chips'], ['drop', 'Dropdown'], ['tiles', 'Icon tiles']];
 const DICON = { 'i-perf': '📈', 'i-tok': '🪙', 'i-fees': '🧾', 'i-pred': '🔮', 'i-gain': '💰' };
 export { DSTYLES };
-const dstyle = () => { let v = look().dsel; if (!v) { try { v = localStorage.getItem('sukli-dstyle'); } catch { /* blocked */ } } return DSTYLES.some((d) => d[0] === v) ? v : 'seg'; };   // chosen in Style Guide
+// v16.49: the choice is stored as dsel2 so an older saved choice (a list box) no longer applies; the plain segmented control is the default again
+const dstyle = () => { const v = look().dsel2; return DSTYLES.some((d) => d[0] === v) ? v : 'seg'; };   // chosen in Style Guide
 document.addEventListener('change', (e) => { const el = e.target.closest && e.target.closest('select[data-dsel]'); if (el) ACT['inv-dsw']({ dataset: { v: el.value } }); });
 function dashTabs() {
   const list = Object.keys(DASH).map((id) => PANELS.find((x) => x.id === id) || { id, title: DASH[id], body: `<p class="hint">${EMPTY[id]}</p>` }); const any = PANELS.length > 0; PANELS = [];
   if (!any) return '';
   PANELS_LAST = list; const shown = dshown(list);
-  const stripOld = `<div class="segm" role="group" aria-label="Choose a section">${list.map((x) => segChoice({ label: DASH[x.id], on: shown.includes(x.id), act: 'inv-dsw', v: x.id })).join('')}</div>`, chosen = list.filter((x) => shown.includes(x.id));
+  const SHORT0 = { 'i-perf': 'Performance', 'i-tok': 'Per-Token', 'i-fees': 'Fees', 'i-pred': 'Prediction', 'i-gain': 'Gains' };
+  const stripOld = `<div class="segm dsegm" role="group" aria-label="Choose a section">${list.map((x) => segChoice({ label: SHORT0[x.id], aria: DASH[x.id], on: shown.includes(x.id), act: 'inv-dsw', v: x.id })).join('')}</div>`, chosen = list.filter((x) => shown.includes(x.id));
   const SHORT = { 'i-perf': 'Performance', 'i-tok': 'Per-Token', 'i-fees': 'Fees', 'i-pred': 'Prediction', 'i-gain': 'Gains' };
   const sty = dstyle(), pick = (x) => ({ value: x.id, label: SHORT[x.id], aria: DASH[x.id], on: shown[0] === x.id });
   const alt = sty === 'tabs' ? `<div class="dsel dsel-tabs" role="tablist" aria-label="Choose a section">${list.map((x) => button({ label: SHORT[x.id], kind: 'plain', cls: `dsel-i${shown[0] === x.id ? ' on' : ''}`, act: 'inv-dsw', attr: { 'data-v': x.id, role: 'tab', 'aria-selected': String(shown[0] === x.id), 'aria-label': DASH[x.id] } })).join('')}</div>`
     : sty === 'chips' ? `<div class="dsel dsel-chips" role="group" aria-label="Choose a section">${list.map((x) => button({ label: SHORT[x.id], kind: 'plain', cls: `dsel-i${shown[0] === x.id ? ' on' : ''}`, act: 'inv-dsw', attr: { 'data-v': x.id, 'aria-pressed': String(shown[0] === x.id), 'aria-label': DASH[x.id] } })).join('')}</div>`
     : sty === 'drop' ? `<label class="dsel dsel-drop"><span>Showing</span><select data-dsel aria-label="Choose a section">${list.map((x) => `<option value="${x.id}" ${shown[0] === x.id ? 'selected' : ''}>${esc(DASH[x.id])}</option>`).join('')}</select></label>`
     : sty === 'tiles' ? `<div class="dsel dsel-tiles" role="group" aria-label="Choose a section">${list.map((x) => button({ html: `<span class="dt-ic" aria-hidden="true">${DICON[x.id]}</span><span>${esc(SHORT[x.id])}</span>`, kind: 'plain', cls: `dsel-i${shown[0] === x.id ? ' on' : ''}`, act: 'inv-dsw', attr: { 'data-v': x.id, 'aria-pressed': String(shown[0] === x.id), 'aria-label': DASH[x.id] } })).join('')}</div>` : '';
-  const strip = (alt || (look().design === 'theme1' ? t1seg({ options: list.map((x) => ({ value: x.id, label: SHORT[x.id], aria: DASH[x.id] })), value: shown[0] === undefined ? null : shown[0], act: 'inv-dsw', aria: 'Choose a section', wide: true }) : stripOld));
+  const strip = alt || stripOld;
   // Theme 1: no card around the tabs and no card inside them; the chosen section's title becomes a plain heading line and its content runs down the page
   if (look().design === 'theme1') return `<div class="dashcard flat"><h2 class="invh">Investment Performance</h2><div class="dashstrip">${strip}</div>${chosen.map((x) => `<div class="dashbody dashcardsec" data-dsec="${x.id}">${coll('d-' + x.id, x.title, x.body)}</div>`).join('') || '<p class="hint">Choose a section to see it.</p>'}</div>`;
   const inner = `${strip}
@@ -305,10 +308,11 @@ export function investments(db) {
   const got = earnedUnits(db), accIn = items.filter(isAsset);
   const unreal = accIn.reduce((q, a) => { const px = homeFx(db, a.cur) || 0, o = openCost(a, bal.get(a.id) || 0, book.pos.get(a.id), got); return o.cost > 0 && px ? q + o.qty * px - o.cost : q; }, 0);
   const sg = (v) => `${v >= 0 ? '+' : '−'}${money(Math.abs(v))}`, cl = (v) => (v >= 0 ? 'cg' : 'cr'), tradeTotal = unreal + book.total;
-  const recent = [...book.realized.map((x) => ({ date: x.date, label: nm(x.acct), v: x.gain })), ...earnedTx.map((t) => ({ date: t.date, label: `${nm(earnAcctOf(t))} · ${t.invIncome ? String(t.invIncome.type || 'income').toLowerCase() : 'interest'}${t.earnOpen ? ' (still adding up)' : ''}`, v: eVal(t) }))].sort((x, y) => (x.date < y.date ? 1 : -1)).slice(0, 8);
+  const recent = [...book.realized.map((x) => ({ date: x.date, label: nm(x.acct), v: x.gain })), ...earnedTx.map((t) => ({ date: t.date, label: `${nm(earnAcctOf(t))} · ${t.invIncome ? String(t.invIncome.type || 'income').toLowerCase() : 'interest'}${t.earnOpen ? ' (still adding up)' : ''}`, v: eVal(t) }))].sort((x, y) => (x.date < y.date ? 1 : -1)).slice(0, 60);
+  DETAIL.yr = yr; DETAIL.recent = recent.slice(0, 60); DETAIL.earned = earnedTx.map((t) => ({ date: t.date, acct: nm(earnAcctOf(t)), kind: t.invIncome ? String(t.invIncome.type || 'income') : t.earnDay ? 'Earn interest' : t.auto ? 'Automatic interest' : 'Interest', v: eVal(t) }));
   const gains = book.realized.length || earnedTx.length || savInt.length || unreal ? panel('i-gain', `Trading Profit and Loss <small class="muted gsum">${sg(tradeTotal)}</small>`, `<ul class="calfacts"><li><span>Unrealized Profit <small class="muted">on paper, still held</small></span><b class="${cl(unreal)}">${sg(unreal)}</b></li><li><span>Realized Profit <small class="muted">locked in by selling</small></span><b class="${cl(book.total)}">${sg(book.total)}</b></li><li><span>Realized, this year</span><b class="${cl(thisYear)}">${sg(thisYear)}</b></li><li><span><b>Trading profit and loss</b></span><b class="${cl(tradeTotal)}">${sg(tradeTotal)}</b></li></ul>
-    <h3 class="subh">Interest and income <small class="muted">not part of profit and loss</small></h3><ul class="calfacts"><li><span>Earned, this year</span><b class="${cl(earnedYr)}">${sg(earnedYr)}</b></li><li><span>Earned, all time</span><b class="${cl(earned)}">${sg(earned)}</b></li></ul>${savInt.length ? `<h3 class="subh">Savings interest <small class="muted">bank and wallet accounts, after tax</small></h3><ul class="calfacts"><li><span>This year</span><b class="${cl(savYr)}">${sg(savYr)}</b></li><li><span>All time</span><b class="${cl(savAll)}">${sg(savAll)}</b></li></ul>` : ''}
-    <h3 class="subh">Recent</h3><ul class="calfacts">${recent.map((x) => `<li><span>${esc(String(x.date).slice(0, 10))} · ${esc(x.label)}</span><b class="${cl(x.v)}">${sg(x.v)}</b></li>`).join('')}</ul><p class="hint">Average-cost method, after fees. Units you held before using Sukli have no known cost and are left out of gains. Earned is the interest and income your assets paid, kept apart from trading.</p>`, '') : '';
+    <h3 class="subh">Interest and income <small class="muted">not part of profit and loss</small></h3><ul class="calfacts"><li>${rowBtn('inv-earned', 'Earned, this year', `<b class="${cl(earnedYr)}">${sg(earnedYr)}</b>`, 'yr')}</li><li>${rowBtn('inv-earned', 'Earned, all time', `<b class="${cl(earned)}">${sg(earned)}</b>`, 'all')}</li></ul>${savInt.length ? `<h3 class="subh">Savings interest <small class="muted">bank and wallet accounts, after tax</small></h3><ul class="calfacts"><li><span>This year</span><b class="${cl(savYr)}">${sg(savYr)}</b></li><li><span>All time</span><b class="${cl(savAll)}">${sg(savAll)}</b></li></ul>` : ''}
+    ${selectBtn('inv-recent', 'Recent', `${recent.length} latest`)}<p class="hint">Average-cost method, after fees. Units you held before using Sukli have no known cost and are left out of gains. Earned is the interest and income your assets paid, kept apart from trading.</p>`, '') : '';
   // inside a platform: its wallets (Spot, Futures, Margin, Earn…), each with its own assets, when there is more than one wallet or a wallet other than Spot
   // what a wallet has earned so far (interest, staking, dividends), counted in your home currency
   const earnedTxt = (l) => { const ids = new Set(l.map((a) => a.id)); let e = 0; for (const t of db.txs) if (ids.has(t.acct) && isEarned(t)) e += t.amount * factorFor(db, t); return e > 0 ? ` · earned ${money(e)}` : ''; };
@@ -598,12 +602,13 @@ function feesCard(db, book) {
   const parts = []; // {date, name, v}
   for (const t of trades) if (t.fee > 0) parts.push({ date: t.date, name: t.name, v: t.fee * factorFor(db, t, t.feeCur || t.cur, t.feeFx || t.fx) });
   for (const t of db.txs) if (!t.deleted && t.tradeOf && ids.has(t.tradeOf)) parts.push({ date: t.date, name: (trades.find((x) => x.id === t.tradeOf) || {}).name || t.name, v: t.amount * factorFor(db, t) });
+  DETAIL.fees = parts.slice().sort((a, b) => (a.date < b.date ? 1 : -1));
   const fees = parts.reduce((x, p) => x + p.v, 0), losses = book.realized.filter((r) => r.gain < 0).reduce((x, r) => x + r.gain, 0);
   if (!parts.length && !losses) return '';
-  const yr = String(new Date().getFullYear()), thisYr = parts.filter((p) => p.date.startsWith(yr)).reduce((x, p) => x + p.v, 0);
+  const yr = String(new Date().getFullYear()); DETAIL.yr = yr; const thisYr = parts.filter((p) => p.date.startsWith(yr)).reduce((x, p) => x + p.v, 0);
   return panel('i-fees', `Fees and Losses <small class="muted gsum">${money(fees + Math.abs(losses))}</small>`,
     `<ul class="calfacts"><li><span>Trading fees, all time</span><b class="cr">${money(fees)}</b></li><li><span>Trading fees, this year</span><b>${money(thisYr)}</b></li><li><span>Realized losses on sales</span><b class="cr">${money(Math.abs(losses))}</b></li></ul>
-    <h3 class="subh">Latest Fees</h3><ul class="calfacts">${parts.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6).map((p) => `<li><span>${esc(p.date.slice(0, 10))} · ${esc(p.name)}</span><b>${money(p.v)}</b></li>`).join('') || '<li><span>No fees recorded</span><b></b></li>'}</ul>
+    ${selectBtn('inv-fees', 'Latest Fees', `${parts.length} records`)}
     <p class="hint">Each fee is saved with its trade and also counted as an expense. They appear here, not as losses in Entries.</p>`, '');
 }
 // Performance > assets with no known cost: a short list, biggest first, one clear action per line (v16.21)
@@ -661,19 +666,19 @@ const tokList = (r) => {
   // a row: the label on the left (a small second line may explain it) and the value on the right, never broken in the middle of a number
   const line = (k, v, c = '', note = '', sub = '') => `<li><span class="kl">${k}${note ? `<small>${note}</small>` : ''}</span><b class="kv ${c}">${v}${sub ? `<small>${sub}</small>` : ''}</b></li>`;
   const fpct = `${(r.feeRate * 100).toFixed(r.feeRate * 100 < 1 ? 2 : 1)}%`;   // the fee rate you really paid on this coin (fees / value traded), else the default
-  return `<ul class="calfacts tokfacts">${line('Current Holdings', money(r.value), '', '', r.qty > 0 ? `${r.qty.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${esc(r.cur)}` : '')}
-    ${line('Current Cost', r.cost > 0 ? money(r.cost) : 'not known', '', 'what you paid for what you hold')}
-    ${line('Average Cost', r.avgCost != null ? px(r.avgCost) : 'not known', '', 'per unit')}
-    ${line(`Breakeven Price (at ${fpct} Fee)`, r.breakeven != null ? px(r.breakeven) : 'not known', '', 'per unit, after a selling fee')}
-    ${line('Profit on paper (unrealized)', r.cost > 0 ? sgn(r.unreal) : 'not known', r.cost > 0 ? tcl(r.unreal) : '')}
-    ${line('Profit from selling (realized)', sgn(r.realized), tcl(r.realized))}
-    ${line('<b>Trading profit and loss</b>', sgn(r.gain), tcl(r.gain), '', r.pct == null ? '' : `${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%`)}
-    ${line('Earned (Earn interest)', sgn(r.earned), tcl(r.earned), 'not in profit and loss')}
-    ${line('Other income (staking, airdrops…)', sgn(r.income), tcl(r.income), 'not in profit and loss')}
-    ${line('Profit and loss plus interest and income', sgn(r.total), tcl(r.total))}
-    ${line('Trading fees paid', money(r.fees))}
-    ${line('Buys and sells', String(r.trades))}
-    ${r.first ? line('First trade', esc(r.first.slice(0, 10))) : ''}</ul>`;
+  // v16.49: each connected group sits in its own bordered box with a small title, so they are easy to tell apart
+  const grp = (t, rows) => `<div class="tokgrp"><h4 class="tokgh">${t}</h4><ul class="calfacts tokfacts">${rows.join('')}</ul></div>`;
+  return `<div class="tokgroups">${grp('Holdings and cost', [line('Current Holdings', money(r.value), '', '', r.qty > 0 ? `${r.qty.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${esc(r.cur)}` : ''),
+    line('Current Cost', r.cost > 0 ? money(r.cost) : 'not known', '', 'what you paid for what you hold'),
+    line('Average Cost', r.avgCost != null ? px(r.avgCost) : 'not known', '', 'per unit'),
+    line(`Breakeven Price (at ${fpct} Fee)`, r.breakeven != null ? px(r.breakeven) : 'not known', '', 'per unit, after a selling fee')])}
+    ${grp('Trading profit and loss', [line('Profit on paper (unrealized)', r.cost > 0 ? sgn(r.unreal) : 'not known', r.cost > 0 ? tcl(r.unreal) : ''),
+    line('Profit from selling (realized)', sgn(r.realized), tcl(r.realized)),
+    line('<b>Trading profit and loss</b>', sgn(r.gain), tcl(r.gain), '', r.pct == null ? '' : `${r.pct >= 0 ? '+' : '−'}${Math.abs(r.pct).toFixed(2)}%`)])}
+    ${grp('Interest and income', [line('Earned (Earn interest)', sgn(r.earned), tcl(r.earned), 'not in profit and loss'),
+    line('Other income (staking, airdrops…)', sgn(r.income), tcl(r.income), 'not in profit and loss'),
+    line('Profit and loss plus interest and income', sgn(r.total), tcl(r.total))])}
+    ${grp('Activity', [line('Trading fees paid', money(r.fees)), line('Buys and sells', String(r.trades)), r.first ? line('First trade', esc(r.first.slice(0, 10))) : ''])}</div>`;
 };
 // the explanation of average cost, breakeven and percent lives in the Glossary (glossary.js), not on this screen
 ACT['tok-open'] = (el) => {
